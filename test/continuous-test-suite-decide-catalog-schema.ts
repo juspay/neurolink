@@ -35,7 +35,12 @@ import {
   parseCatalogEntry,
   parseProviderCatalogJson,
 } from "../src/lib/providers/catalog/schema.js";
-import { LAYA_ENTRY } from "./helpers/decideFixtures.js";
+import { getDecisionDialect } from "../src/lib/providers/decide/dialects/index.js";
+import type { DecideDialectName } from "../src/lib/types/index.js";
+import {
+  LAYA_ENTRY,
+  OPENAI_DECISIONS_ENTRY,
+} from "./helpers/decideFixtures.js";
 
 const { test, runSuite, section } = defineSuite("decide catalog schema", {
   offline: true,
@@ -714,6 +719,473 @@ async function mediaSection(): Promise<void> {
     setAt(neither, ["decide", "media"], undefined);
     setAt(neither, ["decisionLimits", "media"], undefined);
     parseCatalogEntry(neither, "laya.json");
+  });
+}
+
+const OPENAI_DIALECT = "dialect openai-decisions";
+
+function openaiEntryWith(
+  path: readonly (string | number)[],
+  value: unknown,
+): Record<string, unknown> {
+  const entry: Record<string, unknown> = structuredClone(
+    OPENAI_DECISIONS_ENTRY,
+  );
+  setAt(entry, path, value);
+  return entry;
+}
+
+// Each row changes one thing on the OpenAI Decisions entry and names the path
+// and the dialect in the message.
+const openaiRejections: readonly Rejection[] = [
+  [
+    ["decide", "media"],
+    structuredClone(MEDIA_KEYS),
+    `decide.media: decide.media is not valid with ${OPENAI_DIALECT}`,
+  ],
+  [
+    ["decide", "media"],
+    { imagesKey: "images" },
+    `decide.media: decide.media is not valid with ${OPENAI_DIALECT}`,
+  ],
+  [
+    MEDIA_VIDEO_FLAG,
+    true,
+    `decisionLimits.media.video: decisionLimits.media.video must be false with ${OPENAI_DIALECT}`,
+  ],
+  [
+    ["decide", "model"],
+    { placement: "body-unless-alias", alias: "gpt-6-luna" },
+    `decide.model.placement: decide.model.placement must be body with ${OPENAI_DIALECT}`,
+  ],
+];
+
+async function openaiDecisionsSection(): Promise<void> {
+  section("decide entries: the openai-decisions dialect");
+
+  await test("the OpenAI Decisions entry parses to itself, and so does one with no allowance at all", () => {
+    deepStrictEqual(
+      parseCatalogEntry(
+        structuredClone(OPENAI_DECISIONS_ENTRY),
+        "openai-decisions.json",
+      ),
+      OPENAI_DECISIONS_ENTRY,
+    );
+    const textOnly = openaiEntryWith(["decisionLimits", "media"], undefined);
+    deepStrictEqual(
+      parseCatalogEntry(textOnly, "openai-decisions.json"),
+      textOnly,
+    );
+  });
+
+  await test("an allowance without decide.media is how this dialect declares its images, and it needs no body keys", () => {
+    // The pairing rule belongs to system-one: here the allowance stands alone.
+    const raw = structuredClone(OPENAI_DECISIONS_ENTRY);
+    assert(
+      raw.decisionLimits?.media !== undefined && raw.decide.media === undefined,
+      "positive control: the entry carries an allowance and no body keys",
+    );
+    deepStrictEqual(parseCatalogEntry(raw, "openai-decisions.json"), raw);
+    // Any allowance that is valid for system-one stays valid here, except video.
+    for (const media of [
+      { maxImages: 1, video: false, maxRequestBytes: 1 },
+      { maxImages: 8, video: false, maxRequestBytes: 33554432 },
+    ]) {
+      const withAllowance = openaiEntryWith(["decisionLimits", "media"], media);
+      deepStrictEqual(
+        parseCatalogEntry(withAllowance, "openai-decisions.json"),
+        withAllowance,
+      );
+    }
+  });
+
+  await test("decide.media, a video allowance and a placement other than body are each refused, naming the path", () => {
+    for (const [path, value, needle] of openaiRejections) {
+      expectRejected(
+        () =>
+          parseCatalogEntry(
+            openaiEntryWith(path, value),
+            "openai-decisions.json",
+          ),
+        needle,
+        `${path.join(".")} = ${JSON.stringify(value)}`,
+      );
+    }
+  });
+
+  await test("decide.media is refused with or without an allowance beside it", () => {
+    for (const allowance of [
+      undefined,
+      { maxImages: 8, video: false, maxRequestBytes: 33554432 },
+    ]) {
+      const entry = openaiEntryWith(
+        ["decide", "media"],
+        structuredClone(MEDIA_KEYS),
+      );
+      setAt(entry, ["decisionLimits", "media"], allowance);
+      const message = failureOf(() =>
+        parseCatalogEntry(entry, "openai-decisions.json"),
+      );
+      assertNotNull(message, "decide.media was accepted");
+      assertIncludes(
+        message,
+        "decide.media is not valid",
+        "refused for another reason",
+      );
+      // Neither half of system-one's pairing rule fires on this dialect.
+      assert(
+        !message.includes("needs decide.media") &&
+          !message.includes("needs decisionLimits.media"),
+        "system-one's pairing rule ran on this dialect",
+      );
+    }
+  });
+
+  await test("system-one keeps every rule it had: the same changes are valid there, and its pairing still refuses what it refused", () => {
+    // The rules above are scoped to the dialect: the identical values on a
+    // system-one entry parse, which is what XOR and Laya rely on.
+    parseCatalogEntry(mediaBase(), "xor.json");
+    parseCatalogEntry(
+      entryWith(["decide", "model"], {
+        placement: "body-unless-alias",
+        alias: "auto",
+      }),
+      "laya.json",
+    );
+    expectAllMediaRejected(mediaCrossRejections);
+    // And an allowance with no body keys, which is valid on openai-decisions, is not on system-one.
+    expectRejected(
+      () =>
+        parseCatalogEntry(
+          entryWith(["decisionLimits", "media"], {
+            maxImages: 8,
+            video: false,
+            maxRequestBytes: 33554432,
+          }),
+          "laya.json",
+        ),
+      "decisionLimits.media needs decide.media",
+      "system-one allowance without body keys",
+    );
+    // Same entry, other dialect: that one row is the whole difference.
+    const swapped = openaiEntryWith(["decide", "dialect"], "system-one");
+    expectRejected(
+      () => parseCatalogEntry(swapped, "openai-decisions.json"),
+      "decisionLimits.media needs decide.media",
+      "the OpenAI entry on the system-one dialect",
+    );
+  });
+
+  await test("every other rule still applies to this dialect: order, endpoint, errors and the wire", () => {
+    for (const [path, value, needle] of [
+      [["decide", "order"], 0, "decide.order"],
+      [["decide", "errors"], undefined, "decide.errors"],
+      [["wire", "baseURL"], undefined, WIRE_RULE],
+      [["decide", "dialect"], "openai", "decide.dialect"],
+    ] as const) {
+      expectRejected(
+        () =>
+          parseCatalogEntry(
+            openaiEntryWith(path, value),
+            "openai-decisions.json",
+          ),
+        needle,
+        `${path.join(".")} on the OpenAI entry`,
+      );
+    }
+  });
+}
+
+const GUARD_AT = ["decide", "ambientKeyGuard"] as const;
+const GUARD_ENVS = [...GUARD_AT, "baseURLEnvVars"] as const;
+const GUARD_ORIGINS = [...GUARD_AT, "trustedOrigins"] as const;
+const GUARD_ENV_SHAPE = "an environment variable name must be";
+const GUARD_ORIGIN_SHAPE = "a trusted origin must be an http(s) origin";
+const GUARD_ENV_PATH = "decide.ambientKeyGuard.baseURLEnvVars";
+const GUARD_ORIGIN_PATH = "decide.ambientKeyGuard.trustedOrigins";
+const GUARD_CREDS = [...GUARD_AT, "credentialBaseURLs"] as const;
+const GUARD_CREDS_PATH = "decide.ambientKeyGuard.credentialBaseURLs";
+const GUARD_KEY_SHAPE = "a credentials key must be";
+const notCredentialKeys = [
+  "",
+  "1openai",
+  "_openai",
+  "open-ai",
+  "open ai",
+  "openai ",
+  "openai\n",
+  "openai.baseURL",
+  "\u00c9nv",
+  "a".repeat(65),
+];
+
+const notEnvNames = [
+  "",
+  "openai_base_url",
+  "1BASE",
+  "_BASE",
+  "OPENAI-BASE",
+  "OPENAI BASE",
+  "OPENAI_BASE_URL ",
+  "OPENAI_BASE_URL\n",
+  "ÉNV",
+  "A".repeat(65),
+];
+const notOrigins = [
+  "",
+  "https://api.openai.com/",
+  "https://api.openai.com/v1",
+  "https://api.openai.com?x=1",
+  "https://api.openai.com#f",
+  "https://user@api.openai.com",
+  "https://user:pw@api.openai.com",
+  "ftp://api.openai.com",
+  "api.openai.com",
+  "//api.openai.com",
+  "http:/api.openai.com",
+  "https://",
+  "https://API.openai.com",
+  "https://Api.openai.com",
+  "https://api.Openai.com",
+  "HTTPS://api.openai.com",
+  "https://api.openai.com ",
+  " https://api.openai.com",
+  "https://api.openai.com\n",
+  "https://exa mple.test",
+  "https://-x.test",
+  "https://x-.test",
+  "https://[::1]",
+  "https://api.openai.com:",
+  "https://api.openai.com:123456",
+];
+
+const guardRejections: readonly Rejection[] = [
+  ...[null, "x", [], true, 5].map(
+    (value): Rejection => [GUARD_AT, value, "decide.ambientKeyGuard"],
+  ),
+  [GUARD_AT, {}, GUARD_ENV_PATH],
+  [GUARD_AT, {}, GUARD_ORIGIN_PATH],
+  [["decide", "ambientKeyGuard", "surprise"], true, "surprise"],
+  [GUARD_ENVS, undefined, GUARD_ENV_PATH],
+  [GUARD_ORIGINS, undefined, GUARD_ORIGIN_PATH],
+  ...["OPENAI_BASE_URL", null, 5, {}].map(
+    (value): Rejection => [GUARD_ENVS, value, GUARD_ENV_PATH],
+  ),
+  ...["https://api.openai.com", null, 5, {}].map(
+    (value): Rejection => [GUARD_ORIGINS, value, GUARD_ORIGIN_PATH],
+  ),
+  [GUARD_ENVS, [], GUARD_ENV_PATH],
+  [GUARD_ORIGINS, [], GUARD_ORIGIN_PATH],
+  [
+    GUARD_ENVS,
+    Array.from({ length: 9 }, (_, i) => `BASE_${i}`),
+    GUARD_ENV_PATH,
+  ],
+  [
+    GUARD_ORIGINS,
+    Array.from({ length: 9 }, (_, i) => `https://gw${i}.example.test`),
+    GUARD_ORIGIN_PATH,
+  ],
+  // The 65-character name is refused by the length bound, with its own message.
+  ...notEnvNames.map(
+    (name): Rejection => [
+      GUARD_ENVS,
+      [name],
+      name.length > 64
+        ? `${GUARD_ENV_PATH}.0`
+        : `${GUARD_ENV_PATH}.0: ${GUARD_ENV_SHAPE}`,
+    ],
+  ),
+  ...[5, null, true, ["A"]].map(
+    (value): Rejection => [GUARD_ENVS, [value], `${GUARD_ENV_PATH}.0`],
+  ),
+  ...notOrigins.map(
+    (origin): Rejection => [GUARD_ORIGINS, [origin], `${GUARD_ORIGIN_PATH}.0`],
+  ),
+  ...[5, null, true, ["https://a.test"]].map(
+    (value): Rejection => [GUARD_ORIGINS, [value], `${GUARD_ORIGIN_PATH}.0`],
+  ),
+  [
+    GUARD_ENVS,
+    ["OPENAI_BASE_URL", "OPENAI_BASE_URL"],
+    `${GUARD_ENV_PATH}: lists the same variable twice`,
+  ],
+  [
+    GUARD_ORIGINS,
+    ["https://api.openai.com", "https://api.openai.com"],
+    `${GUARD_ORIGIN_PATH}: lists the same origin twice`,
+  ],
+  [
+    GUARD_ENVS,
+    ["OPENAI_BASE_URL", "OPENAI_DECISIONS_BASE_URL"],
+    `${GUARD_ENV_PATH}: must not list the provider's own base-URL variable OPENAI_DECISIONS_BASE_URL`,
+  ],
+  // credentialBaseURLs: optional, but when present a bounded list of
+  // { key, field } objects, field restricted to "baseURL".
+  ...["x", 5, null, true, {}].map(
+    (value): Rejection => [GUARD_CREDS, value, GUARD_CREDS_PATH],
+  ),
+  [GUARD_CREDS, [], GUARD_CREDS_PATH],
+  [
+    GUARD_CREDS,
+    Array.from({ length: 9 }, (_, i) => ({
+      key: `slice${i}`,
+      field: "baseURL",
+    })),
+    GUARD_CREDS_PATH,
+  ],
+  ...["openai", 5, null, true, ["openai"]].map(
+    (value): Rejection => [GUARD_CREDS, [value], `${GUARD_CREDS_PATH}.0`],
+  ),
+  [GUARD_CREDS, [{}], `${GUARD_CREDS_PATH}.0.key`],
+  [GUARD_CREDS, [{}], `${GUARD_CREDS_PATH}.0.field`],
+  [GUARD_CREDS, [{ key: "openai" }], `${GUARD_CREDS_PATH}.0.field`],
+  [GUARD_CREDS, [{ field: "baseURL" }], `${GUARD_CREDS_PATH}.0.key`],
+  [
+    GUARD_CREDS,
+    [{ key: "openai", field: "baseURL", surprise: true }],
+    "surprise",
+  ],
+  ...["apiKey", "baseurl", "BaseURL", "", 5, null].map(
+    (field): Rejection => [
+      GUARD_CREDS,
+      [{ key: "openai", field }],
+      `${GUARD_CREDS_PATH}.0.field`,
+    ],
+  ),
+  ...notCredentialKeys.map(
+    (key): Rejection => [
+      GUARD_CREDS,
+      [{ key, field: "baseURL" }],
+      key.length > 64
+        ? `${GUARD_CREDS_PATH}.0.key`
+        : `${GUARD_CREDS_PATH}.0.key: ${GUARD_KEY_SHAPE}`,
+    ],
+  ),
+  ...[5, null, true, ["openai"]].map(
+    (key): Rejection => [
+      GUARD_CREDS,
+      [{ key, field: "baseURL" }],
+      `${GUARD_CREDS_PATH}.0.key`,
+    ],
+  ),
+  [
+    GUARD_CREDS,
+    [
+      { key: "openai", field: "baseURL" },
+      { key: "openai", field: "baseURL" },
+    ],
+    `${GUARD_CREDS_PATH}: lists the same credentials field twice`,
+  ],
+];
+
+async function ambientKeyGuardSection(): Promise<void> {
+  section(
+    "decide entries: ambientKeyGuard (an ambient key that belongs to something else)",
+  );
+
+  await test("the OpenAI Decisions entry carries a guard and parses to itself; so does an entry with none", () => {
+    const guarded = structuredClone(OPENAI_DECISIONS_ENTRY);
+    assert(
+      guarded.decide.ambientKeyGuard !== undefined,
+      "positive control: the fixture declares a guard",
+    );
+    deepStrictEqual(
+      parseCatalogEntry(guarded, "openai-decisions.json"),
+      guarded,
+    );
+    const plain = structuredClone(LAYA_ENTRY);
+    assert(
+      plain.decide.ambientKeyGuard === undefined,
+      "positive control: Laya declares none",
+    );
+    deepStrictEqual(parseCatalogEntry(plain, "laya.json"), plain);
+  });
+
+  await test("the guard is not tied to a dialect, and the bounds, ports and hosts it allows parse", () => {
+    const onSystemOne = entryWith(GUARD_AT, {
+      baseURLEnvVars: ["ACME_BASE_URL"],
+      trustedOrigins: ["https://api.acme.example"],
+    });
+    deepStrictEqual(parseCatalogEntry(onSystemOne, "laya.json"), onSystemOne);
+    const full = openaiEntryWith(GUARD_AT, {
+      baseURLEnvVars: Array.from({ length: 8 }, (_, i) => `GW_${i}_URL`),
+      trustedOrigins: [
+        "https://api.openai.com",
+        "https://eu.api.openai.com",
+        "https://api.openai.com:8443",
+        "http://localhost:4000",
+        "http://127.0.0.1",
+        "http://127.0.0.1:65535",
+        "https://a-b.example.test",
+        "https://x.y.z.example.test:1",
+      ],
+    });
+    deepStrictEqual(parseCatalogEntry(full, "openai-decisions.json"), full);
+    const longest = openaiEntryWith(GUARD_ENVS, ["A".repeat(64)]);
+    deepStrictEqual(
+      parseCatalogEntry(longest, "openai-decisions.json"),
+      longest,
+    );
+    // credentialBaseURLs is optional, and bounded when present.
+    const fullCredentials = openaiEntryWith(
+      GUARD_CREDS,
+      Array.from({ length: 8 }, (_, i) => ({
+        key: i === 0 ? "a".repeat(64) : `slice${i}`,
+        field: "baseURL",
+      })),
+    );
+    deepStrictEqual(
+      parseCatalogEntry(fullCredentials, "openai-decisions.json"),
+      fullCredentials,
+    );
+    const noCredentials = openaiEntryWith(GUARD_CREDS, undefined);
+    deepStrictEqual(
+      parseCatalogEntry(noCredentials, "openai-decisions.json"),
+      noCredentials,
+    );
+  });
+
+  await test("a guard of the wrong shape is refused, naming its path", () => {
+    for (const [path, value, needle] of guardRejections) {
+      expectRejected(
+        () =>
+          parseCatalogEntry(
+            openaiEntryWith(path, value),
+            "openai-decisions.json",
+          ),
+        needle,
+        `${path.join(".")} = ${JSON.stringify(value)}`,
+      );
+    }
+  });
+
+  await test("an origin the pattern reads but a URL parse refuses is refused, with a message that names the host and the port", () => {
+    for (const origin of [
+      "https://api.openai.com:99999",
+      "http://999.999.999.999",
+      "http://256.1.1.1",
+      "http://1.2.3.4.5.6",
+    ]) {
+      expectRejected(
+        () =>
+          parseCatalogEntry(
+            openaiEntryWith(GUARD_ORIGINS, [origin]),
+            "openai-decisions.json",
+          ),
+        `${GUARD_ORIGIN_PATH}.0: a trusted origin must parse as a URL (a valid host, port 0 to 65535)`,
+        origin,
+      );
+    }
+    // Positive control: a well-formed dotted quad parses.
+    const quad = openaiEntryWith(GUARD_ORIGINS, ["http://10.0.0.1:8080"]);
+    deepStrictEqual(parseCatalogEntry(quad, "openai-decisions.json"), quad);
+  });
+
+  await test("every guard rejection comes from the guard: the same entry without it parses", () => {
+    // Positive control for the rows above.
+    const entry = openaiEntryWith(GUARD_AT, undefined);
+    deepStrictEqual(parseCatalogEntry(entry, "openai-decisions.json"), entry);
   });
 }
 
@@ -1493,6 +1965,236 @@ async function mirrorSection(): Promise<void> {
     deepStrictEqual(baseURLShape.enum, ["origin"]);
   });
 
+  await test("offers exactly the dialects the schema accepts and the registry serves, and each one parses in the right entry", () => {
+    const { dialect } = (
+      mirror as {
+        properties: { decide: { properties: { dialect: { enum: string[] } } } };
+      }
+    ).properties.decide.properties;
+    // Mirror to schema: every dialect the editor offers parses on an entry that suits it.
+    const entries: Record<string, Record<string, unknown>> = {
+      "system-one": structuredClone(LAYA_ENTRY),
+      "openai-decisions": structuredClone(OPENAI_DECISIONS_ENTRY),
+    };
+    for (const name of dialect.enum) {
+      const entry = entries[name];
+      assert(
+        entry !== undefined,
+        "the mirror offers a dialect with no sample entry",
+      );
+      setAt(entry, ["decide", "dialect"], name);
+      parseCatalogEntry(entry, "x.json");
+      assertNotNull(
+        getDecisionDialect(name as DecideDialectName),
+        "the registry does not serve a dialect the mirror offers",
+      );
+    }
+    // Schema to mirror: the two the schema accepts are both offered, and nothing else is.
+    deepStrictEqual([...dialect.enum].sort(), [
+      "openai-decisions",
+      "system-one",
+    ]);
+    expectRejected(
+      () =>
+        parseCatalogEntry(
+          entryWith(["decide", "dialect"], "openai"),
+          "laya.json",
+        ),
+      "decide.dialect",
+      "a dialect neither the mirror nor the schema offers",
+    );
+    // The sample list above is the registry's: a name that has no sample is a name the mirror cannot omit.
+    deepStrictEqual(Object.keys(entries).sort(), [...dialect.enum].sort());
+  });
+
+  await test("declares decide.ambientKeyGuard, and the mirror and the schema agree on a variable name's shape, an origin's shape and the array bounds", () => {
+    deepStrictEqual(
+      undeclaredKeys(structuredClone(OPENAI_DECISIONS_ENTRY), mirror, ""),
+      [],
+    );
+    type GuardNode = {
+      type?: string;
+      required?: string[];
+      additionalProperties?: boolean;
+      minItems?: number;
+      maxItems?: number;
+      uniqueItems?: boolean;
+      maxLength?: number;
+      pattern?: string;
+      items?: {
+        type?: string;
+        pattern?: string;
+        maxLength?: number;
+        required?: string[];
+        additionalProperties?: boolean;
+        properties?: Record<
+          string,
+          {
+            type?: string;
+            pattern?: string;
+            maxLength?: number;
+            enum?: string[];
+          }
+        >;
+      };
+      description?: string;
+      properties?: Record<string, GuardNode>;
+    };
+    const guard = (
+      mirror as {
+        properties: { decide: { properties: Record<string, GuardNode> } };
+      }
+    ).properties.decide.properties.ambientKeyGuard;
+    assertNotNull(guard, "the mirror lacks decide.ambientKeyGuard");
+    deepStrictEqual([...(guard.required ?? [])].sort(), [
+      "baseURLEnvVars",
+      "trustedOrigins",
+    ]);
+    assert(
+      guard.additionalProperties === false,
+      "decide.ambientKeyGuard is open",
+    );
+    const envs = guard.properties?.baseURLEnvVars;
+    const origins = guard.properties?.trustedOrigins;
+    assertNotNull(envs, "the mirror lacks baseURLEnvVars");
+    assertNotNull(origins, "the mirror lacks trustedOrigins");
+    for (const node of [envs, origins]) {
+      assert(
+        node.type === "array" &&
+          node.minItems === 1 &&
+          node.maxItems === 8 &&
+          node.uniqueItems === true,
+        "an array of one to eight unique entries",
+      );
+    }
+    const envPattern = new RegExp(envs.items?.pattern ?? "(?!)");
+    const originPattern = new RegExp(origins.items?.pattern ?? "(?!)");
+    const envMax = envs.items?.maxLength ?? 0;
+    const originMax = origins.items?.maxLength ?? 0;
+
+    // Mirror to schema and back, sample by sample: a name or an origin the
+    // editor offers parses, one it refuses is refused by the schema too.
+    const envSamples = [
+      "A",
+      "OPENAI_BASE_URL",
+      "OPENAI_API_BASE",
+      "A1_B2",
+      "A".repeat(64),
+      ...notEnvNames,
+    ];
+    for (const sample of envSamples) {
+      const mirrorAccepts = envPattern.test(sample) && sample.length <= envMax;
+      const schemaAccepts =
+        failureOf(() =>
+          parseCatalogEntry(
+            openaiEntryWith(GUARD_ENVS, [sample]),
+            "openai-decisions.json",
+          ),
+        ) === undefined;
+      assert(
+        mirrorAccepts === schemaAccepts,
+        "the mirror and the schema disagree about a variable name",
+      );
+    }
+    const originSamples = [
+      "https://api.openai.com",
+      "https://eu.api.openai.com",
+      "http://localhost:4000",
+      "http://127.0.0.1",
+      "https://api.openai.com:8443",
+      "https://a-b.example.test",
+      ...notOrigins.filter((origin) => !origin.endsWith(":123456")),
+    ];
+    for (const sample of originSamples) {
+      const mirrorAccepts =
+        originPattern.test(sample) && sample.length <= originMax;
+      const schemaAccepts =
+        failureOf(() =>
+          parseCatalogEntry(
+            openaiEntryWith(GUARD_ORIGINS, [sample]),
+            "openai-decisions.json",
+          ),
+        ) === undefined;
+      assert(
+        mirrorAccepts === schemaAccepts,
+        "the mirror and the schema disagree about a trusted origin",
+      );
+    }
+    // credentialBaseURLs: optional (not in `required`, checked above), the same
+    // bounds, objects of a key and the one field the engine reads.
+    const creds = guard.properties?.credentialBaseURLs;
+    assertNotNull(creds, "the mirror lacks credentialBaseURLs");
+    assert(
+      creds.type === "array" &&
+        creds.minItems === 1 &&
+        creds.maxItems === 8 &&
+        creds.uniqueItems === true &&
+        creds.items?.type === "object" &&
+        creds.items.additionalProperties === false,
+      "credentialBaseURLs is not a bounded, unique array of closed objects",
+    );
+    deepStrictEqual([...(creds.items?.required ?? [])].sort(), [
+      "field",
+      "key",
+    ]);
+    const keyNode = creds.items?.properties?.key;
+    const fieldNode = creds.items?.properties?.field;
+    assertNotNull(keyNode, "the mirror lacks credentialBaseURLs[].key");
+    assertNotNull(fieldNode, "the mirror lacks credentialBaseURLs[].field");
+    deepStrictEqual(fieldNode.enum, ["baseURL"]);
+    const keyPattern = new RegExp(keyNode.pattern ?? "(?!)");
+    const keyMax = keyNode.maxLength ?? 0;
+    const keySamples = [
+      "openai",
+      "a",
+      "perplexityDecider",
+      "a".repeat(64),
+      "OpenAI9",
+      ...notCredentialKeys,
+    ];
+    for (const sample of keySamples) {
+      const mirrorAccepts = keyPattern.test(sample) && sample.length <= keyMax;
+      const schemaAccepts =
+        failureOf(() =>
+          parseCatalogEntry(
+            openaiEntryWith(GUARD_CREDS, [{ key: sample, field: "baseURL" }]),
+            "openai-decisions.json",
+          ),
+        ) === undefined;
+      assert(
+        mirrorAccepts === schemaAccepts,
+        "the mirror and the schema disagree about a credentials key",
+      );
+    }
+    assert(
+      keySamples.some((sample) => keyPattern.test(sample)) &&
+        keySamples.some((sample) => !keyPattern.test(sample)),
+      "the samples never separate accepted credentials keys from refused ones",
+    );
+    // The rules JSON Schema cannot say are named in the description, so the
+    // editor's author is told: the origin's host and port must parse, a list
+    // may not repeat an entry, and the provider's own variable is not listed.
+    const description = guard.description ?? "";
+    for (const named of [
+      "valid host",
+      "port above 65535",
+      "twice",
+      "own base-URL variable",
+    ]) {
+      assert(
+        description.includes(named),
+        "the mirror's description leaves a schema-only rule unnamed",
+      );
+    }
+    assert(
+      envSamples.some((sample) => envPattern.test(sample)) &&
+        envSamples.some((sample) => !envPattern.test(sample)) &&
+        originSamples.some((sample) => originPattern.test(sample)) &&
+        originSamples.some((sample) => !originPattern.test(sample)),
+      "the samples never separate accepted values from refused ones",
+    );
+  });
+
   await test("declares the rule messagePattern as a string of 1 to 200 characters, and the schema agrees at both edges", () => {
     deepStrictEqual(undeclaredKeys(entryWith(PATTERN_AT, "x"), mirror, ""), []);
     const { properties } = (
@@ -1775,6 +2477,8 @@ await runSuite(async () => {
   await decideEntrySection();
   await decideFieldRulesSection();
   await mediaSection();
+  await openaiDecisionsSection();
+  await ambientKeyGuardSection();
   await messagePatternSection();
   await decideCrossRulesSection();
   await defaultModelWindowSection();

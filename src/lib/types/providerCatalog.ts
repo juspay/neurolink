@@ -6,7 +6,9 @@
  */
 
 import type {
+  DecideAmbientKeyGuard,
   DecideDialectName,
+  DecideMedia,
   DecisionErrorKind,
   DecisionLimits,
 } from "./decision.js";
@@ -327,17 +329,6 @@ export type DecideModel = {
   alias?: string;
 };
 
-/**
- * The request body keys prepared media is written under. Set together with
- * `decisionLimits.media`, which says how much of it a request may carry.
- */
-export type DecideMedia = {
-  /** Written only when the request carries at least one image. */
-  imagesKey: string;
-  /** Written only when the request carries a video; required exactly when `decisionLimits.media.video` is true. */
-  videoKey?: string;
-};
-
 export type DecideBlock = {
   dialect: DecideDialectName;
   /** Decision order, lower runs first; unique across decide providers. */
@@ -353,6 +344,12 @@ export type DecideBlock = {
   model: DecideModel;
   /** Body keys for images and video, after `model`, `state` and `questions`. Omitted means the body never carries media. */
   media?: DecideMedia;
+  /**
+   * Keeps a key found only in the environment from becoming the default
+   * decision provider when it plainly belongs to something else. Omitted means
+   * no check.
+   */
+  ambientKeyGuard?: DecideAmbientKeyGuard;
   requestIdHeaders?: readonly string[];
   response?: { modelPaths?: readonly string[] };
   errors: DecideErrors;

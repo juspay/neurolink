@@ -436,6 +436,12 @@ Supported AI Provider Names
 
 ---
 
+### OPENAI_DECISIONS
+
+> **OPENAI_DECISIONS**: `"openai-decisions"`
+
+---
+
 ### OVHCLOUD
 
 > **OVHCLOUD**: `"ovhcloud"`

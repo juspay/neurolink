@@ -10,7 +10,10 @@
  *
  * Credentials are env-only here, exactly as every other CLI command: the
  * decision provider reads its own settings (TYPESAFE_API_KEY, LAYA_API_KEY and
- * LAYA_BASE_URL, XOR_API_KEY and XOR_BASE_URL, or PERPLEXITY_API_KEY) itself.
+ * LAYA_BASE_URL, XOR_API_KEY and XOR_BASE_URL, SUBQ_API_KEY, PERPLEXITY_API_KEY,
+ * CLOUDFLARE_API_KEY and CLOUDFLARE_ACCOUNT_ID, or OPENAI_API_KEY) itself. An
+ * OPENAI_API_KEY beside an OPENAI_BASE_URL, OPENAI_API_BASE or credentials.openai.baseURL that names a host
+ * other than https://api.openai.com is a gateway's and is not used by default.
  */
 
 import chalk from "chalk";
@@ -233,7 +236,7 @@ export const decideCommand: CommandModule<object, CliDecideArgs> = {
         array: true,
         nargs: 1,
         describe:
-          "Image for the model to read: a file path or a data: URL. Repeat for several (XOR and Perplexity take up to 8, Cloudflare Clef up to 4)",
+          "Image for the model to read: a file path or a data: URL. Repeat for several (XOR, Perplexity and OpenAI Decisions take up to 8, Cloudflare Clef up to 4)",
       })
       .option("video", {
         type: "string",
@@ -268,7 +271,7 @@ export const decideCommand: CommandModule<object, CliDecideArgs> = {
       )
       .example(
         '$0 decide "What color is this?" --provider xor --image ./photo.png --questions \'{"color":{"type":"choice","instructions":"What color is the image?","criteria":{"red":"red","blue":"blue"}}}\'',
-        "Ask about an image (XOR, Perplexity and Cloudflare Clef read images)",
+        "Ask about an image (XOR, Perplexity, Cloudflare Clef and OpenAI Decisions read images)",
       ) as Argv<CliDecideArgs>,
 
   handler: async (argv: ArgumentsCamelCase<CliDecideArgs>): Promise<void> => {

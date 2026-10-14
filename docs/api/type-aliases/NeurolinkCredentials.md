@@ -1098,6 +1098,20 @@ counts as unset.
 
 ---
 
+### openaiDecisions?
+
+> `optional` **openaiDecisions?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### ovhcloud?
 
 > `optional` **ovhcloud?**: `object`

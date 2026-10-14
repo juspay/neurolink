@@ -1010,8 +1010,8 @@ async function runDescriptorTests(
       // typesafe serves only the `decide` inference type, so it has no tools
       // at all — the same reason voyage/jina (embedding-only) are here.
       "typesafe",
-      // Every decide catalog entry (laya, xor and subq today) is decide-only too:
-      // no tools for the same reason. Derived, so the next decide JSON needs no
+      // Every decide catalog entry (laya, xor, subq and openai-decisions today) is
+      // decide-only too: no tools for the same reason. Derived, so the next decide JSON needs no
       // line.
       ...DECIDE_CATALOG_PROVIDER_IDS,
       // perplexity-decider is decide-only as well, and unrelated to the

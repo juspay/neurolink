@@ -23,7 +23,12 @@ import {
   assertIncludes,
 } from "./helpers/harness.js";
 import { installMockFetch } from "./utils/mockFetch.js";
-import { NeuroLink, ProviderFactory } from "../dist/index.js";
+import {
+  AIProviderFactory,
+  NeuroLink,
+  PROVIDER_ALIAS_INDEX,
+  ProviderFactory,
+} from "../dist/index.js";
 
 const { test, runSuite } = defineSuite(
   "Provider & model name resolution (#354, #337)",
@@ -359,6 +364,215 @@ await test("an alias belonging to another provider is not applied", async () => 
     "sonnet-5",
     "another provider's alias was applied to this provider",
   );
+});
+
+// ---------------------------------------------------------------------------
+// Which model variables can name which provider's model.
+//
+// `AIProviderFactory.resolveModelFromEnvironment` chooses a variable group by a
+// substring match on the provider name, so "openai-decisions" was handed the
+// chat provider's OPENAI_MODEL ahead of its own OPENAI_DECISIONS_MODEL. The step
+// is private, runs before any provider is built, and cannot be swept over every
+// registered name and alias through generate() without a credential for each,
+// so this reads it from the built export as a pure table: the names are the
+// package's own (PROVIDER_ALIAS_INDEX), the variables are set one at a time by
+// this file, and nothing else is read. Determinism is what it buys: a pinned
+// list that moves the day another name starts matching a group by accident.
+//
+// REACHED is what the unguarded code returned for every one of the 172 names
+// and aliases the package registers, with the one row for "openai-decisions"
+// left out; that name is asserted separately below.
+// ---------------------------------------------------------------------------
+
+const MODEL_VARIABLES = [
+  "BEDROCK_MODEL",
+  "BEDROCK_MODEL_ID",
+  "VERTEX_MODEL",
+  "AZURE_OPENAI_MODEL",
+  "AZURE_OPENAI_DEPLOYMENT",
+  "AZURE_OPENAI_DEPLOYMENT_ID",
+  "OPENAI_MODEL",
+  "ANTHROPIC_MODEL",
+  "GOOGLE_AI_MODEL",
+  "MISTRAL_MODEL",
+  "OLLAMA_MODEL",
+  "LITELLM_MODEL",
+] as const;
+const AZURE_VARIABLES = [
+  "AZURE_OPENAI_MODEL",
+  "AZURE_OPENAI_DEPLOYMENT",
+  "AZURE_OPENAI_DEPLOYMENT_ID",
+] as const;
+const REACHED: Readonly<Record<string, readonly string[]>> = {
+  anthropic: ["ANTHROPIC_MODEL"],
+  azure: AZURE_VARIABLES,
+  azureopenai: AZURE_VARIABLES,
+  bedrock: ["BEDROCK_MODEL", "BEDROCK_MODEL_ID"],
+  chatgpt: ["OPENAI_MODEL"],
+  claude: ["ANTHROPIC_MODEL"],
+  gemini: ["GOOGLE_AI_MODEL"],
+  google: ["GOOGLE_AI_MODEL"],
+  "google-ai": ["GOOGLE_AI_MODEL"],
+  "google-ai-studio": ["GOOGLE_AI_MODEL"],
+  googleaistudio: ["GOOGLE_AI_MODEL"],
+  googlevertex: ["VERTEX_MODEL"],
+  gpt: ["OPENAI_MODEL"],
+  litellm: ["LITELLM_MODEL"],
+  mistral: ["MISTRAL_MODEL"],
+  ollama: ["OLLAMA_MODEL"],
+  openai: ["OPENAI_MODEL"],
+  "openai-compatible": ["OPENAI_MODEL"],
+  vertex: ["VERTEX_MODEL"],
+};
+const DECISION_ONLY_NAMES = [
+  "typesafe",
+  "perplexity-decider",
+  "cloudflare-clef",
+  "laya",
+  "xor",
+  "openai-decisions",
+] as const;
+
+/** The factory's own resolution step, called as a method so `this` is the class. */
+const resolveFromEnvironment = (
+  provider: string,
+  model: string | null | undefined,
+): string | null | undefined =>
+  AIProviderFactory["resolveModelFromEnvironment"](
+    provider,
+    model,
+    "model-resolution-table",
+  );
+
+/** Runs `fn` with every model variable unset except those in `set`, then puts them back. */
+function withModelVariables<T>(
+  set: Readonly<Record<string, string>>,
+  fn: () => T,
+): T {
+  const names = [...MODEL_VARIABLES, "OPENAI_DECISIONS_MODEL"];
+  const before = names.map((name) => process.env[name]);
+  try {
+    for (const name of names) {
+      delete process.env[name];
+    }
+    Object.assign(process.env, set);
+    return fn();
+  } finally {
+    names.forEach((name, i) => {
+      const value = before[i];
+      if (value === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = value;
+      }
+    });
+  }
+}
+
+const REGISTERED_NAMES = [...PROVIDER_ALIAS_INDEX.keys()].sort();
+
+await test("the table covers every registered name and alias, and measures something", () => {
+  assert(
+    REGISTERED_NAMES.length > 100,
+    "precondition: the package registers well over a hundred names and aliases",
+  );
+  for (const name of [...DECISION_ONLY_NAMES, "openai", "claude", "gpt"]) {
+    assert(
+      REGISTERED_NAMES.includes(name),
+      `precondition: ${name} is a registered name or alias`,
+    );
+  }
+  // Positive control: a chat name is reached, so "reached by nothing" below is a finding.
+  withModelVariables({ OPENAI_MODEL: "stand-in:OPENAI_MODEL" }, () => {
+    assertEqual(
+      resolveFromEnvironment("openai", undefined),
+      "stand-in:OPENAI_MODEL",
+      "the OpenAI chat provider takes OPENAI_MODEL",
+    );
+  });
+});
+
+await test("each registered name and alias is reached by exactly the variables it always was", () => {
+  const unexpected: string[] = [];
+  for (const name of REGISTERED_NAMES) {
+    const reached = MODEL_VARIABLES.filter((variable) =>
+      withModelVariables(
+        { [variable]: `stand-in:${variable}` },
+        () => resolveFromEnvironment(name, undefined) !== undefined,
+      ),
+    );
+    const expected = REACHED[name] ?? [];
+    if (reached.join(",") !== expected.join(",")) {
+      unexpected.push(name);
+    }
+  }
+  assert(
+    unexpected.length === 0,
+    `names reached by a different set of variables than before: ${unexpected.join(", ")}`,
+  );
+});
+
+await test("with every variable set, the first variable of a name's group names the model; every other name gets none", () => {
+  const all = Object.fromEntries(
+    MODEL_VARIABLES.map((variable) => [variable, `stand-in:${variable}`]),
+  );
+  const unexpected: string[] = [];
+  withModelVariables(all, () => {
+    for (const name of REGISTERED_NAMES) {
+      const first = REACHED[name]?.[0];
+      const expected = first === undefined ? undefined : `stand-in:${first}`;
+      if (resolveFromEnvironment(name, undefined) !== expected) {
+        unexpected.push(name);
+      }
+      if (resolveFromEnvironment(name, "default") !== (expected ?? "default")) {
+        unexpected.push(`${name} (default)`);
+      }
+    }
+  });
+  assert(
+    unexpected.length === 0,
+    `names resolved differently than before: ${unexpected.join(", ")}`,
+  );
+});
+
+await test("an explicit model is returned as given, for every name, whatever the variables say", () => {
+  const all = Object.fromEntries(
+    MODEL_VARIABLES.map((variable) => [variable, `stand-in:${variable}`]),
+  );
+  const rewritten = withModelVariables(all, () =>
+    REGISTERED_NAMES.filter(
+      (name) =>
+        resolveFromEnvironment(name, "explicit-model") !== "explicit-model",
+    ),
+  );
+  assert(
+    rewritten.length === 0,
+    `names whose explicit model was rewritten: ${rewritten.join(", ")}`,
+  );
+});
+
+await test("a decision-only provider is reached by no chat model variable, and its own variable is not read here", () => {
+  const all = Object.fromEntries(
+    [...MODEL_VARIABLES, "OPENAI_DECISIONS_MODEL"].map((variable) => [
+      variable,
+      `stand-in:${variable}`,
+    ]),
+  );
+  withModelVariables(all, () => {
+    for (const name of DECISION_ONLY_NAMES) {
+      assertEqual(
+        resolveFromEnvironment(name, undefined),
+        undefined,
+        `${name} is left to its registered default`,
+      );
+    }
+    // The same call for the chat provider is the control: variables were set.
+    assertEqual(
+      resolveFromEnvironment("openai", undefined),
+      "stand-in:OPENAI_MODEL",
+      "the chat provider still takes OPENAI_MODEL",
+    );
+  });
 });
 
 await runSuite();

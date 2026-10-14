@@ -117,28 +117,34 @@ hosted), Laya (open weights, at a configured base URL — there is no default),
 XOR (open weights that also reads images and video, likewise at a configured base
 URL), SubQ (`subq`, described below), Perplexity (`perplexity-decider`, the hosted Decisions API; it also reads
 images, no video, at the public `https://api.perplexity.ai`, so a key alone
-configures it) and Cloudflare Clef (`cloudflare-clef`, on Workers AI; it also reads
+configures it), Cloudflare Clef (`cloudflare-clef`, on Workers AI; it also reads
 images, no video, at Cloudflare's own API, so a token and an account id configure
-it) all extend `SystemOneDecisionProvider` in
+it) and OpenAI Decisions (`openai-decisions`, OpenAI's hosted Decisions API in
+public beta; it also reads images, no video, at the public `https://api.openai.com`,
+so a key alone configures it) all extend `SystemOneDecisionProvider` in
 `src/lib/providers/systemOneDecision.ts`,
 which owns the request loop, retries, the auth circuit breaker and answer
 parsing; each provider supplies only its endpoint, headers, body and error
-parsing. `resolveDefaultDecisionProvider()` returns the first `DECISION_PROVIDERS`
-entry that is fully configured (a key, plus a base URL for Laya and XOR, which
-have no built-in endpoint), in descriptor order, so TypeSafe's entry sitting before
-Laya's, Laya's before XOR's, XOR's before SubQ's, SubQ's before Perplexity's and
-Perplexity's before Clef's, is
-what makes TypeSafe win whenever either of its keys (`TYPESAFE_API_KEY`,
-`AI_GATEWAY_API_KEY`) is set alongside `LAYA_API_KEY`, `XOR_API_KEY`,
-`SUBQ_API_KEY`, `PERPLEXITY_API_KEY` or `CLOUDFLARE_API_KEY`. Reordering them
-changes which model every built-in consumer uses. The two providers whose keys
-are shared with a text provider (Perplexity and Clef) stay last, after every
-provider a host sets up on purpose: a provider added after them would be
-displaced by an ambient key, which is why test 18.4 pins `cloudflare-clef` as the
-last entry. SubQ sits ahead of them only because `SUBQ_API_KEY` belongs to no
-other provider.
+parsing. OpenAI Decisions is the one whose wire is not System One's (named
+questions in an array, an array of answers), so its catalog entry names
+`decide.dialect: "openai-decisions"`, translated by
+`src/lib/providers/decide/dialects/openaiDecisions.ts`; the Laya, XOR and SubQ entries
+use the `system-one` dialect. `resolveDefaultDecisionProvider()` returns the first
+`DECISION_PROVIDERS` entry that is fully configured (a key, plus a base URL for
+Laya and XOR, which have no built-in endpoint), in descriptor order, so TypeSafe's
+entry sitting before Laya's, Laya's before XOR's, XOR's before SubQ's, SubQ's before
+Perplexity's, Perplexity's before Clef's, and Clef's before OpenAI Decisions', is what makes
+TypeSafe win whenever either of its keys (`TYPESAFE_API_KEY`, `AI_GATEWAY_API_KEY`)
+is set alongside `LAYA_API_KEY`, `XOR_API_KEY`, `SUBQ_API_KEY`, `PERPLEXITY_API_KEY`,
+`CLOUDFLARE_API_KEY` or `OPENAI_API_KEY`. Reordering them changes which model
+every built-in consumer uses. The three providers whose keys
+are shared with a text provider (Perplexity, Clef and OpenAI Decisions) stay
+last, after every provider a host sets up on purpose: a provider added after
+them would be displaced by an ambient key, which is why test 18.4 pins
+`openai-decisions` as the last entry. SubQ sits ahead of them only because
+`SUBQ_API_KEY` belongs to no other provider.
 
-**SubQ comes after XOR and ahead of Perplexity and Clef, and it is a catalog entry, not a class.**
+**SubQ comes after XOR and ahead of Perplexity, Clef and OpenAI Decisions, and it is a catalog entry, not a class.**
 `src/lib/providers/catalog/subq.json` describes Subquadratic's hosted SubQ Snap
 (`subq`, aliases `subquadratic` and `subq-snap`; `decide.order` 4) and
 `ConfiguredDecisionProvider` runs it, on the System One wire at
@@ -163,10 +169,55 @@ captured on 2026-10-13, and one error row (the over-length 400) is a saved live 
 decision keys, and docs must say so plainly. `credentials.perplexity` (the text
 provider's slice) does not configure it; `credentials.perplexityDecider` does.
 
+**OpenAI Decisions' key is shared with the `openai` chat provider.** Both read
+`OPENAI_API_KEY`, so an ambient key set only for chat (or for `whisper`, which
+reads it too) also configures `decide`, as the last-resort default after TypeSafe,
+Laya, XOR, SubQ, Perplexity and Clef (descriptor order 7). The five internal consumers
+(routing, tool routing, context relevance, the summary gate, RAG planning) and
+the STT correction guard (for a host that passes a dictionary) then make paid
+decision calls, though they still fail open. A test that asserts the "nothing
+configured" path must blank `OPENAI_API_KEY` too (and `OPENAI_DECISIONS_*`), and
+docs must say so plainly. `credentials.openai` (the chat provider's slice) does not
+configure it; `credentials.openaiDecisions` does. **A gateway's key is never used
+for the default.** `OPENAI_API_KEY` is also the key of every OpenAI-compatible
+gateway, so the entry carries `decide.ambientKeyGuard` (`baseURLEnvVars`
+`OPENAI_BASE_URL` and `OPENAI_API_BASE`, `credentialBaseURLs`
+`credentials.openai.baseURL`, which the chat provider prefers over the variable,
+`trustedOrigins` `https://api.openai.com`): `resolveDefaultDecisionProvider()`
+skips a key found only in the environment while a listed variable, or a listed
+field of the credentials it is given (the instance's merged with the call's), is
+set to something whose origin (scheme, host, port, case-insensitive; path,
+trailing slash and `/v1` ignored) is not trusted, and an unparseable, non-text or
+non-http(s) value counts as untrusted. It does not apply when
+`OPENAI_DECISIONS_BASE_URL` is set (the host routed this provider on purpose) or
+when `credentials.openaiDecisions` supplies a key or a base URL, and never to a
+call that names `provider: "openai-decisions"`, which uses the environment key
+whatever `OPENAI_BASE_URL` or `credentials.openai.baseURL` says and sends it to
+`https://api.openai.com`; so a gateway host must route this provider with
+`OPENAI_DECISIONS_BASE_URL` or `credentials.openaiDecisions`, or not use it, and
+must not name it. It is data on the entry, read by `isDecisionProviderConfigured`,
+and no other provider has one. Any test that asserts a default must also blank
+`OPENAI_BASE_URL` and `OPENAI_API_BASE`, and pass no `credentials.openai.baseURL`.
+`neurolink.decide()` builds a
+fresh provider for every call, so a rejected ambient key costs one failing request
+per decision site and the 401 breaker never latches across public calls. The model
+resolves from `OPENAI_DECISIONS_MODEL`, never from the chat provider's
+`OPENAI_MODEL`: `AIProviderFactory.resolveModelFromEnvironment` skips a descriptor
+whose `inferenceKinds` is exactly `["decide"]`, because it picks its variable group
+by substring and `"openai-decisions"` contains `"openai"`. Its `decisionLimits` row
+is `advisory: true` (922,000 state tokens from the model page, reported and never
+enforced) with `media` of up to 8 images, no video and a 32 MiB body; those last
+three are NeuroLink's own allowance, not OpenAI's. What the public-beta endpoint
+accepts beyond that (question and option counts, image formats, rate limits, how it
+rounds probabilities) is not established: no live request has been made, so docs
+and comments say "not measured" and never state a result about its accuracy, speed
+or cost.
+
 **Clef's token and account id are shared with the `cloudflare` text provider, and
 the Workers AI endpoint ignored state text past about 2,048 tokens until
 2026-10-04 and read far more on 2026-10-07 (hosted service or model: unknown).** `CLOUDFLARE_API_KEY` and
-`CLOUDFLARE_ACCOUNT_ID` also configure `decide`, as the last fallback, after TypeSafe, Laya, XOR, SubQ and Perplexity; a test that
+`CLOUDFLARE_ACCOUNT_ID` also configure `decide`, as a fallback after TypeSafe, Laya,
+XOR, SubQ and Perplexity (OpenAI Decisions comes after it); a test that
 asserts the "nothing configured" path must blank both (and `CLOUDFLARE_CLEF_*`).
 `credentials.cloudflare` does not configure it; `credentials.cloudflareClef` does,
 and its `accountId` stands in for `CLOUDFLARE_ACCOUNT_ID` through the descriptor's
@@ -234,10 +285,11 @@ the ceiling at the window (about 113,000 real tokens), and much lower on log lin
 328,000), so a state of either, or emoji-heavy text, can pass the window and
 still be refused. The
 provider also checks image format and the 2,048-tile cap per image locally,
-because a larger image stalls the API for about a minute before an HTML 504. XOR
-and Perplexity are the providers with `media`; every other provider refuses media
-before any request. `maxQuestions` is optional in `DecisionLimits` and in the
-`decisionLimits()` reading: absent means "no count cap", never `Infinity`.
+because a larger image stalls the API for about a minute before an HTML 504. XOR,
+Perplexity, Cloudflare Clef and OpenAI Decisions are the providers with `media`;
+every other provider refuses media before any request. `maxQuestions` is optional
+in `DecisionLimits` and in the `decisionLimits()` reading: absent means "no count
+cap", never `Infinity`.
 
 **Not to be confused with `evaluate()`**, which scores an already-generated
 response with RAGAS scorers. Different feature, different word, ~20
@@ -353,7 +405,10 @@ text with a `generate`/`stream` call. With no decision provider, on the 4 s
 guard timeout, or on any error, the dictionary is applied as is and every
 `STTDecisionRecord` carries a `note` saying why — the same degradation contract
 as the five `decide` call sites above (the guard calls `tryDecide` directly, so
-it is not one of the `await decide(` sites).
+it is not one of the `await decide(` sites). A lone `OPENAI_API_KEY` now counts as
+a decision provider, so a host that set it for `whisper` and passes a dictionary
+sends the first 4,000 characters of the transcript to OpenAI's Decisions endpoint;
+a test of the "no decision provider" note must blank it.
 
 **Nothing may lose words.** Each layer keeps the text it was given when it
 fails: a rewrite that drops more than `maxDropRatio` (0.25) of the words, times
@@ -581,6 +636,7 @@ pnpm run test:evaluation  # Includes evaluation-scoring sub-suite
 pnpm run test:middleware
 pnpm run test:autoresearch       # E2E + live (live half skips without keys)
 pnpm run test:docs-snippets      # Docs' new NeuroLink({...}) options vs the built d.ts (no-API; needs a build; CI does NOT run it); :update regenerates its ledger
+pnpm run test:provider-model-resolution  # Which model each registered provider name resolves from the environment (no-API; needs a build; CI does NOT run it)
 
 # What CI actually gates — NOT test:unit.
 # .github/workflows/ci.yml has two required jobs over test/, and both are

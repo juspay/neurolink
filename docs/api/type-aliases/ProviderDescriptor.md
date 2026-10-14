@@ -253,6 +253,17 @@ descriptor that serves `decide`; checked when the descriptors load.
 
 ---
 
+### ambientKeyGuard?
+
+> `optional` **ambientKeyGuard?**: [`DecideAmbientKeyGuard`](DecideAmbientKeyGuard.md)
+
+Skips this provider's environment key for default resolution while a
+listed base-URL variable names a host outside the trusted origins. Only a
+decide provider whose key is also another provider's can use it. See
+[DecideAmbientKeyGuard](DecideAmbientKeyGuard.md).
+
+---
+
 ### autoSelectPriority?
 
 > `optional` **autoSelectPriority?**: `number`

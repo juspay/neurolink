@@ -36,10 +36,11 @@ const fetchCapture = installFetchCapture();
  *      pnpm run test:decide
  */
 
-import { readFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import {
@@ -79,7 +80,15 @@ import type {
   DecisionHookContext,
   DecisionQuestionMap,
 } from "../dist/index.js";
-import { defineSuite, delay, logSection, runCLI } from "./helpers/harness.js";
+import {
+  defineSuite,
+  delay,
+  logSection,
+  runCLI,
+  runCommand,
+  tempDir,
+} from "./helpers/harness.js";
+import type { ProcessResult } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 import { flatPng } from "./helpers/flatPng.js";
 
@@ -148,6 +157,15 @@ const REAL_CLOUDFLARE_CLEF_MODEL = process.env.CLOUDFLARE_CLEF_MODEL;
 const REAL_SUBQ_KEY = process.env.SUBQ_API_KEY;
 const REAL_SUBQ_BASE_URL = process.env.SUBQ_BASE_URL;
 const REAL_SUBQ_MODEL = process.env.SUBQ_MODEL;
+// OpenAI Decisions reads OPENAI_API_KEY, the key the `openai` chat provider
+// reads, so an ambient key from a developer's .env configures a decision
+// provider here too (the very last in the order). It has a public endpoint, so
+// the key alone is enough and every "nothing is configured" test must blank it.
+const REAL_OPENAI_KEY = process.env.OPENAI_API_KEY;
+const REAL_OPENAI_BASE_URL = process.env.OPENAI_BASE_URL;
+const REAL_OPENAI_API_BASE = process.env.OPENAI_API_BASE;
+const REAL_OPENAI_DECISIONS_BASE_URL = process.env.OPENAI_DECISIONS_BASE_URL;
+const REAL_OPENAI_DECISIONS_MODEL = process.env.OPENAI_DECISIONS_MODEL;
 // Section 19 reads LAYA_MODEL as an input to model resolution, so it is
 // saved and restored like the keys rather than deleted outright.
 const REAL_LAYA_MODEL = process.env.LAYA_MODEL;
@@ -242,6 +260,31 @@ function restoreEnv(): void {
   } else {
     delete process.env.SUBQ_MODEL;
   }
+  if (REAL_OPENAI_KEY !== undefined) {
+    process.env.OPENAI_API_KEY = REAL_OPENAI_KEY;
+  } else {
+    delete process.env.OPENAI_API_KEY;
+  }
+  if (REAL_OPENAI_BASE_URL !== undefined) {
+    process.env.OPENAI_BASE_URL = REAL_OPENAI_BASE_URL;
+  } else {
+    delete process.env.OPENAI_BASE_URL;
+  }
+  if (REAL_OPENAI_API_BASE !== undefined) {
+    process.env.OPENAI_API_BASE = REAL_OPENAI_API_BASE;
+  } else {
+    delete process.env.OPENAI_API_BASE;
+  }
+  if (REAL_OPENAI_DECISIONS_BASE_URL !== undefined) {
+    process.env.OPENAI_DECISIONS_BASE_URL = REAL_OPENAI_DECISIONS_BASE_URL;
+  } else {
+    delete process.env.OPENAI_DECISIONS_BASE_URL;
+  }
+  if (REAL_OPENAI_DECISIONS_MODEL !== undefined) {
+    process.env.OPENAI_DECISIONS_MODEL = REAL_OPENAI_DECISIONS_MODEL;
+  } else {
+    delete process.env.OPENAI_DECISIONS_MODEL;
+  }
   if (REAL_LAYA_MODEL !== undefined) {
     process.env.LAYA_MODEL = REAL_LAYA_MODEL;
   } else {
@@ -254,7 +297,8 @@ function restoreEnv(): void {
  * LAYA_BASE_URL, which Laya needs alongside its key, and PERPLEXITY_API_KEY,
  * which the `perplexity` text provider shares. The Perplexity base URL and
  * model overrides go too, so a developer's own endpoint or model never decides
- * what a keyless test sees.
+ * what a keyless test sees. OPENAI_API_KEY goes for the same reason as
+ * PERPLEXITY_API_KEY: the `openai` chat provider shares it with OpenAI Decisions.
  */
 function clearDecisionKeys(): void {
   delete process.env.TYPESAFE_API_KEY;
@@ -273,6 +317,11 @@ function clearDecisionKeys(): void {
   delete process.env.SUBQ_API_KEY;
   delete process.env.SUBQ_BASE_URL;
   delete process.env.SUBQ_MODEL;
+  delete process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_BASE_URL;
+  delete process.env.OPENAI_API_BASE;
+  delete process.env.OPENAI_DECISIONS_BASE_URL;
+  delete process.env.OPENAI_DECISIONS_MODEL;
   delete process.env.LAYA_MODEL;
 }
 
@@ -2317,6 +2366,11 @@ const NO_PROVIDER_ENV = {
   SUBQ_API_KEY: "",
   SUBQ_BASE_URL: "",
   SUBQ_MODEL: "",
+  OPENAI_API_KEY: "",
+  OPENAI_BASE_URL: "",
+  OPENAI_API_BASE: "",
+  OPENAI_DECISIONS_BASE_URL: "",
+  OPENAI_DECISIONS_MODEL: "",
 };
 
 await test("15.1 — no decision provider configured ⇒ clean one-line error, no stack trace", async () => {
@@ -2337,7 +2391,7 @@ await test("15.1 — no decision provider configured ⇒ clean one-line error, n
   );
   assert(
     result.stderr.includes(
-      "Error: No decision provider is configured. Set TYPESAFE_API_KEY or AI_GATEWAY_API_KEY for typesafe, or LAYA_API_KEY and LAYA_BASE_URL for laya, or XOR_API_KEY and XOR_BASE_URL for xor, or SUBQ_API_KEY for subq, or PERPLEXITY_API_KEY for perplexity-decider, or CLOUDFLARE_API_KEY and CLOUDFLARE_ACCOUNT_ID for cloudflare-clef.",
+      "Error: No decision provider is configured. Set TYPESAFE_API_KEY or AI_GATEWAY_API_KEY for typesafe, or LAYA_API_KEY and LAYA_BASE_URL for laya, or XOR_API_KEY and XOR_BASE_URL for xor, or SUBQ_API_KEY for subq, or PERPLEXITY_API_KEY for perplexity-decider, or CLOUDFLARE_API_KEY and CLOUDFLARE_ACCOUNT_ID for cloudflare-clef, or OPENAI_API_KEY for openai-decisions (ignored while OPENAI_BASE_URL, OPENAI_API_BASE or credentials.openai.baseURL names a host outside https://api.openai.com, unless OPENAI_DECISIONS_BASE_URL is set).",
     ),
     "the no-provider case did not print the expected one-line error",
   );
@@ -2746,6 +2800,11 @@ await test("16.9 — live: decide --provider laya --format json is clean JSON", 
         SUBQ_API_KEY: "",
         SUBQ_BASE_URL: "",
         SUBQ_MODEL: "",
+        OPENAI_API_KEY: "",
+        OPENAI_BASE_URL: "",
+        OPENAI_API_BASE: "",
+        OPENAI_DECISIONS_BASE_URL: "",
+        OPENAI_DECISIONS_MODEL: "",
       },
       timeoutMs: 60_000,
     },
@@ -2795,6 +2854,11 @@ await test("16.10 — live: a rejected laya credential keeps the reason, drops t
         SUBQ_API_KEY: "",
         SUBQ_BASE_URL: "",
         SUBQ_MODEL: "",
+        OPENAI_API_KEY: "",
+        OPENAI_BASE_URL: "",
+        OPENAI_API_BASE: "",
+        OPENAI_DECISIONS_BASE_URL: "",
+        OPENAI_DECISIONS_MODEL: "",
       },
       timeoutMs: 30_000,
     },
@@ -2846,6 +2910,11 @@ await test("16.11 — live: decide --provider laya prints readable text by defau
         SUBQ_API_KEY: "",
         SUBQ_BASE_URL: "",
         SUBQ_MODEL: "",
+        OPENAI_API_KEY: "",
+        OPENAI_BASE_URL: "",
+        OPENAI_API_BASE: "",
+        OPENAI_DECISIONS_BASE_URL: "",
+        OPENAI_DECISIONS_MODEL: "",
       },
       timeoutMs: 60_000,
     },
@@ -3504,7 +3573,7 @@ await test("18.3 — it declares the limits that were measured: a state window, 
   );
 });
 
-await test("18.4 — descriptor order is the precedence: typesafe, laya, xor, subq, perplexity-decider, and cloudflare-clef last", async () => {
+await test("18.4 — descriptor order is the precedence: typesafe, laya, xor, subq, perplexity-decider, cloudflare-clef, and openai-decisions last", async () => {
   const names: string[] = DECISION_PROVIDERS.map((d) => d.name);
   const index = (name: string) => names.indexOf(name);
   assert(
@@ -3513,17 +3582,18 @@ await test("18.4 — descriptor order is the precedence: typesafe, laya, xor, su
       index("laya") < index("xor") &&
       index("xor") < index("subq") &&
       index("subq") < index("perplexity-decider") &&
-      index("perplexity-decider") < index("cloudflare-clef"),
-    "the derived decision-provider list must read typesafe, laya, xor, subq, perplexity-decider, cloudflare-clef",
+      index("perplexity-decider") < index("cloudflare-clef") &&
+      index("cloudflare-clef") < index("openai-decisions"),
+    "the derived decision-provider list must read typesafe, laya, xor, subq, perplexity-decider, cloudflare-clef, openai-decisions",
   );
-  // Perplexity and Cloudflare Clef each share an environment key with a text
-  // provider, so they must come after every provider a host sets up on purpose.
-  // A provider added after them would be displaced by an ambient key, which is
-  // a decision to make deliberately. SubQ is ahead of them because its key,
-  // SUBQ_API_KEY, is shared with no other provider.
+  // Perplexity, Cloudflare Clef and OpenAI Decisions each share an environment
+  // key with a text provider, so they must come after every provider a host
+  // sets up on purpose. A provider added after them would be displaced by an
+  // ambient key, which is a decision to make deliberately. SubQ is ahead of
+  // them because its key, SUBQ_API_KEY, is shared with no other provider.
   assert(
-    names[names.length - 1] === "cloudflare-clef",
-    "cloudflare-clef must be the last entry in the precedence order",
+    names[names.length - 1] === "openai-decisions",
+    "openai-decisions must be the last entry in the precedence order",
   );
 });
 
@@ -4946,7 +5016,7 @@ await test("19.3 — it declares limits chosen from what was measured: a state w
   );
 });
 
-await test("19.4 — it is the last decision provider in the precedence order, after subq and perplexity-decider", async () => {
+await test("19.4 — it comes after subq and perplexity-decider and before openai-decisions, which is last", async () => {
   const names: string[] = DECISION_PROVIDERS.map((d) => d.name);
   assert(
     names.indexOf("subq") !== -1 &&
@@ -4955,8 +5025,9 @@ await test("19.4 — it is the last decision provider in the precedence order, a
     "cloudflare-clef must come after subq and perplexity-decider",
   );
   assert(
-    names[names.length - 1] === "cloudflare-clef",
-    "cloudflare-clef must be the last entry in the precedence order",
+    names.indexOf("cloudflare-clef") < names.indexOf("openai-decisions") &&
+      names[names.length - 1] === "openai-decisions",
+    "cloudflare-clef must come before openai-decisions, the last entry",
   );
 });
 
@@ -7189,6 +7260,561 @@ await test("20.24 — with no question cap, every well-formed host addition goes
     }
     restoreEnv();
   }
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+logSection(
+  "21. OpenAI Decisions — the CLI against a local server, and the live smoke script's refusal",
+);
+// ───────────────────────────────────────────────────────────────────────────
+// No key, no network: every request goes to a server this file starts on
+// 127.0.0.1, and the replies are fixtures. Nothing here says what OpenAI's
+// endpoint returned for a real request.
+
+const OPENAI_CLI_KEY = "test-fake-openai-cli-credential";
+
+type FakeOpenAIRequest = {
+  method: string;
+  path: string;
+  authorization: string | null;
+  contentType: string | null;
+  body: unknown;
+};
+
+type FakeOpenAIReply = {
+  status: number;
+  headers?: Record<string, string>;
+  body: unknown;
+};
+
+/** Runs `run` against a local server that records every request and answers as `reply` says. */
+async function withFakeOpenAI<T>(
+  reply: (request: FakeOpenAIRequest) => FakeOpenAIReply,
+  run: (baseURL: string, requests: readonly FakeOpenAIRequest[]) => Promise<T>,
+): Promise<T> {
+  const requests: FakeOpenAIRequest[] = [];
+  const server = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
+      let body: unknown;
+      try {
+        body = JSON.parse(Buffer.concat(chunks).toString());
+      } catch {
+        body = undefined;
+      }
+      const seen: FakeOpenAIRequest = {
+        method: req.method ?? "",
+        path: req.url ?? "",
+        authorization: req.headers.authorization ?? null,
+        contentType: req.headers["content-type"] ?? null,
+        body,
+      };
+      requests.push(seen);
+      const { status, headers, body: answer } = reply(seen);
+      res.writeHead(status, {
+        "content-type": "application/json",
+        connection: "close",
+        ...headers,
+      });
+      res.end(JSON.stringify(answer));
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const { port } = server.address() as AddressInfo;
+    assert(port > 0, "the local server must listen on a port");
+    return await run(`http://127.0.0.1:${port}`, requests);
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+}
+
+const OPENAI_CLI_REPLY: FakeOpenAIReply = {
+  status: 200,
+  headers: { "x-request-id": "req-cli-stand-in" },
+  body: {
+    model: "gpt-6-luna",
+    answers: [{ type: "predicate", name: "urgent", probability: 0.92 }],
+    usage: { input_tokens: 250_000, output_tokens: 0, total_tokens: 250_000 },
+  },
+};
+
+/** The CLI's environment: nothing configured but the key and the local server. */
+const openaiCliEnv = (baseURL: string): Record<string, string> => ({
+  ...NO_PROVIDER_ENV,
+  OPENAI_API_KEY: OPENAI_CLI_KEY,
+  OPENAI_DECISIONS_BASE_URL: baseURL,
+});
+
+/** The one request a CLI run sent, narrowed enough to read its body. */
+function soleOpenAIRequest(requests: readonly FakeOpenAIRequest[]): {
+  request: FakeOpenAIRequest;
+  body: Record<string, unknown>;
+} {
+  const count: number = requests.length;
+  assert(count === 1, "exactly one request must reach the server");
+  const request = requests[0];
+  assert(
+    request !== undefined && isRecordLike(request.body),
+    "the request body must be a JSON object",
+  );
+  return { request, body: request.body };
+}
+
+await test("21.1 — decide --provider openai-decisions --format json: exit 0, clean JSON, one POST /v1/decisions with the Bearer key and the OpenAI body", async () => {
+  await withFakeOpenAI(
+    () => OPENAI_CLI_REPLY,
+    async (baseURL, requests) => {
+      const result = await runCLI(
+        [
+          "decide",
+          "The state text",
+          "--provider",
+          "openai-decisions",
+          "--format",
+          "json",
+          "--questions",
+          ONE_QUESTION,
+        ],
+        { env: openaiCliEnv(baseURL), timeoutMs: 60_000 },
+      );
+      assert(
+        result.exitCode === 0,
+        "the CLI must exit 0 once the server has answered",
+      );
+      const { request, body } = soleOpenAIRequest(requests);
+      assert(
+        request.method === "POST" && request.path === "/v1/decisions",
+        "the request must be a POST to /v1/decisions",
+      );
+      assert(
+        request.authorization === `Bearer ${OPENAI_CLI_KEY}`,
+        "the key must travel as a Bearer token",
+      );
+      assert(
+        request.contentType?.startsWith("application/json") === true,
+        "the body must be sent as JSON",
+      );
+      assert(
+        Object.keys(body).sort().join(",") === "input,model,questions",
+        "the body must hold the model, the input and the questions, and nothing else",
+      );
+      assert(body.model === "gpt-6-luna", "the default model must be sent");
+      assert(
+        body.input === "The state text",
+        "the state must be the input, as given",
+      );
+      const question = Array.isArray(body.questions)
+        ? body.questions[0]
+        : undefined;
+      assert(
+        Array.isArray(body.questions) &&
+          body.questions.length === 1 &&
+          isRecordLike(question) &&
+          question.type === "predicate" &&
+          question.name === "urgent" &&
+          question.instructions === "Is this urgent?" &&
+          Object.keys(question).length === 3,
+        "the question must be a named predicate carrying its instructions",
+      );
+
+      const parsed: unknown = JSON.parse(result.stdout);
+      assert(
+        isRecordLike(parsed) &&
+          parsed.provider === "openai-decisions" &&
+          parsed.model === "gpt-6-luna" &&
+          parsed.requestId === "req-cli-stand-in",
+        "stdout must be the raw result: provider, model and request id",
+      );
+      const answers = isRecordLike(parsed) ? parsed.answers : undefined;
+      const urgent = isRecordLike(answers) ? answers.urgent : undefined;
+      assert(
+        isRecordLike(urgent) &&
+          urgent.type === "boolean" &&
+          urgent.probability === 0.92,
+        "the answer must be the server's probability, as a boolean answer",
+      );
+      assert(
+        !(result.stdout + result.stderr).includes(OPENAI_CLI_KEY),
+        "the key must not appear in the CLI's output",
+      );
+    },
+  );
+});
+
+await test("21.2 — decide --provider openai-decisions in text mode prints the answer, the model and the price from the table", async () => {
+  await withFakeOpenAI(
+    () => OPENAI_CLI_REPLY,
+    async (baseURL, requests) => {
+      const result = await runCLI(
+        [
+          "decide",
+          "The state text",
+          "--provider",
+          "openai-decisions",
+          "--questions",
+          ONE_QUESTION,
+        ],
+        { env: openaiCliEnv(baseURL), timeoutMs: 60_000 },
+      );
+      assert(result.exitCode === 0, "the CLI must exit 0");
+      soleOpenAIRequest(requests);
+      assert(
+        result.stdout.includes("urgent: probability 0.92"),
+        "the answer line must show the probability",
+      );
+      assert(
+        result.stdout.includes("Model: gpt-6-luna"),
+        "the model line must show the model the reply names",
+      );
+      // 250,000 input tokens x $0.10 per 1M, input only: from the pricing table.
+      assert(
+        result.stdout.includes("Cost: $0.025000"),
+        "the cost line must be input tokens at the table's rate",
+      );
+      assert(
+        !looksLikeStackTrace(result.stdout + result.stderr),
+        "the run printed a stack trace",
+      );
+    },
+  );
+});
+
+await test("21.3 — decide --provider openai-decisions --image: the image rides in the input as an input_image data URL beside the text", async () => {
+  await withFakeOpenAI(
+    () => OPENAI_CLI_REPLY,
+    async (baseURL, requests) => {
+      const imagePath = `${PERPLEXITY_FIXTURE_DIR}blue.png`;
+      const result = await runCLI(
+        [
+          "decide",
+          "Inspect the product in this photo.",
+          "--provider",
+          "openai-decisions",
+          "--image",
+          imagePath,
+          "--format",
+          "json",
+          "--questions",
+          ONE_QUESTION,
+        ],
+        { env: openaiCliEnv(baseURL), timeoutMs: 60_000 },
+      );
+      assert(result.exitCode === 0, "the CLI must exit 0");
+      const { body } = soleOpenAIRequest(requests);
+      const url = `data:image/png;base64,${readFileSync(imagePath).toString("base64")}`;
+      const message = Array.isArray(body.input) ? body.input[0] : undefined;
+      const parts =
+        isRecordLike(message) && Array.isArray(message.content)
+          ? message.content
+          : [];
+      assert(
+        Array.isArray(body.input) &&
+          body.input.length === 1 &&
+          isRecordLike(message) &&
+          message.role === "user" &&
+          parts.length === 2,
+        "the input must be one user message of two parts",
+      );
+      const [text, image] = parts;
+      assert(
+        isRecordLike(text) &&
+          text.type === "input_text" &&
+          text.text === "Inspect the product in this photo.",
+        "the first part must be the state text",
+      );
+      assert(
+        isRecordLike(image) &&
+          image.type === "input_image" &&
+          image.image_url === url &&
+          Object.keys(image).length === 2,
+        "the second part must be the image as a data URL, with no other field",
+      );
+    },
+  );
+});
+
+await test("21.4 — decide --provider openai-decisions with a rejected key: one clean line naming the failure, key absent, sent once", async () => {
+  await withFakeOpenAI(
+    () => ({
+      status: 401,
+      body: {
+        error: {
+          message: `stand-in: Incorrect API key provided: ${OPENAI_CLI_KEY}`,
+          type: "invalid_request_error",
+          code: "invalid_api_key",
+        },
+      },
+    }),
+    async (baseURL, requests) => {
+      const result = await runCLI(
+        [
+          "decide",
+          "The state text",
+          "--provider",
+          "openai-decisions",
+          "--questions",
+          ONE_QUESTION,
+        ],
+        { env: openaiCliEnv(baseURL), timeoutMs: 60_000 },
+      );
+      const output = result.stdout + result.stderr;
+      assert(result.exitCode !== 0, "a refused key must exit non-zero");
+      soleOpenAIRequest(requests);
+      assert(
+        !output.includes(OPENAI_CLI_KEY),
+        "the key the server repeated must not reach the CLI's output",
+      );
+      assert(
+        output.includes("Incorrect API key provided"),
+        "the server's own reason must be kept",
+      );
+      assert(!looksLikeStackTrace(output), "the failure printed a stack trace");
+    },
+  );
+});
+
+await test("21.5 — the --provider choices the CLI builds name openai-decisions, and decide --help documents --provider", async () => {
+  const generate = await runCLI(["generate", "--help"], { timeoutMs: 60_000 });
+  assert(generate.exitCode === 0, "generate --help must exit 0");
+  assert(
+    generate.stdout.includes('"openai-decisions"'),
+    "the --provider choices the CLI builds must name openai-decisions",
+  );
+  const decide = await runCLI(["decide", "--help"], { timeoutMs: 60_000 });
+  assert(decide.exitCode === 0, "decide --help must exit 0");
+  assert(
+    decide.stdout.includes("--provider"),
+    "decide --help must document --provider",
+  );
+});
+
+// The live smoke script spends real money, and nothing in this suite may start
+// it for real: every run below leaves RUN_LIVE unset, empty or not "1", so the
+// script must refuse. The fake key and the local server are there to make a
+// skipped guard visible (a request would reach the server), not to be used.
+const SMOKE_SCRIPT = fileURLToPath(
+  new URL("../scripts/liveSmokeOpenAIDecisions.ts", import.meta.url),
+);
+const LOCAL_TSX = join(process.cwd(), "node_modules", ".bin", "tsx");
+const SMOKE_FAKE_KEY = "test-fake-smoke-credential";
+
+const runSmoke = (
+  script: string,
+  env: Record<string, string>,
+): Promise<ProcessResult> =>
+  runCommand(LOCAL_TSX, [script], {
+    cwd: process.cwd(),
+    env: { ...process.env, ...NO_PROVIDER_ENV, ...env },
+    timeoutMs: 90_000,
+  });
+
+await test("21.6 — the live smoke script without RUN_LIVE: exit 2, the refusal line names RUN_LIVE and no value, nothing reaches the server", async () => {
+  await withFakeOpenAI(
+    () => OPENAI_CLI_REPLY,
+    async (baseURL, requests) => {
+      const result = await runSmoke(SMOKE_SCRIPT, {
+        RUN_LIVE: "",
+        OPENAI_API_KEY: SMOKE_FAKE_KEY,
+        OPENAI_DECISIONS_BASE_URL: baseURL,
+      });
+      assert(result.exitCode === 2, "a refused run must exit with code 2");
+      assert(
+        result.stderr.includes(
+          "liveSmokeOpenAIDecisions: refusing to run, no request was made. Missing: RUN_LIVE (must be 1).",
+        ),
+        "the refusal line must say what is missing, and only that",
+      );
+      assert(
+        result.stdout === "",
+        "a refused run must print nothing on stdout",
+      );
+      assert(
+        !(result.stdout + result.stderr).includes(SMOKE_FAKE_KEY),
+        "the key must not appear in the output",
+      );
+      const seen: number = requests.length;
+      assert(seen === 0, "no request may reach the server");
+    },
+  );
+});
+
+await test("21.7 — the live smoke script wants RUN_LIVE to be exactly 1 and a non-blank key, and names both when both are missing", async () => {
+  await withFakeOpenAI(
+    () => OPENAI_CLI_REPLY,
+    async (baseURL, requests) => {
+      const notOne = await runSmoke(SMOKE_SCRIPT, {
+        RUN_LIVE: "true",
+        OPENAI_API_KEY: SMOKE_FAKE_KEY,
+        OPENAI_DECISIONS_BASE_URL: baseURL,
+      });
+      assert(
+        notOne.exitCode === 2 &&
+          notOne.stderr.includes("Missing: RUN_LIVE (must be 1)."),
+        "a RUN_LIVE other than 1 must be refused",
+      );
+      const blankKey = await runSmoke(SMOKE_SCRIPT, {
+        RUN_LIVE: "",
+        OPENAI_API_KEY: "   ",
+        OPENAI_DECISIONS_BASE_URL: baseURL,
+      });
+      assert(
+        blankKey.exitCode === 2 &&
+          blankKey.stderr.includes(
+            "Missing: RUN_LIVE (must be 1), OPENAI_API_KEY (must be set and non-blank).",
+          ),
+        "both missing variables must be named",
+      );
+      const seen: number = requests.length;
+      assert(seen === 0, "no request may reach the server");
+    },
+  );
+});
+
+await test("21.8 — the live smoke script refuses before it imports the package: with no dist beside it, it still exits 2 with the refusal line", async () => {
+  const dir = tempDir("smoke-no-dist-");
+  mkdirSync(join(dir, "scripts"));
+  const copy = join(dir, "scripts", "liveSmokeOpenAIDecisions.ts");
+  copyFileSync(SMOKE_SCRIPT, copy);
+  const result = await runSmoke(copy, {
+    RUN_LIVE: "",
+    OPENAI_API_KEY: "",
+  });
+  assert(
+    result.exitCode === 2,
+    "a refusal must come before the import that cannot succeed here",
+  );
+  assert(
+    result.stderr.includes("refusing to run, no request was made"),
+    "the refusal line must be printed",
+  );
+});
+
+await test("21.9 — the live smoke script holds the documented limits and price, and never reads an error's message or the key's value", async () => {
+  const source = readFileSync(SMOKE_SCRIPT, "utf8");
+  const has = (pattern: RegExp): boolean => pattern.test(source);
+  assert(
+    has(/const OPTION_COUNT = 77;/) &&
+      has(/const CHOICE_REQUESTS = 5;/) &&
+      has(/const MAX_REQUESTS = CHOICE_REQUESTS \+ 2;/),
+    "five 77-option choices, a predicate and a score make seven requests",
+  );
+  assert(
+    has(/const USD_PER_INPUT_TOKEN = 0\.1 \/ 1_000_000;/),
+    "the price must be $0.10 per 1M input tokens",
+  );
+  assert(
+    has(/https:\/\/developers\.openai\.com\/api\/docs\/guides\/decisions/) &&
+      source.includes("2026-10-07"),
+    "the price must carry its source URL and date",
+  );
+  assert(
+    !has(/\.message\b/),
+    "an error's message can quote the response and must not be read",
+  );
+  // The bare identifiers only: `JSON.stringify(result.model.slice(0, 64))` is
+  // the one allowed way to print a field, and `String(cause.status)` another.
+  assert(
+    !has(
+      /String\(\s*(?:error|result)\s*[,)]|\$\{\s*(?:error\b|result\s*\})|JSON\.stringify\(\s*(?:error|result)\s*[,)]/,
+    ),
+    "an error or the whole result must not be turned into text for the output",
+  );
+  assert(
+    !has(/\$\{[^}]*process\.env/),
+    "an environment value must not be interpolated into output",
+  );
+  assert(
+    (source.match(/await import\(/g) ?? []).length === 1,
+    "the package is imported once, dynamically, after the guard",
+  );
+});
+
+await test("22.1 — decide with no --provider: the shared OPENAI_API_KEY beside a gateway OPENAI_BASE_URL is not a decision provider, and nothing reaches the gateway", async () => {
+  await withFakeOpenAI(
+    () => OPENAI_CLI_REPLY,
+    async (gateway, requests) => {
+      for (const name of ["OPENAI_BASE_URL", "OPENAI_API_BASE"] as const) {
+        const result = await runCLI(
+          ["decide", "The state text", "--questions", ONE_QUESTION],
+          {
+            env: {
+              ...NO_PROVIDER_ENV,
+              OPENAI_API_KEY: OPENAI_CLI_KEY,
+              [name]: gateway,
+            },
+            timeoutMs: 60_000,
+          },
+        );
+        assert(
+          result.exitCode !== 0,
+          `${name}: the decision must be refused, not sent`,
+        );
+        assert(
+          result.stderr.includes(
+            "Error: No decision provider is configured.",
+          ) &&
+            result.stderr.includes(
+              "OPENAI_API_KEY for openai-decisions (ignored while OPENAI_BASE_URL, OPENAI_API_BASE or credentials.openai.baseURL names a host outside https://api.openai.com, unless OPENAI_DECISIONS_BASE_URL is set)",
+            ),
+          `${name}: the error must say why the key is ignored`,
+        );
+        assert(
+          !looksLikeStackTrace(result.stdout + result.stderr),
+          `${name}: the refusal printed a stack trace`,
+        );
+        assert(
+          !(result.stdout + result.stderr).includes(OPENAI_CLI_KEY),
+          `${name}: the key must not appear in the output`,
+        );
+        assert(requests.length === 0, `${name}: nothing may reach the gateway`);
+      }
+    },
+  );
+});
+
+await test("22.2 — decide with no --provider: OPENAI_DECISIONS_BASE_URL is intent, so the same environment decides, at that URL and with the key as the Bearer token", async () => {
+  await withFakeOpenAI(
+    () => OPENAI_CLI_REPLY,
+    async (baseURL, requests) => {
+      const result = await runCLI(
+        [
+          "decide",
+          "The state text",
+          "--format",
+          "json",
+          "--questions",
+          ONE_QUESTION,
+        ],
+        {
+          env: {
+            ...NO_PROVIDER_ENV,
+            OPENAI_API_KEY: OPENAI_CLI_KEY,
+            OPENAI_BASE_URL: "http://127.0.0.1:9/v1",
+            OPENAI_DECISIONS_BASE_URL: baseURL,
+          },
+          timeoutMs: 60_000,
+        },
+      );
+      assert(result.exitCode === 0, "the CLI must exit 0 once answered");
+      const { request } = soleOpenAIRequest(requests);
+      assert(
+        request.method === "POST" && request.path === "/v1/decisions",
+        "the request must go to the decisions base URL, not the chat host",
+      );
+      assert(
+        request.authorization === `Bearer ${OPENAI_CLI_KEY}`,
+        "the environment key must travel as the Bearer token",
+      );
+      const parsed: unknown = JSON.parse(result.stdout);
+      assert(
+        isRecordLike(parsed) && parsed.provider === "openai-decisions",
+        "the default provider must have been chosen without being named",
+      );
+    },
+  );
 });
 
 restoreEnv();

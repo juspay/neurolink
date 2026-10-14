@@ -57,6 +57,7 @@ import naverClovaStudioJson from "./naver-clova-studio.json" with { type: "json"
 import nebiusJson from "./nebius.json" with { type: "json" };
 import neuralwattJson from "./neuralwatt.json" with { type: "json" };
 import novitaJson from "./novita.json" with { type: "json" };
+import openaiDecisionsJson from "./openai-decisions.json" with { type: "json" };
 import ovhcloudJson from "./ovhcloud.json" with { type: "json" };
 import parasailJson from "./parasail.json" with { type: "json" };
 import paretoInferenceJson from "./pareto-inference.json" with { type: "json" };
@@ -288,8 +289,14 @@ export const CATALOG_PROVIDER_IDS = [
 
 export const DECIDE_CATALOG_JSON_ENTRIES: DecideCatalogJson[] = [
   layaJson,
+  openaiDecisionsJson,
   subqJson,
   xorJson,
 ].map(asDecideEntry);
 
-export const DECIDE_CATALOG_PROVIDER_IDS = ["laya", "subq", "xor"] as const;
+export const DECIDE_CATALOG_PROVIDER_IDS = [
+  "laya",
+  "openai-decisions",
+  "subq",
+  "xor",
+] as const;

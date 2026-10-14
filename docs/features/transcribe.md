@@ -156,7 +156,14 @@ streaming), in two stages:
    product name never rewrites the everyday word it sounds like. All
    candidates go in one `tryDecide()` call. With no decision provider, on a
    timeout (`decideTimeoutMs`, default 4000) or on any error, the dictionary is
-   applied as is. `guard: "none"` always applies it.
+   applied as is. `guard: "none"` always applies it. The guard asks for the
+   default decision provider, and it sends the first 4,000 characters of the
+   transcript to it. A lone `OPENAI_API_KEY` counts as one (it is also Whisper's
+   key), so a host that set it only for Whisper and passes a dictionary sends the
+   transcript text to OpenAI's Decisions endpoint, unless `OPENAI_BASE_URL`,
+   `OPENAI_API_BASE` or `credentials.openai.baseURL` names a host other than `https://api.openai.com` (a gateway's
+   key is not used for the default); see
+   [One key, two providers](../getting-started/providers/openai-decisions.md#one-key-two-providers).
 2. **Rewrite.** A text model fixes spelling, punctuation and capitalisation,
    writes dictionary terms correctly, reconciles a second opinion and writes
    Indic-script words in Latin letters the way people type them (Hinglish,

@@ -25,9 +25,13 @@ import type {
   DecideBodyShape,
   DecideCatalogJson,
   DecideErrors,
+  DecisionDialect,
+  DecisionDialectBody,
   DecisionError,
   DecisionErrorKind,
   DecisionPreparedMedia,
+  DecisionQuestion,
+  DecisionQuestionMap,
   DecisionRequest,
 } from "../src/lib/types/index.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
@@ -2831,6 +2835,1697 @@ async function configuredMediaSection(): Promise<void> {
   });
 }
 
+// Compares serialized JSON, key order included, and names only the case in a
+// failure: the bodies hold data URLs and the model's wording.
+function assertBytes(actual: unknown, expected: unknown, what: string): void {
+  assert(
+    JSON.stringify(actual) === JSON.stringify(expected),
+    `${what}: the JSON differs from the expected bytes`,
+  );
+}
+
+const IMAGE_URL = "data:image/png;base64,AAAA";
+const VIDEO_URL = "data:video/mp4;base64,BBBB";
+
+async function systemOneBodySection(): Promise<void> {
+  logSection("system-one dialect: buildBody");
+  const { getDecisionDialect } =
+    await import("../dist/providers/decide/dialects/index.js");
+  const { systemOneDialect } =
+    await import("../dist/providers/decide/dialects/systemOne.js");
+  const questions = { q: { type: "noul", instructions: "Is this urgent?" } };
+  const core = `"state":"payouts have failed","questions":{"q":{"type":"noul","instructions":"Is this urgent?"}}`;
+  const build = (input: Partial<DecisionDialectBody>): string =>
+    JSON.stringify(
+      systemOneDialect.buildBody({
+        state: "payouts have failed",
+        questions,
+        ...input,
+      }),
+    );
+  const keys = { imagesKey: "images", videoKey: "video" };
+  const media = (
+    over: Partial<DecisionPreparedMedia> = {},
+  ): DecisionPreparedMedia => ({ images: [], bytes: 0, ...over });
+
+  await test("the registry hands out the one system-one dialect, and it builds bodies", async () => {
+    assert(
+      getDecisionDialect("system-one") === systemOneDialect,
+      "the registry returned another object",
+    );
+    assertEqual(typeof systemOneDialect.buildBody, "function");
+  });
+
+  await test("a model is written first, an empty one included, and none is written when none is given", async () => {
+    assertEqual(
+      build({ model: "typed-decisions" }),
+      `{"model":"typed-decisions",${core}}`,
+    );
+    assertEqual(build({ model: "" }), `{"model":"",${core}}`);
+    assertEqual(build({}), `{${core}}`);
+  });
+
+  await test("state and questions are carried by reference, and key order is model, state, questions", async () => {
+    const state = { nested: { a: 1 } };
+    const body = systemOneDialect.buildBody({
+      model: "m",
+      state,
+      questions,
+    });
+    assert(body.state === state, "the state was copied");
+    assert(body.questions === questions, "the questions were copied");
+    assert(
+      sameJson(Object.keys(body), ["model", "state", "questions"]),
+      "the key order changed",
+    );
+  });
+
+  await test("media keys write nothing for a request with no media", async () => {
+    const bare = `{"model":"m",${core}}`;
+    assertEqual(build({ model: "m", mediaKeys: keys }), bare);
+    assertEqual(build({ model: "m", mediaKeys: keys, media: media() }), bare);
+    // Media without keys is what Laya has: it can never reach the wire.
+    assertEqual(
+      build({
+        model: "m",
+        media: media({ images: [IMAGE_URL], video: VIDEO_URL, bytes: 1 }),
+      }),
+      bare,
+    );
+  });
+
+  await test("images are written under the images key, video under the video key, images first", async () => {
+    const head = `{"model":"m",${core}`;
+    const prepared = (over: Partial<DecisionPreparedMedia>) =>
+      media({ bytes: 1, ...over });
+    assertEqual(
+      build({
+        model: "m",
+        mediaKeys: keys,
+        media: prepared({ images: [IMAGE_URL] }),
+      }),
+      `${head},"images":["${IMAGE_URL}"]}`,
+    );
+    assertEqual(
+      build({
+        model: "m",
+        mediaKeys: keys,
+        media: prepared({ images: [IMAGE_URL, IMAGE_URL] }),
+      }),
+      `${head},"images":["${IMAGE_URL}","${IMAGE_URL}"]}`,
+    );
+    assertEqual(
+      build({
+        model: "m",
+        mediaKeys: keys,
+        media: prepared({ video: VIDEO_URL }),
+      }),
+      `${head},"video":"${VIDEO_URL}"}`,
+    );
+    assertEqual(
+      build({
+        model: "m",
+        mediaKeys: keys,
+        media: prepared({ images: [IMAGE_URL], video: VIDEO_URL }),
+      }),
+      `${head},"images":["${IMAGE_URL}"],"video":"${VIDEO_URL}"}`,
+    );
+  });
+
+  await test("a video is dropped when the entry names no video key, and the key names are the entry's own", async () => {
+    const prepared = media({
+      images: [IMAGE_URL],
+      video: VIDEO_URL,
+      bytes: 1,
+    });
+    assertEqual(
+      build({
+        model: "m",
+        mediaKeys: { imagesKey: "images" },
+        media: prepared,
+      }),
+      `{"model":"m",${core},"images":["${IMAGE_URL}"]}`,
+    );
+    assertEqual(
+      build({
+        model: "m",
+        mediaKeys: { imagesKey: "pictures", videoKey: "clip" },
+        media: prepared,
+      }),
+      `{"model":"m",${core},"pictures":["${IMAGE_URL}"],"clip":"${VIDEO_URL}"}`,
+    );
+  });
+}
+
+// The raw string the stub received, for a byte-for-byte comparison.
+async function wireBodyFor(
+  entry: DecideCatalogJson,
+  extra: Partial<DecisionRequest>,
+): Promise<string> {
+  return withFetchStub(
+    () =>
+      new Response(MEDIA_ANSWER, {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    async (sent) => {
+      const provider = await make(
+        { apiKey: "k-1", baseURL: "https://xor.test" },
+        { entry },
+      );
+      await provider.decide({ ...MEDIA_REQUEST, ...extra });
+      assertEqual(sent.length, 1, "the request did not reach the stub");
+      return sent[0]?.body ?? "";
+    },
+  );
+}
+
+async function systemOneWireSection(): Promise<void> {
+  logSection("ConfiguredDecisionProvider: System One bytes on the wire");
+  const core = `"state":"payouts have failed","questions":{"q":{"type":"noul","instructions":"Is this urgent?"}}`;
+  const withModel = (
+    model: DecideCatalogJson["decide"]["model"],
+  ): DecideCatalogJson => ({
+    ...LAYA_ENTRY,
+    decide: { ...LAYA_ENTRY.decide, model },
+  });
+
+  await test("placement body sends the model first, whatever it is", async () => {
+    const entry = withModel({ placement: "body", alias: "auto" });
+    assertEqual(
+      await wireBodyFor(entry, { model: "typed-decisions" }),
+      `{"model":"typed-decisions",${core}}`,
+    );
+    assertEqual(
+      await wireBodyFor(entry, { model: "auto" }),
+      `{"model":"auto",${core}}`,
+    );
+  });
+
+  await test("body-unless-alias leaves the model out for the alias only", async () => {
+    const entry = withModel({ placement: "body-unless-alias", alias: "auto" });
+    assertEqual(await wireBodyFor(entry, { model: "auto" }), `{${core}}`);
+    assertEqual(
+      await wireBodyFor(entry, { model: "english" }),
+      `{"model":"english",${core}}`,
+    );
+  });
+
+  await test("body-unless-alias with no alias configured always sends the model", async () => {
+    const entry = withModel({ placement: "body-unless-alias" });
+    assertEqual(
+      await wireBodyFor(entry, { model: "auto" }),
+      `{"model":"auto",${core}}`,
+    );
+  });
+
+  await test("an entry with media keys writes images and video exactly as XOR's wire does", async () => {
+    const png = fixtureBytes("red.png");
+    const mp4 = fixtureBytes("red.mp4");
+    const pngUrl = asDataUrl("image/png", png);
+    const mp4Url = asDataUrl("video/mp4", mp4);
+    const head = `{"model":"typed-decisions",${core}`;
+    assertEqual(await wireBodyFor(MEDIA_ENTRY, {}), `${head}}`, "none");
+    assertEqual(
+      await wireBodyFor(MEDIA_ENTRY, { images: [png] }),
+      `${head},"images":[${JSON.stringify(pngUrl)}]}`,
+      "images",
+    );
+    assertEqual(
+      await wireBodyFor(MEDIA_ENTRY, { video: mp4 }),
+      `${head},"video":${JSON.stringify(mp4Url)}}`,
+      "video",
+    );
+    assertEqual(
+      await wireBodyFor(MEDIA_ENTRY, { images: [png, png], video: mp4 }),
+      `${head},"images":[${JSON.stringify(pngUrl)},${JSON.stringify(pngUrl)}],"video":${JSON.stringify(mp4Url)}}`,
+      "both",
+    );
+  });
+}
+
+// The class under test with its dialect replaced, to watch what the base
+// class hands the dialect and what it does with the reading.
+async function spiedProvider(dialect: DecisionDialect) {
+  const Probe = await loadProbe();
+  class Spied extends Probe {
+    protected override dialect(): DecisionDialect {
+      return dialect;
+    }
+  }
+  return withEnv({}, () => new Spied(LAYA_ENTRY, undefined, undefined, GOOD));
+}
+
+async function dialectPlumbingSection(): Promise<void> {
+  logSection(
+    "SystemOneDecisionProvider: what the dialect is given and returns",
+  );
+  const { systemOneDialect } =
+    await import("../dist/providers/decide/dialects/systemOne.js");
+  const { logger } = await import("../dist/utils/logger.js");
+  const questions: DecisionQuestionMap = {
+    q: { type: "boolean", instructions: "Is this urgent?" },
+    r: { type: "boolean", instructions: "Is this a refund?" },
+  };
+  const request: DecisionRequest = {
+    state: "payouts have failed",
+    questions,
+    model: "typed-decisions",
+  };
+  const reply = (): Response =>
+    new Response(
+      JSON.stringify({
+        model: "typed-decisions",
+        answers: {
+          q: { type: "noul", noul: 0.9 },
+          r: { type: "noul", noul: 0.1 },
+        },
+        usage: { input_tokens: 4, output_tokens: 0 },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+  const warnings = (): string[] =>
+    logger.getLogs("warn").map((line) => line.message);
+
+  await test("readAnswers is given the request's own question map as its third argument", async () => {
+    const seen: unknown[] = [];
+    const provider = await spiedProvider({
+      ...systemOneDialect,
+      readAnswers: (decoded, reported, asked) => {
+        seen.push(asked);
+        return systemOneDialect.readAnswers(decoded, reported, asked);
+      },
+    });
+    await withFetchStub(reply, async (sent) => {
+      const result = await provider.decide(request);
+      assertEqual(sent.length, 1, "the request did not reach the stub");
+      assertEqual(seen.length, 1, "readAnswers ran once");
+      assert(seen[0] === questions, "the dialect was given another object");
+      assertEqual(Object.keys(result.answers).length, 2);
+    });
+  });
+
+  await test("a refused id is logged as declined, the answer stays absent, and it is not called unparseable", async () => {
+    const provider = await spiedProvider({
+      ...systemOneDialect,
+      readAnswers: () => ({
+        answers: {
+          r: { type: "boolean", probability: 0.1 },
+        },
+        dropped: [],
+        refused: ["q"],
+      }),
+    });
+    logger.clearLogs();
+    try {
+      // The logger drops warnings unless NEUROLINK_DEBUG is "true".
+      await withEnv({ NEUROLINK_DEBUG: "true" }, () =>
+        withFetchStub(reply, async () => {
+          const result = await provider.decide(request);
+          assertEqual(
+            Object.keys(result.answers).join(","),
+            "r",
+            "only the answered question is present",
+          );
+        }),
+      );
+      assert(
+        warnings().includes('Laya: the model declined to answer "q"'),
+        "the refusal was not logged by name",
+      );
+      assert(
+        !warnings().some((line) => line.includes("dropped unparseable")),
+        "a refusal was logged as unparseable",
+      );
+    } finally {
+      logger.clearLogs();
+    }
+  });
+
+  await test("a dropped id keeps its own log line, and an ordinary reading logs no refusal", async () => {
+    const provider = await spiedProvider({
+      ...systemOneDialect,
+      readAnswers: () => ({ answers: {}, dropped: ["q"] }),
+    });
+    logger.clearLogs();
+    try {
+      await withEnv({ NEUROLINK_DEBUG: "true" }, () =>
+        withFetchStub(reply, async () => {
+          await provider.decide(request);
+        }),
+      );
+      assert(
+        warnings().includes('Laya: dropped unparseable answer "q"'),
+        "the dropped line changed",
+      );
+      assert(
+        !warnings().some((line) => line.includes("declined")),
+        "a refusal was logged without one",
+      );
+    } finally {
+      logger.clearLogs();
+    }
+  });
+}
+
+// Questions and answers are OpenAI's own guide examples, so the cases below
+// can be read against that page.
+const DEPARTMENT_RUBRIC = {
+  billing: "Payments, invoices, and refunds.",
+  technical: "Problems using the product.",
+  shipping: "Delivery and tracking.",
+  other: "Requests outside these categories.",
+} as const;
+const SEVERITY_RUBRIC = [
+  "Appearance only; no lost functionality.",
+  "A task fails, but another way works.",
+  "A task fails with no workaround.",
+] as const;
+const GUIDE_QUESTIONS: DecisionQuestionMap = {
+  visible_damage: {
+    type: "boolean",
+    instructions: "Does the product have visible damage?",
+  },
+  department: {
+    type: "choice",
+    instructions: "Which department should handle this complaint?",
+    criteria: DEPARTMENT_RUBRIC,
+  },
+  severity: {
+    type: "score",
+    instructions: "How severe is this issue?",
+    criteria: SEVERITY_RUBRIC,
+  },
+};
+const GUIDE_PREDICATE = {
+  type: "predicate",
+  name: "visible_damage",
+  probability: 0.92,
+};
+const GUIDE_CHOICE = {
+  type: "choice",
+  name: "department",
+  choice: "billing",
+  probabilities: [
+    { value: "billing", probability: 0.95 },
+    { value: "technical", probability: 0.02 },
+    { value: "shipping", probability: 0.01 },
+    { value: "other", probability: 0.02 },
+  ],
+  confidence: 0.93,
+};
+const GUIDE_SCORE = {
+  type: "score",
+  name: "severity",
+  score: 1.1,
+  probabilities: [
+    { value: 0, label: "Cosmetic", probability: 0.1 },
+    { value: 1, label: "Workaround available", probability: 0.7 },
+    { value: 2, label: "Fully blocked", probability: 0.2 },
+  ],
+  confidence: 0.55,
+};
+
+async function openaiDecisionsEncodeSection(): Promise<void> {
+  logSection("openai-decisions dialect: questions and body");
+  const { getDecisionDialect } =
+    await import("../dist/providers/decide/dialects/index.js");
+  const { openaiDecisionsDialect } =
+    await import("../dist/providers/decide/dialects/openaiDecisions.js");
+  const dialect = getDecisionDialect("openai-decisions");
+  const encode = (question: DecisionQuestion): unknown =>
+    dialect.encodeQuestion(question);
+  const wire = (
+    questions: DecisionQuestionMap,
+  ): Record<string, Record<string, unknown>> =>
+    Object.fromEntries(
+      Object.entries(questions).map(([id, question]) => [
+        id,
+        dialect.encodeQuestion(question),
+      ]),
+    );
+  const bodyFor = (
+    state: DecisionDialectBody["state"],
+    questions: DecisionQuestionMap,
+    over: Partial<DecisionDialectBody> = {},
+  ): string =>
+    JSON.stringify(
+      dialect.buildBody({
+        state,
+        questions: wire(questions),
+        model: "gpt-6-luna",
+        ...over,
+      }),
+    );
+  const damage: DecisionQuestion = {
+    type: "boolean",
+    instructions: "Does the product have visible damage?",
+  };
+
+  await test("the registry returns the module's dialect under its own name", async () => {
+    assert(dialect === openaiDecisionsDialect, "another object came back");
+    assertEqual(dialect.name, "openai-decisions");
+  });
+
+  await test("a boolean question is a predicate, and each side joins the instructions in fixed words", async () => {
+    const q = "Does the product have visible damage?";
+    assertBytes(
+      encode(damage),
+      { type: "predicate", instructions: q },
+      "no criteria",
+    );
+    assertBytes(
+      encode({ ...damage, criteria: {} }),
+      { type: "predicate", instructions: q },
+      "empty criteria",
+    );
+    assertBytes(
+      encode({ ...damage, criteria: { true: "a crack or a dent" } }),
+      {
+        type: "predicate",
+        instructions: `${q}\n\nAnswer true when: a crack or a dent`,
+      },
+      "true side",
+    );
+    assertBytes(
+      encode({ ...damage, criteria: { false: "only a shadow" } }),
+      {
+        type: "predicate",
+        instructions: `${q}\nAnswer false when: only a shadow`,
+      },
+      "false side",
+    );
+    assertBytes(
+      encode({
+        ...damage,
+        criteria: { true: "a crack or a dent", false: "only a shadow" },
+      }),
+      {
+        type: "predicate",
+        instructions: `${q}\n\nAnswer true when: a crack or a dent\nAnswer false when: only a shadow`,
+      },
+      "both sides",
+    );
+    assertBytes(
+      encode({ ...damage, criteria: { true: null, false: "only a shadow" } }),
+      {
+        type: "predicate",
+        instructions: `${q}\nAnswer false when: only a shadow`,
+      },
+      "a null side is absent",
+    );
+  });
+
+  await test("anything that is not a string is sent as its JSON text, in instructions and rubrics", async () => {
+    assertBytes(
+      encode({ type: "boolean", instructions: { check: ["crack", "dent"] } }),
+      { type: "predicate", instructions: '{"check":["crack","dent"]}' },
+      "object instructions",
+    );
+    assertBytes(
+      encode({ type: "boolean", instructions: 5 }),
+      { type: "predicate", instructions: "5" },
+      "number instructions",
+    );
+    assertBytes(
+      encode({ ...damage, criteria: { true: { kind: "crack" }, false: 0 } }),
+      {
+        type: "predicate",
+        instructions:
+          'Does the product have visible damage?\n\nAnswer true when: {"kind":"crack"}\nAnswer false when: 0',
+      },
+      "criteria",
+    );
+    // A string is sent as it is, not as a JSON string literal.
+    assertBytes(
+      encode({ type: "boolean", instructions: 'say "hi"\n' }),
+      { type: "predicate", instructions: 'say "hi"\n' },
+      "string instructions",
+    );
+  });
+
+  await test("a choice question lists its options in the order given, with a description unless it is null", async () => {
+    assertBytes(
+      encode(GUIDE_QUESTIONS.department as DecisionQuestion),
+      {
+        type: "choice",
+        instructions: "Which department should handle this complaint?",
+        choices: [
+          { value: "billing", description: DEPARTMENT_RUBRIC.billing },
+          { value: "technical", description: DEPARTMENT_RUBRIC.technical },
+          { value: "shipping", description: DEPARTMENT_RUBRIC.shipping },
+          { value: "other", description: DEPARTMENT_RUBRIC.other },
+        ],
+      },
+      "guide choice",
+    );
+    assertBytes(
+      encode({
+        type: "choice",
+        instructions: "Which?",
+        criteria: { zeta: "z", alpha: null, mid: { note: "m" } },
+      }),
+      {
+        type: "choice",
+        instructions: "Which?",
+        choices: [
+          { value: "zeta", description: "z" },
+          { value: "alpha" },
+          { value: "mid", description: '{"note":"m"}' },
+        ],
+      },
+      "order, null and object",
+    );
+  });
+
+  await test("a score question numbers its levels from 0 as labels and carries the rubric as the description", async () => {
+    assertBytes(
+      encode(GUIDE_QUESTIONS.severity as DecisionQuestion),
+      {
+        type: "score",
+        instructions: "How severe is this issue?",
+        levels: [
+          { label: "0", description: SEVERITY_RUBRIC[0] },
+          { label: "1", description: SEVERITY_RUBRIC[1] },
+          { label: "2", description: SEVERITY_RUBRIC[2] },
+        ],
+      },
+      "guide score",
+    );
+    assertBytes(
+      encode({
+        type: "score",
+        instructions: "Rate",
+        criteria: ["low", null, { tier: 3 }],
+      }),
+      {
+        type: "score",
+        instructions: "Rate",
+        levels: [
+          { label: "0", description: "low" },
+          { label: "1" },
+          { label: "2", description: '{"tier":3}' },
+        ],
+      },
+      "null and object levels",
+    );
+  });
+
+  await test("text-only evidence goes out as the input string, with the model and named questions", async () => {
+    assertEqual(
+      bodyFor("I was charged twice for my order.", {
+        department: GUIDE_QUESTIONS.department as DecisionQuestion,
+      }),
+      `{"model":"gpt-6-luna","input":"I was charged twice for my order.","questions":[{"type":"choice","instructions":"Which department should handle this complaint?","choices":[{"value":"billing","description":"Payments, invoices, and refunds."},{"value":"technical","description":"Problems using the product."},{"value":"shipping","description":"Delivery and tracking."},{"value":"other","description":"Requests outside these categories."}],"name":"department"}]}`,
+      "the choice request differs from the guide's, by key order aside",
+    );
+  });
+
+  await test("questions go out in the order given, each named by its id, and the encoded questions are not changed", async () => {
+    const encoded = wire(GUIDE_QUESTIONS);
+    const body = dialect.buildBody({
+      state: "s",
+      questions: encoded,
+      model: "m",
+    });
+    const sent: unknown = body.questions;
+    if (!Array.isArray(sent)) {
+      throw new Error("questions is not an array");
+    }
+    assertBytes(
+      sent.map((question: { name?: string; type?: string }) => [
+        question.name,
+        question.type,
+      ]),
+      [
+        ["visible_damage", "predicate"],
+        ["department", "choice"],
+        ["severity", "score"],
+      ],
+      "names and types",
+    );
+    for (const question of Object.values(encoded)) {
+      assert(!("name" in question), "an encoded question gained a name");
+    }
+  });
+
+  await test("two images follow the text in one user message, as data URLs and with no detail key", async () => {
+    const second = "data:image/png;base64,CCCC";
+    assertEqual(
+      bodyFor(
+        "Inspect the product in this photo.",
+        { visible_damage: damage },
+        { media: { images: [IMAGE_URL, second], bytes: 40 } },
+      ),
+      `{"model":"gpt-6-luna","input":[{"role":"user","content":[{"type":"input_text","text":"Inspect the product in this photo."},{"type":"input_image","image_url":"${IMAGE_URL}"},{"type":"input_image","image_url":"${second}"}]}],"questions":[{"type":"predicate","instructions":"Does the product have visible damage?","name":"visible_damage"}]}`,
+      "two images",
+    );
+  });
+
+  await test("an empty state with an image sends no text part", async () => {
+    assertEqual(
+      bodyFor(
+        "",
+        { visible_damage: damage },
+        { media: { images: [IMAGE_URL], bytes: 20 } },
+      ),
+      `{"model":"gpt-6-luna","input":[{"role":"user","content":[{"type":"input_image","image_url":"${IMAGE_URL}"}]}],"questions":[{"type":"predicate","instructions":"Does the product have visible damage?","name":"visible_damage"}]}`,
+      "empty state",
+    );
+    // Whitespace is text, not nothing.
+    assert(
+      bodyFor(
+        " ",
+        { visible_damage: damage },
+        { media: { images: [IMAGE_URL], bytes: 20 } },
+      ).includes('{"type":"input_text","text":" "}'),
+      "a whitespace state lost its text part",
+    );
+  });
+
+  await test("a state that is not a string goes out as its JSON text, a string as it is", async () => {
+    const input = (state: DecisionDialectBody["state"]): unknown =>
+      dialect.buildBody({
+        state,
+        questions: wire({ visible_damage: damage }),
+        model: "m",
+      }).input;
+    assertEqual(
+      input({ ticket: 7, tags: ["a", "b"] }),
+      '{"ticket":7,"tags":["a","b"]}',
+    );
+    assertEqual(input(["a", { b: 1 }]), '["a",{"b":1}]');
+    assertEqual(input(42), "42");
+    assertEqual(input(false), "false");
+    assertEqual(input('say "hi"\n'), 'say "hi"\n');
+    assertEqual(input(""), "");
+  });
+
+  await test("no images means the input string, whatever the media holds, and a video is never sent", async () => {
+    const quiet = { visible_damage: damage };
+    const plain = bodyFor("evidence", quiet);
+    assertEqual(
+      bodyFor("evidence", quiet, { media: { images: [], bytes: 0 } }),
+      plain,
+      "empty images",
+    );
+    assertEqual(
+      bodyFor("evidence", quiet, {
+        media: { images: [], video: VIDEO_URL, bytes: 9 },
+      }),
+      plain,
+      "video only",
+    );
+    const both = bodyFor("evidence", quiet, {
+      media: { images: [IMAGE_URL], video: VIDEO_URL, bytes: 9 },
+    });
+    assert(!both.includes(VIDEO_URL), "a video reached the body");
+    assert(both.includes(IMAGE_URL), "the image is missing: not a test");
+  });
+
+  await test("media keys are the System One layout's, and play no part here", async () => {
+    const body = dialect.buildBody({
+      state: "evidence",
+      questions: wire({ visible_damage: damage }),
+      model: "m",
+      media: { images: [IMAGE_URL], bytes: 1 },
+      mediaKeys: { imagesKey: "images", videoKey: "video" },
+    });
+    assert(
+      sameJson(Object.keys(body), ["model", "input", "questions"]),
+      "the body carries a key other than model, input and questions",
+    );
+  });
+
+  await test("the model key is written when there is one, an empty string included", async () => {
+    const quiet = { visible_damage: damage };
+    assertEqual(
+      bodyFor("e", quiet, { model: undefined }),
+      '{"input":"e","questions":[{"type":"predicate","instructions":"Does the product have visible damage?","name":"visible_damage"}]}',
+      "no model",
+    );
+    assert(
+      bodyFor("e", quiet, { model: "" }).startsWith('{"model":"","input"'),
+      "an empty model was dropped",
+    );
+  });
+
+  await test("77 and 151 generated options are sent complete and in the order given", async () => {
+    for (const count of [77, 151]) {
+      const keys = Array.from(
+        { length: count },
+        (_, i) => `option-${String(i + 1).padStart(3, "0")}`,
+      );
+      const question: DecisionQuestion = {
+        type: "choice",
+        instructions: "Which?",
+        criteria: Object.fromEntries(
+          keys.map((key) => [key, `when ${key} applies`]),
+        ),
+      };
+      const choices: unknown = dialect.encodeQuestion(question).choices;
+      if (!Array.isArray(choices)) {
+        throw new Error("choices is not an array");
+      }
+      assertEqual(choices.length, count, `${count} options: the count`);
+      assertBytes(
+        choices,
+        keys.map((key) => ({ value: key, description: `when ${key} applies` })),
+        `${count} options: the order and text`,
+      );
+      const sent = JSON.parse(bodyFor("s", { q: question }));
+      assertBytes(
+        sent.questions[0].choices,
+        choices,
+        `${count} options: through the body`,
+      );
+    }
+  });
+}
+
+type Reading = ReturnType<DecisionDialect["readAnswers"]>;
+
+async function openaiDecisionsReadSection(): Promise<void> {
+  logSection("openai-decisions dialect: reading answers");
+  const { getDecisionDialect } =
+    await import("../dist/providers/decide/dialects/index.js");
+  const dialect = getDecisionDialect("openai-decisions");
+  const read = (
+    answers: unknown,
+    asked: DecisionQuestionMap = GUIDE_QUESTIONS,
+  ): Reading => dialect.readAnswers({ answers }, {}, asked);
+  const keysOf = (reading: Reading): string[] =>
+    Object.keys(reading?.answers ?? {});
+  const blank = (over: Record<string, unknown>): Record<string, unknown> => ({
+    ...over,
+  });
+
+  const expectedGuide = {
+    answers: {
+      visible_damage: { type: "boolean", probability: 0.92 },
+      department: {
+        type: "choice",
+        choice: "billing",
+        confidence: 0.93,
+        probabilities: {
+          billing: 0.95,
+          technical: 0.02,
+          shipping: 0.01,
+          other: 0.02,
+        },
+      },
+      severity: {
+        type: "score",
+        score: 1.1,
+        confidence: 0.55,
+        legend: {
+          "0": SEVERITY_RUBRIC[0],
+          "1": SEVERITY_RUBRIC[1],
+          "2": SEVERITY_RUBRIC[2],
+        },
+        probabilities: { "0": 0.1, "1": 0.7, "2": 0.2 },
+      },
+    },
+    dropped: [],
+    refused: [],
+  };
+
+  await test("the guide's predicate, choice and score examples read exactly", async () => {
+    assertBytes(
+      read([GUIDE_PREDICATE, GUIDE_CHOICE, GUIDE_SCORE]),
+      expectedGuide,
+      "all three",
+    );
+    // Each alone, in any order: the others stay absent, not dropped.
+    assertBytes(
+      read([GUIDE_SCORE]),
+      {
+        answers: { severity: expectedGuide.answers.severity },
+        dropped: [],
+        refused: [],
+      },
+      "score alone",
+    );
+    assertBytes(
+      read([GUIDE_CHOICE, GUIDE_PREDICATE, GUIDE_SCORE])?.answers,
+      {
+        department: expectedGuide.answers.department,
+        visible_damage: expectedGuide.answers.visible_damage,
+        severity: expectedGuide.answers.severity,
+      },
+      "order of arrival",
+    );
+  });
+
+  await test("a question the server did not answer stays absent, and an empty array reads as no answers", async () => {
+    const reading = read([GUIDE_PREDICATE]);
+    assertBytes(keysOf(reading), ["visible_damage"], "only the answered one");
+    assertBytes(reading?.dropped, [], "nothing dropped");
+    assertBytes(
+      read([]),
+      { answers: {}, dropped: [], refused: [] },
+      "empty array",
+    );
+  });
+
+  await test("an answers value that is not an array is no reading at all", async () => {
+    assertEqual(dialect.readAnswers({}, {}, GUIDE_QUESTIONS), undefined);
+    for (const value of [null, "no", 7, { visible_damage: GUIDE_PREDICATE }]) {
+      assertEqual(read(value), undefined, "a non-array answers value");
+    }
+  });
+
+  await test("an item without a string name, or with a name that was not asked, is dropped by position", async () => {
+    const cases: Array<[string, unknown]> = [
+      ["null", null],
+      ["number", 5],
+      ["string", "text"],
+      ["array", [GUIDE_PREDICATE]],
+      ["no name", blank({ type: "predicate", probability: 0.5 })],
+      ["null name", { ...GUIDE_PREDICATE, name: null }],
+      ["number name", { ...GUIDE_PREDICATE, name: 3 }],
+      ["unasked name", { ...GUIDE_PREDICATE, name: "weather" }],
+      ["inherited name", { ...GUIDE_PREDICATE, name: "constructor" }],
+      ["prototype name", { ...GUIDE_PREDICATE, name: "__proto__" }],
+      ["case differs", { ...GUIDE_PREDICATE, name: "Visible_damage" }],
+    ];
+    for (const [label, bad] of cases) {
+      const reading = read([GUIDE_CHOICE, bad]);
+      assertBytes(keysOf(reading), ["department"], `${label}: the rest kept`);
+      assertBytes(reading?.dropped, ["#1"], `${label}: dropped by position`);
+      assertBytes(reading?.refused, [], `${label}: not a refusal`);
+    }
+  });
+
+  await test("a name that arrives twice loses every answer under it, once in the dropped list, and the others survive", async () => {
+    const again = { ...GUIDE_PREDICATE, probability: 0.1 };
+    const twice = read([GUIDE_PREDICATE, GUIDE_CHOICE, again]);
+    assertBytes(keysOf(twice), ["department"], "twice");
+    assertBytes(twice?.dropped, ["visible_damage"], "twice: listed once");
+    const thrice = read([GUIDE_PREDICATE, again, GUIDE_PREDICATE]);
+    assertBytes(keysOf(thrice), [], "three times");
+    assertBytes(thrice?.dropped, ["visible_damage"], "three times: once");
+    const mixed = read([
+      GUIDE_PREDICATE,
+      { type: "refusal", name: "visible_damage" },
+    ]);
+    assertBytes(keysOf(mixed), [], "an answer and a refusal");
+    assertBytes(mixed?.dropped, ["visible_damage"], "the name is dropped");
+    assertBytes(mixed?.refused, [], "and is not also refused");
+  });
+
+  await test("a refusal is reported by name and leaves the other answers, for every question type", async () => {
+    for (const name of ["visible_damage", "department", "severity"]) {
+      const others = [GUIDE_PREDICATE, GUIDE_CHOICE, GUIDE_SCORE].filter(
+        (answer) => answer.name !== name,
+      );
+      const reading = read([{ type: "refusal", name }, ...others]);
+      assertBytes(reading?.refused, [name], `${name}: refused`);
+      assertBytes(reading?.dropped, [], `${name}: not dropped`);
+      assertEqual(keysOf(reading).length, 2, `${name}: the others arrive`);
+      assert(!keysOf(reading).includes(name), `${name}: an answer appeared`);
+    }
+    const unasked = read([{ type: "refusal", name: "weather" }]);
+    assertBytes(unasked?.refused, [], "a refusal for an unasked name");
+    assertBytes(unasked?.dropped, ["#0"], "is dropped by position");
+  });
+
+  await test("an answer of another type than its question is dropped even when it carries the fields asked for, and so is an unknown type", async () => {
+    // Each wrong-typed answer holds everything the right type would need, so
+    // only the type check can refuse it.
+    const wrong: Array<[string, unknown, string]> = [
+      [
+        "choice typed answer for a predicate",
+        { ...GUIDE_PREDICATE, type: "choice" },
+        "visible_damage",
+      ],
+      [
+        "predicate typed answer for a choice",
+        { ...GUIDE_CHOICE, type: "predicate" },
+        "department",
+      ],
+      [
+        "choice typed answer for a score",
+        { ...GUIDE_SCORE, type: "choice" },
+        "severity",
+      ],
+      [
+        "score typed answer for a choice",
+        { ...GUIDE_CHOICE, type: "score" },
+        "department",
+      ],
+      [
+        "predicate for a choice",
+        { ...GUIDE_PREDICATE, name: "department" },
+        "department",
+      ],
+      [
+        "choice for a predicate",
+        { ...GUIDE_CHOICE, name: "visible_damage" },
+        "visible_damage",
+      ],
+      [
+        "score for a choice",
+        { ...GUIDE_SCORE, name: "department" },
+        "department",
+      ],
+      ["choice for a score", { ...GUIDE_CHOICE, name: "severity" }, "severity"],
+      ["unknown type", { type: "mystery", name: "severity" }, "severity"],
+      ["no type", { name: "severity", score: 1 }, "severity"],
+      [
+        "System One spelling",
+        { type: "noul", name: "visible_damage", noul: 0.9 },
+        "visible_damage",
+      ],
+    ];
+    for (const [label, bad, id] of wrong) {
+      const reading = read([bad]);
+      assertBytes(keysOf(reading), [], `${label}: no answer`);
+      assertBytes(reading?.dropped, [id], `${label}: dropped under its id`);
+    }
+  });
+
+  await test("a predicate probability must be a finite number from 0 to 1", async () => {
+    const withProbability = (probability: unknown): unknown => ({
+      ...GUIDE_PREDICATE,
+      probability,
+    });
+    for (const good of [0, 1, 0.5]) {
+      assertEqual(
+        keysOf(read([withProbability(good)])).length,
+        1,
+        "a probability in range",
+      );
+    }
+    for (const bad of [
+      -0.1,
+      1.1,
+      "0.5",
+      null,
+      undefined,
+      NaN,
+      Infinity,
+      [0.5],
+    ]) {
+      const reading = read([GUIDE_CHOICE, withProbability(bad)]);
+      assertBytes(keysOf(reading), ["department"], "a bad probability");
+      assertBytes(reading?.dropped, ["visible_damage"], "is dropped by id");
+    }
+  });
+
+  await test("a choice must name an asked option and list each asked option exactly once", async () => {
+    const list = (entries: unknown): unknown => ({
+      ...GUIDE_CHOICE,
+      probabilities: entries,
+    });
+    const option = (value: unknown, probability: unknown): unknown => ({
+      value,
+      probability,
+    });
+    const full = [
+      option("billing", 0.95),
+      option("technical", 0.02),
+      option("shipping", 0.01),
+      option("other", 0.02),
+    ];
+    const bad: Array<[string, unknown]> = [
+      ["choice not asked", { ...GUIDE_CHOICE, choice: "legal" }],
+      ["choice with another case", { ...GUIDE_CHOICE, choice: "Billing" }],
+      ["boolean choice", { ...GUIDE_CHOICE, choice: true }],
+      ["number choice", { ...GUIDE_CHOICE, choice: 1 }],
+      ["no choice", blank({ ...GUIDE_CHOICE, choice: undefined })],
+      ["probabilities absent", list(undefined)],
+      ["probabilities as a map", list({ billing: 0.95, technical: 0.05 })],
+      ["an option missing", list(full.slice(0, 3))],
+      [
+        "an option missing and the sum kept at one",
+        list([
+          option("billing", 0.97),
+          option("technical", 0.02),
+          option("other", 0.01),
+        ]),
+      ],
+      ["an unasked option added", list([...full, option("legal", 0)])],
+      [
+        "an unasked option in place of an asked one",
+        list([...full.slice(0, 3), option("legal", 0.02)]),
+      ],
+      [
+        "an option twice and another missing",
+        list([...full.slice(0, 3), option("billing", 0.02)]),
+      ],
+      [
+        "an option twice, a sum of one if the later one were taken, and another missing",
+        list([
+          option("billing", 0.3),
+          option("billing", 0.5),
+          option("technical", 0.2),
+          option("shipping", 0.3),
+        ]),
+      ],
+      ["a boolean value", list([...full.slice(0, 3), option(true, 0.02)])],
+      ["a number value", list([...full.slice(0, 3), option(1, 0.02)])],
+      ["a non-object entry", list([...full.slice(0, 3), "other"])],
+      [
+        "a probability above one",
+        list([
+          option("billing", 1.5),
+          option("technical", -0.5),
+          option("shipping", 0),
+          option("other", 0),
+        ]),
+      ],
+      [
+        "a negative probability",
+        list([
+          option("billing", 1.02),
+          option("technical", -0.02),
+          option("shipping", 0),
+          option("other", 0),
+        ]),
+      ],
+      [
+        "a string probability",
+        list([...full.slice(0, 3), option("other", "0.02")]),
+      ],
+      [
+        "a null probability",
+        list([...full.slice(0, 3), option("other", null)]),
+      ],
+      [
+        "a probability that is not finite",
+        list([...full.slice(0, 3), option("other", NaN)]),
+      ],
+    ];
+    for (const [label, answer] of bad) {
+      const reading = read([GUIDE_PREDICATE, answer]);
+      assertBytes(
+        keysOf(reading),
+        ["visible_damage"],
+        `${label}: the rest kept`,
+      );
+      assertBytes(reading?.dropped, ["department"], `${label}: dropped`);
+    }
+  });
+
+  await test("choice values are typed: a boolean is not the string with the same text", async () => {
+    const asked: DecisionQuestionMap = {
+      flag: {
+        type: "choice",
+        instructions: "Which?",
+        criteria: { true: "yes", false: "no" },
+      },
+    };
+    const answer = (choice: unknown, first: unknown, second: unknown) => ({
+      type: "choice",
+      name: "flag",
+      choice,
+      probabilities: [
+        { value: first, probability: 0.7 },
+        { value: second, probability: 0.3 },
+      ],
+      confidence: 0.7,
+    });
+    assertBytes(
+      keysOf(read([answer("true", "true", "false")], asked)),
+      ["flag"],
+      "strings",
+    );
+    const typed = [
+      answer(true, "true", "false"),
+      answer("true", true, false),
+      answer("true", true, "false"),
+    ];
+    for (const bad of typed) {
+      const reading = read([bad], asked);
+      assertBytes(keysOf(reading), [], "a boolean value: no answer");
+      assertBytes(reading?.dropped, ["flag"], "a boolean value: dropped");
+    }
+  });
+
+  await test("a score must list each level index exactly once, as an integer, with a finite score", async () => {
+    const level = (value: unknown, probability: unknown): unknown => ({
+      value,
+      label: String(value),
+      probability,
+    });
+    const withLevels = (entries: unknown): unknown => ({
+      ...GUIDE_SCORE,
+      probabilities: entries,
+    });
+    const bad: Array<[string, unknown]> = [
+      ["no probabilities", withLevels(undefined)],
+      ["a level missing", withLevels([level(0, 0.5), level(1, 0.5)])],
+      [
+        "a level twice",
+        withLevels([level(0, 0.1), level(1, 0.7), level(1, 0.2)]),
+      ],
+      [
+        "a level beyond the rubric",
+        withLevels([level(0, 0.1), level(1, 0.7), level(3, 0.2)]),
+      ],
+      [
+        "a negative level",
+        withLevels([level(0, 0.1), level(1, 0.7), level(-1, 0.2)]),
+      ],
+      [
+        "a fractional level",
+        withLevels([level(0, 0.1), level(1, 0.7), level(1.5, 0.2)]),
+      ],
+      [
+        "a string level",
+        withLevels([level(0, 0.1), level(1, 0.7), level("2", 0.2)]),
+      ],
+      [
+        "an extra level",
+        withLevels([
+          level(0, 0.1),
+          level(1, 0.7),
+          level(2, 0.1),
+          level(3, 0.1),
+        ]),
+      ],
+      [
+        "a probability above one",
+        withLevels([level(0, 0.1), level(1, 1.2), level(2, -0.3)]),
+      ],
+      ["no score", { ...GUIDE_SCORE, score: undefined }],
+      ["a string score", { ...GUIDE_SCORE, score: "1.1" }],
+      ["a score that is not finite", { ...GUIDE_SCORE, score: Infinity }],
+    ];
+    for (const [label, answer] of bad) {
+      const reading = read([GUIDE_PREDICATE, answer]);
+      assertBytes(
+        keysOf(reading),
+        ["visible_damage"],
+        `${label}: the rest kept`,
+      );
+      assertBytes(reading?.dropped, ["severity"], `${label}: dropped`);
+    }
+  });
+
+  await test("a score must lie between level 0 and the highest level index: the edges are kept and anything beyond is dropped, never clamped", async () => {
+    const kept: Array<[string, number]> = [
+      ["the lowest level", 0],
+      ["the highest level", 2],
+      ["between levels", 1.1],
+    ];
+    for (const [label, score] of kept) {
+      assertEqual(
+        keysOf(read([{ ...GUIDE_SCORE, score }])).includes("severity"),
+        true,
+        `${label}: kept`,
+      );
+    }
+    const beyond: Array<[string, number]> = [
+      ["just below the lowest level", -0.01],
+      ["well below the lowest level", -5],
+      ["just above the highest level", 2.01],
+      ["the level count itself", 3],
+      ["far above", 1e9],
+    ];
+    for (const [label, score] of beyond) {
+      const reading = read([GUIDE_PREDICATE, { ...GUIDE_SCORE, score }]);
+      assertBytes(
+        keysOf(reading),
+        ["visible_damage"],
+        `${label}: the rest kept`,
+      );
+      assertBytes(reading?.dropped, ["severity"], `${label}: dropped`);
+    }
+    // The bound follows the rubric asked: two levels allow 0 to 1 only.
+    const twoLevels: DecisionQuestionMap = {
+      severity: {
+        type: "score",
+        instructions: "How severe is this issue?",
+        criteria: SEVERITY_RUBRIC.slice(0, 2),
+      },
+    };
+    const twoLevel = (score: number): Reading =>
+      read(
+        [
+          {
+            ...GUIDE_SCORE,
+            score,
+            probabilities: GUIDE_SCORE.probabilities
+              .slice(0, 2)
+              .map((entry) => ({
+                ...entry,
+                probability: 0.5,
+              })),
+          },
+        ],
+        twoLevels,
+      );
+    assertEqual(keysOf(twoLevel(1)).length, 1, "two levels: 1 is kept");
+    assertEqual(keysOf(twoLevel(1.5)).length, 0, "two levels: 1.5 is dropped");
+  });
+
+  await test("a confidence outside 0 to 1 drops the answer, never clamped; 0 and 1 are kept", async () => {
+    const confidenceOf = (reading: Reading, id: string): unknown =>
+      (reading?.answers[id] as { confidence?: unknown } | undefined)
+        ?.confidence;
+    for (const answer of [GUIDE_CHOICE, GUIDE_SCORE]) {
+      for (const confidence of [0, 1, 0.5]) {
+        assertEqual(
+          confidenceOf(read([{ ...answer, confidence }]), answer.name),
+          confidence,
+          `${answer.type}: ${confidence} is kept as given`,
+        );
+      }
+      for (const [label, confidence] of [
+        ["just below zero", -0.01],
+        ["just above one", 1.01],
+        ["a percentage", 93],
+        ["far below", -1e9],
+      ] as const) {
+        const reading = read([GUIDE_PREDICATE, { ...answer, confidence }]);
+        assertBytes(
+          keysOf(reading),
+          ["visible_damage"],
+          `${answer.type}, ${label}: the rest kept`,
+        );
+        assertBytes(
+          reading?.dropped,
+          [answer.name],
+          `${answer.type}, ${label}: dropped`,
+        );
+      }
+    }
+  });
+
+  await test("probabilities must sum to one within 0.01: 0.995 is kept and 0.98 dropped, at the edges and in both directions", async () => {
+    const sums: Array<[number, boolean]> = [
+      [0.995, true],
+      [1.005, true],
+      [0.99, true],
+      [1.01, true],
+      [0.98, false],
+      [1.02, false],
+      [0.989, false],
+      [1.011, false],
+      [1, true],
+      [0, false],
+    ];
+    for (const [sum, kept] of sums) {
+      const rest = Number((sum - 0.9).toFixed(3));
+      const choice = {
+        ...GUIDE_CHOICE,
+        probabilities: [
+          { value: "billing", probability: 0.5 },
+          { value: "technical", probability: 0.2 },
+          { value: "shipping", probability: 0.2 },
+          { value: "other", probability: rest },
+        ],
+      };
+      const score = {
+        ...GUIDE_SCORE,
+        probabilities: [
+          { value: 0, label: "0", probability: 0.5 },
+          { value: 1, label: "1", probability: 0.2 },
+          { value: 2, label: "2", probability: rest + 0.2 },
+        ],
+      };
+      for (const answer of [choice, score]) {
+        const reading = read([answer]);
+        const arrived = keysOf(reading).includes(answer.name);
+        assertEqual(arrived, kept, `sum ${sum} for ${answer.type}`);
+      }
+    }
+  });
+
+  await test("confidence is the answer's own, else the largest probability", async () => {
+    const confidenceOf = (reading: Reading, id: string): unknown =>
+      (reading?.answers[id] as { confidence?: unknown } | undefined)
+        ?.confidence;
+    assertEqual(confidenceOf(read([GUIDE_CHOICE]), "department"), 0.93);
+    assertEqual(confidenceOf(read([GUIDE_SCORE]), "severity"), 0.55);
+    for (const absent of [undefined, null, "0.9", NaN]) {
+      assertEqual(
+        confidenceOf(
+          read([{ ...GUIDE_CHOICE, confidence: absent }]),
+          "department",
+        ),
+        0.95,
+        "a choice without a usable confidence",
+      );
+      assertEqual(
+        confidenceOf(
+          read([{ ...GUIDE_SCORE, confidence: absent }]),
+          "severity",
+        ),
+        0.7,
+        "a score without a usable confidence",
+      );
+    }
+  });
+
+  await test("a choice reads back with its probabilities in the order asked, and a score with the rubric as its legend", async () => {
+    const reversed = {
+      ...GUIDE_CHOICE,
+      probabilities: [...GUIDE_CHOICE.probabilities].reverse(),
+    };
+    const reading = read([reversed, GUIDE_SCORE]);
+    assertBytes(
+      Object.keys(
+        (reading?.answers.department as { probabilities: object })
+          .probabilities,
+      ),
+      ["billing", "technical", "shipping", "other"],
+      "asked order",
+    );
+    // A null rubric level has an empty legend entry, as nothing was supplied.
+    const sparse: DecisionQuestionMap = {
+      severity: {
+        type: "score",
+        instructions: "Rate",
+        criteria: ["low", null, { tier: 3 }],
+      },
+    };
+    const legend = (
+      read([GUIDE_SCORE], sparse)?.answers.severity as { legend: object }
+    ).legend;
+    assertBytes(
+      legend,
+      { "0": "low", "1": "", "2": '{"tier":3}' },
+      "legend from the request",
+    );
+  });
+
+  await test("77 and 151 options read back complete, whatever order the server lists them in", async () => {
+    for (const count of [77, 151]) {
+      const keys = Array.from(
+        { length: count },
+        (_, i) => `option-${String(i + 1).padStart(3, "0")}`,
+      );
+      const asked: DecisionQuestionMap = {
+        pick: {
+          type: "choice",
+          instructions: "Which?",
+          criteria: Object.fromEntries(keys.map((key) => [key, `${key}`])),
+        },
+      };
+      const entries = keys
+        .map((value) => ({ value, probability: 1 / count }))
+        .reverse();
+      const reading = read(
+        [
+          {
+            type: "choice",
+            name: "pick",
+            choice: keys[count - 1],
+            probabilities: entries,
+            confidence: 0.4,
+          },
+        ],
+        asked,
+      );
+      const answer = reading?.answers.pick as
+        | { choice: string; probabilities: Record<string, number> }
+        | undefined;
+      assertEqual(
+        Object.keys(answer?.probabilities ?? {}).length,
+        count,
+        `${count}: complete`,
+      );
+      assertBytes(
+        Object.keys(answer?.probabilities ?? {}),
+        keys,
+        `${count}: asked order`,
+      );
+      assertEqual(answer?.choice, keys[count - 1], `${count}: the choice`);
+      assertBytes(reading?.dropped, [], `${count}: nothing dropped`);
+      // One option fewer is not a complete answer.
+      const short = read(
+        [
+          {
+            type: "choice",
+            name: "pick",
+            choice: keys[0],
+            probabilities: entries.slice(1),
+            confidence: 0.4,
+          },
+        ],
+        asked,
+      );
+      assertBytes(short?.dropped, ["pick"], `${count}: one option short`);
+    }
+  });
+
+  await test("a question id named like a prototype key reads into an own property, not the prototype", async () => {
+    const asked: DecisionQuestionMap = JSON.parse(
+      '{"__proto__":{"type":"boolean","instructions":"Is it?"}}',
+    );
+    const reading = read(
+      [{ type: "predicate", name: "__proto__", probability: 0.3 }],
+      asked,
+    );
+    if (reading === undefined) {
+      throw new Error("no reading");
+    }
+    assert(
+      Object.hasOwn(reading.answers, "__proto__"),
+      "the answer is not an own property",
+    );
+    assert(
+      Object.getPrototypeOf(reading.answers) === Object.prototype,
+      "the answers object's prototype changed",
+    );
+    assertBytes(reading.dropped, [], "nothing dropped");
+  });
+}
+
+// The class under test with the OpenAI dialect, to see the whole request path.
+const OPENAI_LIKE: DecideCatalogJson = {
+  ...LAYA_ENTRY,
+  displayName: "OpenAI Decisions",
+  decide: {
+    ...LAYA_ENTRY.decide,
+    dialect: "openai-decisions",
+    endpoint: "{baseURL}/v1/decisions",
+    model: { placement: "body" },
+    requestIdHeaders: ["x-request-id"],
+    response: undefined,
+  },
+};
+
+async function openaiDecisionsProviderSection(): Promise<void> {
+  logSection("ConfiguredDecisionProvider: openai-decisions dialect");
+  const { logger } = await import("../dist/utils/logger.js");
+  const questions: DecisionQuestionMap = {
+    visible_damage: GUIDE_QUESTIONS.visible_damage as DecisionQuestion,
+    department: GUIDE_QUESTIONS.department as DecisionQuestion,
+    severity: GUIDE_QUESTIONS.severity as DecisionQuestion,
+  };
+  const request: DecisionRequest = {
+    state: "I was charged twice for my order.",
+    questions,
+    model: "gpt-6-luna",
+  };
+  const replyWith = (
+    answers: unknown,
+    headers: Record<string, string> = {},
+  ): (() => Response) => {
+    return () =>
+      new Response(
+        JSON.stringify({
+          model: "gpt-6-luna",
+          answers,
+          usage: { input_tokens: 31, output_tokens: 0, total_tokens: 31 },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json", ...headers },
+        },
+      );
+  };
+  const warnings = (): string[] =>
+    logger.getLogs("warn").map((line) => line.message);
+
+  await test("decide() posts the OpenAI body to the configured endpoint and reads the guide's answers", async () => {
+    await withFetchStub(
+      replyWith([GUIDE_PREDICATE, GUIDE_CHOICE, GUIDE_SCORE], {
+        "x-request-id": "req-9",
+      }),
+      async (sent) => {
+        const provider = await make(GOOD, { entry: OPENAI_LIKE });
+        const result = await provider.decide(request);
+        assertEqual(sent.length, 1, "the request did not reach the stub");
+        assertEqual(sent[0]?.url, "https://laya.test/base/v1/decisions");
+        assertEqual(sent[0]?.headers.authorization, "Bearer k-1");
+        const body = JSON.parse(sent[0]?.body ?? "");
+        assertBytes(
+          Object.keys(body),
+          ["model", "input", "questions"],
+          "the body keys",
+        );
+        assertEqual(body.model, "gpt-6-luna");
+        assertEqual(body.input, "I was charged twice for my order.");
+        assertBytes(
+          body.questions.map((q: { name: string }) => q.name),
+          ["visible_damage", "department", "severity"],
+          "question names",
+        );
+        assertBytes(
+          result.answers,
+          {
+            visible_damage: { type: "boolean", probability: 0.92 },
+            department: {
+              type: "choice",
+              choice: "billing",
+              confidence: 0.93,
+              probabilities: {
+                billing: 0.95,
+                technical: 0.02,
+                shipping: 0.01,
+                other: 0.02,
+              },
+            },
+            severity: {
+              type: "score",
+              score: 1.1,
+              confidence: 0.55,
+              legend: {
+                "0": SEVERITY_RUBRIC[0],
+                "1": SEVERITY_RUBRIC[1],
+                "2": SEVERITY_RUBRIC[2],
+              },
+              probabilities: { "0": 0.1, "1": 0.7, "2": 0.2 },
+            },
+          },
+          "the decision's answers",
+        );
+        assertEqual(result.model, "gpt-6-luna");
+        assertEqual(result.requestId, "req-9");
+        assertEqual(result.usage.inputTokens, 31);
+        assertEqual(result.usage.outputTokens, 0);
+      },
+    );
+  });
+
+  await test("a refusal leaves that question without an answer, the others arrive, and the log names the refusal", async () => {
+    logger.clearLogs();
+    try {
+      await withEnv({ NEUROLINK_DEBUG: "true" }, () =>
+        withFetchStub(
+          replyWith([
+            GUIDE_PREDICATE,
+            { type: "refusal", name: "department" },
+            GUIDE_SCORE,
+          ]),
+          async (sent) => {
+            const result = await (
+              await make(GOOD, { entry: OPENAI_LIKE })
+            ).decide(request);
+            assertEqual(sent.length, 1, "the request did not reach the stub");
+            assertBytes(
+              Object.keys(result.answers),
+              ["visible_damage", "severity"],
+              "answered questions",
+            );
+          },
+        ),
+      );
+      assert(
+        warnings().includes(
+          'OpenAI Decisions: the model declined to answer "department"',
+        ),
+        "the refusal was not logged by name",
+      );
+      assert(
+        !warnings().some((line) => line.includes("dropped unparseable")),
+        "a refusal was logged as unparseable",
+      );
+    } finally {
+      logger.clearLogs();
+    }
+  });
+
+  await test("an answer that fails a check is dropped with a warning and the rest of the batch arrives", async () => {
+    logger.clearLogs();
+    try {
+      await withEnv({ NEUROLINK_DEBUG: "true" }, () =>
+        withFetchStub(
+          replyWith([
+            GUIDE_PREDICATE,
+            { ...GUIDE_CHOICE, choice: "legal" },
+            { ...GUIDE_SCORE, name: "not-asked" },
+          ]),
+          async () => {
+            const result = await (
+              await make(GOOD, { entry: OPENAI_LIKE })
+            ).decide(request);
+            assertBytes(
+              Object.keys(result.answers),
+              ["visible_damage"],
+              "answered questions",
+            );
+          },
+        ),
+      );
+      const logged = warnings();
+      assert(
+        logged.includes(
+          'OpenAI Decisions: dropped unparseable answer "department"',
+        ),
+        "the bad choice was not named",
+      );
+      assert(
+        logged.includes('OpenAI Decisions: dropped unparseable answer "#2"'),
+        "the unasked name was not reported by position",
+      );
+    } finally {
+      logger.clearLogs();
+    }
+  });
+
+  await test("a System One shaped answers map is a server error, not an empty decision", async () => {
+    await withFetchStub(
+      replyWith({ visible_damage: { type: "noul", noul: 0.9 } }),
+      async (sent) => {
+        const error = await (await make(GOOD, { entry: OPENAI_LIKE }))
+          .decide(request)
+          .then(
+            () => undefined,
+            (rejection: unknown) => rejection,
+          );
+        assertEqual(sent.length, 1, "the request did not reach the stub");
+        assertEqual(causeKind(error), "server");
+      },
+    );
+  });
+
+  await test("an image rides in the user message form of the input", async () => {
+    const png = fixtureBytes("red.png");
+    const pngUrl = asDataUrl("image/png", png);
+    const entry: DecideCatalogJson = {
+      ...MEDIA_ENTRY,
+      displayName: "OpenAI Decisions",
+      decide: {
+        ...OPENAI_LIKE.decide,
+        media: undefined,
+      },
+    };
+    await withFetchStub(replyWith([GUIDE_PREDICATE]), async (sent) => {
+      const provider = await make(GOOD, { entry });
+      await provider.decide({
+        state: "Inspect the product in this photo.",
+        questions: {
+          visible_damage: questions.visible_damage as DecisionQuestion,
+        },
+        model: "gpt-6-luna",
+        images: [png],
+      });
+      assertEqual(sent.length, 1, "the request did not reach the stub");
+      assertEqual(
+        sent[0]?.body,
+        `{"model":"gpt-6-luna","input":[{"role":"user","content":[{"type":"input_text","text":"Inspect the product in this photo."},{"type":"input_image","image_url":${JSON.stringify(pngUrl)}}]}],"questions":[{"type":"predicate","instructions":"Does the product have visible damage?","name":"visible_damage"}]}`,
+        "the image request body",
+      );
+    });
+  });
+}
+
 await runSuite(async () => {
   await readPathSection();
   await baseUrlSection();
@@ -2845,4 +4540,10 @@ await runSuite(async () => {
   await configuredBehaviourSection();
   await configuredBaseUrlShapeSection();
   await configuredMediaSection();
+  await systemOneBodySection();
+  await systemOneWireSection();
+  await dialectPlumbingSection();
+  await openaiDecisionsEncodeSection();
+  await openaiDecisionsReadSection();
+  await openaiDecisionsProviderSection();
 });

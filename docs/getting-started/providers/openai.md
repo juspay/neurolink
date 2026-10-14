@@ -61,6 +61,26 @@ OPENAI_API_KEY=sk-your-key-here
 OPENAI_MODEL=gpt-4o
 ```
 
+> **`OPENAI_API_KEY` also configures decisions.** The same variable configures the
+> [OpenAI Decisions provider](openai-decisions.md) (`openai-decisions`, which
+> serves `decide()`). So setting it for chat also lets NeuroLink's built-in
+> features send decision requests to OpenAI when no TypeSafe, Laya, XOR,
+> Perplexity or Cloudflare Clef provider is configured, and context compaction
+> needs no other opt-in to do so. Those are paid calls, and they fail open. To
+> avoid that, pass the key through the SDK as `credentials.openai.apiKey` instead
+> of the environment, and keep it out of `.env` too: the SDK and the CLI load that
+> file into the environment, so an `OPENAI_API_KEY` line like the one above would
+> still configure decisions. See
+> [What is sent to OpenAI](openai-decisions.md#what-is-sent-to-openai) and
+> [One key, two providers](openai-decisions.md#one-key-two-providers).
+>
+> If you point the chat provider at a gateway (LiteLLM, vLLM and the like) with
+> `OPENAI_BASE_URL`, `OPENAI_API_BASE` or `credentials.openai.baseURL`, the key is the gateway's and is **not**
+> used for decisions by default: while any of them names a host other than
+> `https://api.openai.com`, NeuroLink's built-in features send nothing to OpenAI's
+> Decisions API (only a call that names `openai-decisions` does, with that key). See
+> [A gateway's key](openai-decisions.md#a-gateways-key-is-never-used-for-the-default).
+
 ### 3. Test the Setup
 
 === "SDK Usage"
@@ -464,6 +484,7 @@ echo ".env" >> .gitignore
 ## Related Documentation
 
 - **[Provider Setup Guide](../provider-setup.md)** -- General provider configuration
+- **[OpenAI Decisions Provider](./openai-decisions.md)** -- Typed `decide()` judgments on the same key
 - **[OpenAI Compatible Provider](./openai-compatible.md)** -- For OpenRouter, vLLM, and other OpenAI-compatible endpoints
 - **[Azure OpenAI Provider](./azure-openai.md)** -- Azure-hosted OpenAI models
 

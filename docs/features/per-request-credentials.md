@@ -114,8 +114,11 @@ All fields are optional — omit any field you want to fall through to a lower-p
 | Perplexity Decisions | `perplexityDecider` | `apiKey`, `baseURL` (optional: defaults to `https://api.perplexity.ai`; calls `<base>/v1/decisions`)          |
 | Cloudflare Clef      | `cloudflareClef`    | `apiKey`, `accountId`, `baseURL` (optional: defaults to `https://api.cloudflare.com/client/v4`)               |
 | SubQ                 | `subq`              | `apiKey`, `baseURL` (optional: defaults to `https://api.subq.ai`; calls `<base>/v1/systemone`)                |
+| OpenAI Decisions     | `openaiDecisions`   | `apiKey`, `baseURL` (optional: defaults to `https://api.openai.com`; calls `<base>/v1/decisions`)             |
 
 Cloudflare Clef needs both `apiKey` and `accountId`; the account id is part of the route (`<base>/accounts/<accountId>/ai/run/@cf/cloudflare/<model>`), so a token alone does not configure it. `credentials.cloudflare` is the Workers AI text provider's slice and does **not** configure `decide`: the two providers read the same `CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID` variables but take their own credentials; see [One token, two providers](../getting-started/providers/cloudflare-clef.md#one-token-two-providers).
+
+`credentials.openai` is the chat provider's slice and does **not** configure `decide`; OpenAI Decisions reads its own, `credentials.openaiDecisions`. The two providers read the same `OPENAI_API_KEY` variable from the environment, so an ambient key set for chat does configure `decide` as the last-resort default provider, unless `OPENAI_BASE_URL`, `OPENAI_API_BASE` or `credentials.openai.baseURL` names a host other than `https://api.openai.com` (then it is taken to be a gateway's; a `credentials.openaiDecisions` key or base URL, or `OPENAI_DECISIONS_BASE_URL`, lifts that), and `credentials.openai` does not; see [One key, two providers](../getting-started/providers/openai-decisions.md#one-key-two-providers).
 
 The full type definition is `NeurolinkCredentials` in `src/lib/types/providers.ts`.
 

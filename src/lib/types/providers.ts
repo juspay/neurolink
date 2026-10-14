@@ -23,6 +23,7 @@ import {
 import type { ValidationSchema } from "./aliases.js";
 import type { STTCredentials } from "./transcribe.js";
 import type {
+  DecideAmbientKeyGuard,
   DecisionLimits,
   DecisionRequest,
   DecisionResult,
@@ -306,6 +307,7 @@ export type NeurolinkCredentials = {
   nebius?: { apiKey?: string; baseURL?: string };
   neuralwatt?: { apiKey?: string; baseURL?: string };
   novita?: { apiKey?: string; baseURL?: string };
+  openaiDecisions?: { apiKey?: string; baseURL?: string };
   ovhcloud?: { apiKey?: string; baseURL?: string };
   parasail?: { apiKey?: string; baseURL?: string };
   paretoInference?: { apiKey?: string; baseURL?: string };
@@ -2536,6 +2538,13 @@ export type ProviderDescriptor = {
    * descriptor that serves `decide`; checked when the descriptors load.
    */
   decideOrder?: number;
+  /**
+   * Skips this provider's environment key for default resolution while a
+   * listed base-URL variable names a host outside the trusted origins. Only a
+   * decide provider whose key is also another provider's can use it. See
+   * {@link DecideAmbientKeyGuard}.
+   */
+  ambientKeyGuard?: DecideAmbientKeyGuard;
   /**
    * Ascending priority (1 = tried first) in the auto-select fallback chain
    * used by getBestProvider(). Undefined = not part of the auto-select chain.

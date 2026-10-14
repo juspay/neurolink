@@ -64,7 +64,7 @@
           "type": "object",
           "additionalProperties": false,
           "required": ["maxImages", "video", "maxRequestBytes"],
-          "description": "What a request may carry besides text. Requires decide.media, which names the body keys the prepared media is written under.",
+          "description": "What a request may carry besides text. With dialect system-one it requires decide.media, which names the body keys the prepared media is written under; with openai-decisions it stands alone and video must be false.",
           "properties": {
             "maxImages": { "type": "integer", "minimum": 1 },
             "video": {
@@ -102,7 +102,10 @@
       "required": ["dialect", "order", "endpoint", "model", "errors"],
       "description": "Decide entries only: how a decision provider is called and how its errors are classified.",
       "properties": {
-        "dialect": { "enum": ["system-one"] },
+        "dialect": {
+          "enum": ["system-one", "openai-decisions"],
+          "description": "The wire family. openai-decisions places images in the request input itself, so it refuses decide.media, a video allowance and any model placement other than body (enforced by the zod schema)."
+        },
         "order": {
           "type": "integer",
           "minimum": 1,
@@ -143,10 +146,60 @@
           "type": "object",
           "additionalProperties": false,
           "required": ["imagesKey"],
-          "description": "Body keys prepared media is written under, after model, state and questions: imagesKey only when the request carries an image, videoKey only when it carries a video, and the two differ. Requires decisionLimits.media; videoKey is required exactly when that allowance's video is true.",
+          "description": "Body keys prepared media is written under, after model, state and questions: imagesKey only when the request carries an image, videoKey only when it carries a video, and the two differ. With dialect system-one it requires decisionLimits.media, and videoKey is required exactly when that allowance's video is true. Not valid with openai-decisions.",
           "properties": {
             "imagesKey": { "$ref": "#/definitions/decideMediaKey" },
             "videoKey": { "$ref": "#/definitions/decideMediaKey" }
+          }
+        },
+        "ambientKeyGuard": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["baseURLEnvVars", "trustedOrigins"],
+          "description": "Keeps a key found only in the environment from becoming the default decision provider while another host is named. The key is skipped for default resolution when any baseURLEnvVars variable, or any credentials field in credentialBaseURLs (read from the credentials the resolver is given: the instance's merged with the call's), holds a URL whose origin (scheme, host and port, compared case-insensitively; path and trailing slash ignored) is not in trustedOrigins; a value that does not parse as an http(s) URL counts as untrusted and a blank one as unset. It does not apply when the provider's own base-URL variable is set or credentials supply a key or a base URL, and never to a call that names the provider. The zod schema also refuses what JSON Schema cannot say: an origin without a valid host (such as 999.999.999.999) or with a port above 65535, a variable, an origin or a credentials field listed twice, and the provider's own base-URL variable in baseURLEnvVars.",
+          "properties": {
+            "baseURLEnvVars": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[A-Z][A-Z0-9_]*$"
+              }
+            },
+            "trustedOrigins": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "maxLength": 100,
+                "pattern": "^https?://[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*(:[0-9]{1,5})?$"
+              }
+            },
+            "credentialBaseURLs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8,
+              "uniqueItems": true,
+              "description": "Credentials fields that move the key's other users off the vendor's host, such as the chat provider's credentials.openai.baseURL. Omitted means only the environment is read.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["key", "field"],
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
+                  },
+                  "field": { "enum": ["baseURL"] }
+                }
+              }
+            }
           }
         },
         "requestIdHeaders": {

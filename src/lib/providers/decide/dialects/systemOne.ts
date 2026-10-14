@@ -97,6 +97,24 @@ function encodeQuestion(question: DecisionQuestion): Record<string, unknown> {
 export const systemOneDialect: DecisionDialect = {
   name: "system-one",
   encodeQuestion,
+  buildBody: ({ state, questions, model, media, mediaKeys }) => {
+    const body =
+      model === undefined ? { state, questions } : { model, state, questions };
+    if (!mediaKeys || !media) {
+      return body;
+    }
+    // A key is written only for media the request carries: a server may refuse
+    // an empty `images`.
+    return {
+      ...body,
+      ...(media.images.length > 0
+        ? { [mediaKeys.imagesKey]: media.images }
+        : {}),
+      ...(media.video && mediaKeys.videoKey
+        ? { [mediaKeys.videoKey]: media.video }
+        : {}),
+    };
+  },
   readAnswers: (decoded, reportedConfidence) => {
     const raw = decoded.answers;
     if (!isRecord(raw)) {

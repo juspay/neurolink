@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import type { ConfiguredDecisionProvider } from "../../dist/providers/configuredDecision.js";
 import type {
@@ -652,11 +654,119 @@ const HOSTILE_TEXT =
   "  \n{baseURL} {model} {accountId} {apiKey} </script> 'quoted' \"double\" \t\n";
 const HOSTILE_OBJECT = { note: "{baseURL}", list: [1, "{model}"] };
 
-// What a boolean question is called on each dialect's wire; a new dialect adds
-// its row here.
-const BOOLEAN_WIRE_TYPE: ReadonlyMap<string, string> = new Map([
-  ["system-one", "noul"],
+// How a dialect lays a request out on the wire, and what a reply with no
+// answer container looks like. The cases below read the body through this, so
+// they do not assume System One's `state` and question map. Written here, not
+// imported, like ruleMatches: a layout read from the code under test would
+// agree with its mistakes. A new dialect adds its row to WIRE_VIEWS.
+type WireView = {
+  // What a boolean question is called on this wire.
+  readonly booleanType: string;
+  // The body's field names, sorted and joined, for a request that does or does
+  // not name a model.
+  readonly fields: (modelSent: boolean) => string;
+  // The questions the body carries, keyed by the id the caller gave them.
+  readonly questionsOf: (
+    body: Record<string, unknown>,
+  ) => Record<string, unknown>;
+  // Where the body carries the state, and what it carries for a given state.
+  readonly stateOf: (body: Record<string, unknown>) => unknown;
+  readonly stateSent: (state: DecisionRequest["state"]) => unknown;
+  // 200 replies that hold no answer container on this wire.
+  readonly noContainerReplies: readonly RespondSpec[];
+  // The text and the images of a body that carries images, when the dialect
+  // has them in the state; undefined when the body is not in that form.
+  readonly mediaOf?: (
+    body: Record<string, unknown>,
+  ) =>
+    | { readonly text: string; readonly images: readonly string[] }
+    | undefined;
+};
+
+const SYSTEM_ONE_VIEW: WireView = {
+  booleanType: "noul",
+  fields: (modelSent) =>
+    modelSent ? "model,questions,state" : "questions,state",
+  questionsOf: (body) => asRecord(body.questions),
+  stateOf: (body) => body.state,
+  stateSent: (state) => state,
+  noContainerReplies: [
+    { status: 200, json: {} },
+    { status: 200, json: { answers: [] } },
+    { status: 200, json: { answers: "none" } },
+    { status: 200, json: null },
+    { status: 200, text: "OK" },
+  ],
+};
+
+// OpenAI's wire: the questions are a list that names each one, the state is
+// `input` (text, or one user message when images ride along), and the answers
+// are a list. An empty list is a valid reply (every question unanswered), so
+// it is not among the replies without a container.
+const OPENAI_DECISIONS_VIEW: WireView = {
+  booleanType: "predicate",
+  fields: (modelSent) =>
+    modelSent ? "input,model,questions" : "input,questions",
+  questionsOf: (body) =>
+    Object.fromEntries(
+      (Array.isArray(body.questions) ? body.questions : [])
+        .filter(isRecord)
+        .flatMap(
+          (question): Array<[string, unknown]> =>
+            typeof question.name === "string"
+              ? [[question.name, question]]
+              : [],
+        ),
+    ),
+  stateOf: (body) => body.input,
+  stateSent: (state) =>
+    typeof state === "string" ? state : JSON.stringify(state),
+  noContainerReplies: [
+    { status: 200, json: {} },
+    { status: 200, json: { answers: {} } },
+    { status: 200, json: { answers: "none" } },
+    { status: 200, json: null },
+    { status: 200, text: "OK" },
+  ],
+  mediaOf: (body) => {
+    const message: unknown = Array.isArray(body.input)
+      ? body.input.length === 1
+        ? body.input[0]
+        : undefined
+      : undefined;
+    const parts =
+      isRecord(message) && message.role === "user"
+        ? message.content
+        : undefined;
+    if (!Array.isArray(parts) || !parts.every(isRecord)) {
+      return undefined;
+    }
+    return {
+      text: parts
+        .flatMap((part) =>
+          part.type === "input_text" && typeof part.text === "string"
+            ? [part.text]
+            : [],
+        )
+        .join(""),
+      images: parts.flatMap((part): string[] =>
+        part.type === "input_image" && typeof part.image_url === "string"
+          ? [part.image_url]
+          : [],
+      ),
+    };
+  },
+};
+
+const WIRE_VIEWS: ReadonlyMap<string, WireView> = new Map([
+  ["system-one", SYSTEM_ONE_VIEW],
+  ["openai-decisions", OPENAI_DECISIONS_VIEW],
 ]);
+
+// A dialect with no row still runs the cases under System One's layout, as
+// before; its wire case is what fails, by name.
+const wireViewOf = (entry: DecideCatalogJson): WireView =>
+  WIRE_VIEWS.get(entry.decide.dialect) ?? SYSTEM_ONE_VIEW;
 
 // Labels name the spelling in words: the spelled value itself is not printed.
 const SPELLINGS: ReadonlyArray<readonly [string, (base: string) => string]> = [
@@ -678,7 +788,9 @@ function wireCases(
   const { placement, alias } = entry.decide.model;
   const defaultIsAlias =
     placement === "body-unless-alias" && entry.models.default === alias;
-  const booleanWire = BOOLEAN_WIRE_TYPE.get(entry.decide.dialect);
+  const knownView = WIRE_VIEWS.get(entry.decide.dialect);
+  const view = knownView ?? SYSTEM_ONE_VIEW;
+  const booleanWire = knownView?.booleanType;
   const bodyOf = (calls: Calls) => asRecord(calls[0]?.bodyJson);
   // Any request is answered, so a misrouted one is recorded and judged under
   // a fixed label instead of failing inside the mock, whose error repeats it.
@@ -693,7 +805,7 @@ function wireCases(
   ): void =>
     ctx.eq(
       Object.keys(body).sort().join(","),
-      modelSent ? "model,questions,state" : "questions,state",
+      view.fields(modelSent),
       "the body carries exactly these fields",
     );
   const expectDefaultModel = (
@@ -715,7 +827,7 @@ function wireCases(
     run: async (ctx) => {
       ctx.ok(
         booleanWire !== undefined,
-        `no boolean wire type is known for dialect "${entry.decide.dialect}": add it to BOOLEAN_WIRE_TYPE`,
+        `no boolean wire type is known for dialect "${entry.decide.dialect}": add a row for it to WIRE_VIEWS`,
       );
       await ctx.mock(served(ctx), async (calls) => {
         await ctx.ask({ questions: QUESTIONS });
@@ -734,7 +846,7 @@ function wireCases(
           "content type",
         );
         expectDefaultModel(ctx, bodyOf(calls));
-        const questions = asRecord(bodyOf(calls).questions);
+        const questions = view.questionsOf(bodyOf(calls));
         ctx.ok(
           asRecord(questions.urgent).type === booleanWire,
           `boolean sent as ${booleanWire}`,
@@ -857,11 +969,17 @@ function wireCases(
           "template-looking state does not change the route",
         );
         ctx.ok(
-          isDeepStrictEqual(bodyOf(calls).state, HOSTILE_TEXT),
+          isDeepStrictEqual(
+            view.stateOf(bodyOf(calls)),
+            view.stateSent(HOSTILE_TEXT),
+          ),
           "text state",
         );
         ctx.ok(
-          isDeepStrictEqual(asRecord(calls[1].bodyJson).state, HOSTILE_OBJECT),
+          isDeepStrictEqual(
+            view.stateOf(asRecord(calls[1].bodyJson)),
+            view.stateSent(HOSTILE_OBJECT),
+          ),
           "object state",
         );
       });
@@ -931,6 +1049,49 @@ function wireCases(
       },
     };
   };
+  // For a dialect whose view can read images out of the state: how they leave
+  // the provider, from the caller's bytes to the body. The expected data URL is
+  // built here from the file's bytes, not taken from the provider.
+  const imageCase = (
+    mediaOf: NonNullable<WireView["mediaOf"]>,
+    refusesVideo: boolean,
+  ): ContractCase => ({
+    name: `DECIDE ${id}: images ride in the input as one user message`,
+    run: async (ctx) => {
+      const png = readFileSync(join(DECIDE_FIXTURE_ROOT, "xor", "blue.png"));
+      const dataUrl = `data:image/png;base64,${png.toString("base64")}`;
+      await ctx.mock(served(ctx), async (calls) => {
+        await ctx.ask({ state: "short note", images: [png] });
+        await ctx.ask({ state: "short note", images: [png, png] });
+        ctx.eq(calls.length, 2, "requests that reached the mock");
+        const one = mediaOf(asRecord(calls[0].bodyJson));
+        ctx.ok(one !== undefined, "the input is one user message");
+        ctx.ok(one?.text === "short note", "the state text rides with them");
+        ctx.ok(
+          isDeepStrictEqual(one?.images, [dataUrl]),
+          "one image, as a base64 data URL",
+        );
+        ctx.ok(
+          isDeepStrictEqual(mediaOf(asRecord(calls[1].bodyJson))?.images, [
+            dataUrl,
+            dataUrl,
+          ]),
+          "two images, in order",
+        );
+        expectFields(ctx, asRecord(calls[0].bodyJson), true);
+        if (refusesVideo) {
+          const failure = await ctx.refusedWithoutRequest(calls, {
+            video: png,
+          });
+          ctx.ok(
+            failure.kind === "invalid_request" && failure.retryable === false,
+            "a video is refused as an invalid request",
+          );
+        }
+      });
+    },
+  });
+  const media = entry.decisionLimits?.media;
   return [
     wire,
     readBack,
@@ -942,6 +1103,9 @@ function wireCases(
       : []),
     ...(placement === "body-unless-alias" && alias !== undefined
       ? [aliasCase(alias)]
+      : []),
+    ...(view.mediaOf !== undefined && media !== undefined
+      ? [imageCase(view.mediaOf, media.video !== true)]
       : []),
   ];
 }
@@ -1717,14 +1881,7 @@ function malformedCases(
   const noAnswers: ContractCase = {
     name: `DECIDE ${id}: a 200 without an answers container is a server error, not retried`,
     run: async (ctx) => {
-      const replies: RespondSpec[] = [
-        { status: 200, json: {} },
-        { status: 200, json: { answers: [] } },
-        { status: 200, json: { answers: "none" } },
-        { status: 200, json: null },
-        { status: 200, text: "OK" },
-      ];
-      for (const reply of replies) {
+      for (const reply of wireViewOf(entry).noContainerReplies) {
         const label = JSON.stringify(reply);
         await ctx.mock([ctx.route(reply)], async (calls) => {
           const failure = await ctx.refused();
@@ -1869,7 +2026,9 @@ function limitCases(entry: DecideCatalogJson): ContractCase[] {
         ctx.ok(atCap !== undefined, "a batch at the cap is sent");
         ctx.eq(calls.length, 1, "a batch at the cap reaches the mock");
         ctx.eq(
-          Object.keys(asRecord(asRecord(calls[0]?.bodyJson).questions)).length,
+          Object.keys(
+            wireViewOf(entry).questionsOf(asRecord(calls[0]?.bodyJson)),
+          ).length,
           cap,
           "every question is sent",
         );

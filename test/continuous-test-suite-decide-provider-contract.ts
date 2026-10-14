@@ -117,7 +117,7 @@ function scaffold(
 
 const HOSTILE_MODEL = 'm"x\\y';
 const SELF_HOSTED_MODEL = "acme-1";
-// The hand-written and built-in decide providers hold 1 to 6; a filled-in scaffold needs a free number.
+// The hand-written and built-in decide providers hold 1 to 7; a filled-in scaffold needs a free number.
 const FREE_ORDER = { selfHosted: 91, builtIn: 92 } as const;
 
 const selfHosted = scaffold([
@@ -1162,6 +1162,37 @@ if (!("fixture" in xorDisk)) {
 }
 const XOR_DISK: DecideContractFixture = xorDisk.fixture;
 const xorRun = await runDecideProviderContract(XOR_ENTRY, { quiet: true });
+
+// The shipped openai-decisions.json: the one entry on a second dialect, so it
+// is the entry the loop's per-dialect wire view is judged on. Quiet for the
+// same reason as XOR's.
+const openaiSource: unknown = JSON.parse(
+  readFileSync(
+    join(
+      process.cwd(),
+      "src",
+      "lib",
+      "providers",
+      "catalog",
+      "openai-decisions.json",
+    ),
+    "utf8",
+  ),
+);
+const OPENAI_ENTRY: DecideCatalogJson = await parseDecideEntry(
+  openaiSource,
+  "openai-decisions.json",
+);
+const openaiDisk = loadContractFixture(OPENAI_ENTRY, undefined);
+if (!("fixture" in openaiDisk)) {
+  throw new Error(
+    `the OpenAI Decisions contract fixture is unusable: ${openaiDisk.problem}`,
+  );
+}
+const OPENAI_DISK: DecideContractFixture = openaiDisk.fixture;
+const openaiRun = await runDecideProviderContract(OPENAI_ENTRY, {
+  quiet: true,
+});
 
 // Hyphenated id and renamed variables: a loop that guessed the names would
 // blank the wrong variable and fail on this entry.
@@ -2846,6 +2877,330 @@ await test("a message-pattern rule is judged on the message as well as the statu
       },
     ],
     subject,
+  );
+});
+
+// ---- OpenAI Decisions: the second dialect through the same loop ----
+
+function openaiPassed(name: string): void {
+  const found = openaiRun.recorded.find((r) => r.name === name);
+  if (found === undefined) {
+    throw new Error(`no result named "${name}"`);
+  }
+  assert(found.ok, `${name} failed: ${found.reason ?? ""}`);
+}
+
+await test("the shipped openai-decisions.json passes every case of the loop, each planned once", () => {
+  const names = openaiRun.recorded.map((r) => r.name);
+  assert(openaiRun.planned >= 2, `planned ${openaiRun.planned} cases`);
+  assert(
+    openaiRun.recorded.length === openaiRun.planned,
+    `planned ${openaiRun.planned}, recorded ${openaiRun.recorded.length}`,
+  );
+  assert(new Set(names).size === names.length, "two results share a name");
+  const failed = openaiRun.recorded.filter((r) => !r.ok);
+  assert(
+    failed.length === 0,
+    `failed: ${failed.map((r) => r.name).join("; ")}`,
+  );
+});
+
+for (const f of OPENAI_DISK.errors) {
+  await test(`openai-decisions error body "${f.label}" gives ${f.expect.kind}, retryable ${f.expect.retryable}`, () =>
+    openaiPassed(
+      `DECIDE ${OPENAI_ENTRY.id}: error "${f.label}" (${f.provenance}) -> ${f.expect.kind}`,
+    ));
+}
+
+const OPENAI_RULES: Rules = OPENAI_ENTRY.decide.errors.rules;
+
+await test("every openai-decisions rule is exercised by a fixture that agrees with it", () => {
+  const ruleResults = openaiRun.recorded.filter((r) =>
+    r.name.startsWith(`DECIDE ${OPENAI_ENTRY.id}: error rule #`),
+  );
+  assert(
+    ruleResults.length === OPENAI_RULES.length,
+    `one result per rule, got ${ruleResults.length}`,
+  );
+  const failed = ruleResults.filter((r) => !r.ok);
+  assert(
+    failed.length === 0,
+    failed.map((r) => `${r.name}: ${r.reason}`).join("; "),
+  );
+});
+
+await test("the openai-decisions error cases are exactly the planned ones, and no row claims to have been seen live", () => {
+  const names = openaiRun.recorded.map((r) => r.name).filter(isErrorCase);
+  assert(
+    names.length ===
+      OPENAI_DISK.errors.length + OPENAI_RULES.length + ERROR_SINGLES.length,
+    `${names.length} error results`,
+  );
+  const once = (fragment: string): boolean =>
+    names.filter((n) => n.includes(fragment)).length === 1;
+  for (const f of OPENAI_DISK.errors) {
+    assert(once(`: error "${f.label}" (`), `no single case for "${f.label}"`);
+  }
+  OPENAI_RULES.forEach((_rule, index) => {
+    assert(
+      once(`: error rule #${index} (`),
+      `no single case for rule ${index}`,
+    );
+  });
+  for (const fragment of ERROR_SINGLES) {
+    assert(once(fragment), `no single case for "${fragment}"`);
+  }
+  // No OpenAI reply to this endpoint has been captured, so no row says one was.
+  assert(
+    OPENAI_DISK.errors.every((f) => f.provenance === "stand-in"),
+    "a row is labelled seen-live",
+  );
+});
+
+await test("a status outside every openai-decisions rule falls to the default, and a body outside them pins it", () => {
+  const found = openaiRun.recorded.filter((r) =>
+    r.name.includes("outside every rule is"),
+  );
+  assert(
+    found.length === 1 && found[0].ok,
+    `expected one passing default-kind result, got ${found.length}`,
+  );
+  openaiPassed(
+    `DECIDE ${OPENAI_ENTRY.id}: error default kind ${OPENAI_ENTRY.decide.errors.default} is pinned by a fixture`,
+  );
+});
+
+await test("the openai-decisions wire is read through the OpenAI view: predicate, names, input, no answer map", () => {
+  const wire = openaiRun.recorded.filter((r) =>
+    r.name.includes(": wire request ("),
+  );
+  assert(
+    wire.length === 1 && wire[0].name.endsWith("boolean as predicate)"),
+    `wire case: ${wire.map((r) => r.name).join("; ")}`,
+  );
+  openaiPassed(
+    `DECIDE ${OPENAI_ENTRY.id}: wire request (route, POST, bearer, model, boolean as predicate)`,
+  );
+  openaiPassed(`DECIDE ${OPENAI_ENTRY.id}: state text is sent verbatim`);
+  openaiPassed(
+    `DECIDE ${OPENAI_ENTRY.id}: answers, model and request id are read back`,
+  );
+  openaiPassed(
+    `DECIDE ${OPENAI_ENTRY.id}: a 200 without an answers container is a server error, not retried`,
+  );
+  openaiPassed(
+    `DECIDE ${OPENAI_ENTRY.id}: images ride in the input as one user message`,
+  );
+});
+
+await test("with no base URL set the request goes to OpenAI's public endpoint, and a /v1 on an override is not doubled", async () => {
+  // The literals are the oracle: the loop derives its endpoint from the entry,
+  // so an entry whose template or default host drifted would agree with itself.
+  const PUBLIC_ENDPOINT = "https://api.openai.com/v1/decisions";
+  const reaching = (
+    name: string,
+    arrange: (ctx: CaseContext) => void,
+    expected: (ctx: CaseContext) => string,
+  ): ContractCase => ({
+    name,
+    run: async (ctx) => {
+      arrange(ctx);
+      await ctx.mock([{ url: /./, respond: ctx.success() }], async (calls) => {
+        await ctx.ask();
+        ctx.eq(calls.length, 1, "requests that reached the mock");
+        ctx.ok(
+          calls[0].url === expected(ctx),
+          "the request goes to the expected endpoint",
+        );
+      });
+    },
+  });
+  const results: TestRecord[] = [];
+  await runContractCases(
+    OPENAI_ENTRY,
+    OPENAI_DISK,
+    [
+      reaching(
+        "default host",
+        (ctx) => ctx.env.set(ctx.names.baseURL, undefined),
+        () => PUBLIC_ENDPOINT,
+      ),
+      reaching(
+        "blank base URL",
+        (ctx) => ctx.env.set(ctx.names.baseURL, "  "),
+        () => PUBLIC_ENDPOINT,
+      ),
+      reaching(
+        "override with /v1",
+        (ctx) => ctx.env.set(ctx.names.baseURL, `${ctx.baseURL}/v1`),
+        (ctx) => `${ctx.baseURL}/v1/decisions`,
+      ),
+      reaching(
+        "override with /v1/",
+        (ctx) => ctx.env.set(ctx.names.baseURL, `${ctx.baseURL}/v1/`),
+        (ctx) => `${ctx.baseURL}/v1/decisions`,
+      ),
+    ],
+    results,
+    { quiet: true },
+  );
+  const failed = results.filter((r) => !r.ok);
+  assert(
+    results.length === 4 && failed.length === 0,
+    `${results.length} results, failed: ${failed.map((r) => `${r.name}: ${r.reason}`).join("; ")}`,
+  );
+});
+
+await test("the first invalid_request row is the 403, so the latch case judges that it never trips the breaker", () => {
+  const first = OPENAI_DISK.errors.find(
+    (f) => f.expect.kind === "invalid_request",
+  );
+  assert(
+    first?.status === 403,
+    `the first invalid_request row has status ${first?.status}`,
+  );
+  openaiPassed(
+    `DECIDE ${OPENAI_ENTRY.id}: a rejected key latches the provider, a new one tries again`,
+  );
+});
+
+await test("an openai-decisions rule list that is wrong in one way fails by name", async () => {
+  const entryWith = (
+    patch: Partial<DecideCatalogJson["decide"]["errors"]>,
+  ): DecideCatalogJson => ({
+    ...OPENAI_ENTRY,
+    decide: {
+      ...OPENAI_ENTRY.decide,
+      errors: { ...OPENAI_ENTRY.decide.errors, ...patch },
+    },
+  });
+  const indexOfKind = (kind: string): number =>
+    OPENAI_RULES.findIndex((r) => r.kind === kind);
+  const authentication = indexOfKind("authentication");
+  const rateLimit = indexOfKind("rate_limit");
+  const server = OPENAI_RULES.findIndex(
+    (r) => r.kind === "server" && r.statusMin !== undefined,
+  );
+  assert(
+    authentication >= 0 && rateLimit >= 0 && server >= 0,
+    "openai-decisions.json lost a rule the scenarios below need",
+  );
+  const edge = OPENAI_RULES[server].statusMin;
+  if (edge === undefined) {
+    throw new Error("the server rule has no statusMin");
+  }
+  const withRule = (index: number, rule: Rules[number]): Rules =>
+    OPENAI_RULES.map((r, i) => (i === index ? rule : r));
+  await judgeScenarios(
+    [
+      {
+        what: "401 and 403 swapped: the unsupported-country error rejects the key",
+        entry: entryWith({
+          rules: withRule(authentication, {
+            status: 403,
+            kind: "authentication",
+          }),
+        }),
+        red: [
+          ruleAt(authentication),
+          bodyCase("invalid key"),
+          bodyCase("unsupported country"),
+          "a rejected key latches",
+        ],
+      },
+      {
+        what: "429 left retryable",
+        entry: entryWith({
+          rules: withRule(rateLimit, { status: 429, kind: "rate_limit" }),
+        }),
+        red: [
+          ruleAt(rateLimit),
+          bodyCase("rate limit"),
+          bodyCase("quota exhausted"),
+        ],
+        green: [bodyCase("invalid key"), bodyCase("overloaded")],
+      },
+      {
+        what: "the server range starts one status late",
+        entry: entryWith({
+          rules: withRule(server, {
+            ...OPENAI_RULES[server],
+            statusMin: edge + 1,
+          }),
+        }),
+        red: [ruleAt(server), bodyCase("server error")],
+        green: [bodyCase("upstream timeout")],
+      },
+      {
+        what: "the default kind is not the one the fixture pins",
+        entry: entryWith({ default: "server" }),
+        red: [bodyCase("missing parameter"), "error default kind"],
+      },
+    ],
+    { fixture: OPENAI_DISK, run: openaiRun },
+  );
+});
+
+await test("negative control: a wrong expected answer fails exactly the read-back case on the OpenAI wire", async () => {
+  const { success } = OPENAI_DISK;
+  const wrong: DecideContractFixture = {
+    ...OPENAI_DISK,
+    success: {
+      ...success,
+      expected: {
+        ...success.expected,
+        answers: {
+          ...success.expected.answers,
+          urgent: { type: "boolean", probability: 0.12 },
+        },
+      },
+    },
+  };
+  assert(
+    !isDeepStrictEqual(wrong.success.expected, success.expected),
+    "the change left the expected answers as they were",
+  );
+  const run = await runDecideProviderContract(OPENAI_ENTRY, {
+    fixture: wrong,
+    quiet: true,
+  });
+  assert(
+    run.recorded.length === run.planned && run.planned === openaiRun.planned,
+    `${run.recorded.length} results for ${run.planned} planned cases, the unmodified fixture plans ${openaiRun.planned}`,
+  );
+  const failed = run.recorded.filter((r) => !r.ok).map((r) => r.name);
+  assert(
+    failed.length === 2 &&
+      failed.some((n) => n.includes("are read back")) &&
+      failed.some((n) => n.includes("a retry that recovers")),
+    `only the two cases that compare answers fail: ${failed.join("; ")}`,
+  );
+});
+
+await test("a reply in System One's spelling is not read on the OpenAI wire", async () => {
+  const original = JSON.stringify(OPENAI_DISK.success.body);
+  const spelt = original.replace('"type":"predicate"', '"type":"noul"');
+  assert(spelt !== original, "the reply holds no predicate answer to respell");
+  const run = await runDecideProviderContract(OPENAI_ENTRY, {
+    fixture: {
+      ...OPENAI_DISK,
+      success: {
+        ...OPENAI_DISK.success,
+        body: JSON.parse(spelt) as unknown,
+      },
+    },
+    quiet: true,
+  });
+  const failed = run.recorded.filter((r) => !r.ok).map((r) => r.name);
+  assert(
+    failed.some((n) => n.includes("are read back")),
+    `the read-back case stays green: ${failed.join("; ")}`,
+  );
+  assert(
+    failed.every(
+      (n) => n.includes("are read back") || n.includes("a retry that recovers"),
+    ),
+    `a case other than the two that compare answers fails: ${failed.join("; ")}`,
   );
 });
 

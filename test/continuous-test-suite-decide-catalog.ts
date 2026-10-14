@@ -39,7 +39,10 @@ import {
   snapshotChatDescriptors,
   toStableJson,
 } from "./helpers/descriptorSnapshot.js";
-import { LAYA_ENTRY } from "./helpers/decideFixtures.js";
+import {
+  LAYA_ENTRY,
+  OPENAI_DECISIONS_ENTRY,
+} from "./helpers/decideFixtures.js";
 import type { DecideCatalogJson } from "../src/lib/types/index.js";
 import { parseCatalogEntry } from "../src/lib/providers/catalog/schema.js";
 import {
@@ -250,7 +253,7 @@ await runSuite(async () => {
       ...over,
     },
   ];
-  // order 90 stays clear of the hand-written decideOrder rows (1 to 6).
+  // order 90 stays clear of the hand-written decideOrder rows (1 to 7).
   const decideFile = (
     id: string,
     order: number,
@@ -1011,11 +1014,12 @@ await runSuite(async () => {
         "subq",
         "perplexity-decider",
         "cloudflare-clef",
+        "openai-decisions",
       ],
     );
     deepStrictEqual(
       DECISION_PROVIDERS.map((d) => d.decideOrder),
-      [1, 2, 3, 4, 5, 6],
+      [1, 2, 3, 4, 5, 6, 7],
     );
   });
 
@@ -1159,6 +1163,7 @@ await runSuite(async () => {
         "subq",
         "perplexity-decider",
         "cloudflare-clef",
+        "openai-decisions",
       ],
     );
   });
@@ -1310,6 +1315,138 @@ await runSuite(async () => {
         }).decisionLimits?.media,
         built.decisionLimits?.media,
       ),
+    );
+  });
+
+  await test("buildDecideDescriptor carries ambientKeyGuard to the descriptor as a copy, and an entry without one gets none", async () => {
+    const { buildDecideDescriptor } = await loadDescriptors();
+    const guarded = buildDecideDescriptor(OPENAI_DECISIONS_ENTRY);
+    deepStrictEqual(guarded.ambientKeyGuard, {
+      baseURLEnvVars: ["OPENAI_BASE_URL", "OPENAI_API_BASE"],
+      trustedOrigins: ["https://api.openai.com"],
+      credentialBaseURLs: [{ key: "openai", field: "baseURL" }],
+    });
+    const entryGuard = OPENAI_DECISIONS_ENTRY.decide.ambientKeyGuard;
+    assertNotNull(entryGuard, "positive control: the fixture declares a guard");
+    assert(
+      guarded.ambientKeyGuard !== entryGuard &&
+        guarded.ambientKeyGuard?.baseURLEnvVars !== entryGuard.baseURLEnvVars &&
+        guarded.ambientKeyGuard?.trustedOrigins !== entryGuard.trustedOrigins &&
+        guarded.ambientKeyGuard?.credentialBaseURLs !==
+          entryGuard.credentialBaseURLs &&
+        guarded.ambientKeyGuard?.credentialBaseURLs?.[0] !==
+          entryGuard.credentialBaseURLs?.[0],
+      "the descriptor must hold its own copy of the guard, lists and items included, not the entry's objects",
+    );
+    // A guard with no credential fields gives a descriptor with no such key.
+    const withoutCredentials = buildDecideDescriptor({
+      ...OPENAI_DECISIONS_ENTRY,
+      decide: {
+        ...OPENAI_DECISIONS_ENTRY.decide,
+        ambientKeyGuard: {
+          baseURLEnvVars: ["OPENAI_BASE_URL"],
+          trustedOrigins: ["https://api.openai.com"],
+        },
+      },
+    });
+    assert(
+      withoutCredentials.ambientKeyGuard !== undefined &&
+        !("credentialBaseURLs" in withoutCredentials.ambientKeyGuard),
+      "an entry without credentialBaseURLs must give a guard with no such key at all",
+    );
+    const plain = buildDecideDescriptor(LAYA_ENTRY);
+    assert(
+      !("ambientKeyGuard" in plain),
+      "an entry with no guard must give a descriptor with no key at all",
+    );
+    // Positive control: the build tells a changed guard apart.
+    throws(() =>
+      deepStrictEqual(
+        buildDecideDescriptor({
+          ...OPENAI_DECISIONS_ENTRY,
+          decide: {
+            ...OPENAI_DECISIONS_ENTRY.decide,
+            ambientKeyGuard: {
+              baseURLEnvVars: ["OPENAI_BASE_URL"],
+              trustedOrigins: ["https://api.openai.com"],
+            },
+          },
+        }).ambientKeyGuard,
+        guarded.ambientKeyGuard,
+      ),
+    );
+  });
+
+  await test("only the shipped openai-decisions descriptor carries a guard, and it guards OPENAI_BASE_URL, OPENAI_API_BASE and credentials.openai.baseURL", async () => {
+    const { PROVIDER_DESCRIPTORS } = await loadDescriptors();
+    const guarded = PROVIDER_DESCRIPTORS.filter(
+      (d) => d.ambientKeyGuard !== undefined,
+    ).map((d) => String(d.name));
+    deepStrictEqual(guarded, ["openai-decisions"]);
+    const shipped = DECIDE_CATALOG_JSON_ENTRIES.find(
+      (entry) => entry.id === "openai-decisions",
+    );
+    assertNotNull(
+      shipped,
+      "the decide catalog holds no openai-decisions entry",
+    );
+    deepStrictEqual(shipped.decide.ambientKeyGuard, {
+      baseURLEnvVars: ["OPENAI_BASE_URL", "OPENAI_API_BASE"],
+      trustedOrigins: ["https://api.openai.com"],
+      credentialBaseURLs: [{ key: "openai", field: "baseURL" }],
+    });
+    // The guard never lists the provider's own base-URL variable, which
+    // exempts the key instead.
+    const row = PROVIDER_DESCRIPTORS.find(
+      (d) => String(d.name) === "openai-decisions",
+    );
+    assertNotNull(row, "no openai-decisions descriptor");
+    assert(
+      !(row.ambientKeyGuard?.baseURLEnvVars ?? []).includes(
+        row.envVars.baseURL ?? "",
+      ),
+      "the guard lists the provider's own base-URL variable",
+    );
+  });
+
+  await test("the shipped openai-decisions setup text names every channel the guard reads and does not offer naming the provider as the way around a gateway", async () => {
+    const shipped = DECIDE_CATALOG_JSON_ENTRIES.find(
+      (entry) => entry.id === "openai-decisions",
+    );
+    assertNotNull(
+      shipped,
+      "the decide catalog holds no openai-decisions entry",
+    );
+    const guard = shipped.decide.ambientKeyGuard;
+    assertNotNull(guard, "the shipped entry declares no guard");
+    const step = shipped.setup.instructions.find((line) =>
+      line.startsWith("3."),
+    );
+    assertNotNull(step, "the setup text has no step 3");
+    for (const name of guard.baseURLEnvVars) {
+      assert(step.includes(name), `step 3 does not name ${name}`);
+    }
+    for (const { key, field } of guard.credentialBaseURLs ?? []) {
+      assert(
+        step.includes(`credentials.${key}.${field}`),
+        `step 3 does not name credentials.${key}.${field}`,
+      );
+    }
+    // The way out of a skipped key is to route the provider on purpose; naming
+    // it sends the environment key to api.openai.com, which the text says.
+    assert(
+      step.includes("OPENAI_DECISIONS_BASE_URL") &&
+        step.includes("credentials.openaiDecisions"),
+      "step 3 does not offer routing the provider on purpose",
+    );
+    assert(
+      step.includes("only if the key is OpenAI's") &&
+        step.includes("sends the environment key to api.openai.com"),
+      "step 3 offers naming the provider without saying what it sends",
+    );
+    assert(
+      !step.includes("or behind a gateway"),
+      "step 3 offers naming the provider as the way to use it behind a gateway",
     );
   });
 

@@ -1,0 +1,308 @@
+{
+  "version": 1,
+  "id": "openai-decisions",
+  "success": {
+    "headers": {
+      "x-request-id": "req-openai-decisions-1"
+    },
+    "body": {
+      "model": "gpt-6-luna",
+      "answers": [
+        {
+          "type": "score",
+          "name": "mood",
+          "score": 1.6,
+          "probabilities": [
+            { "value": 2, "label": "2", "probability": 0.7 },
+            { "value": 1, "label": "1", "probability": 0.2 },
+            { "value": 0, "label": "0", "probability": 0.1 }
+          ],
+          "confidence": 0.7
+        },
+        {
+          "type": "predicate",
+          "name": "urgent",
+          "probability": 0.88
+        },
+        {
+          "type": "choice",
+          "name": "team",
+          "choice": "billing",
+          "probabilities": [
+            { "value": "billing", "probability": 0.84 },
+            { "value": "sales", "probability": 0.1 },
+            { "value": "technical", "probability": 0.06 }
+          ],
+          "confidence": 0.81
+        }
+      ],
+      "usage": {
+        "input_tokens": 128,
+        "output_tokens": 0,
+        "total_tokens": 128
+      }
+    },
+    "expected": {
+      "model": "gpt-6-luna",
+      "requestId": "req-openai-decisions-1",
+      "inputTokens": 128,
+      "answers": {
+        "urgent": {
+          "type": "boolean",
+          "probability": 0.88
+        },
+        "team": {
+          "type": "choice",
+          "choice": "billing",
+          "probabilities": {
+            "billing": 0.84,
+            "technical": 0.06,
+            "sales": 0.1
+          },
+          "confidence": 0.81
+        },
+        "mood": {
+          "type": "score",
+          "score": 1.6,
+          "legend": {
+            "0": "calm",
+            "1": "annoyed",
+            "2": "angry"
+          },
+          "probabilities": {
+            "0": 0.1,
+            "1": 0.2,
+            "2": 0.7
+          },
+          "confidence": 0.7
+        }
+      }
+    }
+  },
+  "errors": [
+    {
+      "label": "invalid key",
+      "provenance": "stand-in",
+      "status": 401,
+      "body": {
+        "error": {
+          "message": "Incorrect API key provided.",
+          "type": "invalid_request_error",
+          "param": null,
+          "code": "invalid_api_key"
+        }
+      },
+      "expect": {
+        "kind": "authentication",
+        "retryable": false,
+        "messageIncludes": ["Incorrect API key provided"]
+      }
+    },
+    {
+      "label": "key echoed in the message",
+      "provenance": "stand-in",
+      "status": 401,
+      "body": {
+        "error": {
+          "message": "Incorrect API key provided: {apiKey}. You can find your API key at https://platform.openai.com/account/api-keys.",
+          "type": "invalid_request_error",
+          "param": null,
+          "code": "invalid_api_key"
+        }
+      },
+      "expect": {
+        "kind": "authentication",
+        "retryable": false,
+        "messageIncludes": ["Incorrect API key provided: [redacted]"],
+        "messageExcludes": ["{apiKey}"]
+      }
+    },
+    {
+      "label": "rate limit",
+      "provenance": "stand-in",
+      "status": 429,
+      "body": {
+        "error": {
+          "message": "Rate limit reached for requests. Please try again later.",
+          "type": "requests",
+          "param": null,
+          "code": "rate_limit_exceeded"
+        }
+      },
+      "expect": {
+        "kind": "rate_limit",
+        "retryable": false,
+        "messageIncludes": ["Rate limit reached"]
+      }
+    },
+    {
+      "label": "quota exhausted",
+      "provenance": "stand-in",
+      "status": 429,
+      "body": {
+        "error": {
+          "message": "You exceeded your current quota, please check your plan and billing details.",
+          "type": "insufficient_quota",
+          "param": null,
+          "code": "insufficient_quota"
+        }
+      },
+      "expect": {
+        "kind": "rate_limit",
+        "retryable": false,
+        "messageIncludes": ["exceeded your current quota"]
+      }
+    },
+    {
+      "label": "unsupported country",
+      "provenance": "stand-in",
+      "status": 403,
+      "body": {
+        "error": {
+          "message": "Country, region, or territory not supported",
+          "type": "request_forbidden",
+          "param": null,
+          "code": "unsupported_country_region_territory"
+        }
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["not supported"]
+      }
+    },
+    {
+      "label": "overloaded",
+      "provenance": "stand-in",
+      "status": 503,
+      "body": {
+        "error": {
+          "message": "The server is overloaded, please try again later.",
+          "type": "server_error",
+          "param": null,
+          "code": "server_is_overloaded"
+        }
+      },
+      "expect": {
+        "kind": "overloaded",
+        "retryable": true,
+        "messageIncludes": ["server is overloaded"]
+      }
+    },
+    {
+      "label": "server error",
+      "provenance": "stand-in",
+      "status": 500,
+      "body": {
+        "error": {
+          "message": "The server had an error while processing your request.",
+          "type": "server_error",
+          "param": null,
+          "code": null
+        }
+      },
+      "expect": {
+        "kind": "server",
+        "retryable": true,
+        "messageIncludes": ["error while processing your request"]
+      }
+    },
+    {
+      "label": "gateway page",
+      "provenance": "stand-in",
+      "status": 502,
+      "body": "<html><body><h1>502 Bad Gateway</h1></body></html>",
+      "expect": {
+        "kind": "server",
+        "retryable": true,
+        "messageIncludes": ["OpenAI Decisions request failed with HTTP 502"],
+        "messageExcludes": ["<html>", "<body>"]
+      }
+    },
+    {
+      "label": "upstream timeout",
+      "provenance": "stand-in",
+      "status": 599,
+      "body": {
+        "error": {
+          "message": "upstream connect timeout",
+          "type": "server_error",
+          "param": null,
+          "code": null
+        }
+      },
+      "expect": {
+        "kind": "server",
+        "retryable": true,
+        "messageIncludes": ["connect timeout"]
+      }
+    },
+    {
+      "label": "below the range",
+      "provenance": "stand-in",
+      "status": 499,
+      "body": {
+        "error": {
+          "message": "client closed request",
+          "type": "server_error",
+          "param": null,
+          "code": null
+        }
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["client closed request"]
+      }
+    },
+    {
+      "label": "missing parameter",
+      "provenance": "stand-in",
+      "status": 400,
+      "body": {
+        "error": {
+          "message": "Missing required parameter: 'input'.",
+          "type": "invalid_request_error",
+          "param": "input",
+          "code": "missing_required_parameter"
+        }
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["Missing required parameter"]
+      }
+    },
+    {
+      "label": "not found, empty body",
+      "provenance": "stand-in",
+      "status": 404,
+      "body": null,
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["OpenAI Decisions request failed with HTTP 404"]
+      }
+    },
+    {
+      "label": "message beside a second shape",
+      "provenance": "stand-in",
+      "status": 422,
+      "body": {
+        "error": {
+          "message": "The request could not be processed.",
+          "type": "invalid_request_error",
+          "param": null,
+          "code": null
+        },
+        "detail": "text from a shape this entry does not read"
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["could not be processed"],
+        "messageExcludes": ["does not read"]
+      }
+    }
+  ]
+}

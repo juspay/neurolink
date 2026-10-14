@@ -456,7 +456,8 @@ Access multiple providers through unified interfaces:
 
 The providers that serve `decide` rather than `generate`/`stream`:
 [TypeSafe](typesafe.md), [Laya](laya.md), [XOR](xor.md),
-[SubQ](subq.md), [Perplexity](perplexity-decider.md) and [Cloudflare Clef](cloudflare-clef.md). Each returns typed `boolean`/`choice`/`score`
+[SubQ](subq.md), [Perplexity](perplexity-decider.md), [Cloudflare Clef](cloudflare-clef.md) and
+[OpenAI Decisions](openai-decisions.md). Each returns typed `boolean`/`choice`/`score`
 answers and emits no text, so none appears in generation fallback chains or the
 health sweep.
 
@@ -527,7 +528,7 @@ health sweep.
 
 **Hosted decision provider on Workers AI** — the same typed `boolean`/`choice`/`score` answers as Jev, from Cloudflare's `clef` (27B) and `clef-flash` (9B), at `https://api.cloudflare.com/client/v4`
 
-- 🧭 Serves `decide` only (provider id `cloudflare-clef`, not the Workers AI text provider `cloudflare`); built-in features use it only when it is configured and none of TypeSafe, Laya, XOR, SubQ or Perplexity is — it comes last
+- 🧭 Serves `decide` only (provider id `cloudflare-clef`, not the Workers AI text provider `cloudflare`); built-in features use it only when it is configured and none of TypeSafe, Laya, XOR, SubQ or Perplexity is — it comes after those five
 - 🔑 `CLOUDFLARE_API_KEY` (Workers AI permission) and `CLOUDFLARE_ACCOUNT_ID` configure it, and they are the same two variables the Cloudflare text provider reads, so a pair set for that provider also lets built-in features use it when no other decision provider is configured
 - 🖼️ Takes up to 4 PNG, JPEG or WebP images with a decision; no video
 - 💰 $0.24 per million input tokens for `clef`, $0.09 for `clef-flash`; no output price is listed on Cloudflare's pricing page
@@ -535,6 +536,19 @@ health sweep.
 - 🔌 Hosted endpoint, so no base URL is needed; `CLOUDFLARE_CLEF_BASE_URL` (or `credentials.cloudflareClef.baseURL`) can name another base
 
 [Setup Guide →](cloudflare-clef.md)
+
+### [OpenAI Decisions](openai-decisions.md)
+
+**Hosted decision provider (public beta)** — the same typed `boolean`/`choice`/`score` answers as Jev, from OpenAI's Decisions API (`gpt-6-luna`), at `https://api.openai.com/v1/decisions`
+
+- 🧭 Serves `decide` only (provider id `openai-decisions`, not the OpenAI chat provider `openai`); built-in features use it only when it is configured and none of TypeSafe, Laya, XOR, SubQ, Perplexity or Cloudflare Clef is — it comes last
+- 🔑 `OPENAI_API_KEY` alone configures it, and it is the same key the OpenAI chat provider reads, so a key set for chat also lets built-in features (and a transcription dictionary's correction check) use it, and make paid decision calls, when no other decision provider is configured, unless `OPENAI_BASE_URL`, `OPENAI_API_BASE` or `credentials.openai.baseURL` names a host other than `https://api.openai.com` (the key is then taken to be a gateway's and is not used by default; a call that names the provider still uses it and sends it to `api.openai.com`); the guide lists what each consumer then sends
+- 🖼️ Takes up to 8 images as inline data URLs with a decision (NeuroLink's own allowance, not OpenAI's); no video
+- 💰 $0.10 per million input tokens, input only, per [OpenAI's Decisions guide](https://developers.openai.com/api/docs/guides/decisions) as read on 2026-10-07; regional and long-context multipliers are not modelled
+- 📏 Question and option limits, image formats, rate limits and latency are not established (none measured); NeuroLink reports 922,000 state tokens as an advisory figure and never refuses on it
+- 🔌 Hosted endpoint, so no base URL is needed; `OPENAI_DECISIONS_BASE_URL` (or `credentials.openaiDecisions.baseURL`) can name another origin
+
+[Setup Guide →](openai-decisions.md)
 
 ## 🧩 Additional Catalog Providers
 

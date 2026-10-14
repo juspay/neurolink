@@ -4,6 +4,10 @@ import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import type { NeuroLink } from "../neurolink.js";
 import { tracers } from "../telemetry/tracers.js";
 import { ProviderFactory } from "../factories/providerFactory.js";
+import {
+  PROVIDER_ALIAS_INDEX,
+  PROVIDER_DESCRIPTORS_BY_NAME,
+} from "../factories/providerDescriptors.js";
 import { ProviderRegistry } from "../factories/providerRegistry.js";
 import { getBestProvider } from "../utils/providerUtils.js";
 import { logger } from "../utils/logger.js";
@@ -72,6 +76,21 @@ export class AIProviderFactory {
     }
   }
 
+  /**
+   * A provider whose descriptor declares `inferenceKinds` of exactly `["decide"]`
+   * names its own model (its registered default reads its own variable), so a
+   * chat provider's model variable has no claim on it. Exactly `["decide"]`: a
+   * provider that also serves text keeps its chat-model fallbacks.
+   */
+  private static isDecisionOnly(providerName: string): boolean {
+    const canonical = PROVIDER_ALIAS_INDEX.get(providerName.toLowerCase());
+    const kinds =
+      canonical === undefined
+        ? undefined
+        : PROVIDER_DESCRIPTORS_BY_NAME.get(canonical)?.inferenceKinds;
+    return kinds?.length === 1 && kinds[0] === "decide";
+  }
+
   private static resolveModelFromEnvironment(
     providerName: string,
     modelName: string | null | undefined,
@@ -80,6 +99,15 @@ export class AIProviderFactory {
     if (modelName && modelName !== "default") {
       logger.debug(
         `[${functionTag}] Skipping environment variable check - explicit model provided: ${modelName}`,
+      );
+      return modelName;
+    }
+
+    // The group below is chosen by `includes`, so "openai-decisions" would be
+    // handed OPENAI_MODEL, the chat provider's variable, ahead of its own.
+    if (this.isDecisionOnly(providerName)) {
+      logger.debug(
+        `[${functionTag}] Skipping chat-model environment variables - ${providerName} serves decisions only and reads its own model setting`,
       );
       return modelName;
     }

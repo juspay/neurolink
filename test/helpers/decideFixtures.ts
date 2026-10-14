@@ -101,3 +101,76 @@ export const LAYA_ENTRY: DecideCatalogJson = {
     addedInPR: "in-memory test fixture",
   },
 };
+
+/**
+ * An OpenAI-Decisions-shaped decide entry built in memory: the second dialect,
+ * a built-in endpoint, a key shared with a chat provider and an image
+ * allowance without body keys. Mutate a structuredClone of it.
+ */
+export const OPENAI_DECISIONS_ENTRY: DecideCatalogJson = {
+  id: "openai-decisions",
+  displayName: "OpenAI Decisions",
+  enumTypeName: "OpenAIDecisionsModels",
+  aliases: [],
+  inferenceKinds: ["decide"],
+  wire: {
+    baseURL: "https://api.openai.com",
+    envOverrides: { apiKey: "OPENAI_API_KEY" },
+  },
+  models: {
+    default: "gpt-6-luna",
+    topModels: ["gpt-6-luna"],
+    catalog: {
+      "gpt-6-luna": {
+        contextWindow: 1050000,
+        maxOutputTokens: 256,
+        vision: true,
+        status: "preview",
+        description:
+          "GPT-6 Luna on OpenAI's Decisions API (public beta): text and images",
+      },
+    },
+  },
+  timeouts: { decideMs: 10000 },
+  decisionLimits: {
+    maxStateTokens: 922000,
+    advisory: true,
+    media: { maxImages: 8, video: false, maxRequestBytes: 33554432 },
+  },
+  decide: {
+    dialect: "openai-decisions",
+    order: 7,
+    baseURLNormalize: ["strip-trailing-slash", "strip-v1-suffix"],
+    baseURLShape: "origin",
+    ambientKeyGuard: {
+      baseURLEnvVars: ["OPENAI_BASE_URL", "OPENAI_API_BASE"],
+      trustedOrigins: ["https://api.openai.com"],
+      credentialBaseURLs: [{ key: "openai", field: "baseURL" }],
+    },
+    endpoint: "{baseURL}/v1/decisions",
+    model: { placement: "body" },
+    requestIdHeaders: ["x-request-id"],
+    errors: {
+      rules: [
+        { status: 401, kind: "authentication" },
+        { status: 429, kind: "rate_limit", retryable: false },
+        { status: 503, kind: "overloaded" },
+        { statusMin: 500, kind: "server" },
+      ],
+      default: "invalid_request",
+      bodyShapes: [{ path: "error.message" }],
+    },
+  },
+  setup: {
+    url: "https://platform.openai.com/api-keys",
+    apiKeyFormat: null,
+    billingPolicy: "no-free-tier",
+    description: "OpenAI API key",
+    instructions: ["1. Set {apiKeyEnvVar}"],
+  },
+  evidence: {
+    rosterVerified: { date: "2026-10-14", method: "in-memory test fixture" },
+    liveMatrix: null,
+    addedInPR: "in-memory test fixture",
+  },
+};

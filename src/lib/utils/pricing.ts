@@ -836,6 +836,15 @@ const PRICING: Record<string, Record<string, ModelPricingRates>> = {
     _default: { input: 0.04 / 1_000_000, output: 0 },
     "pplx-decider-v1-27b": { input: 0.04 / 1_000_000, output: 0 },
   },
+  "openai-decisions": {
+    // $0.10 per million input tokens, input only: `output: 0` is a price, not a
+    // token count, so do not "correct" it from `usage.output_tokens`. Source:
+    // https://developers.openai.com/api/docs/guides/decisions (read 2026-10-07).
+    // Regional and long-context multipliers are not modelled. Only `_default`:
+    // LiteLLM, OpenRouter and openai-compatible search every table by model
+    // name, so a `"gpt-6-luna"` key would price that chat model at this rate.
+    _default: { input: 0.1 / 1_000_000, output: 0 },
+  },
   "cloudflare-clef": {
     // Workers AI bills Clef per million INPUT tokens ($0.24 for clef, $0.09 for
     // clef-flash); no output price is listed. `output: 0` is a price, not a token

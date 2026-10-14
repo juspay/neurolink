@@ -626,8 +626,69 @@ const decideMediaSchema = z
       "decide.media.videoKey must differ from imagesKey: one body key cannot carry both",
   });
 
+const GUARD_LIST_MAX = 8;
+
+const ambientGuardEnvNameSchema = z
+  .string()
+  .max(64)
+  .regex(
+    /^[A-Z][A-Z0-9_]*$/,
+    "an environment variable name must be upper-case letters, digits and underscores, and start with a letter",
+  );
+
+// Lower-case scheme, host labels and an optional port, nothing else: the
+// origin is compared after the same parsing a base URL gets, so a spelling
+// that URL would normalise (a trailing slash, a path, an upper-case host) is
+// refused here instead of being quietly accepted.
+const AMBIENT_GUARD_ORIGIN_PATTERN =
+  /^https?:\/\/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*(?::[0-9]{1,5})?$/;
+
+function parsesAsUrl(value: string): boolean {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const ambientGuardOriginSchema = z
+  .string()
+  .max(100)
+  .regex(
+    AMBIENT_GUARD_ORIGIN_PATTERN,
+    "a trusted origin must be an http(s) origin: a lower-case scheme, host and optional port, with no path, query, fragment or userinfo",
+  )
+  .refine(parsesAsUrl, {
+    message:
+      "a trusted origin must parse as a URL (a valid host, port 0 to 65535)",
+  });
+
+const ambientGuardCredentialKeySchema = z
+  .string()
+  .max(64)
+  .regex(
+    /^[a-zA-Z][a-zA-Z0-9]*$/,
+    "a credentials key must be letters and digits, and start with a letter",
+  );
+
+const ambientKeyGuardSchema = z.strictObject({
+  baseURLEnvVars: z.array(ambientGuardEnvNameSchema).min(1).max(GUARD_LIST_MAX),
+  trustedOrigins: z.array(ambientGuardOriginSchema).min(1).max(GUARD_LIST_MAX),
+  credentialBaseURLs: z
+    .array(
+      z.strictObject({
+        key: ambientGuardCredentialKeySchema,
+        field: z.literal("baseURL"),
+      }),
+    )
+    .min(1)
+    .max(GUARD_LIST_MAX)
+    .optional(),
+});
+
 const decideBlockSchema = z.strictObject({
-  dialect: z.enum(["system-one"]),
+  dialect: z.enum(["system-one", "openai-decisions"]),
   order: decidePositiveInt,
   baseURLRequired: z.boolean().optional(),
   baseURLNormalize: z
@@ -640,6 +701,7 @@ const decideBlockSchema = z.strictObject({
     alias: z.string().min(1).optional(),
   }),
   media: decideMediaSchema.optional(),
+  ambientKeyGuard: ambientKeyGuardSchema.optional(),
   requestIdHeaders: z.array(decideHeaderNameSchema).optional(),
   response: z
     .strictObject({ modelPaths: z.array(decidePathSchema).optional() })
@@ -832,30 +894,54 @@ const decideCatalogJsonSchema = z
 
     const mediaKeys = decide.media;
     const mediaAllowance = entry.decisionLimits?.media;
-    if (mediaKeys !== undefined && mediaAllowance === undefined) {
-      issue(
-        ["decide", "media"],
-        "decide.media needs decisionLimits.media: without an allowance the base class refuses every image and video, so these keys would never be written",
-      );
-    }
-    if (mediaKeys === undefined && mediaAllowance !== undefined) {
-      issue(
-        ["decisionLimits", "media"],
-        "decisionLimits.media needs decide.media: without body keys the engine would prepare a request's media and then leave it out of the body",
-      );
-    }
-    if (mediaKeys !== undefined && mediaAllowance !== undefined) {
-      if (mediaAllowance.video && mediaKeys.videoKey === undefined) {
+    if (decide.dialect === "openai-decisions") {
+      // This dialect writes images into the request input itself, so it has no
+      // body keys to name, and the input has no video part. The allowance
+      // alone is how many images a request may carry.
+      if (mediaKeys !== undefined) {
         issue(
-          ["decide", "media", "videoKey"],
-          "decide.media.videoKey is required when decisionLimits.media.video is true",
+          ["decide", "media"],
+          "decide.media is not valid with dialect openai-decisions: that dialect places images in the request input itself and has no body keys for them",
         );
       }
-      if (!mediaAllowance.video && mediaKeys.videoKey !== undefined) {
+      if (mediaAllowance?.video === true) {
         issue(
-          ["decide", "media", "videoKey"],
-          "decide.media.videoKey must be omitted when decisionLimits.media.video is false",
+          ["decisionLimits", "media", "video"],
+          "decisionLimits.media.video must be false with dialect openai-decisions: its request input has no video part",
         );
+      }
+      if (placement !== "body") {
+        issue(
+          ["decide", "model", "placement"],
+          "decide.model.placement must be body with dialect openai-decisions: the model is always a field of the request",
+        );
+      }
+    } else {
+      if (mediaKeys !== undefined && mediaAllowance === undefined) {
+        issue(
+          ["decide", "media"],
+          "decide.media needs decisionLimits.media: without an allowance the base class refuses every image and video, so these keys would never be written",
+        );
+      }
+      if (mediaKeys === undefined && mediaAllowance !== undefined) {
+        issue(
+          ["decisionLimits", "media"],
+          "decisionLimits.media needs decide.media: without body keys the engine would prepare a request's media and then leave it out of the body",
+        );
+      }
+      if (mediaKeys !== undefined && mediaAllowance !== undefined) {
+        if (mediaAllowance.video && mediaKeys.videoKey === undefined) {
+          issue(
+            ["decide", "media", "videoKey"],
+            "decide.media.videoKey is required when decisionLimits.media.video is true",
+          );
+        }
+        if (!mediaAllowance.video && mediaKeys.videoKey !== undefined) {
+          issue(
+            ["decide", "media", "videoKey"],
+            "decide.media.videoKey must be omitted when decisionLimits.media.video is false",
+          );
+        }
       }
     }
 
@@ -891,6 +977,42 @@ const decideCatalogJsonSchema = z
       }
       seenHeaders.add(header.toLowerCase());
     });
+
+    const guard = decide.ambientKeyGuard;
+    if (guard !== undefined) {
+      const ownBaseURLVar =
+        wire.envOverrides?.baseURL ??
+        `${entry.id.toUpperCase().replace(/-/g, "_")}_BASE_URL`;
+      const lists: ReadonlyArray<readonly [string, readonly string[], string]> =
+        [
+          ["baseURLEnvVars", guard.baseURLEnvVars, "variable"],
+          ["trustedOrigins", guard.trustedOrigins, "origin"],
+        ];
+      for (const [field, values, noun] of lists) {
+        if (new Set(values).size !== values.length) {
+          issue(
+            ["decide", "ambientKeyGuard", field],
+            `lists the same ${noun} twice`,
+          );
+        }
+      }
+      const credentialFields = guard.credentialBaseURLs ?? [];
+      if (
+        new Set(credentialFields.map((c) => `${c.key}.${c.field}`)).size !==
+        credentialFields.length
+      ) {
+        issue(
+          ["decide", "ambientKeyGuard", "credentialBaseURLs"],
+          "lists the same credentials field twice",
+        );
+      }
+      if (guard.baseURLEnvVars.includes(ownBaseURLVar)) {
+        issue(
+          ["decide", "ambientKeyGuard", "baseURLEnvVars"],
+          `must not list the provider's own base-URL variable ${ownBaseURLVar}: setting it already exempts the key`,
+        );
+      }
+    }
 
     for (const key of UNSUPPORTED_DECIDE_WIRE_KEYS) {
       if (wire[key] !== undefined) {

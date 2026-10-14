@@ -28,8 +28,10 @@ Master enable switch (--classifier-router).
 Strategy: "auto" (default), "heuristic", "llm" or "jev"
 (--classifier-strategy). "auto" resolves to "jev" when a decision
 provider is configured (TYPESAFE_API_KEY, LAYA_API_KEY with
-LAYA_BASE_URL, XOR_API_KEY with XOR_BASE_URL, or PERPLEXITY_API_KEY) and
-"heuristic" otherwise.
+LAYA_BASE_URL, XOR_API_KEY with XOR_BASE_URL, SUBQ_API_KEY, PERPLEXITY_API_KEY,
+CLOUDFLARE_API_KEY with CLOUDFLARE_ACCOUNT_ID, or OPENAI_API_KEY, which does
+not count beside an OPENAI_BASE_URL, OPENAI_API_BASE or credentials.openai.baseURL naming a host other
+than https://api.openai.com) and "heuristic" otherwise.
 
 ---
 

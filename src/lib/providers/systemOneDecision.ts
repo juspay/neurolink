@@ -437,6 +437,7 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
           ? this.dialect().readAnswers(
               decoded,
               this.reportedConfidence(decoded),
+              request.questions,
             )
           : undefined;
         if (!isRecord(decoded) || !reading) {
@@ -451,6 +452,11 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
 
         for (const id of reading.dropped) {
           logger.warn(`${label}: dropped unparseable answer "${id}"`, {
+            requestId,
+          });
+        }
+        for (const id of reading.refused ?? []) {
+          logger.warn(`${label}: the model declined to answer "${id}"`, {
             requestId,
           });
         }

@@ -21,3 +21,11 @@
 > `readonly` **dropped**: readonly `string`[]
 
 Ids of answers the server returned that could not be parsed.
+
+---
+
+### refused?
+
+> `readonly` `optional` **refused?**: readonly `string`[]
+
+Ids of questions the model declined to answer; they have no answer.

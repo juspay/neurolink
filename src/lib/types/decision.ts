@@ -580,12 +580,75 @@ export type DecisionBooleanGate = {
 };
 
 /** The wire family a decide provider speaks. */
-export type DecideDialectName = "system-one";
+export type DecideDialectName = "system-one" | "openai-decisions";
 
 export type DecisionAnswerReading = {
   readonly answers: Readonly<Record<string, DecisionAnswer>>;
   /** Ids of answers the server returned that could not be parsed. */
   readonly dropped: readonly string[];
+  /** Ids of questions the model declined to answer; they have no answer. */
+  readonly refused?: readonly string[];
+};
+
+/**
+ * The request body keys prepared media is written under. Set together with
+ * `decisionLimits.media`, which says how much of it a request may carry.
+ */
+export type DecideMedia = {
+  /** Written only when the request carries at least one image. */
+  imagesKey: string;
+  /** Written only when the request carries a video; required exactly when `decisionLimits.media.video` is true. */
+  videoKey?: string;
+};
+
+/**
+ * Says when a decide provider's key may be used as the default decision
+ * provider. A key found only in the environment may belong to something else:
+ * `OPENAI_API_KEY` is also the key of every OpenAI-compatible gateway, and
+ * sending a gateway's key and the decision state to the vendor's own host would
+ * disclose both. With a guard, the environment key is skipped for default
+ * resolution while any variable in `baseURLEnvVars`, or any credentials field in
+ * `credentialBaseURLs`, holds a URL whose origin (scheme, host and port,
+ * compared case-insensitively; path and trailing slash ignored) is not in
+ * `trustedOrigins`; a value that does not parse as an http(s) URL counts as
+ * untrusted, and a blank one as unset.
+ *
+ * It does not apply once the host routed the provider on purpose: the
+ * provider's own base-URL variable is set, or `credentials.<key>` supplies a key
+ * or a base URL. It never applies to a call that names the provider.
+ */
+export type DecideAmbientKeyGuard = {
+  /** Environment variables that move the key's other users off the vendor's host. */
+  baseURLEnvVars: readonly string[];
+  /** Origins that are the vendor's own, such as `https://api.openai.com`. */
+  trustedOrigins: readonly string[];
+  /**
+   * Credentials fields that move the key's other users off the vendor's host,
+   * read from the same `credentials` the resolver is given (the instance's
+   * merged with the call's), such as the chat provider's `credentials.openai`
+   * `baseURL`. Omitted means only the environment is read.
+   */
+  credentialBaseURLs?: readonly DecideAmbientKeyCredentialField[];
+};
+
+/** One credentials field a {@link DecideAmbientKeyGuard} reads: `credentials[key][field]`. */
+export type DecideAmbientKeyCredentialField = {
+  /** The `NeurolinkCredentials` key of the slice, such as `openai`. */
+  key: string;
+  /** The field in that slice. Only `baseURL` is read today. */
+  field: "baseURL";
+};
+
+/** What a dialect lays out as one request body. */
+export type DecisionDialectBody = {
+  readonly state: DecisionState;
+  /** Each question already written by the dialect's `encodeQuestion`, by id. */
+  readonly questions: Readonly<Record<string, Record<string, unknown>>>;
+  /** Undefined means the request names no model. */
+  readonly model?: string;
+  readonly media?: DecisionPreparedMedia;
+  /** Where a layout with named media fields puts them; other layouts ignore it. */
+  readonly mediaKeys?: Readonly<DecideMedia>;
 };
 
 /**
@@ -595,9 +658,15 @@ export type DecisionAnswerReading = {
 export type DecisionDialect = {
   readonly name: DecideDialectName;
   encodeQuestion: (question: DecisionQuestion) => Record<string, unknown>;
-  /** `undefined` means the response has no usable answers container. */
+  buildBody: (input: DecisionDialectBody) => Record<string, unknown>;
+  /**
+   * `undefined` means the response has no usable answers container. `asked`
+   * is the request's own question map, for a wire that echoes names rather
+   * than the ids sent.
+   */
   readAnswers: (
     decoded: Readonly<Record<string, unknown>>,
     reportedConfidence: Readonly<Record<string, number>>,
+    asked: DecisionQuestionMap,
   ) => DecisionAnswerReading | undefined;
 };

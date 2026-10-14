@@ -35,11 +35,29 @@ dialect serves every vendor that speaks the same layout.
 
 ---
 
+### buildBody
+
+> **buildBody**: (`input`) => `Record`\<`string`, `unknown`\>
+
+#### Parameters
+
+##### input
+
+[`DecisionDialectBody`](DecisionDialectBody.md)
+
+#### Returns
+
+`Record`\<`string`, `unknown`\>
+
+---
+
 ### readAnswers
 
-> **readAnswers**: (`decoded`, `reportedConfidence`) => [`DecisionAnswerReading`](DecisionAnswerReading.md) \| `undefined`
+> **readAnswers**: (`decoded`, `reportedConfidence`, `asked`) => [`DecisionAnswerReading`](DecisionAnswerReading.md) \| `undefined`
 
-`undefined` means the response has no usable answers container.
+`undefined` means the response has no usable answers container. `asked`
+is the request's own question map, for a wire that echoes names rather
+than the ids sent.
 
 #### Parameters
 
@@ -50,6 +68,10 @@ dialect serves every vendor that speaks the same layout.
 ##### reportedConfidence
 
 `Readonly`\<`Record`\<`string`, `number`\>\>
+
+##### asked
+
+[`DecisionQuestionMap`](DecisionQuestionMap.md)
 
 #### Returns
 

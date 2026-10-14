@@ -6,6 +6,6 @@
 
 # Type Alias: DecideDialectName
 
-> **DecideDialectName** = `"system-one"`
+> **DecideDialectName** = `"system-one"` \| `"openai-decisions"`
 
 The wire family a decide provider speaks.

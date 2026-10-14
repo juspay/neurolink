@@ -4373,6 +4373,9 @@ async function runLayaDecide(): Promise<void> {
     "SUBQ_API_KEY",
     "SUBQ_BASE_URL",
     "SUBQ_MODEL",
+    "OPENAI_API_KEY",
+    "OPENAI_DECISIONS_BASE_URL",
+    "OPENAI_DECISIONS_MODEL",
   ];
   const priorDecisionEnv = decisionEnv.map((v) => process.env[v]);
   const clearDecisionEnv = () => {
@@ -5709,6 +5712,9 @@ async function runXorDecide(): Promise<void> {
     "SUBQ_API_KEY",
     "SUBQ_BASE_URL",
     "SUBQ_MODEL",
+    "OPENAI_API_KEY",
+    "OPENAI_DECISIONS_BASE_URL",
+    "OPENAI_DECISIONS_MODEL",
   ];
   const priorDecisionEnv = decisionEnv.map((v) => process.env[v]);
   const clearDecisionEnv = () => {
@@ -7184,6 +7190,9 @@ const PERPLEXITY_DECISION_ENV = [
   "SUBQ_API_KEY",
   "SUBQ_BASE_URL",
   "SUBQ_MODEL",
+  "OPENAI_API_KEY",
+  "OPENAI_DECISIONS_BASE_URL",
+  "OPENAI_DECISIONS_MODEL",
 ];
 
 /** No decision provider configured at all. */
@@ -9953,6 +9962,9 @@ const CLEF_DECISION_ENV = [
   "SUBQ_API_KEY",
   "SUBQ_BASE_URL",
   "SUBQ_MODEL",
+  "OPENAI_API_KEY",
+  "OPENAI_DECISIONS_BASE_URL",
+  "OPENAI_DECISIONS_MODEL",
 ];
 
 /** No decision provider configured at all. */
@@ -11339,6 +11351,7 @@ async function runClefMediaHints(): Promise<void> {
         setEnv("PERPLEXITY_API_KEY", "test-fake-perplexity-credential");
         setEnv("XOR_API_KEY", "test-fake-xor-credential");
         setEnv("XOR_BASE_URL", "https://xor.internal.test");
+        setEnv("OPENAI_API_KEY", "test-fake-openai-credential");
         // A catalog-built descriptor is deep-frozen, so the case swaps the
         // registered row for a copy with a small cap instead of assigning to
         // it, and puts the original back. The map is a Map built at load; only
@@ -12094,6 +12107,7 @@ async function runDecideDialect(): Promise<void> {
             },
           },
           {},
+          {},
         );
         same(
           reading,
@@ -12113,7 +12127,11 @@ async function runDecideDialect(): Promise<void> {
       () => {
         expectEq(
           confidenceOf(
-            dialect.readAnswers({ answers: { q: choice(0.55) } }, { q: 0.9 }),
+            dialect.readAnswers(
+              { answers: { q: choice(0.55) } },
+              { q: 0.9 },
+              {},
+            ),
             "q",
           ),
           0.55,
@@ -12121,7 +12139,7 @@ async function runDecideDialect(): Promise<void> {
         );
         expectEq(
           confidenceOf(
-            dialect.readAnswers({ answers: { q: choice() } }, { q: 0.9 }),
+            dialect.readAnswers({ answers: { q: choice() } }, { q: 0.9 }, {}),
             "q",
           ),
           0.9,
@@ -12129,7 +12147,7 @@ async function runDecideDialect(): Promise<void> {
         );
         expectEq(
           confidenceOf(
-            dialect.readAnswers({ answers: { q: choice() } }, {}),
+            dialect.readAnswers({ answers: { q: choice() } }, {}, {}),
             "q",
           ),
           0.7,
@@ -12155,6 +12173,7 @@ async function runDecideDialect(): Promise<void> {
             },
           },
           {},
+          {},
         );
         same(
           Object.keys(reading?.answers ?? {}),
@@ -12176,10 +12195,14 @@ async function runDecideDialect(): Promise<void> {
     [
       "DECIDE dialect system-one: no answers record means no reading",
       () => {
-        expectEq(dialect.readAnswers({}, {}), undefined, "missing");
-        expectEq(dialect.readAnswers({ answers: [] }, {}), undefined, "array");
+        expectEq(dialect.readAnswers({}, {}, {}), undefined, "missing");
         expectEq(
-          dialect.readAnswers({ answers: "no" }, {}),
+          dialect.readAnswers({ answers: [] }, {}, {}),
+          undefined,
+          "array",
+        );
+        expectEq(
+          dialect.readAnswers({ answers: "no" }, {}, {}),
           undefined,
           "string",
         );
@@ -12203,11 +12226,11 @@ async function runDecideDialect(): Promise<void> {
 }
 
 // Positive control for the loop below: an empty DECIDE_CATALOG_JSON_ENTRIES (a
-// broken codegen, a deleted laya.json, xor.json or subq.json, a generated list
-// that lost its decide entries) fails this section instead of passing it
-// trivially. Raise it when another decide entry joins the catalog; never lower
-// it.
-const MIN_DECIDE_CATALOG_ENTRIES = 3;
+// broken codegen, a deleted laya.json, xor.json, subq.json or
+// openai-decisions.json, a generated list that lost its decide entries) fails
+// this section instead of passing it trivially. Raise it when another decide
+// entry joins the catalog; never lower it.
+const MIN_DECIDE_CATALOG_ENTRIES = 4;
 
 async function runDecideCatalogSection(): Promise<void> {
   const { DECIDE_CATALOG_JSON_ENTRIES } =
@@ -12233,16 +12256,2190 @@ async function runDecideCatalogSection(): Promise<void> {
   );
 }
 
+// ───────────────────────────────────────────────────────────────────────
+// Section: OpenAI Decisions (decide-only; its key is the openai chat provider's)
+// ───────────────────────────────────────────────────────────────────────
+
+/**
+ * `openai-decisions` reads OPENAI_API_KEY, the key the `openai` chat provider
+ * reads, so an ambient key makes it the default decision provider: the last
+ * resort, after every provider whose key is its own. This section pins that
+ * choice and how a host can still name it, configure it and point it
+ * elsewhere. The answers in the 200 body are invented stand-ins for the shape,
+ * not anything OpenAI's endpoint was seen to return.
+ */
+const OPENAI_DECISIONS_SPEC = {
+  provider: "openai-decisions",
+  envVar: "OPENAI_API_KEY",
+  baseURLEnvVar: "OPENAI_DECISIONS_BASE_URL",
+  modelEnvVar: "OPENAI_DECISIONS_MODEL",
+  key: "test-fake-openai-decisions-credential",
+  endpoint: "https://api.openai.com/v1/decisions",
+};
+
+/** Every variable that can make a decision provider the default one. */
+const OPENAI_DECISIONS_ENV = [
+  ...new Set([
+    ...PERPLEXITY_DECISION_ENV,
+    "CLOUDFLARE_API_KEY",
+    "CLOUDFLARE_ACCOUNT_ID",
+    "CLOUDFLARE_CLEF_BASE_URL",
+    "CLOUDFLARE_CLEF_MODEL",
+    OPENAI_DECISIONS_SPEC.envVar,
+    OPENAI_DECISIONS_SPEC.baseURLEnvVar,
+    OPENAI_DECISIONS_SPEC.modelEnvVar,
+    // The chat provider's own base URLs: the ambient-key guard reads them.
+    "OPENAI_BASE_URL",
+    "OPENAI_API_BASE",
+  ]),
+];
+
+/** Only the OpenAI key set: no other decision provider is configured. */
+function resetOpenAIDecisionsEnv(): void {
+  for (const name of OPENAI_DECISIONS_ENV) {
+    setEnv(name, undefined);
+  }
+  setEnv(OPENAI_DECISIONS_SPEC.envVar, OPENAI_DECISIONS_SPEC.key);
+}
+
+const OPENAI_DECISIONS_ONE_QUESTION = {
+  urgent: { type: "boolean", instructions: "Is this urgent?" },
+} satisfies DecisionQuestionMap;
+
+function openaiDecisionsRoute(url: string = OPENAI_DECISIONS_SPEC.endpoint) {
+  return {
+    method: "POST",
+    url,
+    respond: {
+      status: 200,
+      headers: { "x-request-id": "req-openai-decisions-stand-in" },
+      json: {
+        model: "gpt-6-luna",
+        answers: [{ type: "predicate", name: "urgent", probability: 0.9 }],
+        usage: { input_tokens: 12, output_tokens: 1 },
+      },
+    },
+  };
+}
+
+async function openaiDecisionsCase(
+  name: string,
+  body: () => Promise<void>,
+): Promise<void> {
+  try {
+    await body();
+    record(results, name, true);
+  } catch (err) {
+    record(
+      results,
+      name,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+async function runOpenAIDecisionsDecide(): Promise<void> {
+  const { provider, envVar, baseURLEnvVar, key, endpoint } =
+    OPENAI_DECISIONS_SPEC;
+  const { NeuroLink, DECISION_PROVIDERS, resolveDefaultDecisionProvider } =
+    await import("../dist/index.js");
+  const prior = OPENAI_DECISIONS_ENV.map((name) => process.env[name]);
+  const decideOne = (nl: InstanceType<typeof NeuroLink>) =>
+    nl.decide({
+      provider,
+      state: "short",
+      questions: OPENAI_DECISIONS_ONE_QUESTION,
+    });
+  try {
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: OPENAI_API_KEY alone makes it the default decision provider",
+      async () => {
+        resetOpenAIDecisionsEnv();
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          provider,
+          "the shared key alone selects it",
+        );
+        await withMocks([openaiDecisionsRoute()], async ({ calls }) => {
+          const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+          const result = await nl.tryDecide({
+            state: "short",
+            questions: OPENAI_DECISIONS_ONE_QUESTION,
+          });
+          expectEq(result?.provider, provider, "chosen without being named");
+          const posts = calls.filter((c) => c.method === "POST");
+          expectEq(posts.length, 1, "one decision request");
+          expectEq(posts[0]?.url, endpoint, "to the public endpoint");
+          expectEq(
+            posts[0]?.headers.authorization,
+            `Bearer ${key}`,
+            "with the environment key",
+          );
+        });
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: a key for any provider ahead of it wins",
+      async () => {
+        const ahead: ReadonlyArray<readonly [string, Record<string, string>]> =
+          [
+            ["typesafe", { TYPESAFE_API_KEY: "test-fake-typesafe-credential" }],
+            [
+              "laya",
+              {
+                LAYA_API_KEY: "test-fake-laya-credential",
+                LAYA_BASE_URL: "https://laya.test.example/base",
+              },
+            ],
+            [
+              "xor",
+              {
+                XOR_API_KEY: "test-fake-xor-credential",
+                XOR_BASE_URL: "https://xor.test.example/proxy",
+              },
+            ],
+            ["perplexity-decider", { PERPLEXITY_API_KEY: "test-fake-pplx" }],
+            [
+              "cloudflare-clef",
+              {
+                CLOUDFLARE_API_KEY: "test-fake-cloudflare-credential",
+                CLOUDFLARE_ACCOUNT_ID: "test-account-id",
+              },
+            ],
+          ];
+        for (const [expected, vars] of ahead) {
+          resetOpenAIDecisionsEnv();
+          for (const [name, value] of Object.entries(vars)) {
+            setEnv(name, value);
+          }
+          expectEq(
+            resolveDefaultDecisionProvider(),
+            expected,
+            `${expected} keeps precedence over the shared key`,
+          );
+        }
+        // And the shared key is what remains once those are gone.
+        resetOpenAIDecisionsEnv();
+        expectEq(resolveDefaultDecisionProvider(), provider, "the last resort");
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: it is the last decision provider, by decideOrder",
+      async () => {
+        const last = DECISION_PROVIDERS[DECISION_PROVIDERS.length - 1];
+        expectEq(last?.name, provider, "the last DECISION_PROVIDERS entry");
+        const orders = DECISION_PROVIDERS.map((d) => d.decideOrder ?? 0);
+        expectEq(
+          orders[orders.length - 1],
+          Math.max(...orders),
+          "the highest decideOrder",
+        );
+        expectEq(last?.decideOrder, 7, "order 7");
+        expectEq(
+          DECISION_PROVIDERS.filter((d) => d.decideOrder === 7).length,
+          1,
+          "no other provider holds 7",
+        );
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: the nothing-configured message offers OPENAI_API_KEY",
+      async () => {
+        for (const name of OPENAI_DECISIONS_ENV) {
+          setEnv(name, undefined);
+        }
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          undefined,
+          "nothing is configured",
+        );
+        await withMocks([openaiDecisionsRoute()], async ({ calls }) => {
+          const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+          const failure = await captureDecisionFailure(async () =>
+            nl.decide({
+              state: "short",
+              questions: OPENAI_DECISIONS_ONE_QUESTION,
+            }),
+          );
+          expect(
+            failure.message.includes("No decision provider"),
+            "a bare decide() finds no provider",
+          );
+          expect(
+            failure.message.includes("OPENAI_API_KEY for openai-decisions"),
+            "the message lists the shared key for openai-decisions",
+          );
+          expectEq(
+            calls.filter((c) => c.method === "POST").length,
+            0,
+            "no request",
+          );
+        });
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: credentials.openai does not configure it, credentials.openaiDecisions does",
+      async () => {
+        for (const name of OPENAI_DECISIONS_ENV) {
+          setEnv(name, undefined);
+        }
+        expectEq(
+          resolveDefaultDecisionProvider({
+            openai: { apiKey: "test-fake-chat-credential" },
+          }),
+          undefined,
+          "the chat provider's slice selects nothing",
+        );
+        expectEq(
+          resolveDefaultDecisionProvider({
+            openaiDecisions: { apiKey: "test-fake-config-credential" },
+          }),
+          provider,
+          "credentials.openaiDecisions.apiKey alone selects it",
+        );
+        expectEq(
+          resolveDefaultDecisionProvider({
+            openaiDecisions: { apiKey: "   " },
+          }),
+          undefined,
+          "a blank key is no key",
+        );
+        await withMocks([openaiDecisionsRoute()], async ({ calls }) => {
+          const nl = new NeuroLink({
+            conversationMemory: { enabled: false },
+            credentials: { openai: { apiKey: "test-fake-chat-credential" } },
+          });
+          const named = await captureDecisionFailure(async () => decideOne(nl));
+          expectEq(named.kind, "authentication", "naming it still fails");
+          expect(
+            named.message.includes("OPENAI_API_KEY"),
+            "the message names OPENAI_API_KEY",
+          );
+          expectEq(
+            calls.filter((c) => c.method === "POST").length,
+            0,
+            "no request left the process",
+          );
+        });
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: naming it posts to the public endpoint with the Bearer key",
+      async () => {
+        resetOpenAIDecisionsEnv();
+        setEnv("TYPESAFE_API_KEY", "test-fake-typesafe-credential");
+        await withMocks([openaiDecisionsRoute()], async ({ calls }) => {
+          const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+          const result = await decideOne(nl);
+          expectEq(result.provider, provider, "answered by the named provider");
+          const posts = calls.filter((c) => c.method === "POST");
+          expectEq(posts.length, 1, "one decision request");
+          expectEq(posts[0]?.url, endpoint, "default endpoint");
+          expectEq(
+            posts[0]?.headers.authorization,
+            `Bearer ${key}`,
+            "Bearer header",
+          );
+          const body = posts[0]?.bodyJson as {
+            model?: string;
+            input?: unknown;
+            questions?: Array<{ name?: string; type?: string }>;
+          };
+          expectEq(body.model, "gpt-6-luna", "the default model");
+          expectEq(body.input, "short", "the state as the input");
+          expectEq(body.questions?.[0]?.name, "urgent", "the question name");
+          expectEq(body.questions?.[0]?.type, "predicate", "a predicate");
+        });
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: the base URL from the environment and from credentials, a trailing /v1/ removed",
+      async () => {
+        resetOpenAIDecisionsEnv();
+        setEnv(baseURLEnvVar, "https://openai.env.example/gw/v1/");
+        await withMocks(
+          [openaiDecisionsRoute("https://openai.env.example/gw/v1/decisions")],
+          async ({ calls }) => {
+            await decideOne(
+              new NeuroLink({ conversationMemory: { enabled: false } }),
+            );
+            expectEq(
+              calls.find((c) => c.method === "POST")?.url,
+              "https://openai.env.example/gw/v1/decisions",
+              "endpoint from OPENAI_DECISIONS_BASE_URL, /v1/ removed once",
+            );
+          },
+        );
+        await withMocks(
+          [
+            openaiDecisionsRoute(
+              "https://openai.config.example/proxy/v1/decisions",
+            ),
+          ],
+          async ({ calls }) => {
+            const nl = new NeuroLink({
+              conversationMemory: { enabled: false },
+              credentials: {
+                openaiDecisions: {
+                  apiKey: "test-fake-config-credential",
+                  baseURL: "https://openai.config.example/proxy/v1/",
+                },
+              },
+            });
+            await decideOne(nl);
+            const post = calls.find((c) => c.method === "POST");
+            expectEq(
+              post?.url,
+              "https://openai.config.example/proxy/v1/decisions",
+              "endpoint from credentials.openaiDecisions.baseURL",
+            );
+            expectEq(
+              post?.headers.authorization,
+              "Bearer test-fake-config-credential",
+              "key from credentials.openaiDecisions.apiKey",
+            );
+          },
+        );
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: priced on input tokens only, at the rate in the pricing table",
+      async () => {
+        const { calculateCost } = await import("../dist/index.js");
+        const cost = (input: number, output: number): number =>
+          calculateCost(provider, "gpt-6-luna", {
+            input,
+            output,
+            total: input + output,
+          });
+        expect(
+          Math.abs(cost(1_000_000, 0) - 0.1) < 1e-12,
+          "one million input tokens cost 0.10",
+        );
+        expectEq(
+          cost(1_000_000, 0),
+          cost(1_000_000, 500_000),
+          "output tokens are not billed",
+        );
+        expectEq(cost(0, 1_000), 0, "output alone costs nothing");
+        expectEq(
+          calculateCost(provider, "a-model-the-table-does-not-name", {
+            input: 1_000_000,
+            output: 0,
+            total: 1_000_000,
+          }),
+          cost(1_000_000, 0),
+          "a model the table does not name is priced at the same rate",
+        );
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: a proxy's price search by model name does not find the Decisions rate",
+      async () => {
+        // LiteLLM, OpenRouter and openai-compatible search every provider's
+        // table by model name, so a table key that is also a chat model name
+        // would price that chat model at the Decisions rate, as an exact quote.
+        const { calculateCost, hasPricing } = await import("../dist/index.js");
+        const usage = { input: 1_000_000, output: 1_000_000, total: 2_000_000 };
+        for (const proxy of ["litellm", "openrouter", "openai-compatible"]) {
+          expectEq(
+            hasPricing(proxy, "gpt-6-luna"),
+            false,
+            `${proxy}: gpt-6-luna is not priced from the Decisions table`,
+          );
+          expectEq(
+            calculateCost(proxy, "gpt-6-luna", usage),
+            0,
+            `${proxy}: gpt-6-luna costs nothing to report`,
+          );
+        }
+        expectEq(
+          hasPricing("litellm", "gpt-6"),
+          false,
+          "litellm: gpt-6 does not inherit the Decisions rate by prefix",
+        );
+        // Positive control: the same proxies do search the tables by name, so
+        // the checks above would see a named row if there were one.
+        expectEq(
+          hasPricing("litellm", "pplx-decider-v1-27b"),
+          true,
+          "litellm: a model named in another decide table is found",
+        );
+      },
+    );
+  } finally {
+    OPENAI_DECISIONS_ENV.forEach((name, i) => setEnv(name, prior[i]));
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section: OpenAI Decisions through the public surface
+// ───────────────────────────────────────────────────────────────────────
+
+/**
+ * Every call here goes through `neurolink.decide()` / `tryDecide()` (or a
+ * provider the factory built) against `installMockFetch`. The questions and the
+ * answers are the examples on OpenAI's Decisions guide
+ * (https://developers.openai.com/api/docs/guides/decisions, saved 2026-10-07),
+ * so each can be read against that page. Every reply is a fixture this file
+ * builds: nothing here records what the endpoint returned for a real request,
+ * and the error bodies are stand-ins for their status classes.
+ */
+const OD_DAMAGE_TEXT =
+  "Does the product have visible damage, such as a crack, tear, or dent? Ignore shadows and damage to the packaging.";
+const OD_DEPARTMENT_TEXT = "Which department should handle this complaint?";
+const OD_SEVERITY_TEXT = "How severe is this issue?";
+const OD_RUBRIC = {
+  billing: "Payments, invoices, and refunds.",
+  technical: "Problems using the product.",
+  shipping: "Delivery and tracking.",
+  other: "Requests outside these categories.",
+} as const;
+const OD_LEVELS = [
+  "Appearance only; no lost functionality.",
+  "A task fails, but another way works.",
+  "A task fails with no workaround.",
+] as const;
+
+const OD_QUESTIONS = {
+  visible_damage: { type: "boolean", instructions: OD_DAMAGE_TEXT },
+  department: {
+    type: "choice",
+    instructions: OD_DEPARTMENT_TEXT,
+    criteria: OD_RUBRIC,
+  },
+  severity: {
+    type: "score",
+    instructions: OD_SEVERITY_TEXT,
+    criteria: OD_LEVELS,
+  },
+} satisfies DecisionQuestionMap;
+
+/** The three guide questions as the wire must carry them. */
+const OD_WIRE_QUESTIONS = {
+  visible_damage: {
+    type: "predicate",
+    name: "visible_damage",
+    instructions: OD_DAMAGE_TEXT,
+  },
+  department: {
+    type: "choice",
+    name: "department",
+    instructions: OD_DEPARTMENT_TEXT,
+    choices: Object.entries(OD_RUBRIC).map(([value, description]) => ({
+      value,
+      description,
+    })),
+  },
+  severity: {
+    type: "score",
+    name: "severity",
+    instructions: OD_SEVERITY_TEXT,
+    levels: OD_LEVELS.map((description, index) => ({
+      label: String(index),
+      description,
+    })),
+  },
+};
+
+const OD_PREDICATE_ANSWER = {
+  type: "predicate",
+  name: "visible_damage",
+  probability: 0.92,
+};
+const OD_CHOICE_ANSWER = {
+  type: "choice",
+  name: "department",
+  choice: "billing",
+  probabilities: [
+    { value: "billing", probability: 0.95 },
+    { value: "technical", probability: 0.02 },
+    { value: "shipping", probability: 0.01 },
+    { value: "other", probability: 0.02 },
+  ],
+  confidence: 0.93,
+};
+const OD_SCORE_ANSWER = {
+  type: "score",
+  name: "severity",
+  score: 1.1,
+  probabilities: [
+    { value: 0, label: "Cosmetic", probability: 0.1 },
+    { value: 1, label: "Workaround available", probability: 0.7 },
+    { value: 2, label: "Fully blocked", probability: 0.2 },
+  ],
+  confidence: 0.55,
+};
+
+/** What each guide answer must read back as. */
+const OD_EXPECTED = {
+  visible_damage: { type: "boolean", probability: 0.92 },
+  department: {
+    type: "choice",
+    choice: "billing",
+    confidence: 0.93,
+    probabilities: {
+      billing: 0.95,
+      technical: 0.02,
+      shipping: 0.01,
+      other: 0.02,
+    },
+  },
+  severity: {
+    type: "score",
+    score: 1.1,
+    confidence: 0.55,
+    legend: { "0": OD_LEVELS[0], "1": OD_LEVELS[1], "2": OD_LEVELS[2] },
+    probabilities: { "0": 0.1, "1": 0.7, "2": 0.2 },
+  },
+};
+
+type OdSentBody = {
+  model?: string;
+  input?: unknown;
+  questions?: Array<Record<string, unknown>>;
+};
+
+const odBodyOf = (call: { bodyJson: unknown } | undefined): OdSentBody =>
+  (call?.bodyJson ?? {}) as OdSentBody;
+
+type OdReplyOptions = {
+  /** `null` leaves `model` out of the body. */
+  model?: string | null;
+  usage?: unknown;
+  headers?: Record<string, string>;
+  url?: string;
+};
+
+/** A 200 in the shape of the guide's responses, answering with `answers`. */
+function odReply(answers: unknown, options: OdReplyOptions = {}) {
+  return {
+    method: "POST",
+    url: options.url ?? OPENAI_DECISIONS_SPEC.endpoint,
+    respond: {
+      status: 200,
+      headers: options.headers ?? {
+        "x-request-id": "req-openai-decisions-stand-in",
+      },
+      json: {
+        ...(options.model === null
+          ? {}
+          : { model: options.model ?? "gpt-6-luna" }),
+        answers,
+        usage: options.usage ?? {
+          input_tokens: 31,
+          output_tokens: 0,
+          total_tokens: 31,
+        },
+      },
+    },
+  };
+}
+
+type OdFailure = {
+  kind: string | undefined;
+  status: number | undefined;
+  retryable: boolean | undefined;
+  message: string;
+};
+
+/** Run a call expected to fail; return how the engine classified it. */
+async function odFailureOf(run: () => Promise<unknown>): Promise<OdFailure> {
+  try {
+    await run();
+  } catch (error) {
+    const cause = (
+      error as {
+        cause?: { kind?: string; status?: number; retryable?: boolean };
+      }
+    ).cause;
+    return {
+      kind: cause?.kind,
+      status: cause?.status,
+      retryable: cause?.retryable,
+      message: error instanceof Error ? error.message : "",
+    };
+  }
+  return {
+    kind: undefined,
+    status: undefined,
+    retryable: undefined,
+    message: "",
+  };
+}
+
+const OD_OPTION_COUNTS = [77, 151] as const;
+
+/** Option names that cannot be read as integers, so insertion order is kept. */
+const odOptions = (count: number): string[] =>
+  Array.from(
+    { length: count },
+    (_, i) => `option-${String(i).padStart(3, "0")}`,
+  );
+
+async function runOpenAIDecisionsSurface(): Promise<void> {
+  const { provider, key, endpoint } = OPENAI_DECISIONS_SPEC;
+  const { NeuroLink, AIProviderFactory, calculateCost, logger } =
+    await import("../dist/index.js");
+  const prior = OPENAI_DECISIONS_ENV.map((name) => process.env[name]);
+  const fresh = () => new NeuroLink({ conversationMemory: { enabled: false } });
+  const oneQuestion = { visible_damage: OD_QUESTIONS.visible_damage };
+
+  /** Warnings the engine logs, read from the logger the package itself uses. */
+  const withWarnings = async (run: () => Promise<void>): Promise<string[]> => {
+    const priorDebug = process.env.NEUROLINK_DEBUG;
+    const priorWarn = console.warn;
+    // The logger has no level getter; it takes NEUROLINK_LOG_LEVEL at load, else info.
+    const loadLevel = process.env.NEUROLINK_LOG_LEVEL?.toLowerCase();
+    const priorLevel =
+      loadLevel === "debug" || loadLevel === "warn" || loadLevel === "error"
+        ? loadLevel
+        : "info";
+    try {
+      setEnv("NEUROLINK_DEBUG", "true");
+      logger.setLogLevel("warn");
+      logger.clearLogs();
+      console.warn = () => undefined;
+      await run();
+      return logger.getLogs("warn").map((entry) => entry.message);
+    } finally {
+      console.warn = priorWarn;
+      logger.setLogLevel(priorLevel);
+      logger.clearLogs();
+      setEnv("NEUROLINK_DEBUG", priorDebug);
+    }
+  };
+
+  try {
+    // ── The guide's three examples, one question each ──
+    const guideRows = [
+      {
+        label: "yes/no",
+        name: "visible_damage",
+        answer: OD_PREDICATE_ANSWER,
+        expected: OD_EXPECTED.visible_damage,
+      },
+      {
+        label: "choice",
+        name: "department",
+        answer: OD_CHOICE_ANSWER,
+        expected: OD_EXPECTED.department,
+      },
+      {
+        label: "score",
+        name: "severity",
+        answer: OD_SCORE_ANSWER,
+        expected: OD_EXPECTED.severity,
+      },
+    ] as const;
+    for (const row of guideRows) {
+      await openaiDecisionsCase(
+        `DECIDE openai-decisions: the guide's ${row.label} example is sent and read back exactly`,
+        async () => {
+          resetOpenAIDecisionsEnv();
+          await withMocks([odReply([row.answer])], async ({ calls }) => {
+            const result = await fresh().decide({
+              provider,
+              state: "I was charged twice for my order.",
+              questions: { [row.name]: OD_QUESTIONS[row.name] },
+            });
+            expectEq(
+              calls.filter((c) => c.method === "POST").length,
+              1,
+              "one request",
+            );
+            const body = odBodyOf(calls.find((c) => c.method === "POST"));
+            expect(
+              sameJson(Object.keys(body).sort(), [
+                "input",
+                "model",
+                "questions",
+              ]),
+              "the body holds the model, the input and the questions, nothing else",
+            );
+            expectEq(body.model, "gpt-6-luna", "the default model");
+            expectEq(
+              body.input,
+              "I was charged twice for my order.",
+              "the state is the input",
+            );
+            expect(
+              sameJson(body.questions, [OD_WIRE_QUESTIONS[row.name]]),
+              "the question reached the wire as the guide writes it, named",
+            );
+            expectEq(result.provider, provider, "the provider that answered");
+            expect(
+              sameJson(Object.keys(result.answers), [row.name]),
+              "one answer, under the question's name",
+            );
+            expect(
+              sameJson(result.answers[row.name], row.expected),
+              "the answer reads back as the guide's numbers",
+            );
+          });
+        },
+      );
+    }
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: three questions in one request, answered in another order, are read by name; tryDecide agrees",
+      async () => {
+        resetOpenAIDecisionsEnv();
+        await withMocks(
+          [odReply([OD_SCORE_ANSWER, OD_PREDICATE_ANSWER, OD_CHOICE_ANSWER])],
+          async ({ calls }) => {
+            const nl = fresh();
+            const request = {
+              state: "I was charged twice for my order.",
+              questions: OD_QUESTIONS,
+            };
+            const result = await nl.decide({ provider, ...request });
+            const body = odBodyOf(calls.find((c) => c.method === "POST"));
+            expect(
+              sameJson(body.questions, [
+                OD_WIRE_QUESTIONS.visible_damage,
+                OD_WIRE_QUESTIONS.department,
+                OD_WIRE_QUESTIONS.severity,
+              ]),
+              "the questions went out in the order they were asked",
+            );
+            expect(
+              sameJson(result.answers, OD_EXPECTED),
+              "each answer is under its own question, whatever order the server used",
+            );
+            const viaTry = await nl.tryDecide({ provider, ...request });
+            expect(viaTry !== null, "tryDecide answered");
+            expect(
+              sameJson(viaTry?.answers, OD_EXPECTED),
+              "tryDecide reads the same answers",
+            );
+            expectEq(viaTry?.provider, provider, "from the same provider");
+          },
+        );
+      },
+    );
+
+    // ── Many options: the request carries every one, in order ──
+    for (const count of OD_OPTION_COUNTS) {
+      await openaiDecisionsCase(
+        `DECIDE openai-decisions: a ${count}-option choice is sent in full and in order, and read back complete`,
+        async () => {
+          resetOpenAIDecisionsEnv();
+          const options = odOptions(count);
+          const peak = Math.floor(count * 0.6);
+          const rest = 0.5 / (count - 1);
+          const expectedProbabilities = Object.fromEntries(
+            options.map((option, i) => [option, i === peak ? 0.5 : rest]),
+          );
+          // The server's list is in the opposite order to the request.
+          const served = [...options].reverse().map((value) => ({
+            value,
+            probability: expectedProbabilities[value],
+          }));
+          await withMocks(
+            [
+              odReply([
+                {
+                  type: "choice",
+                  name: "pick",
+                  choice: options[peak],
+                  probabilities: served,
+                  confidence: 0.62,
+                },
+              ]),
+            ],
+            async ({ calls }) => {
+              const result = await fresh().decide({
+                provider,
+                state: "A long list of possible categories.",
+                questions: {
+                  pick: {
+                    type: "choice",
+                    instructions: "Which category fits?",
+                    criteria: Object.fromEntries(
+                      options.map((option) => [
+                        option,
+                        `Applies to ${option}.`,
+                      ]),
+                    ),
+                  },
+                },
+              });
+              const sent = odBodyOf(calls.find((c) => c.method === "POST"))
+                .questions?.[0] as
+                | { choices?: Array<{ value?: string; description?: string }> }
+                | undefined;
+              expectEq(
+                sent?.choices?.length,
+                count,
+                "every option is on the wire",
+              );
+              expect(
+                sameJson(
+                  sent?.choices?.map((c) => c.value),
+                  options,
+                ),
+                "the option values are in the order they were given",
+              );
+              expect(
+                sameJson(
+                  sent?.choices?.map((c) => c.description),
+                  options.map((option) => `Applies to ${option}.`),
+                ),
+                "each description stays with its own option",
+              );
+              const answer = result.answers.pick;
+              expectEq(answer?.type, "choice", "a choice answer");
+              if (answer?.type !== "choice") {
+                return;
+              }
+              expectEq(answer.choice, options[peak], "the chosen option");
+              expectEq(answer.confidence, 0.62, "the reported confidence");
+              expect(
+                sameJson(Object.keys(answer.probabilities), options),
+                "the distribution comes back complete and in the order asked",
+              );
+              expect(
+                sameJson(answer.probabilities, expectedProbabilities),
+                "every probability is the one the server gave that option",
+              );
+            },
+          );
+        },
+      );
+    }
+
+    // ── An image ──
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: one image arrives as an input_image part with a data URL beside the text",
+      async () => {
+        resetOpenAIDecisionsEnv();
+        const png = readFileSync(
+          fileURLToPath(
+            new URL(
+              "./fixtures/decide/perplexity-decider/blue.png",
+              import.meta.url,
+            ),
+          ),
+        );
+        const url = `data:image/png;base64,${png.toString("base64")}`;
+        await withMocks([odReply([OD_PREDICATE_ANSWER])], async ({ calls }) => {
+          const result = await fresh().decide({
+            provider,
+            state: "Inspect the product in this photo.",
+            questions: oneQuestion,
+            images: [png],
+          });
+          const body = odBodyOf(calls.find((c) => c.method === "POST"));
+          expect(
+            sameJson(body.input, [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "input_text",
+                    text: "Inspect the product in this photo.",
+                  },
+                  { type: "input_image", image_url: url },
+                ],
+              },
+            ]),
+            "one user message: the text part, then the image part with no extra field",
+          );
+          expect(
+            sameJson(Object.keys(body).sort(), ["input", "model", "questions"]),
+            "the image rides in the input, not in a field of its own",
+          );
+          expect(
+            sameJson(result.answers.visible_damage, OD_EXPECTED.visible_damage),
+            "the answer reads back",
+          );
+          expectEq(
+            result.mediaBytes,
+            url.length,
+            "the media bytes are the data URL's length",
+          );
+        });
+      },
+    );
+
+    // ── Answers the engine refuses to repair ──
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: a refusal comes back as an absent answer and a logged warning, the others arrive",
+      async () => {
+        resetOpenAIDecisionsEnv();
+        await withMocks(
+          [
+            odReply([
+              OD_PREDICATE_ANSWER,
+              { type: "refusal", name: "department" },
+              OD_SCORE_ANSWER,
+            ]),
+          ],
+          async () => {
+            let answers: Record<string, unknown> = {};
+            const warnings = await withWarnings(async () => {
+              answers = (
+                await fresh().decide({
+                  provider,
+                  state: "I was charged twice for my order.",
+                  questions: OD_QUESTIONS,
+                })
+              ).answers;
+            });
+            expect(
+              sameJson(Object.keys(answers).sort(), [
+                "severity",
+                "visible_damage",
+              ]),
+              "the refused question has no answer; the other two are present",
+            );
+            expect(
+              !("department" in answers),
+              "no placeholder for the refusal",
+            );
+            expect(
+              sameJson(answers.visible_damage, OD_EXPECTED.visible_damage) &&
+                sameJson(answers.severity, OD_EXPECTED.severity),
+              "the answers that arrived are the guide's",
+            );
+            expect(
+              warnings.includes(
+                'OpenAI Decisions: the model declined to answer "department"',
+              ),
+              "the refusal is logged by question name",
+            );
+            expect(
+              !warnings.some((line) => line.includes("dropped unparseable")),
+              "a refusal is not reported as an unparseable answer",
+            );
+          },
+        );
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: a missing answer and a distribution that does not sum to 1 are absent, the rest survive, the bad one is warned about",
+      async () => {
+        resetOpenAIDecisionsEnv();
+        const underweight = {
+          ...OD_CHOICE_ANSWER,
+          probabilities: [
+            { value: "billing", probability: 0.85 },
+            { value: "technical", probability: 0.02 },
+            { value: "shipping", probability: 0.01 },
+            { value: "other", probability: 0.02 },
+          ],
+        };
+        // `severity` is not answered at all, and `department` sums to 0.9.
+        await withMocks(
+          [odReply([OD_PREDICATE_ANSWER, underweight])],
+          async () => {
+            let answers: Record<string, unknown> = {};
+            const warnings = await withWarnings(async () => {
+              answers = (
+                await fresh().decide({
+                  provider,
+                  state: "I was charged twice for my order.",
+                  questions: OD_QUESTIONS,
+                })
+              ).answers;
+            });
+            expect(
+              sameJson(Object.keys(answers), ["visible_damage"]),
+              "only the sound answer is returned",
+            );
+            expect(
+              sameJson(answers.visible_damage, OD_EXPECTED.visible_damage),
+              "and it is the guide's",
+            );
+            expect(
+              warnings.includes(
+                'OpenAI Decisions: dropped unparseable answer "department"',
+              ),
+              "the distribution that does not sum to 1 is named in a warning",
+            );
+            expect(
+              !warnings.some((line) => line.includes('"severity"')),
+              "an answer the server never sent is not reported as a dropped one",
+            );
+          },
+        );
+      },
+    );
+
+    // ── Model, usage, request id, price ──
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: the model sent, a per-call model, and the model, usage and request id read back",
+      async () => {
+        resetOpenAIDecisionsEnv();
+        await withMocks(
+          [
+            odReply([OD_PREDICATE_ANSWER], {
+              model: "stand-in-reported-model",
+              usage: {
+                input_tokens: 250_000,
+                output_tokens: 7,
+                total_tokens: 250_007,
+              },
+              headers: { "x-request-id": "req-surface-1" },
+            }),
+          ],
+          async ({ calls }) => {
+            const nl = fresh();
+            const result = await nl.decide({
+              provider,
+              state: "short",
+              questions: oneQuestion,
+            });
+            expectEq(
+              odBodyOf(calls[calls.length - 1]).model,
+              "gpt-6-luna",
+              "the default model is sent",
+            );
+            expectEq(
+              result.model,
+              "stand-in-reported-model",
+              "the model the reply names",
+            );
+            expectEq(result.usage.inputTokens, 250_000, "input tokens");
+            expectEq(result.usage.outputTokens, 7, "output tokens");
+            expectEq(
+              result.requestId,
+              "req-surface-1",
+              "the x-request-id header",
+            );
+            // The price of that decision, as decide() computes it.
+            const cost = calculateCost(result.provider, result.model, {
+              input: result.usage.inputTokens,
+              output: result.usage.outputTokens,
+              total: result.usage.inputTokens + result.usage.outputTokens,
+            });
+            expect(
+              Math.abs(cost - (250_000 * 0.1) / 1_000_000) < 1e-12,
+              "250,000 input tokens cost 250,000 x 0.10 / 1e6 and the 7 output tokens nothing",
+            );
+            await nl.decide({
+              provider,
+              model: "stand-in-per-call-model",
+              state: "short",
+              questions: oneQuestion,
+            });
+            expectEq(
+              odBodyOf(calls[calls.length - 1]).model,
+              "stand-in-per-call-model",
+              "a per-call model is the one sent",
+            );
+          },
+        );
+        // No `model` in the reply: the model asked for is the one reported.
+        await withMocks(
+          [odReply([OD_PREDICATE_ANSWER], { model: null })],
+          async () => {
+            const result = await fresh().decide({
+              provider,
+              model: "stand-in-per-call-model",
+              state: "short",
+              questions: oneQuestion,
+            });
+            expectEq(
+              result.model,
+              "stand-in-per-call-model",
+              "with no model in the reply the requested one is reported",
+            );
+          },
+        );
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: OPENAI_DECISIONS_MODEL names the model, and the chat provider's variables do not",
+      async () => {
+        // The registry reads OPENAI_DECISIONS_MODEL once, when providers register,
+        // so a value set in this process arrives too late. A fresh process is the
+        // only way to give it one first, and the only way to show that the chat
+        // provider's OPENAI_MODEL and OPENAI_BASE_URL reach neither the model nor
+        // the route.
+        const distUrl = new URL("../dist/index.js", import.meta.url).href;
+        const child = `
+          const sent = [];
+          const urls = [];
+          globalThis.fetch = async (input, init) => {
+            const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+            if (!url.includes("/v1/decisions")) {
+              throw new Error("no route for a request this test does not expect");
+            }
+            const body = JSON.parse(String(init.body));
+            sent.push(body.model);
+            urls.push(url);
+            return new Response(
+              JSON.stringify({ answers: [{ type: "predicate", name: "urgent", probability: 0.5 }], usage: { input_tokens: 1, output_tokens: 0 } }),
+              { status: 200, headers: { "content-type": "application/json" } },
+            );
+          };
+          const { NeuroLink } = await import(${JSON.stringify(distUrl)});
+          const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+          const questions = { urgent: { type: "boolean", instructions: "Is this urgent?" } };
+          const named = await nl.decide({ provider: "openai-decisions", state: "short", questions });
+          const perCall = await nl.decide({ provider: "openai-decisions", model: "stand-in-per-call-model", state: "short", questions });
+          console.log("RESULT:" + JSON.stringify({ sent, urls, named: named.model, perCall: perCall.model }));
+          process.exit(0);
+        `;
+        /** One fresh process, with the chat provider's own variables set from the start. */
+        const runChild = (decisions: Record<string, string>) => {
+          const res = spawnSync(
+            process.execPath,
+            ["--input-type=module", "-e", child],
+            {
+              encoding: "utf8",
+              timeout: 60_000,
+              killSignal: "SIGKILL",
+              env: {
+                ...Object.fromEntries(
+                  Object.entries(process.env).filter(
+                    ([name]) => !OPENAI_DECISIONS_ENV.includes(name),
+                  ),
+                ),
+                OPENAI_API_KEY: key,
+                ...decisions,
+                OPENAI_MODEL: "stand-in-chat-model",
+                OPENAI_BASE_URL: "https://chat.text.example/v1",
+              },
+            },
+          );
+          // The detail stays free of the child's output: only its status is quoted.
+          expectEq(
+            res.status,
+            0,
+            `the child exited cleanly (signal ${res.signal})`,
+          );
+          const line = (res.stdout ?? "")
+            .split("\n")
+            .find((l) => l.startsWith("RESULT:"));
+          expect(line !== undefined, "the child reported its requests");
+          return JSON.parse((line ?? "RESULT:{}").slice("RESULT:".length)) as {
+            sent?: string[];
+            urls?: string[];
+            named?: string;
+            perCall?: string;
+          };
+        };
+
+        const withVariable = runChild({
+          OPENAI_DECISIONS_MODEL: "stand-in-env-model",
+        });
+        expect(
+          sameJson(withVariable.sent, [
+            "stand-in-env-model",
+            "stand-in-per-call-model",
+          ]),
+          "the variable named the model on the wire, and a per-call model still won",
+        );
+        expect(
+          sameJson(withVariable.urls, [endpoint, endpoint]),
+          "OPENAI_BASE_URL did not move the route",
+        );
+        expectEq(
+          withVariable.named,
+          "stand-in-env-model",
+          "the result carries that model",
+        );
+        expectEq(
+          withVariable.perCall,
+          "stand-in-per-call-model",
+          "and the per-call one",
+        );
+
+        const withoutVariable = runChild({});
+        expect(
+          sameJson(withoutVariable.sent, [
+            "gpt-6-luna",
+            "stand-in-per-call-model",
+          ]),
+          "with no OPENAI_DECISIONS_MODEL the default is sent, not OPENAI_MODEL",
+        );
+        expect(
+          sameJson(withoutVariable.urls, [endpoint, endpoint]),
+          "OPENAI_BASE_URL did not move the route without the model variable either",
+        );
+      },
+    );
+
+    // ── Credentials: per call over the instance over the environment ──
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: a per-call key beats the instance's, which beats OPENAI_API_KEY; a per-call openai slice changes nothing",
+      async () => {
+        resetOpenAIDecisionsEnv();
+        const instanceKey = "test-fake-instance-credential";
+        const callKey = "test-fake-per-call-credential";
+        await withMocks(
+          [
+            odReply([OD_PREDICATE_ANSWER], {
+              url: "https://openai.per-call.example/gw/v1/decisions",
+            }),
+            odReply([OD_PREDICATE_ANSWER]),
+          ],
+          async ({ calls }) => {
+            const bearerOf = (): string | undefined =>
+              calls[calls.length - 1]?.headers.authorization;
+            const ask = (
+              nl: InstanceType<typeof NeuroLink>,
+              credentials?: NeurolinkCredentials,
+            ) =>
+              nl.decide({
+                provider,
+                state: "short",
+                questions: oneQuestion,
+                credentials,
+              });
+
+            await ask(fresh());
+            expectEq(bearerOf(), `Bearer ${key}`, "the environment key alone");
+
+            const withInstance = new NeuroLink({
+              conversationMemory: { enabled: false },
+              credentials: { openaiDecisions: { apiKey: instanceKey } },
+            });
+            await ask(withInstance);
+            expectEq(
+              bearerOf(),
+              `Bearer ${instanceKey}`,
+              "the instance beats the environment",
+            );
+
+            await ask(withInstance, { openaiDecisions: { apiKey: callKey } });
+            expectEq(
+              bearerOf(),
+              `Bearer ${callKey}`,
+              "the call beats the instance",
+            );
+            expectEq(
+              calls[calls.length - 1]?.url,
+              endpoint,
+              "to the default route",
+            );
+
+            await ask(withInstance, {
+              openaiDecisions: {
+                apiKey: callKey,
+                baseURL: "https://openai.per-call.example/gw/v1/",
+              },
+            });
+            expectEq(
+              calls[calls.length - 1]?.url,
+              "https://openai.per-call.example/gw/v1/decisions",
+              "a per-call base URL moves the route, /v1/ removed once",
+            );
+
+            await ask(withInstance, {
+              openai: { apiKey: "test-fake-chat-credential" },
+            });
+            expectEq(
+              bearerOf(),
+              `Bearer ${instanceKey}`,
+              "the chat provider's slice reaches nothing here",
+            );
+          },
+        );
+      },
+    );
+
+    // ── Errors, classified as the entry says ──
+    const errorRows = [
+      {
+        status: 400,
+        kind: "invalid_request",
+        requests: 1,
+        retryAfter: "0",
+        body: {
+          error: {
+            message: "stand-in: a parameter is missing",
+            type: "invalid_request_error",
+            param: "questions",
+            code: null,
+          },
+        },
+      },
+      {
+        status: 401,
+        kind: "authentication",
+        requests: 1,
+        retryAfter: "0",
+        body: {
+          error: {
+            message: "stand-in: the key was not accepted",
+            type: "invalid_request_error",
+            code: "invalid_api_key",
+          },
+        },
+      },
+      {
+        status: 403,
+        kind: "invalid_request",
+        requests: 1,
+        retryAfter: "0",
+        body: {
+          error: {
+            message: "stand-in: not available here",
+            type: "invalid_request_error",
+            code: null,
+          },
+        },
+      },
+      {
+        status: 429,
+        kind: "rate_limit",
+        requests: 1,
+        retryAfter: "1",
+        body: {
+          error: {
+            message: "stand-in: slow down",
+            type: "requests",
+            code: "rate_limit_exceeded",
+          },
+        },
+      },
+      {
+        status: 500,
+        kind: "server",
+        requests: 2,
+        retryAfter: "0",
+        body: {
+          error: {
+            message: "stand-in: the server failed",
+            type: "server_error",
+            code: null,
+          },
+        },
+      },
+    ] as const;
+    for (const row of errorRows) {
+      await openaiDecisionsCase(
+        `DECIDE openai-decisions: HTTP ${row.status} is ${row.kind}, sent ${row.requests === 1 ? "once" : `${row.requests} times`}, and its own message is kept`,
+        async () => {
+          resetOpenAIDecisionsEnv();
+          await withMocks(
+            [
+              {
+                method: "POST",
+                url: endpoint,
+                respond: {
+                  status: row.status,
+                  headers: {
+                    "retry-after": row.retryAfter,
+                    "x-request-id": "req-error-stand-in",
+                  },
+                  json: row.body,
+                },
+              },
+            ],
+            async ({ calls }) => {
+              const failure = await odFailureOf(() =>
+                fresh().decide({
+                  provider,
+                  state: "short",
+                  questions: oneQuestion,
+                }),
+              );
+              expectEq(failure.kind, row.kind, "the classification");
+              expectEq(failure.status, row.status, "the status is kept");
+              expectEq(
+                calls.filter((c) => c.method === "POST").length,
+                row.requests,
+                "how often it was sent",
+              );
+              expect(
+                failure.message.includes(row.body.error.message),
+                "the server's own message is in the failure",
+              );
+              expect(
+                !failure.message.includes(key),
+                "the key is never in the failure",
+              );
+            },
+          );
+        },
+      );
+    }
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: a 401 latches the provider instance, a 403 does not",
+      async () => {
+        resetOpenAIDecisionsEnv();
+        const ask = (
+          instance: Awaited<
+            ReturnType<typeof AIProviderFactory.createProvider>
+          >,
+        ) =>
+          instance.decide!({
+            state: "short",
+            questions: oneQuestion,
+          });
+        const reply = (status: number, message: string) => ({
+          method: "POST",
+          url: endpoint,
+          respond: {
+            status,
+            json: {
+              error: { message, type: "invalid_request_error", code: null },
+            },
+          },
+        });
+
+        await withMocks(
+          [reply(401, "stand-in: the key was not accepted")],
+          async ({ calls }) => {
+            const instance = await AIProviderFactory.createProvider(
+              provider,
+              undefined,
+              false,
+            );
+            const first = await odFailureOf(() => ask(instance));
+            expectEq(first.kind, "authentication", "the 401");
+            const second = await odFailureOf(() => ask(instance));
+            expectEq(
+              second.kind,
+              "authentication",
+              "the instance refuses the next call",
+            );
+            expectEq(
+              calls.filter((c) => c.method === "POST").length,
+              1,
+              "and sends nothing for it",
+            );
+          },
+        );
+
+        let status = 403;
+        await withMocks(
+          [
+            {
+              method: "POST",
+              url: endpoint,
+              respond: (): {
+                status: number;
+                json: unknown;
+              } =>
+                status === 403
+                  ? {
+                      status,
+                      json: {
+                        error: {
+                          message: "stand-in: not available here",
+                          type: "invalid_request_error",
+                          code: null,
+                        },
+                      },
+                    }
+                  : {
+                      status,
+                      json: {
+                        model: "gpt-6-luna",
+                        answers: [OD_PREDICATE_ANSWER],
+                        usage: { input_tokens: 1, output_tokens: 0 },
+                      },
+                    },
+            },
+          ],
+          async ({ calls }) => {
+            const instance = await AIProviderFactory.createProvider(
+              provider,
+              undefined,
+              false,
+            );
+            const first = await odFailureOf(() => ask(instance));
+            expectEq(
+              first.kind,
+              "invalid_request",
+              "the 403 is not an authentication failure",
+            );
+            status = 200;
+            const second = await ask(instance);
+            expect(
+              sameJson(
+                second.answers.visible_damage,
+                OD_EXPECTED.visible_damage,
+              ),
+              "the same instance answers the next call",
+            );
+            expectEq(
+              calls.filter((c) => c.method === "POST").length,
+              2,
+              "both calls reached the wire",
+            );
+          },
+        );
+      },
+    );
+  } finally {
+    OPENAI_DECISIONS_ENV.forEach((name, i) => setEnv(name, prior[i]));
+  }
+}
+
+/**
+ * `OPENAI_API_KEY` is also the key of every OpenAI-compatible gateway, so the
+ * ambient fallback must not hand a gateway's key and the decision state to
+ * api.openai.com. The entry's `ambientKeyGuard` skips the key from the
+ * ENVIRONMENT while OPENAI_BASE_URL or OPENAI_API_BASE names another host.
+ * It does not apply once the host routed this provider on purpose
+ * (OPENAI_DECISIONS_BASE_URL, credentials.openaiDecisions) and it never applies
+ * to a call that names the provider. The answer in the 200 body is a stand-in
+ * for the shape.
+ */
+async function runOpenAIDecisionsAmbientGuard(): Promise<void> {
+  const { provider, key, endpoint } = OPENAI_DECISIONS_SPEC;
+  const { NeuroLink, resolveDefaultDecisionProvider } =
+    await import("../dist/index.js");
+  const prior = OPENAI_DECISIONS_ENV.map((name) => process.env[name]);
+  const GATEWAY = "https://gateway.invalid/v1";
+  const fresh = () => new NeuroLink({ conversationMemory: { enabled: false } });
+  const posts = <T extends { method: string }>(calls: readonly T[]): T[] =>
+    calls.filter((c) => c.method === "POST");
+  /** The shared key alone, plus whatever else this case sets. */
+  const resolveWith = (
+    vars: Record<string, string | undefined>,
+    credentials?: Parameters<typeof resolveDefaultDecisionProvider>[0],
+  ): string | undefined => {
+    resetOpenAIDecisionsEnv();
+    for (const [name, value] of Object.entries(vars)) {
+      setEnv(name, value);
+    }
+    return resolveDefaultDecisionProvider(credentials);
+  };
+  const BASE_VARS = ["OPENAI_BASE_URL", "OPENAI_API_BASE"] as const;
+  try {
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: a gateway base URL keeps the ambient key from being the default; tryDecide is null and nothing is sent",
+      async () => {
+        for (const name of BASE_VARS) {
+          // Precondition: the same setup without the variable does send one request.
+          resetOpenAIDecisionsEnv();
+          await withMocks([openaiDecisionsRoute()], async ({ calls }) => {
+            const result = await fresh().tryDecide({
+              state: "short",
+              questions: OPENAI_DECISIONS_ONE_QUESTION,
+            });
+            expectEq(result?.provider, provider, `${name} unset: it answers`);
+            expectEq(posts(calls).length, 1, `${name} unset: one request`);
+          });
+          setEnv(name, GATEWAY);
+          expectEq(
+            resolveDefaultDecisionProvider(),
+            undefined,
+            `${name} naming another host selects nothing`,
+          );
+          await withMocks(
+            [
+              openaiDecisionsRoute(),
+              openaiDecisionsRoute(`${GATEWAY}/decisions`),
+            ],
+            async ({ calls }) => {
+              const result = await fresh().tryDecide({
+                state: "short",
+                questions: OPENAI_DECISIONS_ONE_QUESTION,
+              });
+              expectEq(result, null, `${name}: tryDecide fails open`);
+              expectEq(posts(calls).length, 0, `${name}: no request at all`);
+            },
+          );
+        }
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: a base URL on api.openai.com, in any spelling of the same origin, still leaves it the default",
+      async () => {
+        for (const name of BASE_VARS) {
+          for (const value of [
+            "https://api.openai.com",
+            "https://api.openai.com/",
+            "https://api.openai.com/v1",
+            "https://api.openai.com/v1/",
+            "https://API.openai.com/",
+            "HTTPS://Api.OpenAI.com/v1",
+            "https://api.openai.com:443/v1",
+            "  https://api.openai.com/v1  ",
+          ]) {
+            expectEq(
+              resolveWith({ [name]: value }),
+              provider,
+              `${name}=${value.trim()} is OpenAI's own host`,
+            );
+          }
+          // Blank is unset.
+          for (const blank of ["", "   "]) {
+            expectEq(
+              resolveWith({ [name]: blank }),
+              provider,
+              `${name} blank is no base URL`,
+            );
+          }
+        }
+        // One listed variable on OpenAI and the other elsewhere is still elsewhere.
+        expectEq(
+          resolveWith({
+            OPENAI_BASE_URL: "https://api.openai.com/v1",
+            OPENAI_API_BASE: GATEWAY,
+          }),
+          undefined,
+          "any listed variable naming another host skips the key",
+        );
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: a base URL that is not plainly OpenAI's is untrusted, however it is spelled",
+      async () => {
+        for (const value of [
+          "http://127.0.0.1:4000/v1",
+          "http://localhost:11434",
+          "https://gateway.example/v1",
+          "https://eu.api.openai.com/v1",
+          "https://api.openai.com.evil.test/v1",
+          "https://api.openai.com@evil.test/v1",
+          "https://evil.test/https://api.openai.com",
+          "https://notapi.openai.com",
+          "https://api.openai.com:8443/v1",
+          "http://api.openai.com/v1",
+          "ftp://api.openai.com",
+          // A blob: URL carries the origin of the URL inside it.
+          "blob:https://api.openai.com/00000000-0000-4000-8000-000000000000",
+          "api.openai.com/v1",
+          "not a url",
+          "/v1",
+          "https://",
+          "javascript:void(0)",
+        ]) {
+          expectEq(
+            resolveWith({ OPENAI_BASE_URL: value }),
+            undefined,
+            `OPENAI_BASE_URL=${value} is not OpenAI's host`,
+          );
+        }
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: OPENAI_DECISIONS_BASE_URL is intent: it selects the provider despite a gateway, and the request goes there",
+      async () => {
+        for (const value of [
+          "https://decisions.example/gw",
+          "https://gateway.invalid/v1",
+          "http://127.0.0.1:4000",
+        ]) {
+          expectEq(
+            resolveWith({
+              OPENAI_BASE_URL: GATEWAY,
+              OPENAI_DECISIONS_BASE_URL: value,
+            }),
+            provider,
+            `OPENAI_DECISIONS_BASE_URL=${value} routes it on purpose`,
+          );
+        }
+        expectEq(
+          resolveWith({
+            OPENAI_BASE_URL: GATEWAY,
+            OPENAI_DECISIONS_BASE_URL: "   ",
+          }),
+          undefined,
+          "a blank OPENAI_DECISIONS_BASE_URL routes nothing",
+        );
+        resetOpenAIDecisionsEnv();
+        setEnv("OPENAI_BASE_URL", GATEWAY);
+        setEnv("OPENAI_DECISIONS_BASE_URL", "https://decisions.example/gw/v1/");
+        await withMocks(
+          [openaiDecisionsRoute("https://decisions.example/gw/v1/decisions")],
+          async ({ calls }) => {
+            const result = await fresh().tryDecide({
+              state: "short",
+              questions: OPENAI_DECISIONS_ONE_QUESTION,
+            });
+            expectEq(result?.provider, provider, "tryDecide answers");
+            const sent = posts(calls);
+            expectEq(sent.length, 1, "one request");
+            expectEq(
+              sent[0]?.url,
+              "https://decisions.example/gw/v1/decisions",
+              "to the decisions base URL, never to the chat host",
+            );
+          },
+        );
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: credentials.openaiDecisions selects it despite a gateway, with a key or with a base URL; credentials.openai does not",
+      async () => {
+        expectEq(
+          resolveWith(
+            { OPENAI_API_KEY: undefined, OPENAI_BASE_URL: GATEWAY },
+            { openaiDecisions: { apiKey: "test-fake-config-credential" } },
+          ),
+          provider,
+          "a credentials key alone, with the environment on a gateway",
+        );
+        expectEq(
+          resolveWith(
+            { OPENAI_BASE_URL: GATEWAY },
+            { openaiDecisions: { apiKey: "test-fake-config-credential" } },
+          ),
+          provider,
+          "a credentials key beside the environment's",
+        );
+        expectEq(
+          resolveWith(
+            { OPENAI_BASE_URL: GATEWAY },
+            { openaiDecisions: { baseURL: "https://decisions.example/gw" } },
+          ),
+          provider,
+          "a credentials base URL routes the environment key on purpose",
+        );
+        expectEq(
+          resolveWith(
+            { OPENAI_BASE_URL: GATEWAY },
+            { openaiDecisions: { apiKey: "   ", baseURL: "  " } },
+          ),
+          undefined,
+          "blank credentials change nothing",
+        );
+        expectEq(
+          resolveWith(
+            { OPENAI_BASE_URL: GATEWAY },
+            { openai: { apiKey: "test-fake-chat-credential" } },
+          ),
+          undefined,
+          "the chat provider's slice is not this provider's",
+        );
+        resetOpenAIDecisionsEnv();
+        setEnv("OPENAI_BASE_URL", GATEWAY);
+        await withMocks([openaiDecisionsRoute()], async ({ calls }) => {
+          const result = await fresh().tryDecide({
+            state: "short",
+            questions: OPENAI_DECISIONS_ONE_QUESTION,
+            credentials: {
+              openaiDecisions: { apiKey: "test-fake-per-call-credential" },
+            },
+          });
+          expectEq(result?.provider, provider, "a per-call key answers");
+          const sent = posts(calls);
+          expectEq(sent.length, 1, "one request");
+          expectEq(
+            sent[0]?.headers.authorization,
+            "Bearer test-fake-per-call-credential",
+            "with that key, not the gateway's",
+          );
+        });
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: every provider ahead of it, and every one with no guard, resolves as before under a gateway",
+      async () => {
+        const others: ReadonlyArray<readonly [string, Record<string, string>]> =
+          [
+            ["typesafe", { TYPESAFE_API_KEY: "test-fake-typesafe-credential" }],
+            [
+              "laya",
+              {
+                LAYA_API_KEY: "test-fake-laya-credential",
+                LAYA_BASE_URL: "https://laya.test.example/base",
+              },
+            ],
+            [
+              "xor",
+              {
+                XOR_API_KEY: "test-fake-xor-credential",
+                XOR_BASE_URL: "https://xor.test.example/proxy",
+              },
+            ],
+            ["perplexity-decider", { PERPLEXITY_API_KEY: "test-fake-pplx" }],
+            [
+              "cloudflare-clef",
+              {
+                CLOUDFLARE_API_KEY: "test-fake-cloudflare-credential",
+                CLOUDFLARE_ACCOUNT_ID: "test-account-id",
+              },
+            ],
+          ];
+        for (const [expected, vars] of others) {
+          expectEq(
+            resolveWith({ ...vars, OPENAI_BASE_URL: GATEWAY }),
+            expected,
+            `${expected} still wins under a gateway`,
+          );
+          // Without the shared key at all, the guard has nothing to guard.
+          expectEq(
+            resolveWith({
+              ...vars,
+              OPENAI_API_KEY: undefined,
+              OPENAI_BASE_URL: GATEWAY,
+            }),
+            expected,
+            `${expected} is unchanged without the shared key`,
+          );
+        }
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: a gateway in credentials.openai.baseURL keeps the ambient key from being the default, on the instance and per call; nothing is sent",
+      async () => {
+        const gatewaySlice = { openai: { baseURL: GATEWAY } };
+        // Precondition: the same environment, with a credentials slice that
+        // does not move the chat provider, answers with one request.
+        resetOpenAIDecisionsEnv();
+        await withMocks([openaiDecisionsRoute()], async ({ calls }) => {
+          const result = await new NeuroLink({
+            conversationMemory: { enabled: false },
+            credentials: { openai: { apiKey: "test-fake-chat-credential" } },
+          }).tryDecide({
+            state: "short",
+            questions: OPENAI_DECISIONS_ONE_QUESTION,
+          });
+          expectEq(result?.provider, provider, "no baseURL: it answers");
+          expectEq(posts(calls).length, 1, "no baseURL: one request");
+        });
+        expectEq(
+          resolveWith({}, gatewaySlice),
+          undefined,
+          "the resolver skips the key beside a credentials gateway",
+        );
+        // On the instance.
+        await withMocks(
+          [
+            openaiDecisionsRoute(),
+            openaiDecisionsRoute(`${GATEWAY}/decisions`),
+          ],
+          async ({ calls }) => {
+            resetOpenAIDecisionsEnv();
+            const result = await new NeuroLink({
+              conversationMemory: { enabled: false },
+              credentials: gatewaySlice,
+            }).tryDecide({
+              state: "short",
+              questions: OPENAI_DECISIONS_ONE_QUESTION,
+            });
+            expectEq(result, null, "instance credentials: fails open");
+            expectEq(
+              posts(calls).length,
+              0,
+              "instance credentials: no request",
+            );
+          },
+        );
+        // Per call, on an instance that holds no credentials.
+        await withMocks(
+          [
+            openaiDecisionsRoute(),
+            openaiDecisionsRoute(`${GATEWAY}/decisions`),
+          ],
+          async ({ calls }) => {
+            resetOpenAIDecisionsEnv();
+            const result = await fresh().tryDecide({
+              state: "short",
+              questions: OPENAI_DECISIONS_ONE_QUESTION,
+              credentials: gatewaySlice,
+            });
+            expectEq(result, null, "per-call credentials: fails open");
+            expectEq(
+              posts(calls).length,
+              0,
+              "per-call credentials: no request",
+            );
+          },
+        );
+        // The per-call slice is merged over the instance's, field by field.
+        await withMocks([openaiDecisionsRoute()], async ({ calls }) => {
+          resetOpenAIDecisionsEnv();
+          const result = await new NeuroLink({
+            conversationMemory: { enabled: false },
+            credentials: gatewaySlice,
+          }).tryDecide({
+            state: "short",
+            questions: OPENAI_DECISIONS_ONE_QUESTION,
+            credentials: { openai: { baseURL: "https://api.openai.com/v1" } },
+          });
+          expectEq(
+            result?.provider,
+            provider,
+            "a per-call OpenAI base URL replaces the instance's gateway",
+          );
+          expectEq(posts(calls).length, 1, "and one request goes out");
+        });
+        await withMocks(
+          [
+            openaiDecisionsRoute(),
+            openaiDecisionsRoute(`${GATEWAY}/decisions`),
+          ],
+          async ({ calls }) => {
+            resetOpenAIDecisionsEnv();
+            const result = await new NeuroLink({
+              conversationMemory: { enabled: false },
+              credentials: { openai: { baseURL: "https://api.openai.com/v1" } },
+            }).tryDecide({
+              state: "short",
+              questions: OPENAI_DECISIONS_ONE_QUESTION,
+              credentials: gatewaySlice,
+            });
+            expectEq(
+              result,
+              null,
+              "a per-call gateway replaces the instance's",
+            );
+            expectEq(posts(calls).length, 0, "and nothing is sent");
+          },
+        );
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: credentials.openai.baseURL on OpenAI's own host, blank or absent leaves it the default; anything else skips it",
+      async () => {
+        for (const value of [
+          "https://api.openai.com",
+          "https://api.openai.com/v1",
+          "https://api.openai.com/v1/",
+          "https://API.openai.com/",
+          "HTTPS://Api.OpenAI.com/v1",
+          "https://api.openai.com:443/v1",
+          "  https://api.openai.com/v1  ",
+          "",
+          "   ",
+        ]) {
+          expectEq(
+            resolveWith({}, { openai: { baseURL: value } }),
+            provider,
+            `credentials.openai.baseURL=${JSON.stringify(value)} is OpenAI's own host or unset`,
+          );
+        }
+        expectEq(
+          resolveWith({}, { openai: { apiKey: "test-fake-chat-credential" } }),
+          provider,
+          "a chat slice with no base URL changes nothing",
+        );
+        expectEq(
+          resolveWith({}, { openai: {} }),
+          provider,
+          "an empty chat slice changes nothing",
+        );
+        for (const value of [
+          "http://127.0.0.1:4000/v1",
+          "https://gateway.example/v1",
+          "https://eu.api.openai.com/v1",
+          "https://api.openai.com.evil.test/v1",
+          "https://api.openai.com@evil.test/v1",
+          "https://api.openai.com:8443/v1",
+          "http://api.openai.com/v1",
+          "blob:https://api.openai.com/00000000-0000-4000-8000-000000000000",
+          "api.openai.com/v1",
+          "not a url",
+        ]) {
+          expectEq(
+            resolveWith({}, { openai: { baseURL: value } }),
+            undefined,
+            `credentials.openai.baseURL=${value} is not OpenAI's host`,
+          );
+        }
+        // A value that is not text cannot be read as a URL: untrusted.
+        for (const value of [5, true, {}, ["https://api.openai.com"]]) {
+          expectEq(
+            resolveWith({}, {
+              openai: { baseURL: value },
+            } as unknown as Parameters<
+              typeof resolveDefaultDecisionProvider
+            >[0]),
+            undefined,
+            `a ${typeof value} base URL is untrusted`,
+          );
+        }
+        // The environment and the credentials are both read: either one
+        // naming another host is enough.
+        expectEq(
+          resolveWith(
+            { OPENAI_BASE_URL: "https://api.openai.com/v1" },
+            { openai: { baseURL: GATEWAY } },
+          ),
+          undefined,
+          "OpenAI in the environment, a gateway in credentials",
+        );
+        expectEq(
+          resolveWith(
+            { OPENAI_BASE_URL: GATEWAY },
+            { openai: { baseURL: "https://api.openai.com/v1" } },
+          ),
+          undefined,
+          "a gateway in the environment, OpenAI in credentials: still skipped, the guard is conservative",
+        );
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: routing it on purpose lifts the credentials guard too; a named call and the other providers are unaffected",
+      async () => {
+        const gatewaySlice = { openai: { baseURL: GATEWAY } };
+        expectEq(
+          resolveWith(
+            { OPENAI_DECISIONS_BASE_URL: "https://decisions.example/gw" },
+            gatewaySlice,
+          ),
+          provider,
+          "OPENAI_DECISIONS_BASE_URL lifts it",
+        );
+        expectEq(
+          resolveWith(
+            {},
+            {
+              ...gatewaySlice,
+              openaiDecisions: { baseURL: "https://decisions.example/gw" },
+            },
+          ),
+          provider,
+          "credentials.openaiDecisions.baseURL lifts it",
+        );
+        expectEq(
+          resolveWith(
+            {},
+            {
+              ...gatewaySlice,
+              openaiDecisions: { apiKey: "test-fake-config-credential" },
+            },
+          ),
+          provider,
+          "credentials.openaiDecisions.apiKey lifts it",
+        );
+        expectEq(
+          resolveWith(
+            { OPENAI_API_KEY: undefined },
+            {
+              ...gatewaySlice,
+              openaiDecisions: { apiKey: "test-fake-config-credential" },
+            },
+          ),
+          provider,
+          "and so does a credentials key with no environment key",
+        );
+        expectEq(
+          resolveWith({ OPENAI_API_KEY: undefined }, gatewaySlice),
+          undefined,
+          "no key anywhere: nothing, with or without the gateway",
+        );
+        // The providers ahead of it resolve as before whatever the slice says.
+        expectEq(
+          resolveWith(
+            { TYPESAFE_API_KEY: "test-fake-typesafe-credential" },
+            gatewaySlice,
+          ),
+          "typesafe",
+          "TypeSafe still wins",
+        );
+        expectEq(
+          resolveWith({ PERPLEXITY_API_KEY: "test-fake-pplx" }, gatewaySlice),
+          "perplexity-decider",
+          "Perplexity still wins",
+        );
+        // A named call is never checked: the environment key goes to the
+        // default endpoint whatever the credentials say.
+        resetOpenAIDecisionsEnv();
+        await withMocks([openaiDecisionsRoute()], async ({ calls }) => {
+          const result = await fresh().decide({
+            provider,
+            state: "short",
+            questions: OPENAI_DECISIONS_ONE_QUESTION,
+            credentials: gatewaySlice,
+          });
+          expectEq(result.provider, provider, "the named call answers");
+          const sent = posts(calls);
+          expectEq(sent.length, 1, "one request");
+          expectEq(sent[0]?.url, endpoint, "to the default endpoint");
+          expectEq(
+            sent[0]?.headers.authorization,
+            `Bearer ${key}`,
+            "with the environment key",
+          );
+        });
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: naming it is intent: the environment key is used under a gateway, and the request goes to api.openai.com",
+      async () => {
+        resetOpenAIDecisionsEnv();
+        setEnv("OPENAI_BASE_URL", GATEWAY);
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          undefined,
+          "precondition: the default skips it",
+        );
+        await withMocks([openaiDecisionsRoute()], async ({ calls }) => {
+          const result = await fresh().decide({
+            provider,
+            state: "short",
+            questions: OPENAI_DECISIONS_ONE_QUESTION,
+          });
+          expectEq(result.provider, provider, "the named call answers");
+          const sent = posts(calls);
+          expectEq(sent.length, 1, "one request");
+          expectEq(sent[0]?.url, endpoint, "to the default endpoint");
+          expectEq(
+            sent[0]?.headers.authorization,
+            `Bearer ${key}`,
+            "with the environment key",
+          );
+        });
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: the nothing-configured message says when the shared key is ignored",
+      async () => {
+        resetOpenAIDecisionsEnv();
+        setEnv("OPENAI_BASE_URL", GATEWAY);
+        await withMocks([openaiDecisionsRoute()], async ({ calls }) => {
+          const failure = await captureDecisionFailure(async () =>
+            fresh().decide({
+              state: "short",
+              questions: OPENAI_DECISIONS_ONE_QUESTION,
+            }),
+          );
+          expect(
+            failure.message.includes("No decision provider is configured"),
+            "a bare decide() finds no provider",
+          );
+          expect(
+            failure.message.includes(
+              "OPENAI_API_KEY for openai-decisions (ignored while OPENAI_BASE_URL, OPENAI_API_BASE or credentials.openai.baseURL names a host outside https://api.openai.com, unless OPENAI_DECISIONS_BASE_URL is set)",
+            ),
+            "the message names the variables, the trusted host and the exception",
+          );
+          expectEq(posts(calls).length, 0, "no request");
+        });
+      },
+    );
+  } finally {
+    OPENAI_DECISIONS_ENV.forEach((name, i) => setEnv(name, prior[i]));
+  }
+}
+
 async function runDecideSection(): Promise<void> {
   console.log(
-    "\n=== Decision providers (TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef) ===",
+    "\n=== Decision providers (TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef, OpenAI Decisions) ===",
   );
-  // A developer's .env can hold a real Cloudflare token and account id, or a
-  // SubQ key, which would make Clef or SubQ the default decision provider in
-  // every section above it that expects none. They are cleared for the whole
-  // section and put back after; the Clef and SubQ sections set what they need
-  // themselves.
-  const cloudflareEnv = [
+  // A developer's .env can hold a real Cloudflare token and account id, a SubQ
+  // key, or an OPENAI_API_KEY the openai chat provider reads, which would make
+  // Clef, SubQ or OpenAI Decisions the default decision provider in every
+  // section above it that expects none. They are cleared for the whole section
+  // and put back after; the Clef, SubQ and OpenAI Decisions sections set what
+  // they need themselves.
+  const sharedKeyEnv = [
     "CLOUDFLARE_API_KEY",
     "CLOUDFLARE_ACCOUNT_ID",
     "CLOUDFLARE_CLEF_BASE_URL",
@@ -12250,10 +14447,15 @@ async function runDecideSection(): Promise<void> {
     "SUBQ_API_KEY",
     "SUBQ_BASE_URL",
     "SUBQ_MODEL",
+    "OPENAI_API_KEY",
+    "OPENAI_BASE_URL",
+    "OPENAI_API_BASE",
+    "OPENAI_DECISIONS_BASE_URL",
+    "OPENAI_DECISIONS_MODEL",
   ];
-  const ambient = cloudflareEnv.map((name) => process.env[name]);
+  const ambient = sharedKeyEnv.map((name) => process.env[name]);
   try {
-    cloudflareEnv.forEach((name) => setEnv(name, undefined));
+    sharedKeyEnv.forEach((name) => setEnv(name, undefined));
     await runDecideDialect();
     await runTypeSafeDecide();
     await runLayaDecide();
@@ -12261,9 +14463,12 @@ async function runDecideSection(): Promise<void> {
     await runPerplexityDecide();
     await runCloudflareClefDecide();
     await runSubqDecide();
+    await runOpenAIDecisionsDecide();
+    await runOpenAIDecisionsSurface();
+    await runOpenAIDecisionsAmbientGuard();
     await runDecideCatalogSection();
   } finally {
-    cloudflareEnv.forEach((name, i) => setEnv(name, ambient[i]));
+    sharedKeyEnv.forEach((name, i) => setEnv(name, ambient[i]));
   }
 }
 
@@ -15653,6 +17858,8 @@ async function main(): Promise<void> {
   setEnv("SUBQ_API_KEY", undefined);
   setEnv("SUBQ_BASE_URL", undefined);
   setEnv("SUBQ_MODEL", undefined);
+  setEnv("OPENAI_DECISIONS_BASE_URL", undefined);
+  setEnv("OPENAI_DECISIONS_MODEL", undefined);
   setEnv("TYPESAFE_GATEWAY_URL", undefined);
 
   // Register providers once so the registry knows about everything.

@@ -14,7 +14,10 @@ falls back to `classifyHeuristic()`. Configuring a decision provider (for exampl
 the key existed. The same holds for `PERPLEXITY_API_KEY`, which is also the
 Perplexity text provider's key, and for `CLOUDFLARE_API_KEY` with
 `CLOUDFLARE_ACCOUNT_ID`, which are also the Cloudflare Workers AI text provider's
-token and account id, and for `SUBQ_API_KEY`. "Configured" counts the environment, the instance
+token and account id, and for `SUBQ_API_KEY`, and for `OPENAI_API_KEY`, which is also the OpenAI chat
+provider's key (for a host with only that key `auto` now resolves to `jev`,
+answered by OpenAI Decisions as the last-resort decision provider, unless `OPENAI_BASE_URL`,
+`OPENAI_API_BASE` or `credentials.openai.baseURL` names a host other than `https://api.openai.com`, which makes it a gateway's key). "Configured" counts the environment, the instance
 `credentials`, and the request's own per-call `credentials` — a host that holds
 no decision key but passes a tenant's `credentials: { laya }` on a `generate()`
 call routes that call with `jev`, and the decision goes to the tenant's account.

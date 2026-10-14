@@ -450,7 +450,10 @@ as for one because decision latency is flat in question count; on Perplexity eac
 further question adds about 65 ms and a request takes at most 128 (see
 [its guide](../getting-started/providers/perplexity-decider.md#limits)); on
 Cloudflare Clef a request takes at most 64 questions, which `tryDecide()` splits
-into batches of 64 (see [its guide](../getting-started/providers/cloudflare-clef.md#limits)).
+into batches of 64 (see [its guide](../getting-started/providers/cloudflare-clef.md#limits));
+OpenAI Decisions declares no question cap, so the request goes whole and what the
+endpoint accepts is not established
+(see [its guide](../getting-started/providers/openai-decisions.md#what-is-not-established)).
 NeuroLink also refuses a state it estimates at more than 16,000 tokens (about
 60,000 characters of prose), so a longer set of eligible messages gets a refusal
 and the stage is skipped, as on any failure.

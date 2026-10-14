@@ -107,15 +107,17 @@ Every built-in consumer of `decide` — model routing, relevance-driven
 compaction, tool routing and RAG planning — asks for the default decision
 provider. That is the first one that is configured — in the environment or in
 the `credentials` passed to the SDK — in the order TypeSafe, Laya,
-[XOR](xor.md), [SubQ](subq.md), [Perplexity](perplexity-decider.md), then
-[Cloudflare Clef](cloudflare-clef.md). TypeSafe has two keys,
+[XOR](xor.md), [SubQ](subq.md), [Perplexity](perplexity-decider.md),
+[Cloudflare Clef](cloudflare-clef.md), then
+[OpenAI Decisions](openai-decisions.md). TypeSafe has two keys,
 `TYPESAFE_API_KEY` and `AI_GATEWAY_API_KEY` (its Vercel AI Gateway route), and
 either one counts. Laya counts only with both its key and its base URL, and so
 does XOR. SubQ counts with its key alone, `SUBQ_API_KEY`. Perplexity counts with
 its key alone, and that key,
 `PERPLEXITY_API_KEY`, is shared with Perplexity's text provider. Cloudflare Clef
 counts only with both `CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID`, the same
-two variables the Workers AI text provider reads. So:
+two variables the Workers AI text provider reads. OpenAI Decisions counts with its
+key alone, `OPENAI_API_KEY`, which the OpenAI chat provider reads too. So:
 
 - **A TypeSafe key, plus Laya's key and base URL:** built-in features use
   TypeSafe; Laya runs only where a caller asks for `provider: "laya"`.
@@ -132,8 +134,8 @@ two variables the Workers AI text provider reads. So:
   only where a caller asks for `provider: "cloudflare-clef"`.
 - **Laya's key and base URL, plus `SUBQ_API_KEY`:** built-in features use Laya;
   SubQ runs only where a caller asks for `provider: "subq"`.
-- **None of TypeSafe, Laya, XOR, SubQ, Perplexity or Cloudflare Clef:**
-  everything behaves exactly as it did without a decision model.
+- **None of TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef or OpenAI
+  Decisions:** everything behaves exactly as it did without a decision model.
 
 ---
 
@@ -221,4 +223,5 @@ export LAYA_BASE_URL=http://127.0.0.1:8000
 - [Perplexity Decisions Provider Guide](perplexity-decider.md)
 - [Cloudflare Clef Provider Guide](cloudflare-clef.md)
 - [SubQ Provider Guide](subq.md)
+- [OpenAI Decisions Provider Guide](openai-decisions.md)
 - [Laya on GitHub](https://github.com/NandhaKishorM/laya)

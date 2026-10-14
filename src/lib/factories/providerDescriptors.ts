@@ -500,16 +500,18 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
   },
   // Decision precedence is decideOrder, not position: typesafe 1, laya 2 and
   // xor 3 (from catalog/laya.json and catalog/xor.json), subq 4 (from
-  // catalog/subq.json), perplexity-decider 5, cloudflare-clef 6.
+  // catalog/subq.json), perplexity-decider 5, cloudflare-clef 6 and
+  // openai-decisions 7 (catalog/openai-decisions.json).
   // resolveDefaultDecisionProvider() returns the first configured
   // DECISION_PROVIDERS entry in that order, so a host configured for several
   // keeps Jev for every built-in consumer and reaches the others only by
   // naming them. Renumbering silently changes which model routes, compacts
   // and plans for every such host.
-  // perplexity-decider and cloudflare-clef come last because each shares its
-  // environment key with a text provider: a key set only for that text provider
-  // must not displace a decision provider a host set up on purpose. subq is
-  // ahead of them only because SUBQ_API_KEY belongs to no other provider.
+  // perplexity-decider, cloudflare-clef and openai-decisions come last because
+  // each shares its environment key with a text provider: a key set only for
+  // that text provider must not displace a decision provider a host set up on
+  // purpose. subq is ahead of them only because SUBQ_API_KEY belongs to no other
+  // provider.
   {
     name: AIProviderName.PERPLEXITY_DECIDER,
     aliases: [],
@@ -771,6 +773,22 @@ export function buildDecideDescriptor(
     defaultModel: entry.models.default,
     inferenceKinds: ["decide"],
     decideOrder: entry.decide.order,
+    ...(entry.decide.ambientKeyGuard
+      ? {
+          ambientKeyGuard: {
+            baseURLEnvVars: [...entry.decide.ambientKeyGuard.baseURLEnvVars],
+            trustedOrigins: [...entry.decide.ambientKeyGuard.trustedOrigins],
+            ...(entry.decide.ambientKeyGuard.credentialBaseURLs
+              ? {
+                  credentialBaseURLs:
+                    entry.decide.ambientKeyGuard.credentialBaseURLs.map(
+                      (credentialField) => ({ ...credentialField }),
+                    ),
+                }
+              : {}),
+          },
+        }
+      : {}),
     toolSupport: "none",
     localRuntime: false,
     healthCheck: "env-only",
@@ -868,10 +886,72 @@ export const DECISION_PROVIDERS: readonly ProviderDescriptor[] =
   orderDecisionProviders(PROVIDER_DESCRIPTORS);
 
 /**
+ * The scheme, host and port of a base URL, lower-cased and without the default
+ * port, or undefined when the text is not an http(s) URL. The path, query and a
+ * trailing slash do not matter, and userinfo is not part of an origin, so
+ * `https://api.openai.com@evil.test/v1` reads as `https://evil.test`.
+ */
+function originOf(text: string): string | undefined {
+  try {
+    const url = new URL(text.trim());
+    return url.protocol === "http:" || url.protocol === "https:"
+      ? url.origin
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Whether the guard lets a key found in the environment stand. It does not
+ * when a listed base-URL variable, or a listed credentials field, is set to
+ * something other than a trusted origin; an unparseable value is untrusted, a
+ * blank or absent one is unset. A credentials field that is not text cannot be
+ * read as a URL, so it is untrusted too.
+ */
+function ambientKeyTrusted(
+  guard: NonNullable<ProviderDescriptor["ambientKeyGuard"]>,
+  credentials: NeurolinkCredentials | undefined,
+): boolean {
+  const trusted = new Set(
+    guard.trustedOrigins
+      .map(originOf)
+      .filter((origin): origin is string => origin !== undefined),
+  );
+  const standsFor = (value: unknown): boolean => {
+    if (value === undefined || value === null) {
+      return true;
+    }
+    if (typeof value !== "string") {
+      return false;
+    }
+    if (value.trim() === "") {
+      return true;
+    }
+    const origin = originOf(value);
+    return origin !== undefined && trusted.has(origin);
+  };
+  const slices = credentials as
+    | Record<string, Record<string, unknown> | undefined>
+    | undefined;
+  return (
+    guard.baseURLEnvVars.every((name) => standsFor(process.env[name])) &&
+    (guard.credentialBaseURLs ?? []).every(({ key, field }) =>
+      standsFor(slices?.[key]?.[field]),
+    )
+  );
+}
+
+/**
  * Whether a decision provider is fully configured: its key and every
  * extraRequired variable are set, each either in the environment or in
  * `credentials` — the same config a caller passes to
  * `new NeuroLink({ credentials })` or per call. Whitespace counts as unset.
+ *
+ * A key found only in the environment does not count while the descriptor's
+ * `ambientKeyGuard` finds that it belongs to something else, unless the host
+ * routed the provider on purpose with its own base-URL variable or a
+ * `credentials` base URL. A key in `credentials` always counts.
  */
 function isDecisionProviderConfigured(
   descriptor: ProviderDescriptor,
@@ -887,11 +967,18 @@ function isDecisionProviderConfigured(
       ]
     : undefined;
 
+  const routedOnPurpose =
+    inEnv(descriptor.envVars.baseURL) || isSet(slice?.baseURL);
+  const envKeyStands =
+    descriptor.ambientKeyGuard === undefined ||
+    routedOnPurpose ||
+    ambientKeyTrusted(descriptor.ambientKeyGuard, credentials);
   // `gatewayApiKey` is TypeSafe's config form of AI_GATEWAY_API_KEY.
   const hasKey =
-    [descriptor.envVars.apiKey, ...(descriptor.envVars.fallbacks ?? [])].some(
-      inEnv,
-    ) ||
+    (envKeyStands &&
+      [descriptor.envVars.apiKey, ...(descriptor.envVars.fallbacks ?? [])].some(
+        inEnv,
+      )) ||
     isSet(slice?.apiKey) ||
     isSet(slice?.gatewayApiKey);
   // A required base URL can also come from credentials.<key>.baseURL, and any
@@ -938,6 +1025,13 @@ export function listMediaDecisionProviders(needs?: {
   }).map((descriptor) => descriptor.name);
 }
 
+/** "a", "a or b", "a, b or c". */
+function listOr(items: readonly string[]): string {
+  return items.length < 2
+    ? items.join("")
+    : `${items.slice(0, -1).join(", ")} or ${items[items.length - 1]}`;
+}
+
 /**
  * The variables that would configure each decision provider, one clause per
  * provider in precedence order, e.g. "TYPESAFE_API_KEY or AI_GATEWAY_API_KEY
@@ -952,6 +1046,21 @@ export function describeDecisionProviderKeys(): string {
       ...(descriptor.envVars.fallbacks ?? []),
     ].filter((name): name is string => typeof name === "string" && name !== "");
     const required = descriptor.envVars.extraRequired ?? [];
-    return `${[keys.join(" or "), ...required].join(" and ")} for ${descriptor.name}`;
+    const guard = descriptor.ambientKeyGuard;
+    const unlessRouted = descriptor.envVars.baseURL
+      ? `, unless ${descriptor.envVars.baseURL} is set`
+      : "";
+    const named = guard
+      ? [
+          ...guard.baseURLEnvVars,
+          ...(guard.credentialBaseURLs ?? []).map(
+            ({ key, field }) => `credentials.${key}.${field}`,
+          ),
+        ]
+      : [];
+    const caveat = guard
+      ? ` (ignored while ${listOr(named)} names a host outside ${listOr(guard.trustedOrigins)}${unlessRouted})`
+      : "";
+    return `${[keys.join(" or "), ...required].join(" and ")} for ${descriptor.name}${caveat}`;
   }).join(", or ");
 }

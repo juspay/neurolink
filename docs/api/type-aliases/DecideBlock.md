@@ -70,6 +70,16 @@ Body keys for images and video, after `model`, `state` and `questions`. Omitted 
 
 ---
 
+### ambientKeyGuard?
+
+> `optional` **ambientKeyGuard?**: [`DecideAmbientKeyGuard`](DecideAmbientKeyGuard.md)
+
+Keeps a key found only in the environment from becoming the default
+decision provider when it plainly belongs to something else. Omitted means
+no check.
+
+---
+
 ### requestIdHeaders?
 
 > `optional` **requestIdHeaders?**: readonly `string`[]

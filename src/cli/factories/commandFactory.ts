@@ -760,7 +760,7 @@ export class CLICommandFactory {
     classifierStrategy: {
       type: "string" as const,
       description:
-        "Classifier strategy: 'auto' (default — 'jev' when a decision provider is configured, such as TYPESAFE_API_KEY, LAYA_API_KEY with LAYA_BASE_URL, XOR_API_KEY with XOR_BASE_URL, SUBQ_API_KEY, PERPLEXITY_API_KEY, or CLOUDFLARE_API_KEY with CLOUDFLARE_ACCOUNT_ID, else 'heuristic'), 'heuristic' (no LLM), 'llm' (a cheap model picks per prompt), or 'jev' (a System One decision model — TypeSafe Jev, Laya, XOR, SubQ, Perplexity or Cloudflare Clef — with calibrated confidence).",
+        "Classifier strategy: 'auto' (default — 'jev' when a decision provider is configured, such as TYPESAFE_API_KEY, LAYA_API_KEY with LAYA_BASE_URL, XOR_API_KEY with XOR_BASE_URL, SUBQ_API_KEY, PERPLEXITY_API_KEY, CLOUDFLARE_API_KEY with CLOUDFLARE_ACCOUNT_ID, or OPENAI_API_KEY unless OPENAI_BASE_URL, OPENAI_API_BASE or credentials.openai.baseURL names a host other than https://api.openai.com, else 'heuristic'), 'heuristic' (no LLM), 'llm' (a cheap model picks per prompt), or 'jev' (a decision model — whichever decision provider is configured: TypeSafe Jev, Laya, XOR, SubQ, Perplexity, Cloudflare Clef or OpenAI Decisions — with the confidence it reports).",
       choices: ["auto", "heuristic", "llm", "jev"] as const,
       alias: "classifier-strategy",
     },

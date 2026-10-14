@@ -32,7 +32,7 @@ Common questions and answers about NeuroLink usage, configuration, and troublesh
 - **Groq, Cerebras, SambaNova, Together AI, Fireworks AI, Perplexity, Cloudflare Workers AI, xAI, Baseten, GMI Cloud, Inception Labs, io.net Intelligence, Mancer, Upstage, API Route** (zero-quirk OpenAI-wire-compatible catalog providers)
 - **Cohere** (chat, plus `embed()` and reranking)
 - **Voyage AI**, **Jina AI** (embedding and/or reranking only — no chat completions)
-- **TypeSafe Jev**, **Laya**, **XOR**, **SubQ**, **Perplexity Decisions**, **Cloudflare Clef** (decision-only — serve `decide()`, not `generate()`/`stream()`; tried in the order TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef when several are configured; Clef is configured by the same `CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID` as the Cloudflare Workers AI text provider)
+- **TypeSafe Jev**, **Laya**, **XOR**, **SubQ**, **Perplexity Decisions**, **Cloudflare Clef**, **OpenAI Decisions** (decision-only — serve `decide()`, not `generate()`/`stream()`; tried in the order TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef, OpenAI Decisions when several are configured; Clef is configured by the same `CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID` as the Cloudflare Workers AI text provider, and OpenAI Decisions by the same `OPENAI_API_KEY` as the OpenAI chat provider, except that this key is not used by default while `OPENAI_BASE_URL`, `OPENAI_API_BASE` or `credentials.openai.baseURL` names a host other than `https://api.openai.com`, since it is then a gateway's)
 
 See [Provider Setup](../getting-started/provider-setup.md) for the complete roster with setup guides.
 

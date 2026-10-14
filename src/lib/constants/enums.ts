@@ -78,6 +78,7 @@ export enum AIProviderName {
   NEBIUS = "nebius",
   NEURALWATT = "neuralwatt",
   NOVITA = "novita",
+  OPENAI_DECISIONS = "openai-decisions",
   OVHCLOUD = "ovhcloud",
   PARASAIL = "parasail",
   PARETO_INFERENCE = "pareto-inference",
@@ -1907,6 +1908,10 @@ export enum NovitaModels {
   DEEPSEEK_DEEPSEEK_V3_0324 = "deepseek/deepseek-v3-0324",
   QWEN_QWEN_2_5_72B_INSTRUCT = "qwen/qwen-2.5-72b-instruct",
   GOOGLE_GEMMA_3_27B_IT = "google/gemma-3-27b-it",
+}
+
+export enum OpenAIDecisionsModels {
+  GPT_6_LUNA = "gpt-6-luna",
 }
 
 export enum OvhcloudModels {

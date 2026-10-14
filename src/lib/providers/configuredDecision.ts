@@ -122,21 +122,16 @@ export class ConfiguredDecisionProvider extends SystemOneDecisionProvider {
     media?: DecisionPreparedMedia,
   ): Record<string, unknown> {
     const { placement, alias } = this.entry.decide.model;
-    const body =
-      placement === "body-unless-alias" && model === alias
-        ? { state, questions }
-        : { model, state, questions };
-    const keys = this.entry.decide.media;
-    if (!keys || !media) {
-      return body;
-    }
-    // A key is written only for media the request carries: a server may refuse
-    // an empty `images`.
-    return {
-      ...body,
-      ...(media.images.length > 0 ? { [keys.imagesKey]: media.images } : {}),
-      ...(media.video && keys.videoKey ? { [keys.videoKey]: media.video } : {}),
-    };
+    return this.dialect().buildBody({
+      state,
+      questions,
+      model:
+        placement === "body-unless-alias" && model === alias
+          ? undefined
+          : model,
+      media,
+      mediaKeys: this.entry.decide.media,
+    });
   }
 
   protected parseDecisionError(
