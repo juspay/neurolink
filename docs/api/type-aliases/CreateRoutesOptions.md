@@ -93,3 +93,13 @@ docs/features/codex-proxy-support.md.
 Options for the transcription routes (`POST <basePath>/agent/transcribe`
 and the OpenAI-compatible `POST /v1/audio/transcriptions`), which are
 always mounted.
+
+---
+
+### agent?
+
+> `optional` **agent?**: [`ServerAgentRouteOptions`](ServerAgentRouteOptions.md)
+
+Options for the agent routes (`POST <basePath>/agent/execute` and
+`/agent/stream`): where local-path attachments may be read from, and how
+large an attachment may be.

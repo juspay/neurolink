@@ -2908,6 +2908,8 @@ console.log(result.content);
 - [MiddlewareHandler](type-aliases/MiddlewareHandler.md)
 - [ServerAdapterEvents](type-aliases/ServerAdapterEvents.md)
 - [AgentExecuteRequest](type-aliases/AgentExecuteRequest.md)
+- [ServerAgentRouteOptions](type-aliases/ServerAgentRouteOptions.md)
+- [ServerAgentResolvedInput](type-aliases/ServerAgentResolvedInput.md)
 - [AgentExecuteResponse](type-aliases/AgentExecuteResponse.md)
 - [EmbedRequest](type-aliases/EmbedRequest.md)
 - [EmbedResponse](type-aliases/EmbedResponse.md)
