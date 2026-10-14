@@ -44,7 +44,7 @@ import {
   runNativeGenerateLoop,
 } from "../src/lib/core/nativeGenerateLoop.js";
 import { logger } from "../src/lib/utils/logger.js";
-import type { StepToolChoiceInput } from "../src/lib/types/index.js";
+import type { StepToolChoiceInput, Tool } from "../src/lib/types/index.js";
 
 type Warning = { message: string; data: Record<string, unknown> };
 type PrepareStepHook = NonNullable<StepToolChoiceInput["prepareStep"]>;
@@ -436,7 +436,7 @@ void runSuite(async () => {
             doGenerate,
             conversation: [{ role: "user", content: "hi" }],
             tools: requestTools,
-            toolsRecord: live,
+            toolsRecord: live as Record<string, Tool>,
             prepareStep: async ({ stepNumber }) =>
               stepNumber === 1
                 ? ({ toolChoice: forceTool(forcedName) } as Awaited<

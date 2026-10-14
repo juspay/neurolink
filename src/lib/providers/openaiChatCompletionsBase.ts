@@ -96,6 +96,7 @@ import { resolveRequestKind } from "../core/resolveRequestKind.js";
 import {
   appendJsonSchemaInstruction,
   hasNativeDoGenerate,
+  resolveToolInputSchema,
   resolveStepToolChoice,
   runNativeGenerateLoop,
   toPrepareStepRecord,
@@ -1251,18 +1252,19 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       : {};
 
     // v3 tool shape — the same one doGenerate already converts internally.
+    // Also handed to the loop, which declares tools discovery loads mid-turn.
+    const declareTool = (name: string, tool: Tool) => {
+      return {
+        type: "function" as const,
+        name,
+        description: tool.description ?? "",
+        inputSchema: tool.inputSchema
+          ? convertZodToJsonSchema(resolveToolInputSchema(tool.inputSchema))
+          : { type: "object", properties: {} },
+      };
+    };
     const v3Tools = shouldUseTools
-      ? Object.entries(toolsRecord).map(([name, t]) => {
-          const tool = t as { description?: string; inputSchema?: unknown };
-          return {
-            type: "function" as const,
-            name,
-            description: tool.description ?? "",
-            inputSchema: (tool.inputSchema
-              ? convertZodToJsonSchema(tool.inputSchema as never)
-              : { type: "object", properties: {} }) as Record<string, unknown>,
-          };
-        })
+      ? Object.entries(toolsRecord).map(([name, t]) => declareTool(name, t))
       : undefined;
     const hasTools = !!v3Tools && v3Tools.length > 0;
 
@@ -1303,6 +1305,14 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       // legal again on a vendor that refuses the two together.
       withTools: boolean = true,
     ) => {
+      // What this pass sends: the initial declarations plus any the loop adds
+      // for tools discovery loads mid-turn, so the guard counts them too.
+      const passTools = withTools && v3Tools ? [...v3Tools] : undefined;
+      const declarePassTool = (name: string, tool: Tool) => {
+        const declaration = declareTool(name, tool);
+        passTools?.push(declaration);
+        return declaration;
+      };
       return runNativeGenerateLoop(
         {
           doGenerate,
@@ -1329,14 +1339,16 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             getFixedOverheadTokens: () =>
               estimateTokens(
                 serializeForEstimate({
-                  ...(withTools && v3Tools ? { tools: v3Tools } : {}),
+                  ...(passTools ? { tools: passTools } : {}),
                   responseFormat: format,
                 }),
                 this.providerName,
               ),
           }),
           conversation: conv,
-          ...(withTools && v3Tools ? { tools: v3Tools } : {}),
+          ...(passTools
+            ? { tools: [...passTools], declareTool: declarePassTool }
+            : {}),
           toolsRecord,
           ...(withTools && hasTools && options.toolChoice
             ? { toolChoice: resolveToolChoice(options, toolsRecord, true) }

@@ -307,7 +307,8 @@ function buildSearchTool(
 
   const searchTool = createAISDKTool({
     description:
-      `Search and load additional tools on demand. ${entries.length} more tools are available but not yet loaded:\n` +
+      `Search and load additional tools on demand. ${entries.length} more tools are available but not yet loaded. ` +
+      `Before telling the user you cannot do something, check this catalog: if a listed tool fits, call it directly by its exact name, or call search_tools with a short description of the task.\n` +
       `${catalog}\n` +
       `Call this with a task description or an exact tool name; matching tools are loaded and become directly callable.`,
     inputSchema: z.object({

@@ -666,6 +666,14 @@ export class ToolsManager {
         typeof toolCallId === "string" && toolCallId.length > 0
           ? { toolCallId }
           : {};
+      // Same per-invocation id executeTool gives registered tools, so a
+      // listener can pair this start with its end.
+      const eventIds = {
+        ...idField,
+        executionId: `${toolName}-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 11)}`,
+      };
       return withSpan(
         {
           name: toolSpanName(toolName),
@@ -677,7 +685,7 @@ export class ToolsManager {
           const startTime = Date.now();
           this.emitToolEvent("tool:start", toolName, {
             input: params,
-            ...idField,
+            ...eventIds,
           });
 
           let result: unknown;
@@ -690,7 +698,7 @@ export class ToolsManager {
               error: errorMsg,
               success: false,
               responseTime: Date.now() - startTime,
-              ...idField,
+              ...eventIds,
             });
             throw error;
           }
@@ -706,7 +714,7 @@ export class ToolsManager {
             success: isErrorText === undefined,
             ...(isErrorText !== undefined ? { error: isErrorText } : {}),
             responseTime: Date.now() - startTime,
-            ...idField,
+            ...eventIds,
           });
           return result;
         },
