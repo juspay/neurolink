@@ -87,9 +87,33 @@ Tool declarations in the v3 shape doGenerate already knows how to convert.
 
 ### toolsRecord
 
-> **toolsRecord**: `Record`\<`string`, `unknown`\>
+> **toolsRecord**: `Record`\<`string`, [`Tool`](Tool.md)\>
 
 Registered tools, used to execute a call the model asks for.
+
+---
+
+### declareTool?
+
+> `optional` **declareTool?**: (`name`, `tool`) => `Record`\<`string`, `unknown`\>
+
+Builds the v3 declaration for one tool. When set, every step declares any
+tool that joined `toolsRecord` mid-turn (discovery's search_tools loads
+tools into it), so the model can call what it just loaded.
+
+#### Parameters
+
+##### name
+
+`string`
+
+##### tool
+
+[`Tool`](Tool.md)
+
+#### Returns
+
+`Record`\<`string`, `unknown`\>
 
 ---
 

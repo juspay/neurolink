@@ -459,6 +459,25 @@ export type ToolConfig = {
    * Default: false.
    */
   discovery?: boolean;
+  /**
+   * Which tools `discovery` may defer.
+   * - `"external"`: tools of servers attached with `addExternalMCPServer`.
+   * - `"all"`: every tool in the request's record except the built-in tools,
+   *   so tools registered with `registerTool`/`registerTools` and in-process
+   *   MCP tools are deferred as well.
+   * Per-call tools, per-call whitelists, forced `toolChoice` tools and
+   * already-discovered tools stay hot in both scopes. Ignored unless
+   * `discovery` is true.
+   * Default: "external".
+   */
+  discoveryScope?: "external" | "all";
+  /**
+   * Tool-name patterns (exact names or `*` globs) that `discovery` never
+   * defers, in either scope. E.g. `["utility-server_*"]` keeps every tool
+   * whose name starts with `utility-server_` in full on every request.
+   * Ignored unless `discovery` is true.
+   */
+  discoveryAlwaysVisible?: string[];
   /** Whether built-in tools should be disabled (equivalent to excluding all direct tools) */
   disableBuiltinTools?: boolean;
   /** Whether custom tools are allowed */
