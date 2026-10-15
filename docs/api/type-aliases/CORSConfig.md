@@ -41,7 +41,10 @@ Allowed HTTP methods
 
 > `optional` **headers?**: `string`[]
 
-Allowed headers
+Allowed request headers. Default `Content-Type`, `Authorization`,
+`X-Request-ID` and `X-Session-Id`. A list you pass replaces the default, it
+is not added to it, so keep the ones your clients send, and add the header
+name of a custom `createSessionMiddleware({ headerName })`.
 
 ---
 

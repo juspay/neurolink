@@ -159,7 +159,12 @@ export type CORSConfig = {
   /** Allowed HTTP methods */
   methods?: string[];
 
-  /** Allowed headers */
+  /**
+   * Allowed request headers. Default `Content-Type`, `Authorization`,
+   * `X-Request-ID` and `X-Session-Id`. A list you pass replaces the default, it
+   * is not added to it, so keep the ones your clients send, and add the header
+   * name of a custom `createSessionMiddleware({ headerName })`.
+   */
   headers?: string[];
 
   /** Allow credentials */
@@ -638,7 +643,12 @@ export type MiddlewareDefinition = {
   /** Middleware name */
   name: string;
 
-  /** Execution order (lower = earlier) */
+  /**
+   * Where this middleware belongs relative to the others, for reading and for
+   * the debug log. Informational only: the adapters do not sort by it, they run
+   * middleware in the order it was registered. The built-ins' numbers (for
+   * example authentication 10, session 12) say what to register first.
+   */
   order?: number;
 
   /** Middleware handler */
@@ -1499,6 +1509,37 @@ export type ErrorResponse = {
 export type ServerValidationResult<T> =
   | { success: true; data: T; error?: undefined }
   | { success: false; error: ErrorResponse; data?: undefined };
+
+/**
+ * Session middleware configuration
+ *
+ * The middleware only has an effect on a server that carries middleware state
+ * (`ServerAdapterConfig.carryMiddlewareState`, which `registerAllRoutes()`
+ * turns on when given `perUserAuth`); without it the handler does not see the
+ * session it sets, except on Hono for a request whose client sent its own
+ * `X-Request-ID`, which shares one context with the handler either way (with
+ * `perUserAuth` off, the agent routes can then use that session).
+ */
+export type ServerSessionConfig = {
+  /**
+   * Header that carries the session id (default: "X-Session-Id"). A header
+   * holding an invalid id is a 400; an empty one counts as absent. The default
+   * is in the servers' default CORS allowed headers; a different name is not,
+   * so a browser client on another origin needs it added to `cors.headers`.
+   */
+  headerName?: string;
+
+  /**
+   * Cookie that carries the session id, read when the header is absent or
+   * empty. Off by default: a cookie is sent by the browser on its own, so
+   * enabling it is the operator's decision. A cookie holding an invalid id is
+   * ignored, as if absent, rather than failing the request.
+   */
+  cookieName?: string;
+
+  /** Skip the middleware for certain paths */
+  skipPaths?: string[];
+};
 
 /**
  * Authentication configuration
