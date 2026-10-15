@@ -20,8 +20,9 @@ open-weights **Laya**, Juspay's open-weights **XOR**, which also reads images an
 video, Subquadratic's hosted **SubQ Snap**, Perplexity's hosted **Decisions**
 API, which also reads images,
 Cloudflare's **Clef** models on Workers AI,
-which also read images, and OpenAI's
-**Decisions** API (a public beta), which also reads images.
+which also read images, OpenAI's
+**Decisions** API (a public beta), which also reads images, and ScaleDown's
+hosted **Classify** models, which read text only.
 
 > This is not [`neurolink.evaluate()`](./auto-evaluation.md), which scores an
 > already-generated response with RAGAS scorers. Different feature, different
@@ -116,7 +117,7 @@ provider, exactly as the environment does. On a LiteLLM proxy the key's team
 must allow `xor-1.1`, otherwise the proxy answers 403 `team_model_access_denied`.
 
 Built-in features use the first configured decision provider in the order
-TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef, OpenAI Decisions. XOR counts as configured only with both its key
+TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef, OpenAI Decisions, ScaleDown. XOR counts as configured only with both its key
 and its base URL, and runs where a caller names it (`provider: "xor"`) or when
 neither TypeSafe nor Laya is configured. It reads images and video; see
 [Images and video](#images-and-video) and the
@@ -250,7 +251,8 @@ the question types you write are unchanged. See the provider guide's
 **`OPENAI_API_KEY` is shared with that chat provider.** A host that set it only to
 use OpenAI chat has therefore also configured `decide`, and built-in features will
 use OpenAI Decisions whenever none of TypeSafe, Laya, XOR, SubQ, Perplexity or Cloudflare
-Clef is configured. It comes last in the order, so it never displaces one that is.
+Clef is configured. It comes after those six in the order, so it never displaces
+one that is; only ScaleDown follows it.
 The built-in consumers (model routing, tool routing, relevance compaction, the
 summary gate, RAG planning) and the speech-to-text correction check then make paid
 decision calls, though they still fail open. No switch turns it off while the key
@@ -285,9 +287,53 @@ about the endpoint is not established**, including its question and option
 limits, image formats and rate limits; the guide lists
 [what is not established](../getting-started/providers/openai-decisions.md#what-is-not-established).
 
+### ScaleDown, at its hosted endpoint
+
+```bash
+export SCALEDOWN_API_KEY=...                          # required; a key no other provider reads
+export SCALEDOWN_MODEL=classify-1                     # optional; classify-1 is the default
+export SCALEDOWN_BASE_URL=https://api.scaledown.xyz   # optional: an origin, or an origin with a path prefix
+```
+
+ScaleDown's Classify models speak the same System One wire as TypeSafe, at a
+public endpoint, so a key alone configures it and there is no base URL to set.
+NeuroLink calls `<base URL>/v1/scaledown`, drops trailing slashes from an
+override, and sends the key in an `x-api-key` header and never as a Bearer token.
+The key can equally come from the config passed to the SDK,
+`new NeuroLink({ credentials: { scaledown: { apiKey } } })`, or per call. The
+provider id is `scaledown`; `scaledown-classify` names it too.
+
+**ScaleDown is the last decision provider, and its key is its own.** Nothing
+else reads `SCALEDOWN_API_KEY`, so setting it can only be meant for ScaleDown. It
+still comes last in the order: a host with only that key gets ScaleDown for the
+built-in features, and a host that also has any earlier provider configured
+(including an `OPENAI_API_KEY`, `PERPLEXITY_API_KEY` or Cloudflare pair set only for
+a text provider) gets that earlier provider and reaches ScaleDown only by naming
+it. When ScaleDown is the default, the built-in consumers make paid decision
+calls, and still fail open.
+
+**It reads text only, and the state always goes out as a string.** A string state
+is sent unchanged, any other value as its JSON text, and a string that is empty or
+only whitespace is refused before any request, as an `invalid_request`. `{}` and
+`[]` are sent as that text. Images and video are refused before any request. Two
+optional keys in the entry's `decide` block say this to the shared engine,
+`authHeader: "x-api-key"` and `stateEncoding: "text"`; an entry that omits them
+behaves as before. The provider guide has the
+[request](../getting-started/providers/scaledown.md#how-a-request-is-sent) and the
+[billing note](../getting-started/providers/scaledown.md#choice-options-and-billing):
+a `choice` question is scored once per option, so input tokens grow with options
+times state length.
+
+**Much about the endpoint is not measured**, including its context size, latency,
+rate limits and the maximum number of options, questions and levels; the guide
+lists [what is not measured](../getting-started/providers/scaledown.md#not-measured).
+All of the facts the guide gives about ScaleDown's endpoint come from its
+documentation and from probes the marketing session made on 2026-10-15; none were
+made by NeuroLink's project.
+
 **The degradation contract.** `resolveDefaultDecisionProvider()` returns
 `undefined` when no decision provider is configured (a key, plus a base URL for
-Laya and XOR, or an account id for Cloudflare Clef; SubQ needs only its key), and `tryDecide()` returns
+Laya and XOR, or an account id for Cloudflare Clef; SubQ and ScaleDown need only their key), and `tryDecide()` returns
 `null` on any failure. There is no
 configuration in which a missing, invalid, slow or unreachable decision model
 changes NeuroLink's observable behaviour — it only ever falls back to what it did
@@ -299,7 +345,11 @@ than paying a round trip on every later call to be told so again. An XOR 403 or
 or the budget, which an admin can fix, so the instance is not disabled. For
 Perplexity only a 401 is that case: a 413 or a 400 over the model's context length
 is `max_tokens_exceeded`, a 429 is `rate_limit` (retried once), and any other 4xx
-is a non-retried `invalid_request`. For OpenAI Decisions only a 401 is that case
+is a non-retried `invalid_request`. For ScaleDown only a 401 is that case: a 402
+and a 422 are non-retried `invalid_request`s (the same instance works again once
+the cause is fixed), a 429 is `rate_limit` and a 502 or other 5xx is `server`
+(each retried once), and a 504 that ScaleDown sends is `timeout` and is not
+retried. For OpenAI Decisions only a 401 is that case
 (a 403 is a non-retried `invalid_request`), and every 429 is a non-retried
 `rate_limit`. For Cloudflare Clef only a 401 is that case
 (a 403 was never seen, and would be a non-retried `invalid_request`, so a
@@ -439,7 +489,7 @@ ids. A batch that fails costs only its own questions, which then have no answer
 carries on without that decision); `tryDecide()` returns `null` only when every
 batch failed. The state and any media are sent with each batch, so a split
 request costs the state's tokens once for each batch. A provider with no cap
-(TypeSafe, XOR, OpenAI Decisions) always gets one request.
+(TypeSafe, XOR, SubQ, OpenAI Decisions, ScaleDown) always gets one request.
 
 ### From the CLI
 
@@ -453,7 +503,7 @@ npx @juspay/neurolink decide "Refund request for a damaged item" \
 
 To ask about an image or a video, add `--image <path>` (repeatable) or
 `--video <path>`. XOR reads both, Perplexity, Cloudflare Clef and OpenAI Decisions
-read images only, and TypeSafe, Laya and SubQ read neither:
+read images only, and TypeSafe, Laya, SubQ and ScaleDown read neither:
 
 ```bash
 npx @juspay/neurolink decide "A product photo from a listing." --provider xor \
@@ -477,8 +527,8 @@ single request. This is the basis for picking from a large catalogue.
 
 A decision provider whose descriptor declares media limits reads images, and
 possibly one video, alongside `state`. XOR does, and so do Perplexity, Cloudflare
-Clef and OpenAI Decisions, which declare images only and no video; TypeSafe, Laya and SubQ
-do not. Two optional fields on the request carry them, for `decide()` and
+Clef and OpenAI Decisions, which declare images only and no video; TypeSafe, Laya, SubQ
+and ScaleDown do not. Two optional fields on the request carry them, for `decide()` and
 `tryDecide()` alike:
 
 - `images` — up to 8 images, the limit XOR, Perplexity and OpenAI Decisions each
@@ -575,7 +625,11 @@ API):
 > 64 questions (measured 2026-10-03). A 64-question request with the same
 > questions and a shorter state took 1.5 s on `clef-flash` and 2.3 s on `clef` on 2026-10-04; see
 > [its latency section](../getting-started/providers/cloudflare-clef.md#latency-and-the-timeout).
-> `openai-decisions` has not been timed: its latency is not measured.
+> `openai-decisions` has not been timed: its latency is not measured. Nor has
+> `scaledown`: its latency is not measured, and a `choice` question is scored
+> once per option, so a request with many options may need a larger `timeoutMs`
+> than the 5-second default; see
+> [its timeouts note](../getting-started/providers/scaledown.md#timeouts).
 
 On TypeSafe, 400 questions cost ~70 ms more than one. **Concurrent requests, by
 contrast, queue**: ten parallel calls take ~1.4 s wall with nine landing together
@@ -828,6 +882,8 @@ const limits = neurolink.decisionLimits(); // null with no decision provider
 //   enforcedLocally: false }
 //   (922,000 is the model page's input figure, reported and never enforced;
 //   the three media numbers are NeuroLink's own allowance, not OpenAI's)
+// scaledown → null: it declares no limits, so a named call reads null and
+//   nothing is refused locally on the size of a state
 
 if (
   limits &&
@@ -841,8 +897,8 @@ if (
 (Laya); a reading without the key has no count cap, and a host should test
 for the key rather than compare against `Infinity`. `media` is present only
 for a provider that reads images or video (XOR, Perplexity, Cloudflare Clef,
-OpenAI Decisions); its absence is what the media refusal for TypeSafe and Laya is
-based on.
+OpenAI Decisions); its absence is what the media refusal for TypeSafe, Laya, SubQ
+and ScaleDown is based on.
 
 `enforcedLocally` says who refuses: NeuroLink itself, before any network call
 (Laya and XOR, whose servers would silently truncate or fail inside the
@@ -998,7 +1054,8 @@ decision provider's key as well: with it set and none of the six earlier
 providers configured, the state of a decision goes to OpenAI, unless
 `OPENAI_BASE_URL`, `OPENAI_API_BASE` or `credentials.openai.baseURL` names another host than
 `https://api.openai.com`, in which case that key is a gateway's and is not used
-by default.
+by default. `SCALEDOWN_API_KEY`, which nothing else reads, sends the state to
+ScaleDown when it is the only decision key.
 
 **Cost**: TypeSafe, $0.042 per million input tokens, output free. Perplexity,
 $0.04 per million input tokens (image tokens included), output free. Cloudflare
@@ -1006,6 +1063,10 @@ Clef, $0.24 per million input tokens for `clef` and $0.09 for `clef-flash`;
 no output price is listed. OpenAI Decisions, $0.10 per million input tokens, input
 only, from [OpenAI's Decisions guide](https://developers.openai.com/api/docs/guides/decisions)
 as read on 2026-10-07; regional and long-context multipliers are not modelled.
+ScaleDown, USD 0.05 per million input tokens, output not charged: a list price from
+its launch post and a response's `usage.cost`, reported to this project by the
+marketing session on 2026-10-15 and not measured here. NeuroLink prices ScaleDown
+from the reply's input tokens at that rate and does not read `usage.cost`.
 
 ---
 

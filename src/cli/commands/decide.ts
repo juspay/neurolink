@@ -11,7 +11,8 @@
  * Credentials are env-only here, exactly as every other CLI command: the
  * decision provider reads its own settings (TYPESAFE_API_KEY, LAYA_API_KEY and
  * LAYA_BASE_URL, XOR_API_KEY and XOR_BASE_URL, SUBQ_API_KEY, PERPLEXITY_API_KEY,
- * CLOUDFLARE_API_KEY and CLOUDFLARE_ACCOUNT_ID, or OPENAI_API_KEY) itself. An
+ * CLOUDFLARE_API_KEY and CLOUDFLARE_ACCOUNT_ID, OPENAI_API_KEY, or
+ * SCALEDOWN_API_KEY) itself. An
  * OPENAI_API_KEY beside an OPENAI_BASE_URL, OPENAI_API_BASE or credentials.openai.baseURL that names a host
  * other than https://api.openai.com is a gateway's and is not used by default.
  */

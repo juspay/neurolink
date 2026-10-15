@@ -847,6 +847,60 @@ await runSuite(async () => {
       );
     });
 
+    await test("scaledown is a decide catalog provider with the public enum surface, aliases, credentials slice and decide order its file declares", async () => {
+      const enums = await import("../dist/constants/enums.js");
+      const { PROVIDER_ALIAS_INDEX, PROVIDER_DESCRIPTORS_BY_NAME } =
+        await import("../dist/factories/providerDescriptors.js");
+      assert(
+        enums.AIProviderName.SCALEDOWN === "scaledown",
+        'AIProviderName.SCALEDOWN must be "scaledown"',
+      );
+      assert(
+        JSON.stringify(Object.entries(enums.ScaleDownModels).sort()) ===
+          JSON.stringify([
+            ["CLASSIFY", "classify"],
+            ["CLASSIFY_1", "classify-1"],
+          ]),
+        "ScaleDownModels must hold exactly the two models its file names",
+      );
+      for (const alias of ["scaledown", "scaledown-classify"]) {
+        assert(
+          PROVIDER_ALIAS_INDEX.get(alias) === enums.AIProviderName.SCALEDOWN,
+          `the name "${alias}" must resolve to scaledown`,
+        );
+      }
+      const descriptor = PROVIDER_DESCRIPTORS_BY_NAME.get(
+        enums.AIProviderName.SCALEDOWN,
+      );
+      if (descriptor === undefined) {
+        throw new Error("scaledown must have a descriptor");
+      }
+      assert(
+        descriptor.credentialsKey === "scaledown" &&
+          descriptor.envVars.apiKey === "SCALEDOWN_API_KEY" &&
+          descriptor.envVars.baseURL === "SCALEDOWN_BASE_URL" &&
+          descriptor.envVars.model === "SCALEDOWN_MODEL",
+        "the credentials key and env var names derive from the id",
+      );
+      assert(
+        descriptor.envVars.extraRequired === undefined,
+        "a built-in endpoint means the key alone configures it",
+      );
+      assert(
+        descriptor.defaultModel === "classify-1",
+        "the default model is the one the file names",
+      );
+      assert(
+        descriptor.decideOrder === 8 &&
+          JSON.stringify(descriptor.inferenceKinds) === '["decide"]',
+        "scaledown serves decide only and holds the last decide order",
+      );
+      assert(
+        descriptor.decisionLimits === undefined,
+        "no state window is declared for scaledown",
+      );
+    });
+
     await test("isImageGenerationModel rejects a substring match that isn't at a boundary", async () => {
       const { isImageGenerationModel } =
         await import("../dist/core/constants.js");

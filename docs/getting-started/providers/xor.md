@@ -115,8 +115,8 @@ neurolink decide "We were billed twice for March." --provider xor \
 
 ## Images and video
 
-XOR reads images and one video alongside the `state`. TypeSafe and Laya do not
-read media, and [Perplexity](perplexity-decider.md),
+XOR reads images and one video alongside the `state`. TypeSafe, Laya,
+[SubQ](subq.md) and [ScaleDown](scaledown.md) do not read media, and [Perplexity](perplexity-decider.md),
 [Cloudflare Clef](cloudflare-clef.md) and [OpenAI Decisions](openai-decisions.md)
 read images but no video.
 
@@ -202,21 +202,24 @@ Every built-in consumer of `decide` — model routing, relevance-driven
 compaction, tool routing and RAG planning — asks for the default decision
 provider. That is the first one that is configured, in the environment or in the
 `credentials` passed to the SDK, in the order TypeSafe, Laya, XOR,
-[SubQ](subq.md), [Perplexity](perplexity-decider.md), [Cloudflare Clef](cloudflare-clef.md), then
-[OpenAI Decisions](openai-decisions.md). TypeSafe counts with either of its keys,
+[SubQ](subq.md), [Perplexity](perplexity-decider.md), [Cloudflare Clef](cloudflare-clef.md),
+[OpenAI Decisions](openai-decisions.md), then [ScaleDown](scaledown.md). TypeSafe counts with either of its keys,
 `TYPESAFE_API_KEY` or `AI_GATEWAY_API_KEY`. Laya and XOR each count only with
 both their key and their base URL. SubQ counts with its key alone. Perplexity
 counts with its key alone, which is shared with Perplexity's text provider. Cloudflare Clef counts only with both
 `CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID`, the same two variables the
 Workers AI text provider reads. OpenAI Decisions counts with its key alone,
-`OPENAI_API_KEY`, which the OpenAI chat provider reads too. A caller can always
-name XOR with `provider: "xor"`. So:
+`OPENAI_API_KEY`, which the OpenAI chat provider reads too. ScaleDown counts with
+its key alone, `SCALEDOWN_API_KEY`, which no other provider reads. A caller can
+always name XOR with `provider: "xor"`. So:
 
 - **A TypeSafe key, or Laya's key and base URL, plus XOR's key and base URL:**
   built-in features use TypeSafe or Laya, in that order; XOR runs only where a
   caller asks for `provider: "xor"`.
 - **XOR's key and base URL, plus `SUBQ_API_KEY`:** built-in features use XOR;
   SubQ runs only where a caller asks for `provider: "subq"`.
+- **XOR's key and base URL, plus `SCALEDOWN_API_KEY`:** built-in features use XOR;
+  ScaleDown runs only where a caller asks for `provider: "scaledown"`.
 - **XOR's key and base URL, plus a Perplexity key:** built-in features use XOR;
   Perplexity runs only where a caller asks for
   `provider: "perplexity-decider"`.
@@ -226,8 +229,8 @@ name XOR with `provider: "xor"`. So:
 - **Only XOR's key and base URL:** built-in features use XOR.
 - **An XOR key with no base URL:** XOR is not configured. Built-in features
   ignore it, and `provider: "xor"` fails with `XOR requires a base URL`.
-- **None of TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef or OpenAI
-  Decisions:** everything behaves exactly as it did without a decision model.
+- **None of TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef, OpenAI
+  Decisions or ScaleDown:** everything behaves exactly as it did without a decision model.
 
 ---
 
@@ -359,5 +362,6 @@ key, long hex runs and embedded `data:` URLs.
 - [Cloudflare Clef Provider Guide](cloudflare-clef.md)
 - [SubQ Provider Guide](subq.md)
 - [OpenAI Decisions Provider Guide](openai-decisions.md)
+- [ScaleDown Provider Guide](scaledown.md)
 - [The `decide` inference type](../../features/decide-inference-type.md)
 - [XOR on Hugging Face](https://huggingface.co/juspay/xor)

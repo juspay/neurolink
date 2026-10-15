@@ -700,6 +700,8 @@ const decideBlockSchema = z.strictObject({
     placement: z.enum(["body", "body-unless-alias"]),
     alias: z.string().min(1).optional(),
   }),
+  authHeader: z.enum(["bearer", "x-api-key"]).optional(),
+  stateEncoding: z.enum(["text"]).optional(),
   media: decideMediaSchema.optional(),
   ambientKeyGuard: ambientKeyGuardSchema.optional(),
   requestIdHeaders: z.array(decideHeaderNameSchema).optional(),

@@ -508,6 +508,12 @@ Supported AI Provider Names
 
 ---
 
+### SCALEDOWN
+
+> **SCALEDOWN**: `"scaledown"`
+
+---
+
 ### SCALEWAY
 
 > **SCALEWAY**: `"scaleway"`

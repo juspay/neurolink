@@ -117,7 +117,7 @@ function scaffold(
 
 const HOSTILE_MODEL = 'm"x\\y';
 const SELF_HOSTED_MODEL = "acme-1";
-// The hand-written and built-in decide providers hold 1 to 7; a filled-in scaffold needs a free number.
+// The hand-written and built-in decide providers hold 1 to 8; a filled-in scaffold needs a free number.
 const FREE_ORDER = { selfHosted: 91, builtIn: 92 } as const;
 
 const selfHosted = scaffold([
@@ -1191,6 +1191,31 @@ if (!("fixture" in openaiDisk)) {
 }
 const OPENAI_DISK: DecideContractFixture = openaiDisk.fixture;
 const openaiRun = await runDecideProviderContract(OPENAI_ENTRY, {
+  quiet: true,
+});
+
+// The shipped scaledown.json: the one entry that asks the engine for an
+// x-api-key header (decide.authHeader) and a text state (decide.stateEncoding),
+// so it is the entry the loop's credential and state checks are judged on.
+// Quiet for the same reason as XOR's.
+const scaledownSource: unknown = JSON.parse(
+  readFileSync(
+    join(process.cwd(), "src", "lib", "providers", "catalog", "scaledown.json"),
+    "utf8",
+  ),
+);
+const SCALEDOWN_ENTRY: DecideCatalogJson = await parseDecideEntry(
+  scaledownSource,
+  "scaledown.json",
+);
+const scaledownDisk = loadContractFixture(SCALEDOWN_ENTRY, undefined);
+if (!("fixture" in scaledownDisk)) {
+  throw new Error(
+    `the ScaleDown contract fixture is unusable: ${scaledownDisk.problem}`,
+  );
+}
+const SCALEDOWN_DISK: DecideContractFixture = scaledownDisk.fixture;
+const scaledownRun = await runDecideProviderContract(SCALEDOWN_ENTRY, {
   quiet: true,
 });
 
@@ -3201,6 +3226,149 @@ await test("a reply in System One's spelling is not read on the OpenAI wire", as
       (n) => n.includes("are read back") || n.includes("a retry that recovers"),
     ),
     `a case other than the two that compare answers fails: ${failed.join("; ")}`,
+  );
+});
+
+// ---- ScaleDown: an x-api-key header and a text state through the same loop ----
+
+function scaledownPassed(name: string): void {
+  const found = scaledownRun.recorded.find((r) => r.name === name);
+  if (found === undefined) {
+    throw new Error(`no result named "${name}"`);
+  }
+  assert(found.ok, `${name} failed: ${found.reason ?? ""}`);
+}
+
+await test("the shipped scaledown.json passes every case of the loop, each planned once, and no row claims to have been seen live", () => {
+  const names = scaledownRun.recorded.map((r) => r.name);
+  assert(scaledownRun.planned >= 2, `planned ${scaledownRun.planned} cases`);
+  assert(
+    scaledownRun.recorded.length === scaledownRun.planned,
+    `planned ${scaledownRun.planned}, recorded ${scaledownRun.recorded.length}`,
+  );
+  assert(new Set(names).size === names.length, "two results share a name");
+  const failed = scaledownRun.recorded.filter((r) => !r.ok);
+  assert(
+    failed.length === 0,
+    `failed: ${failed.map((r) => r.name).join("; ")}`,
+  );
+  // No reply from ScaleDown's endpoint was captured in this project.
+  assert(
+    SCALEDOWN_DISK.errors.every((f) => f.provenance === "stand-in"),
+    "a row is labelled seen-live",
+  );
+});
+
+await test("every scaledown rule is exercised by a fixture that agrees with it, and each error body gives the kind the fixture declares", () => {
+  const rules: Rules = SCALEDOWN_ENTRY.decide.errors.rules;
+  const ruleResults = scaledownRun.recorded.filter((r) =>
+    r.name.startsWith(`DECIDE ${SCALEDOWN_ENTRY.id}: error rule #`),
+  );
+  assert(
+    ruleResults.length === rules.length,
+    `one result per rule, got ${ruleResults.length}`,
+  );
+  for (const f of SCALEDOWN_DISK.errors) {
+    scaledownPassed(
+      `DECIDE ${SCALEDOWN_ENTRY.id}: error "${f.label}" (${f.provenance}) -> ${f.expect.kind}`,
+    );
+  }
+  // The 504 rule's kind has no retry by default: a fixture row pins it.
+  assert(
+    SCALEDOWN_DISK.errors.some(
+      (f) =>
+        f.status === 504 &&
+        f.expect.kind === "timeout" &&
+        f.expect.retryable === false,
+    ),
+    "no fixture row pins the 504 as a timeout that is not retried",
+  );
+});
+
+await test("the scaledown wire case judges the key in x-api-key with no Authorization, and the verbatim case judges the state as one text", () => {
+  // The literals are the oracle: the loop reads these two fields of the entry.
+  assert(
+    SCALEDOWN_ENTRY.decide.authHeader === "x-api-key" &&
+      SCALEDOWN_ENTRY.decide.stateEncoding === "text",
+    "the shipped entry must ask for both",
+  );
+  scaledownPassed(
+    `DECIDE ${SCALEDOWN_ENTRY.id}: wire request (route, POST, bearer, model, boolean as noul)`,
+  );
+  scaledownPassed(`DECIDE ${SCALEDOWN_ENTRY.id}: state text is sent verbatim`);
+  scaledownPassed(
+    `DECIDE ${SCALEDOWN_ENTRY.id}: answers, model and request id are read back`,
+  );
+});
+
+// The cases a run fails that the unchanged entry's own run does not, so a
+// fault elsewhere in the entry does not blur what a control is looking for.
+function newlyFailed(run: {
+  recorded: readonly { name: string; ok: boolean }[];
+}) {
+  const alreadyFailing = new Set(
+    scaledownRun.recorded.filter((r) => !r.ok).map((r) => r.name),
+  );
+  return run.recorded
+    .filter((r) => !r.ok && !alreadyFailing.has(r.name))
+    .map((r) => r.name);
+}
+
+/**
+ * The entry the loop plans from says `first` for `field`; every later read, by
+ * the provider on a request, says `later`. The loop reads the two fields once
+ * while it plans its cases, so the loop expects what the entry first declared
+ * and the provider acts on what it declares afterwards.
+ */
+function entryThatChangesItsMind(
+  field: "authHeader" | "stateEncoding",
+  first: "x-api-key" | "text",
+  later: "bearer" | undefined,
+): { entry: DecideCatalogJson; reads: () => number } {
+  let reads = 0;
+  const decide = new Proxy(SCALEDOWN_ENTRY.decide, {
+    get(target, prop, receiver): unknown {
+      if (prop === field) {
+        reads += 1;
+        return reads === 1 ? first : later;
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+  return { entry: { ...SCALEDOWN_ENTRY, decide }, reads: () => reads };
+}
+
+await test("a provider that sends a Bearer token where the entry declared x-api-key fails the wire case, and only that case", async () => {
+  const flipped = entryThatChangesItsMind("authHeader", "x-api-key", "bearer");
+  const run = await runDecideProviderContract(flipped.entry, {
+    fixture: SCALEDOWN_DISK,
+    quiet: true,
+  });
+  assert(
+    flipped.reads() >= 2,
+    "precondition: the provider read the field after the loop planned from it",
+  );
+  const failed = newlyFailed(run);
+  assert(
+    failed.length === 1 && failed[0].includes(": wire request ("),
+    `expected the wire case alone to start failing, got: ${failed.join("; ")}`,
+  );
+});
+
+await test("a provider that sends an object state raw where the entry declared a text state fails the verbatim case, and only that case", async () => {
+  const flipped = entryThatChangesItsMind("stateEncoding", "text", undefined);
+  const run = await runDecideProviderContract(flipped.entry, {
+    fixture: SCALEDOWN_DISK,
+    quiet: true,
+  });
+  assert(
+    flipped.reads() >= 2,
+    "precondition: the provider read the field after the loop planned from it",
+  );
+  const failed = newlyFailed(run);
+  assert(
+    failed.length === 1 && failed[0].includes(": state text is sent verbatim"),
+    `expected the verbatim case alone to start failing, got: ${failed.join("; ")}`,
   );
 });
 

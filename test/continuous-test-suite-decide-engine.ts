@@ -18,7 +18,7 @@ import "dotenv/config";
  *
  * Run: pnpm run test:decide-engine
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type {
@@ -33,6 +33,7 @@ import type {
   DecisionQuestion,
   DecisionQuestionMap,
   DecisionRequest,
+  DecisionState,
 } from "../src/lib/types/index.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 import { LAYA_ENTRY } from "./helpers/decideFixtures.js";
@@ -40,6 +41,7 @@ import {
   assert,
   assertEqual,
   assertIncludes,
+  assertNotNull,
   defineSuite,
   logSection,
 } from "./helpers/harness.js";
@@ -4601,6 +4603,541 @@ async function openaiDecisionsProviderSection(): Promise<void> {
   });
 }
 
+// ===== decide.authHeader and decide.stateEncoding =====
+
+const BEARER_HEADERS = JSON.stringify({
+  Authorization: "Bearer k-1",
+  "Content-Type": "application/json",
+});
+const API_KEY_HEADERS = JSON.stringify({
+  "x-api-key": "k-1",
+  "Content-Type": "application/json",
+});
+// What the stub sees: fetch's Headers lower-cases and sorts the names.
+const BEARER_ON_THE_WIRE = `{"authorization":"Bearer k-1","content-type":"application/json"}`;
+const API_KEY_ON_THE_WIRE = `{"content-type":"application/json","x-api-key":"k-1"}`;
+const KEYED = { apiKey: "k-1", baseURL: "https://xor.test" };
+
+const CATALOG_DIR = fileURLToPath(
+  new URL("../src/lib/providers/catalog/", import.meta.url),
+);
+
+// Every decide entry the package ships, read as data the way a build copies it.
+function shippedDecideEntries(): DecideCatalogJson[] {
+  return readdirSync(CATALOG_DIR)
+    .filter((file) => file.endsWith(".json") && !file.endsWith(".schema.json"))
+    .sort()
+    .map(
+      (file) =>
+        JSON.parse(
+          readFileSync(join(CATALOG_DIR, file), "utf8"),
+        ) as DecideCatalogJson,
+    )
+    .filter(
+      (entry) =>
+        Array.isArray(entry.inferenceKinds) &&
+        entry.inferenceKinds.length === 1 &&
+        entry.inferenceKinds[0] === "decide",
+    );
+}
+
+const withDecideBlock = (
+  base: DecideCatalogJson,
+  patch: Partial<DecideCatalogJson["decide"]>,
+): DecideCatalogJson => ({ ...base, decide: { ...base.decide, ...patch } });
+
+function causeOf(
+  error: unknown,
+): { kind?: string; message?: string; retryable?: boolean } | undefined {
+  return error instanceof Error
+    ? (error.cause as
+        | { kind?: string; message?: string; retryable?: boolean }
+        | undefined)
+    : undefined;
+}
+
+const answered = (): Response =>
+  new Response(MEDIA_ANSWER, {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+
+// The headers the stub received for one decide() call, as one JSON string.
+async function headersSentFor(entry: DecideCatalogJson): Promise<string> {
+  return withFetchStub(answered, async (sent) => {
+    const provider = await make(KEYED, { entry });
+    await provider.decide(MEDIA_REQUEST).catch(() => undefined);
+    assertEqual(sent.length, 1, "the request did not reach the stub");
+    return JSON.stringify(sent[0]?.headers ?? {});
+  });
+}
+
+async function configuredAuthHeaderSection(): Promise<void> {
+  logSection("ConfiguredDecisionProvider: decide.authHeader");
+  await test("every shipped decide entry sends the header set its authHeader names, and Bearer when it names none", async () => {
+    const entries = shippedDecideEntries();
+    const ids = entries.map((entry) => entry.id);
+    for (const id of ["laya", "xor", "subq", "openai-decisions"]) {
+      assert(ids.includes(id), "the catalog scan lost a shipped decide entry");
+    }
+    for (const entry of entries) {
+      const keyed = entry.decide.authHeader === "x-api-key";
+      const provider = await make(KEYED, { entry });
+      assertEqual(
+        JSON.stringify(provider.call("decisionHeaders")),
+        keyed ? API_KEY_HEADERS : BEARER_HEADERS,
+        `${entry.id}: the headers the class builds`,
+      );
+      assertEqual(
+        await headersSentFor(entry),
+        keyed ? API_KEY_ON_THE_WIRE : BEARER_ON_THE_WIRE,
+        `${entry.id}: the headers on the wire`,
+      );
+    }
+  });
+
+  await test("Laya, XOR, SubQ and OpenAI Decisions declare no authHeader and send Bearer, byte for byte", async () => {
+    const byId = new Map(
+      shippedDecideEntries().map((entry) => [entry.id, entry]),
+    );
+    for (const id of ["laya", "xor", "subq", "openai-decisions"]) {
+      const entry = byId.get(id);
+      assertNotNull(entry, `${id} is not a shipped decide entry`);
+      assertEqual(
+        entry.decide.authHeader,
+        undefined,
+        `${id} must not declare an authHeader`,
+      );
+      const provider = await make(KEYED, { entry });
+      assertEqual(
+        JSON.stringify(provider.call("decisionHeaders")),
+        BEARER_HEADERS,
+        `${id}: the headers the class builds`,
+      );
+      assertEqual(
+        await headersSentFor(entry),
+        BEARER_ON_THE_WIRE,
+        `${id}: the headers on the wire`,
+      );
+    }
+  });
+
+  await test("bearer named outright is the same as bearer omitted, on both dialects", async () => {
+    for (const base of [LAYA_ENTRY, OPENAI_LIKE]) {
+      const named = withDecideBlock(base, { authHeader: "bearer" });
+      const omitted = await make(KEYED, { entry: base });
+      const explicit = await make(KEYED, { entry: named });
+      assertEqual(
+        JSON.stringify(explicit.call("decisionHeaders")),
+        JSON.stringify(omitted.call("decisionHeaders")),
+      );
+      assertEqual(
+        JSON.stringify(explicit.call("decisionHeaders")),
+        BEARER_HEADERS,
+      );
+      assertEqual(await headersSentFor(named), BEARER_ON_THE_WIRE);
+    }
+  });
+
+  await test("x-api-key sends the key and the content type, and no Authorization header at all, on both dialects", async () => {
+    for (const base of [LAYA_ENTRY, OPENAI_LIKE]) {
+      const entry = withDecideBlock(base, { authHeader: "x-api-key" });
+      const provider = await make(KEYED, { entry });
+      const built = provider.call("decisionHeaders") as Record<string, string>;
+      assertEqual(JSON.stringify(built), API_KEY_HEADERS);
+      assert(
+        Object.keys(built).every(
+          (name) => name.toLowerCase() !== "authorization",
+        ),
+        "the class built an Authorization header in x-api-key mode",
+      );
+      const wire = await headersSentFor(entry);
+      assertEqual(wire, API_KEY_ON_THE_WIRE);
+      const received: Record<string, string> = JSON.parse(wire);
+      assert(
+        !("authorization" in received) &&
+          Object.values(received).every((value) => !value.includes("Bearer")),
+        "a bearer credential reached the wire in x-api-key mode",
+      );
+    }
+  });
+
+  await test("x-api-key mode keeps the key out of rejection texts, network error texts and the rejection log line", async () => {
+    const { logger } = await import("../dist/utils/logger.js");
+    const key = "xk-plain-4821";
+    const entry = withDecideBlock(LAYA_ENTRY, { authHeader: "x-api-key" });
+    const credentials = { apiKey: key, baseURL: "https://laya.test" };
+    const request: DecisionRequest = {
+      state: "payouts have failed",
+      questions: { q: { type: "boolean", instructions: "Is this urgent?" } },
+      model: "auto",
+    };
+    logger.clearLogs();
+    logger.setLogLevel("debug");
+    try {
+      // The logger keeps nothing below error unless NEUROLINK_DEBUG is "true".
+      await withEnv({ NEUROLINK_DEBUG: "true" }, async () => {
+        await withFetchStub(
+          () =>
+            new Response(
+              JSON.stringify({ detail: `x-api-key ${key} is not valid` }),
+              { status: 401, headers: { "content-type": "application/json" } },
+            ),
+          async (sent) => {
+            const error = await (await make(credentials, { entry }))
+              .decide(request)
+              .then(
+                () => undefined,
+                (rejection: unknown) => rejection,
+              );
+            assertEqual(
+              sent.length,
+              1,
+              "the rejection did not come from the stub",
+            );
+            assertEqual(sent[0]?.headers["x-api-key"], key);
+            assertEqual(causeKind(error), "authentication");
+            const texts = JSON.stringify([
+              error instanceof Error ? error.message : "",
+              causeOf(error)?.message ?? "",
+            ]);
+            assert(!texts.includes(key), "a rejection text carries the key");
+            assert(
+              texts.includes("[redacted]"),
+              "the key was not marked as removed",
+            );
+          },
+        );
+        // The provider's own log lines. (The transport's debug lines repeat a
+        // transport error's text as it is; a real one never holds the key.)
+        const lines = JSON.stringify(
+          logger.getLogs().map((line) => [line.message, line.data]),
+        );
+        assert(
+          lines.includes("credential not accepted"),
+          "the rejection was not logged",
+        );
+        assert(!lines.includes(key), "a log line carries the key");
+        await withFetchStub(
+          () => {
+            throw new Error(`socket hang up while sending ${key}`);
+          },
+          async (sent) => {
+            const error = await (await make(credentials, { entry }))
+              .decide(request)
+              .then(
+                () => undefined,
+                (rejection: unknown) => rejection,
+              );
+            assert(
+              sent.length >= 1,
+              "the network error did not come from the stub",
+            );
+            assertEqual(causeKind(error), "network");
+            const texts = JSON.stringify([
+              error instanceof Error ? error.message : "",
+              causeOf(error)?.message ?? "",
+            ]);
+            assert(
+              !texts.includes(key),
+              "a network error text carries the key",
+            );
+            assert(
+              texts.includes("[redacted]"),
+              "the key was not marked as removed",
+            );
+          },
+        );
+      });
+    } finally {
+      logger.setLogLevel("info");
+      logger.clearLogs();
+    }
+  });
+}
+
+const QUESTION_Q = `"questions":{"q":{"type":"noul","instructions":"Is this urgent?"}}`;
+const textBody = (stateText: string): string =>
+  `{"model":"typed-decisions","state":${JSON.stringify(stateText)},${QUESTION_Q}}`;
+const jsonBody = (state: unknown): string =>
+  `{"model":"typed-decisions","state":${JSON.stringify(state)},${QUESTION_Q}}`;
+
+const ENCODED_STATES: ReadonlyArray<readonly [string, DecisionState, string]> =
+  [
+    [
+      "a string with whitespace at both ends",
+      "  \tkeep  these\n ",
+      "  \tkeep  these\n ",
+    ],
+    ["a string that reads as JSON", `{"a":1}`, `{"a":1}`],
+    ["a string in quotes", `"quoted"`, `"quoted"`],
+    ["a string of one character", "x", "x"],
+    [
+      "an object",
+      { a: 1, b: ["x", true], c: { d: "é" } },
+      `{"a":1,"b":["x",true],"c":{"d":"é"}}`,
+    ],
+    ["an object with a text key", { text: "hello" }, `{"text":"hello"}`],
+    ["an array", [1, "two", [3]], `[1,"two",[3]]`],
+    ["a number", 42, "42"],
+    ["zero", 0, "0"],
+    ["a negative fraction", -1.5, "-1.5"],
+    ["true", true, "true"],
+    ["false", false, "false"],
+    ["an empty object", {}, "{}"],
+    ["an empty array", [], "[]"],
+  ];
+
+// Every one of these is nothing but whitespace after trim(), and none holds a
+// character the message could repeat without being noticed.
+const NBSP = String.fromCharCode(0x00a0);
+const BOM = String.fromCharCode(0xfeff);
+const EM_SPACE = String.fromCharCode(0x2003);
+const BLANK_STATES = [
+  "",
+  " ",
+  "\t\n",
+  NBSP,
+  BOM,
+  EM_SPACE.repeat(7),
+  ` \t \r\n ${EM_SPACE} `,
+];
+// Whitespace other than a plain space: a refusal that repeated the state would carry some of it.
+const UNUSUAL_WHITESPACE = new RegExp(`[\\t\\n\\r${NBSP}${BOM}${EM_SPACE}]`);
+
+const TEXT_ENTRY = withDecideBlock(LAYA_ENTRY, { stateEncoding: "text" });
+const PROBE_ORIGIN = "https://probe.test";
+
+async function configuredStateEncodingSection(): Promise<void> {
+  logSection("ConfiguredDecisionProvider: decide.stateEncoding");
+  const questions: DecisionQuestionMap = {
+    q: { type: "boolean", instructions: "Is this urgent?" },
+  };
+  const png = fixtureBytes("red.png");
+  const mp4 = fixtureBytes("red.mp4");
+
+  await test("a string state goes out unchanged, and every other value goes out as its JSON text", async () => {
+    for (const [what, state, text] of ENCODED_STATES) {
+      assertEqual(
+        await wireBodyFor(TEXT_ENTRY, { state }),
+        textBody(text),
+        what,
+      );
+    }
+  });
+
+  await test("an entry without stateEncoding sends the state as given, byte for byte", async () => {
+    const states: DecisionState[] = [
+      ...ENCODED_STATES.map(([, state]) => state),
+      "",
+      "   ",
+    ];
+    for (const state of states) {
+      assertEqual(
+        await wireBodyFor(LAYA_ENTRY, { state }),
+        jsonBody(state),
+        "the state changed on an entry that does not ask for encoding",
+      );
+    }
+  });
+
+  await test("a state that is blank after trim() is refused before any request, as invalid_request, and the message never repeats it", async () => {
+    await withFetchStub(answered, async (sent) => {
+      for (const state of BLANK_STATES) {
+        const provider = await make(KEYED, { entry: TEXT_ENTRY });
+        const error = await provider.decide({ ...MEDIA_REQUEST, state }).then(
+          () => undefined,
+          (rejection: unknown) => rejection,
+        );
+        if (!(error instanceof Error)) {
+          throw new Error("a blank state was not refused");
+        }
+        const cause = causeOf(error);
+        assertEqual(cause?.kind, "invalid_request", "the kind of the refusal");
+        assertEqual(cause?.retryable, false, "the refusal must not be retried");
+        for (const text of [error.message, cause?.message ?? ""]) {
+          assertIncludes(
+            text,
+            "Laya",
+            "the refusal does not name the provider",
+          );
+          assertIncludes(
+            text,
+            "needs non-blank state text",
+            "the refusal does not name the rule",
+          );
+          assert(
+            !UNUSUAL_WHITESPACE.test(text),
+            "the refusal repeats the state it refused",
+          );
+        }
+      }
+      assertEqual(sent.length, 0, "a blank state reached the network");
+
+      // Positive control: the same provider and stub send a real state.
+      await (await make(KEYED, { entry: TEXT_ENTRY }))
+        .decide({ ...MEDIA_REQUEST, state: "x" })
+        .catch(() => undefined);
+      assertEqual(sent.length, 1, "a real state did not reach the stub");
+    });
+  });
+
+  await test("a state a JavaScript caller left out is refused like a blank one, not thrown as a TypeError", async () => {
+    await withFetchStub(answered, async (sent) => {
+      const error = await (await make(KEYED, { entry: TEXT_ENTRY }))
+        .decide({ ...MEDIA_REQUEST, state: undefined as never })
+        .then(
+          () => undefined,
+          (rejection: unknown) => rejection,
+        );
+      assertEqual(causeKind(error), "invalid_request");
+      assertEqual(sent.length, 0, "a missing state reached the network");
+    });
+  });
+
+  await test("the same refusal holds on the openai-decisions dialect, and the string rule too", async () => {
+    const entry = withDecideBlock(OPENAI_LIKE, { stateEncoding: "text" });
+    const openaiQuestions = `"questions":[{"type":"predicate","instructions":"Is this urgent?","name":"q"}]`;
+    const bodyFor = async (state: DecisionState): Promise<string> =>
+      withFetchStub(answered, async (sent) => {
+        await (await make(KEYED, { entry }))
+          .decide({ ...MEDIA_REQUEST, state })
+          .catch(() => undefined);
+        assertEqual(sent.length, 1, "the request did not reach the stub");
+        return sent[0]?.body ?? "";
+      });
+    assertEqual(
+      await bodyFor("  keep  "),
+      `{"model":"typed-decisions","input":"  keep  ",${openaiQuestions}}`,
+    );
+    assertEqual(
+      await bodyFor({ a: 1 }),
+      `{"model":"typed-decisions","input":"{\\"a\\":1}",${openaiQuestions}}`,
+    );
+    await withFetchStub(answered, async (sent) => {
+      for (const state of BLANK_STATES) {
+        const error = await (await make(KEYED, { entry }))
+          .decide({ ...MEDIA_REQUEST, state })
+          .then(
+            () => undefined,
+            (rejection: unknown) => rejection,
+          );
+        assertEqual(causeKind(error), "invalid_request");
+      }
+      assertEqual(sent.length, 0, "a blank state reached the network");
+    });
+    // The dialect on its own still sends a blank input: the refusal is the entry's.
+    assertEqual(
+      await withFetchStub(answered, async (sent) => {
+        await (await make(KEYED, { entry: OPENAI_LIKE }))
+          .decide({ ...MEDIA_REQUEST, state: "" })
+          .catch(() => undefined);
+        return sent[0]?.body ?? "";
+      }),
+      `{"model":"typed-decisions","input":"",${openaiQuestions}}`,
+    );
+  });
+
+  await test("an image or a video on an entry that sets stateEncoding is still refused locally, with the media refusal, even beside a blank state", async () => {
+    await withFetchStub(answered, async (sent) => {
+      // The blank states are the ones a wrong order of checks would answer with
+      // the blank-state refusal, so only they can tell the two refusals apart.
+      for (const state of ["payouts have failed", "", "   "]) {
+        for (const extra of [{ images: [png] }, { video: mp4 }]) {
+          const provider = await make(KEYED, { entry: TEXT_ENTRY });
+          const error = await provider
+            .decide({ ...MEDIA_REQUEST, state, ...extra })
+            .then(
+              () => undefined,
+              (rejection: unknown) => rejection,
+            );
+          assertEqual(causeKind(error), "invalid_request");
+          const text = causeOf(error)?.message ?? "";
+          assertIncludes(
+            text,
+            "does not accept images or video",
+            "the refusal is not the media refusal",
+          );
+          assert(
+            !text.includes("needs non-blank state text"),
+            "the media refusal was reported as a blank-state refusal",
+          );
+        }
+      }
+      assertEqual(sent.length, 0, "media reached the network");
+    });
+  });
+
+  await test("an entry that allows media writes the encoded state and the images side by side", async () => {
+    const entry = withDecideBlock(MEDIA_ENTRY, { stateEncoding: "text" });
+    const pngUrl = asDataUrl("image/png", png);
+    assertEqual(
+      await wireBodyFor(entry, { state: { a: 1 }, images: [png] }),
+      `${textBody(`{"a":1}`).slice(0, -1)},"images":[${JSON.stringify(pngUrl)}]}`,
+    );
+  });
+
+  await test("tryDecide() returns null for a blank state and sends nothing, decide() rejects, and a real state still goes out", async () => {
+    const { NeuroLink } = await import("../dist/index.js");
+    const { registerDecideCatalogProviders } =
+      await import("../dist/factories/providerRegistry.js");
+    const probe: DecideCatalogJson = {
+      ...TEXT_ENTRY,
+      id: "text-state-probe",
+      displayName: "TextStateProbe",
+      wire: { baseURL: PROBE_ORIGIN },
+      decide: { ...TEXT_ENTRY.decide, baseURLRequired: false },
+    };
+    registerDecideCatalogProviders([probe]);
+    const ask = (state: DecisionState) => ({
+      provider: probe.id,
+      state,
+      questions,
+    });
+    // A NeuroLink instance fetches its own model list too, through the same
+    // global fetch, so what counts is the traffic to the provider's origin.
+    const toProbe = (sent: Sent[]): Sent[] =>
+      sent.filter((request) => {
+        try {
+          return new URL(request.url).origin === PROBE_ORIGIN;
+        } catch {
+          return false;
+        }
+      });
+    await withEnv({ TEXT_STATE_PROBE_API_KEY: "k-1" }, async () => {
+      await withFetchStub(answered, async (sent) => {
+        const nl = new NeuroLink();
+        for (const state of BLANK_STATES) {
+          const result = await nl.tryDecide(ask(state));
+          assert(
+            result === null,
+            "tryDecide() did not fail open on a blank state",
+          );
+          const error = await nl.decide(ask(state)).then(
+            () => undefined,
+            (rejection: unknown) => rejection,
+          );
+          assertEqual(causeKind(error), "invalid_request");
+        }
+        assertEqual(
+          toProbe(sent).length,
+          0,
+          "a blank state reached the provider",
+        );
+
+        // Positive control: the same instance, provider and stub send a real
+        // state, so the zero above means "refused", not "unreachable".
+        const live = await nl.tryDecide(ask({ a: 1 }));
+        const reached = toProbe(sent);
+        assertEqual(reached.length, 1, "a real state did not reach the stub");
+        assert(live !== null, "the real state was not decided");
+        assertEqual(reached[0]?.url, `${PROBE_ORIGIN}/predict`);
+        assertEqual(reached[0]?.body, textBody(`{"a":1}`));
+      });
+    });
+  });
+}
+
 await runSuite(async () => {
   await readPathSection();
   await baseUrlSection();
@@ -4621,4 +5158,6 @@ await runSuite(async () => {
   await openaiDecisionsEncodeSection();
   await openaiDecisionsReadSection();
   await openaiDecisionsProviderSection();
+  await configuredAuthHeaderSection();
+  await configuredStateEncodingSection();
 });

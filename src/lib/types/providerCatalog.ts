@@ -343,6 +343,20 @@ export type DecideBlock = {
   /** Request URL; `{baseURL}` is the only placeholder. */
   endpoint: string;
   model: DecideModel;
+  /**
+   * How the API key is sent. `bearer`, the default when omitted, sends
+   * `Authorization: Bearer <key>`. `x-api-key` sends `x-api-key: <key>` and no
+   * `Authorization` header at all. This is the decide request's own setting;
+   * `quirks.authHeaderStyle` belongs to the chat path and is not read here.
+   */
+  authHeader?: "bearer" | "x-api-key";
+  /**
+   * `text` makes the state that goes out always a string: a string is sent
+   * unchanged (not trimmed), any other value is sent as its JSON text, and a
+   * state that is blank after trimming is refused before any request, as an
+   * `invalid_request`. Omitted means the state goes out as given.
+   */
+  stateEncoding?: "text";
   /** Body keys for images and video, after `model`, `state` and `questions`. Omitted means the body never carries media. */
   media?: DecideMedia;
   /**

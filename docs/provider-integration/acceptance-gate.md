@@ -275,6 +275,7 @@ list):
 | `cloudflare-clef`    | Decide-only, like typesafe, laya, xor and perplexity-decider — no text surface for any cell. Distinct from the `cloudflare` text provider, though both read the same two variables.                                           |
 | `subq`               | Decide-only, a decide catalog entry like laya — no text surface for any cell.                                                                                                                                                 |
 | `openai-decisions`   | Decide-only, a decide catalog entry like laya and xor (exempt by derivation in the suite) — no text surface for any cell. Distinct from the `openai` chat provider, which the gate covers, though both read `OPENAI_API_KEY`. |
+| `scaledown`          | Decide-only, a decide catalog entry like subq and openai-decisions (exempt by derivation in the suite) — no text surface for any cell. Its key, `SCALEDOWN_API_KEY`, belongs to no text provider.                             |
 
 Cells 4 (tools), 5 (structured output), 6 (thinking) and 7 (embeddings) run
 only where the covered provider's row/catalog descriptor declares that

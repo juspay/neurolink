@@ -108,8 +108,8 @@ compaction, tool routing and RAG planning — asks for the default decision
 provider. That is the first one that is configured — in the environment or in
 the `credentials` passed to the SDK — in the order TypeSafe, Laya,
 [XOR](xor.md), [SubQ](subq.md), [Perplexity](perplexity-decider.md),
-[Cloudflare Clef](cloudflare-clef.md), then
-[OpenAI Decisions](openai-decisions.md). TypeSafe has two keys,
+[Cloudflare Clef](cloudflare-clef.md),
+[OpenAI Decisions](openai-decisions.md), then [ScaleDown](scaledown.md). TypeSafe has two keys,
 `TYPESAFE_API_KEY` and `AI_GATEWAY_API_KEY` (its Vercel AI Gateway route), and
 either one counts. Laya counts only with both its key and its base URL, and so
 does XOR. SubQ counts with its key alone, `SUBQ_API_KEY`. Perplexity counts with
@@ -117,7 +117,9 @@ its key alone, and that key,
 `PERPLEXITY_API_KEY`, is shared with Perplexity's text provider. Cloudflare Clef
 counts only with both `CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID`, the same
 two variables the Workers AI text provider reads. OpenAI Decisions counts with its
-key alone, `OPENAI_API_KEY`, which the OpenAI chat provider reads too. So:
+key alone, `OPENAI_API_KEY`, which the OpenAI chat provider reads too.
+ScaleDown counts with its key alone, `SCALEDOWN_API_KEY`, which no other provider
+reads. So:
 
 - **A TypeSafe key, plus Laya's key and base URL:** built-in features use
   TypeSafe; Laya runs only where a caller asks for `provider: "laya"`.
@@ -134,8 +136,10 @@ key alone, `OPENAI_API_KEY`, which the OpenAI chat provider reads too. So:
   only where a caller asks for `provider: "cloudflare-clef"`.
 - **Laya's key and base URL, plus `SUBQ_API_KEY`:** built-in features use Laya;
   SubQ runs only where a caller asks for `provider: "subq"`.
-- **None of TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef or OpenAI
-  Decisions:** everything behaves exactly as it did without a decision model.
+- **Laya's key and base URL, plus `SCALEDOWN_API_KEY`:** built-in features use
+  Laya; ScaleDown runs only where a caller asks for `provider: "scaledown"`.
+- **None of TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef, OpenAI
+  Decisions or ScaleDown:** everything behaves exactly as it did without a decision model.
 
 ---
 
@@ -224,4 +228,5 @@ export LAYA_BASE_URL=http://127.0.0.1:8000
 - [Cloudflare Clef Provider Guide](cloudflare-clef.md)
 - [SubQ Provider Guide](subq.md)
 - [OpenAI Decisions Provider Guide](openai-decisions.md)
+- [ScaleDown Provider Guide](scaledown.md)
 - [Laya on GitHub](https://github.com/NandhaKishorM/laya)

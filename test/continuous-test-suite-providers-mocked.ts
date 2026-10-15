@@ -2,6 +2,7 @@
 import "dotenv/config";
 import { jsonSchema } from "../dist/index.js";
 import type {
+  DecisionOptions,
   DecisionQuestionMap,
   DecisionRequest,
   DecisionState,
@@ -4385,6 +4386,9 @@ async function runLayaDecide(): Promise<void> {
     "OPENAI_API_KEY",
     "OPENAI_DECISIONS_BASE_URL",
     "OPENAI_DECISIONS_MODEL",
+    "SCALEDOWN_API_KEY",
+    "SCALEDOWN_BASE_URL",
+    "SCALEDOWN_MODEL",
   ];
   const priorDecisionEnv = decisionEnv.map((v) => process.env[v]);
   const clearDecisionEnv = () => {
@@ -5724,6 +5728,9 @@ async function runXorDecide(): Promise<void> {
     "OPENAI_API_KEY",
     "OPENAI_DECISIONS_BASE_URL",
     "OPENAI_DECISIONS_MODEL",
+    "SCALEDOWN_API_KEY",
+    "SCALEDOWN_BASE_URL",
+    "SCALEDOWN_MODEL",
   ];
   const priorDecisionEnv = decisionEnv.map((v) => process.env[v]);
   const clearDecisionEnv = () => {
@@ -7202,6 +7209,9 @@ const PERPLEXITY_DECISION_ENV = [
   "OPENAI_API_KEY",
   "OPENAI_DECISIONS_BASE_URL",
   "OPENAI_DECISIONS_MODEL",
+  "SCALEDOWN_API_KEY",
+  "SCALEDOWN_BASE_URL",
+  "SCALEDOWN_MODEL",
 ];
 
 /** No decision provider configured at all. */
@@ -9650,7 +9660,7 @@ async function runPerplexityCredentials(): Promise<void> {
     },
   );
 
-  // ── P22b: it is the last resort, and a blank key is no key ──
+  // ── P22b: the providers ahead of it keep precedence, and a blank key is no key ──
   await perplexityCase(
     "DECIDE perplexity-decider: the other decision providers keep precedence",
     async () => {
@@ -9974,6 +9984,9 @@ const CLEF_DECISION_ENV = [
   "OPENAI_API_KEY",
   "OPENAI_DECISIONS_BASE_URL",
   "OPENAI_DECISIONS_MODEL",
+  "SCALEDOWN_API_KEY",
+  "SCALEDOWN_BASE_URL",
+  "SCALEDOWN_MODEL",
 ];
 
 /** No decision provider configured at all. */
@@ -12235,11 +12248,11 @@ async function runDecideDialect(): Promise<void> {
 }
 
 // Positive control for the loop below: an empty DECIDE_CATALOG_JSON_ENTRIES (a
-// broken codegen, a deleted laya.json, xor.json, subq.json or
-// openai-decisions.json, a generated list that lost its decide entries) fails
+// broken codegen, a deleted laya.json, xor.json, subq.json,
+// openai-decisions.json or scaledown.json, a generated list that lost its decide entries) fails
 // this section instead of passing it trivially. Raise it when another decide
 // entry joins the catalog; never lower it.
-const MIN_DECIDE_CATALOG_ENTRIES = 4;
+const MIN_DECIDE_CATALOG_ENTRIES = 5;
 
 async function runDecideCatalogSection(): Promise<void> {
   const { DECIDE_CATALOG_JSON_ENTRIES } =
@@ -12271,8 +12284,9 @@ async function runDecideCatalogSection(): Promise<void> {
 
 /**
  * `openai-decisions` reads OPENAI_API_KEY, the key the `openai` chat provider
- * reads, so an ambient key makes it the default decision provider: the last
- * resort, after every provider whose key is its own. This section pins that
+ * reads, so an ambient key makes it the default decision provider: a last
+ * resort, after every provider whose key is its own except ScaleDown, which the
+ * owner placed after it (order 8). This section pins that
  * choice and how a host can still name it, configure it and point it
  * elsewhere. The answers in the 200 body are invented stand-ins for the shape,
  * not anything OpenAI's endpoint was seen to return.
@@ -12431,22 +12445,29 @@ async function runOpenAIDecisionsDecide(): Promise<void> {
         }
         // And the shared key is what remains once those are gone.
         resetOpenAIDecisionsEnv();
-        expectEq(resolveDefaultDecisionProvider(), provider, "the last resort");
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          provider,
+          "the shared key alone selects it",
+        );
       },
     );
 
     await openaiDecisionsCase(
-      "DECIDE openai-decisions: it is the last decision provider, by decideOrder",
+      "DECIDE openai-decisions: it is the seventh decision provider, by decideOrder, and only ScaleDown (8) comes after it",
       async () => {
-        const last = DECISION_PROVIDERS[DECISION_PROVIDERS.length - 1];
-        expectEq(last?.name, provider, "the last DECISION_PROVIDERS entry");
-        const orders = DECISION_PROVIDERS.map((d) => d.decideOrder ?? 0);
+        const index = DECISION_PROVIDERS.findIndex((d) => d.name === provider);
         expectEq(
-          orders[orders.length - 1],
-          Math.max(...orders),
-          "the highest decideOrder",
+          index,
+          DECISION_PROVIDERS.length - 2,
+          "the next to last entry",
         );
-        expectEq(last?.decideOrder, 7, "order 7");
+        expectEq(
+          DECISION_PROVIDERS[DECISION_PROVIDERS.length - 1]?.name,
+          "scaledown",
+          "scaledown is the entry after it",
+        );
+        expectEq(DECISION_PROVIDERS[index]?.decideOrder, 7, "order 7");
         expectEq(
           DECISION_PROVIDERS.filter((d) => d.decideOrder === 7).length,
           1,
@@ -14438,16 +14459,945 @@ async function runOpenAIDecisionsAmbientGuard(): Promise<void> {
   }
 }
 
+// ───────────────────────────────────────────────────────────────────────
+// Section: ScaleDown (decide-only; its own key, an x-api-key header, a text state)
+// ───────────────────────────────────────────────────────────────────────
+
+/**
+ * `scaledown` is one catalog entry (src/lib/providers/catalog/scaledown.json)
+ * on the system-one dialect. Two fields of its `decide` block change what the
+ * engine sends: `authHeader: "x-api-key"` (the key travels in `x-api-key` and
+ * `Authorization` is absent) and `stateEncoding: "text"` (the state goes out as
+ * one string, and a blank string is refused before any request). Every request
+ * here is fetch-mocked, so none reaches api.scaledown.xyz: the section reads
+ * what the mock saw. The 200 bodies are invented stand-ins for the shape. The
+ * error texts (key header required, state text required, queue full, Decision
+ * failed, endpoint timed out) are the ones the marketing session reported on
+ * 15 Oct 2026, not probed by this project. No request was made to ScaleDown in
+ * this change, and nothing here says what its endpoint returns.
+ */
+const SCALEDOWN_SPEC = {
+  provider: "scaledown",
+  keyEnv: "SCALEDOWN_API_KEY",
+  baseURLEnvVar: "SCALEDOWN_BASE_URL",
+  modelEnvVar: "SCALEDOWN_MODEL",
+  key: "test-fake-scaledown-credential",
+  endpoint: "https://api.scaledown.xyz/v1/scaledown",
+  model: "classify-1",
+};
+
+/** Every variable that can make a decision provider the default one. */
+const SCALEDOWN_ENV = [
+  ...new Set([
+    ...CLEF_DECISION_ENV,
+    SCALEDOWN_SPEC.keyEnv,
+    SCALEDOWN_SPEC.baseURLEnvVar,
+    SCALEDOWN_SPEC.modelEnvVar,
+    // The chat provider's own base URLs: the OpenAI Decisions guard reads them.
+    "OPENAI_BASE_URL",
+    "OPENAI_API_BASE",
+  ]),
+];
+
+/** Only the ScaleDown key set: no other decision provider is configured. */
+function resetScaleDownEnv(): void {
+  for (const name of SCALEDOWN_ENV) {
+    setEnv(name, undefined);
+  }
+  setEnv(SCALEDOWN_SPEC.keyEnv, SCALEDOWN_SPEC.key);
+}
+
+const SCALEDOWN_ONE_QUESTION = {
+  urgent: { type: "boolean", instructions: "Is this urgent?" },
+} satisfies DecisionQuestionMap;
+
+const SCALEDOWN_QUESTIONS = {
+  urgent: { type: "boolean", instructions: "Is this urgent?" },
+  team: {
+    type: "choice",
+    instructions: "Which team?",
+    criteria: { billing: "money", technical: "bugs" },
+  },
+  mood: {
+    type: "score",
+    instructions: "How angry?",
+    criteria: ["calm", "annoyed", "angry"],
+  },
+} satisfies DecisionQuestionMap;
+
+// What the engine puts on the wire for them: only the yes/no question is
+// renamed (to noul), the other two go through as the caller wrote them.
+const SCALEDOWN_WIRE_QUESTIONS = {
+  urgent: { type: "noul", instructions: "Is this urgent?" },
+  team: SCALEDOWN_QUESTIONS.team,
+  mood: SCALEDOWN_QUESTIONS.mood,
+};
+
+const SCALEDOWN_REPLY = {
+  model: "classify-1",
+  answers: {
+    urgent: { type: "noul", noul: 0.75 },
+    team: {
+      type: "choice",
+      choice: "billing",
+      probabilities: { billing: 0.8, technical: 0.2 },
+      confidence: 0.7,
+    },
+    mood: {
+      type: "score",
+      score: 1.5,
+      legend: { "0": "calm", "1": "annoyed", "2": "angry" },
+      probabilities: { "0": 0.1, "1": 0.6, "2": 0.3 },
+    },
+  },
+  usage: { input_tokens: 120, output_tokens: 4, cost: 0.000006 },
+};
+
+// Written out by hand from the reply above, not read back from the engine.
+const SCALEDOWN_EXPECTED_ANSWERS = {
+  urgent: { type: "boolean", probability: 0.75 },
+  team: {
+    type: "choice",
+    choice: "billing",
+    confidence: 0.7,
+    probabilities: { billing: 0.8, technical: 0.2 },
+  },
+  mood: {
+    type: "score",
+    score: 1.5,
+    confidence: 0.6,
+    legend: { "0": "calm", "1": "annoyed", "2": "angry" },
+    probabilities: { "0": 0.1, "1": 0.6, "2": 0.3 },
+  },
+};
+
+type ScaleDownRespond = Parameters<
+  typeof installMockFetch
+>[0][number]["respond"];
+
+function scaledownRoute(
+  respond: ScaleDownRespond = { status: 200, json: SCALEDOWN_REPLY },
+) {
+  return { method: "POST", url: /\/v1\/scaledown$/, respond };
+}
+
+type ScaleDownBody = {
+  model?: string;
+  state?: unknown;
+  questions?: unknown;
+};
+
+const scaledownBodyOf = (
+  call: { bodyJson: unknown } | undefined,
+): ScaleDownBody => (call?.bodyJson ?? {}) as ScaleDownBody;
+
+async function createScaleDown(model?: string) {
+  const { ProviderFactory } = await import("../dist/index.js");
+  return ProviderFactory.createProvider(SCALEDOWN_SPEC.provider, model);
+}
+
+const scaledownCase = perplexityCase;
+
+async function runScaleDownDecide(): Promise<void> {
+  const { provider, keyEnv, baseURLEnvVar, key, endpoint, model } =
+    SCALEDOWN_SPEC;
+  const { NeuroLink, DECISION_PROVIDERS, resolveDefaultDecisionProvider } =
+    await import("../dist/index.js");
+  const prior = SCALEDOWN_ENV.map((name) => process.env[name]);
+  const fresh = () => new NeuroLink({ conversationMemory: { enabled: false } });
+  const posts = (calls: ReturnType<typeof installMockFetch>["calls"]) =>
+    calls.filter((c) => c.method === "POST");
+  const ask = (
+    nl: InstanceType<typeof NeuroLink>,
+    over: Partial<DecisionOptions> = {},
+  ) =>
+    nl.decide({
+      provider,
+      state: "short",
+      questions: SCALEDOWN_ONE_QUESTION,
+      ...over,
+    });
+
+  try {
+    await scaledownCase(
+      "DECIDE scaledown: SCALEDOWN_API_KEY alone makes it the default, and the request carries x-api-key and no Authorization",
+      async () => {
+        resetScaleDownEnv();
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          provider,
+          "the key alone selects it",
+        );
+        await withMocks([scaledownRoute()], async ({ calls }) => {
+          const result = await fresh().tryDecide({
+            state: "short",
+            questions: SCALEDOWN_QUESTIONS,
+          });
+          expectEq(result?.provider, provider, "chosen without being named");
+          const sent = posts(calls);
+          expectEq(sent.length, 1, "one decision request");
+          const request = sent[0];
+          expectEq(request?.url, endpoint, "to the built-in endpoint");
+          expectEq(
+            request?.headers["x-api-key"],
+            key,
+            "the key travels in x-api-key",
+          );
+          expectEq(
+            request?.headers.authorization,
+            undefined,
+            "no Authorization header at all",
+          );
+          expect(
+            !Object.values(request?.headers ?? {}).some((value) =>
+              /bearer/i.test(value),
+            ),
+            "no header value carries a Bearer token",
+          );
+          expectEq(
+            request?.headers["content-type"],
+            "application/json",
+            "a JSON body",
+          );
+          const body = scaledownBodyOf(request);
+          expectEq(
+            Object.keys(body).sort().join(","),
+            "model,questions,state",
+            "the body holds the model, the questions and the state, nothing else",
+          );
+          expectEq(body.model, model, "naming the default model");
+          expectEq(body.state, "short", "the state as given");
+          expect(
+            sameJson(body.questions, SCALEDOWN_WIRE_QUESTIONS),
+            "boolean as noul, choice and score unchanged",
+          );
+        });
+      },
+    );
+
+    await scaledownCase(
+      "DECIDE scaledown: boolean, choice and score answers read back exactly, with the model and the usage the reply names",
+      async () => {
+        resetScaleDownEnv();
+        await withMocks([scaledownRoute()], async ({ calls }) => {
+          // Asking for "classify" while the reply names "classify-1" shows the
+          // model is read from the reply, not echoed from the request.
+          const result = await ask(fresh(), {
+            questions: SCALEDOWN_QUESTIONS,
+            model: "classify",
+          });
+          expectEq(
+            scaledownBodyOf(posts(calls)[0]).model,
+            "classify",
+            "the per-call model is sent",
+          );
+          expectEq(result.model, "classify-1", "the model the reply names");
+          expectEq(result.provider, provider, "the provider that answered");
+          expect(
+            sameJson(result.answers, SCALEDOWN_EXPECTED_ANSWERS),
+            "the three answers read back as written",
+          );
+          expectEq(result.usage.inputTokens, 120, "input tokens from usage");
+          expectEq(result.usage.outputTokens, 4, "output tokens from usage");
+        });
+      },
+    );
+
+    // SCALEDOWN_MODEL is read once, when the registry registers the provider
+    // (the CLI suite covers it in a fresh process), so what a running instance
+    // can show is the default and a per-call model.
+    await scaledownCase(
+      "DECIDE scaledown: the model is classify-1 by default, and a per-call model replaces it for that call only",
+      async () => {
+        resetScaleDownEnv();
+        await withMocks([scaledownRoute()], async ({ calls }) => {
+          const nl = fresh();
+          await ask(nl);
+          await ask(nl, { model: "classify" });
+          await ask(nl);
+          expect(
+            sameJson(
+              posts(calls).map((call) => scaledownBodyOf(call).model),
+              ["classify-1", "classify", "classify-1"],
+            ),
+            "default, per-call, default again",
+          );
+        });
+      },
+    );
+
+    await scaledownCase(
+      "DECIDE scaledown: an object, array, number or boolean state goes out as one JSON string, a string state unchanged, and {} and [] as their JSON text",
+      async () => {
+        resetScaleDownEnv();
+        const rows: ReadonlyArray<readonly [DecisionState, string]> = [
+          ["payouts have failed", "payouts have failed"],
+          ["  keep  these\n", "  keep  these\n"],
+          [`{"a":1}`, `{"a":1}`],
+          [{ a: 1, b: ["x", true] }, `{"a":1,"b":["x",true]}`],
+          [[1, "two"], `[1,"two"]`],
+          [42, "42"],
+          [true, "true"],
+          [{}, "{}"],
+          [[], "[]"],
+        ];
+        await withMocks([scaledownRoute()], async ({ calls }) => {
+          const nl = fresh();
+          for (const [state] of rows) {
+            await ask(nl, { state });
+          }
+          const sent = posts(calls);
+          expectEq(sent.length, rows.length, "one request per state");
+          rows.forEach(([, text], index) => {
+            const body = scaledownBodyOf(sent[index]);
+            expectEq(typeof body.state, "string", `state ${index} is a string`);
+            expectEq(body.state, text, `state ${index} as its text`);
+          });
+        });
+      },
+    );
+
+    await scaledownCase(
+      "DECIDE scaledown: a blank string state sends nothing, tryDecide returns null, decide rejects as invalid_request, and a real state still goes out",
+      async () => {
+        resetScaleDownEnv();
+        await withMocks([scaledownRoute()], async ({ calls }) => {
+          const nl = fresh();
+          for (const state of ["", "   ", "\t\n"]) {
+            const result = await nl.tryDecide({
+              provider,
+              state,
+              questions: SCALEDOWN_ONE_QUESTION,
+            });
+            expectEq(result, null, "tryDecide fails open on a blank state");
+            const failure = await captureDecisionFailure(async () =>
+              ask(nl, { state }),
+            );
+            expectEq(failure.kind, "invalid_request", "decide rejects it");
+            expect(
+              failure.message.includes("needs non-blank state text"),
+              "the message names the rule",
+            );
+          }
+          expectEq(posts(calls).length, 0, "no request left the process");
+          // Positive control: the same instance and mock send a real state.
+          await ask(nl, { state: "real" });
+          expectEq(posts(calls).length, 1, "a real state reaches the mock");
+        });
+      },
+    );
+
+    await scaledownCase(
+      "DECIDE scaledown: SCALEDOWN_BASE_URL replaces the origin, trailing slashes are dropped, a blank value is no override, and credentials.scaledown.baseURL beats it",
+      async () => {
+        resetScaleDownEnv();
+        setEnv(baseURLEnvVar, "https://scaledown.proxy.invalid/gw//");
+        await withMocks([scaledownRoute()], async ({ calls }) => {
+          await ask(fresh());
+          expectEq(
+            posts(calls)[0]?.url,
+            "https://scaledown.proxy.invalid/gw/v1/scaledown",
+            "the override carries the route",
+          );
+        });
+        setEnv(baseURLEnvVar, "   ");
+        await withMocks([scaledownRoute()], async ({ calls }) => {
+          await ask(fresh());
+          expectEq(
+            posts(calls)[0]?.url,
+            endpoint,
+            "a blank override leaves the built-in endpoint",
+          );
+        });
+        setEnv(baseURLEnvVar, "https://scaledown.env.invalid");
+        await withMocks([scaledownRoute()], async ({ calls }) => {
+          const nl = new NeuroLink({
+            conversationMemory: { enabled: false },
+            credentials: {
+              scaledown: {
+                apiKey: "test-fake-config-credential",
+                baseURL: "https://scaledown.config.invalid/",
+              },
+            },
+          });
+          await ask(nl);
+          const sent = posts(calls)[0];
+          expectEq(
+            sent?.url,
+            "https://scaledown.config.invalid/v1/scaledown",
+            "endpoint from credentials.scaledown.baseURL",
+          );
+          expectEq(
+            sent?.headers["x-api-key"],
+            "test-fake-config-credential",
+            "key from credentials.scaledown.apiKey",
+          );
+        });
+        setEnv(baseURLEnvVar, undefined);
+        setEnv(keyEnv, undefined);
+        expectEq(
+          resolveDefaultDecisionProvider({
+            scaledown: { apiKey: "test-fake-config-credential" },
+          }),
+          provider,
+          "credentials.scaledown.apiKey alone selects it",
+        );
+        expectEq(
+          resolveDefaultDecisionProvider({ scaledown: { apiKey: "   " } }),
+          undefined,
+          "a blank credentials key selects nothing",
+        );
+      },
+    );
+
+    await scaledownCase(
+      "DECIDE scaledown: a per-call credentials.scaledown.apiKey beats the instance's, which beats the environment's, and always travels as x-api-key",
+      async () => {
+        resetScaleDownEnv();
+        const instanceKey = "test-fake-instance-credential";
+        const callKey = "test-fake-call-credential";
+        await withMocks([scaledownRoute()], async ({ calls }) => {
+          const keyOfLast = (): string | undefined =>
+            calls[calls.length - 1]?.headers["x-api-key"];
+          await ask(fresh());
+          expectEq(keyOfLast(), key, "the environment key alone");
+          const withInstance = new NeuroLink({
+            conversationMemory: { enabled: false },
+            credentials: { scaledown: { apiKey: instanceKey } },
+          });
+          await ask(withInstance);
+          expectEq(
+            keyOfLast(),
+            instanceKey,
+            "the instance beats the environment",
+          );
+          await ask(withInstance, {
+            credentials: { scaledown: { apiKey: callKey } },
+          });
+          expectEq(keyOfLast(), callKey, "the call beats the instance");
+          expect(
+            posts(calls).every(
+              (call) => call.headers.authorization === undefined,
+            ),
+            "no call sent an Authorization header",
+          );
+        });
+      },
+    );
+
+    await scaledownCase(
+      "DECIDE scaledown: the alias scaledown-classify names it, the result says scaledown, and the decision is priced at the same rate as the id",
+      async () => {
+        resetScaleDownEnv();
+        const spanCost = (nl: InstanceType<typeof NeuroLink>): unknown =>
+          nl.getSpans().find((s) => s.type === "model.decision")?.attributes[
+            "ai.cost.total"
+          ];
+        await withMocks([scaledownRoute()], async ({ calls }) => {
+          const aliasHost = fresh();
+          const result = await ask(aliasHost, {
+            provider: "scaledown-classify",
+          });
+          expectEq(
+            result.provider,
+            provider,
+            "scaledown-classify resolves to scaledown",
+          );
+          expectEq(posts(calls)[0]?.url, endpoint, "the same endpoint");
+
+          // The pricing table is keyed by the canonical id and reads only the
+          // chat catalog, so runDecide has to resolve the alias itself.
+          const byAlias = spanCost(aliasHost);
+          const idHost = fresh();
+          await ask(idHost, { provider });
+          const byId = spanCost(idHost);
+          expect(
+            typeof byId === "number" &&
+              Math.abs(byId - (120 * 0.05) / 1_000_000) < 1e-15,
+            "positive control: 120 input tokens by id cost 120 x 0.05 / 1e6",
+          );
+          expectEq(byAlias, byId, "the alias is priced like the id, not at 0");
+        });
+      },
+    );
+
+    await scaledownCase(
+      "DECIDE aliases: an alias of any priced decision provider is priced like its id, not at 0",
+      async () => {
+        const { hasPricing } = await import("../dist/index.js");
+        const priced = DECISION_PROVIDERS.filter(
+          (d) =>
+            d.aliases.length > 0 && hasPricing(String(d.name), d.defaultModel),
+        );
+        // Positive controls: the loop reaches a hand-written descriptor (its
+        // aliases come from the descriptor) and a catalog entry (from its JSON).
+        expect(
+          ["typesafe", "scaledown"].every((name) =>
+            priced.some((d) => String(d.name) === name),
+          ),
+          "the loop covers typesafe (jev, typesafe-ai) and scaledown (scaledown-classify)",
+        );
+        const spanCost = (nl: InstanceType<typeof NeuroLink>): unknown =>
+          nl.getSpans().find((s) => s.type === "model.decision")?.attributes[
+            "ai.cost.total"
+          ];
+        const decideAs = async (name: string): Promise<unknown> => {
+          const nl = fresh();
+          await ask(nl, { provider: name });
+          return spanCost(nl);
+        };
+        for (const descriptor of priced) {
+          const id = String(descriptor.name);
+          const keyEnv = descriptor.envVars.apiKey;
+          if (keyEnv === undefined) {
+            throw new Error(`${id} declares no API key env var to set`);
+          }
+          resetScaleDownEnv();
+          setEnv(SCALEDOWN_SPEC.keyEnv, undefined);
+          setEnv("TYPESAFE_TRANSPORT", undefined);
+          setEnv(keyEnv, "test-fake-alias-credential");
+          const reply = {
+            model: descriptor.defaultModel,
+            answers: { urgent: { type: "noul", noul: 0.75 } },
+            usage: { input_tokens: 120, output_tokens: 4 },
+          };
+          await withMocks(
+            [
+              {
+                method: "POST",
+                url: /./,
+                respond: { status: 200, json: reply },
+              },
+            ],
+            async () => {
+              const byId = await decideAs(id);
+              expect(
+                typeof byId === "number" && byId > 0,
+                `positive control: ${id} by id costs more than 0`,
+              );
+              for (const alias of descriptor.aliases) {
+                expectEq(
+                  await decideAs(alias),
+                  byId,
+                  `${id}: the alias ${alias} is priced like the id, not at 0`,
+                );
+              }
+            },
+          );
+        }
+      },
+    );
+
+    await scaledownCase(
+      "DECIDE scaledown: it is the eighth and last decision provider, so every earlier provider's key outranks its own",
+      async () => {
+        expectEq(
+          DECISION_PROVIDERS.map(
+            (d) => `${d.decideOrder}:${String(d.name)}`,
+          ).join(","),
+          "1:typesafe,2:laya,3:xor,4:subq,5:perplexity-decider,6:cloudflare-clef,7:openai-decisions,8:scaledown",
+          "the precedence order",
+        );
+        const ahead: ReadonlyArray<readonly [string, Record<string, string>]> =
+          [
+            ["typesafe", { TYPESAFE_API_KEY: "test-fake-typesafe-credential" }],
+            [
+              "laya",
+              {
+                LAYA_API_KEY: "test-fake-laya-credential",
+                LAYA_BASE_URL: "https://laya.test.invalid/base",
+              },
+            ],
+            [
+              "xor",
+              {
+                XOR_API_KEY: "test-fake-xor-credential",
+                XOR_BASE_URL: "https://xor.test.invalid/proxy",
+              },
+            ],
+            ["subq", { SUBQ_API_KEY: "test-fake-subq-credential" }],
+            ["perplexity-decider", { PERPLEXITY_API_KEY: "test-fake-pplx" }],
+            [
+              "cloudflare-clef",
+              {
+                CLOUDFLARE_API_KEY: "test-fake-cloudflare-credential",
+                CLOUDFLARE_ACCOUNT_ID: "test-account-id",
+              },
+            ],
+            [
+              "openai-decisions",
+              { OPENAI_API_KEY: "test-fake-openai-credential" },
+            ],
+          ];
+        for (const [expected, vars] of ahead) {
+          resetScaleDownEnv();
+          for (const [name, value] of Object.entries(vars)) {
+            setEnv(name, value);
+          }
+          expectEq(
+            resolveDefaultDecisionProvider(),
+            expected,
+            `${expected} keeps precedence over the ScaleDown key`,
+          );
+        }
+        resetScaleDownEnv();
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          provider,
+          "alone, it is the default",
+        );
+        setEnv(keyEnv, "   ");
+        expectEq(
+          resolveDefaultDecisionProvider(),
+          undefined,
+          "a blank key selects nothing",
+        );
+      },
+    );
+
+    await scaledownCase(
+      "DECIDE scaledown: the nothing-configured message offers SCALEDOWN_API_KEY, and a named call without a key fails before any request",
+      async () => {
+        for (const name of SCALEDOWN_ENV) {
+          setEnv(name, undefined);
+        }
+        await withMocks([scaledownRoute()], async ({ calls }) => {
+          const nl = fresh();
+          const bare = await captureDecisionFailure(async () =>
+            nl.decide({ state: "short", questions: SCALEDOWN_ONE_QUESTION }),
+          );
+          expect(
+            bare.message.includes("No decision provider") &&
+              bare.message.includes("SCALEDOWN_API_KEY for scaledown"),
+            "a bare decide() finds no provider and offers the ScaleDown key",
+          );
+          const named = await captureDecisionFailure(async () => ask(nl));
+          expectEq(
+            named.kind,
+            "authentication",
+            "naming it without a key fails",
+          );
+          expect(
+            named.message.includes("SCALEDOWN_API_KEY"),
+            "the message names the variable",
+          );
+          expectEq(posts(calls).length, 0, "no request left the process");
+        });
+      },
+    );
+
+    await scaledownCase(
+      "DECIDE scaledown: no state window is declared, so decisionLimits() reports none and a very long state is sent, not refused",
+      async () => {
+        resetScaleDownEnv();
+        expectEq(
+          new NeuroLink().decisionLimits({ provider }),
+          null,
+          "no limits are declared",
+        );
+        const long = "word ".repeat(40_000);
+        await withMocks([scaledownRoute()], async ({ calls }) => {
+          await ask(fresh(), { state: long });
+          expectEq(
+            scaledownBodyOf(posts(calls)[0]).state,
+            long,
+            "the whole state reached the wire",
+          );
+        });
+      },
+    );
+
+    await scaledownCase(
+      "DECIDE scaledown: priced on input tokens only, at the list price in the table, for any model name",
+      async () => {
+        const { calculateCost, hasPricing } = await import("../dist/index.js");
+        const cost = (name: string, input: number, output: number): number =>
+          calculateCost(provider, name, {
+            input,
+            output,
+            total: input + output,
+          });
+        expect(
+          Math.abs(cost(model, 1_000_000, 0) - 0.05) < 1e-12,
+          "one million input tokens cost 0.05",
+        );
+        expect(
+          Math.abs(cost(model, 120, 4) - (120 * 0.05) / 1_000_000) < 1e-15,
+          "120 input tokens cost 120 x 0.05 / 1e6",
+        );
+        expectEq(
+          cost(model, 1_000_000, 0),
+          cost(model, 1_000_000, 500_000),
+          "output tokens are not billed",
+        );
+        expectEq(cost(model, 0, 1_000), 0, "output alone costs nothing");
+        expectEq(
+          cost("a-model-the-table-does-not-name", 1_000_000, 0),
+          cost(model, 1_000_000, 0),
+          "a model the table does not name is priced at the same rate",
+        );
+        // LiteLLM, OpenRouter and openai-compatible search every provider's
+        // table by model name, so a model-name row here would price an
+        // unrelated chat model at this rate.
+        for (const proxy of ["litellm", "openrouter", "openai-compatible"]) {
+          for (const name of ["classify", "classify-1"]) {
+            expectEq(
+              hasPricing(proxy, name),
+              false,
+              `${proxy}: ${name} is not priced from the ScaleDown table`,
+            );
+          }
+        }
+        // Positive control: the same proxies do search the tables by name.
+        expectEq(
+          hasPricing("litellm", "pplx-decider-v1-27b"),
+          true,
+          "litellm: a model named in another decide table is found",
+        );
+      },
+    );
+
+    await scaledownCase(
+      "DECIDE scaledown: an image or a video is refused locally before any request",
+      async () => {
+        resetScaleDownEnv();
+        await withMocks([scaledownRoute()], async ({ calls }) => {
+          const nl = fresh();
+          for (const extra of [
+            { images: [syntheticPng(64, 64)] },
+            { video: Buffer.from("not really a video") },
+          ]) {
+            const failure = await captureDecisionFailure(async () =>
+              ask(nl, extra),
+            );
+            expectEq(failure.kind, "invalid_request", "refused as invalid");
+            expect(
+              failure.message.includes("does not accept images or video"),
+              "the media refusal, not another",
+            );
+          }
+          expectEq(posts(calls).length, 0, "nothing was sent");
+        });
+      },
+    );
+
+    // ── Errors, classified as the entry says. Every body echoes the key, to
+    // show it never reaches a message. ──
+    const errorRows = [
+      {
+        status: 401,
+        detail: "x-api-key header is required",
+        kind: "authentication",
+        requests: 1,
+      },
+      {
+        status: 402,
+        detail: "Insufficient credits",
+        kind: "invalid_request",
+        requests: 1,
+      },
+      {
+        status: 422,
+        detail: "'state.text' or 'state.document' must be provided",
+        kind: "invalid_request",
+        requests: 1,
+      },
+      {
+        status: 429,
+        detail: "Max queue length has been reached",
+        kind: "rate_limit",
+        requests: 2,
+      },
+      { status: 502, detail: "Decision failed", kind: "server", requests: 2 },
+      {
+        status: 504,
+        detail: "Endpoint request timed out",
+        kind: "timeout",
+        requests: 1,
+      },
+      { status: 500, detail: "Internal error", kind: "server", requests: 2 },
+    ] as const;
+    for (const row of errorRows) {
+      await scaledownCase(
+        `DECIDE scaledown: HTTP ${row.status} is ${row.kind}, sent ${row.requests === 1 ? "once" : "twice"}, and the key stays out of the message`,
+        async () => {
+          resetScaleDownEnv();
+          await withMocks(
+            [
+              scaledownRoute({
+                status: row.status,
+                json: { detail: `${row.detail} (sent ${key})` },
+              }),
+            ],
+            async ({ calls }) => {
+              const failure = await capturePerplexityFailure(async () =>
+                ask(fresh()),
+              );
+              expectEq(failure.kind, row.kind, "the kind");
+              expectEq(failure.status, row.status, "the status is kept");
+              expectEq(
+                failure.retryable,
+                row.requests > 1,
+                "the retry flag is the kind's default",
+              );
+              expect(
+                failure.message.includes(row.detail),
+                "the server's own text is kept",
+              );
+              expect(
+                !failure.message.includes(key),
+                "the key is not in the message",
+              );
+              expectEq(posts(calls).length, row.requests, "requests sent");
+            },
+          );
+        },
+      );
+    }
+
+    await scaledownCase(
+      "DECIDE scaledown: a 502 or a 429 followed by a good reply is retried into an answer, with the same x-api-key",
+      async () => {
+        for (const status of [502, 429]) {
+          resetScaleDownEnv();
+          let served = 0;
+          await withMocks(
+            [
+              scaledownRoute(() => {
+                served += 1;
+                return served === 1
+                  ? { status, json: { detail: "try again" } }
+                  : { status: 200, json: SCALEDOWN_REPLY };
+              }),
+            ],
+            async ({ calls }) => {
+              const result = await ask(fresh());
+              expectEq(result.provider, provider, "answered after the retry");
+              expectEq(posts(calls).length, 2, "one retry");
+              expect(
+                posts(calls).every((call) => call.headers["x-api-key"] === key),
+                "both attempts carried the key",
+              );
+            },
+          );
+        }
+      },
+    );
+
+    await scaledownCase(
+      "DECIDE scaledown: a 401 trips the instance's breaker, a 402 or 422 does not, and tryDecide fails open on both",
+      async () => {
+        resetScaleDownEnv();
+        await withMocks(
+          [
+            scaledownRoute({
+              status: 401,
+              json: { detail: "x-api-key header is required" },
+            }),
+          ],
+          async ({ calls }) => {
+            const instance = await createScaleDown();
+            const decideOne = () =>
+              instance.decide!({
+                state: "short",
+                questions: SCALEDOWN_ONE_QUESTION,
+              });
+            const first = await capturePerplexityFailure(decideOne);
+            expectEq(first.kind, "authentication", "401 classified");
+            const second = await capturePerplexityFailure(decideOne);
+            expectEq(
+              second.kind,
+              "authentication",
+              "the breaker keeps the kind",
+            );
+            expect(
+              second.message.includes("rejected this API key earlier"),
+              "the breaker message",
+            );
+            expectEq(calls.length, 1, "no second request after a rejected key");
+            await capturePerplexityFailure(async () =>
+              (await createScaleDown()).decide!({
+                state: "short",
+                questions: SCALEDOWN_ONE_QUESTION,
+              }),
+            );
+            expectEq(calls.length, 2, "a new instance asks again");
+          },
+        );
+        let served = 0;
+        await withMocks(
+          [
+            scaledownRoute(() => {
+              served += 1;
+              if (served === 1) {
+                return {
+                  status: 402,
+                  json: { detail: "Insufficient credits" },
+                };
+              }
+              if (served === 2) {
+                return { status: 422, json: { detail: "invalid" } };
+              }
+              return { status: 200, json: SCALEDOWN_REPLY };
+            }),
+          ],
+          async ({ calls }) => {
+            const instance = await createScaleDown();
+            const decideOne = () =>
+              instance.decide!({
+                state: "short",
+                questions: SCALEDOWN_ONE_QUESTION,
+              });
+            expectEq(
+              (await capturePerplexityFailure(decideOne)).kind,
+              "invalid_request",
+              "402",
+            );
+            expectEq(
+              (await capturePerplexityFailure(decideOne)).kind,
+              "invalid_request",
+              "422",
+            );
+            expectEq(
+              (await decideOne()).provider,
+              provider,
+              "the same instance answers once the cause is gone",
+            );
+            expectEq(calls.length, 3, "every call was really sent");
+          },
+        );
+        await withMocks(
+          [scaledownRoute({ status: 422, json: { detail: "invalid" } })],
+          async ({ calls }) => {
+            expectEq(
+              await fresh().tryDecide({
+                provider,
+                state: "short",
+                questions: SCALEDOWN_ONE_QUESTION,
+              }),
+              null,
+              "tryDecide returns null on a refused request",
+            );
+            expectEq(posts(calls).length, 1, "the request was made once");
+          },
+        );
+      },
+    );
+  } finally {
+    SCALEDOWN_ENV.forEach((name, i) => setEnv(name, prior[i]));
+  }
+}
+
 async function runDecideSection(): Promise<void> {
   console.log(
-    "\n=== Decision providers (TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef, OpenAI Decisions) ===",
+    "\n=== Decision providers (TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef, OpenAI Decisions, ScaleDown) ===",
   );
   // A developer's .env can hold a real Cloudflare token and account id, a SubQ
-  // key, or an OPENAI_API_KEY the openai chat provider reads, which would make
-  // Clef, SubQ or OpenAI Decisions the default decision provider in every
-  // section above it that expects none. They are cleared for the whole section
-  // and put back after; the Clef, SubQ and OpenAI Decisions sections set what
-  // they need themselves.
+  // or ScaleDown key, or an OPENAI_API_KEY the openai chat provider reads, which
+  // would make Clef, SubQ, OpenAI Decisions or ScaleDown the default decision
+  // provider in every section above it that expects none. They are cleared for
+  // the whole section and put back after; the Clef, SubQ, OpenAI Decisions and
+  // ScaleDown sections set what they need themselves.
   const sharedKeyEnv = [
     "CLOUDFLARE_API_KEY",
     "CLOUDFLARE_ACCOUNT_ID",
@@ -14461,6 +15411,9 @@ async function runDecideSection(): Promise<void> {
     "OPENAI_API_BASE",
     "OPENAI_DECISIONS_BASE_URL",
     "OPENAI_DECISIONS_MODEL",
+    "SCALEDOWN_API_KEY",
+    "SCALEDOWN_BASE_URL",
+    "SCALEDOWN_MODEL",
   ];
   const ambient = sharedKeyEnv.map((name) => process.env[name]);
   try {
@@ -14475,6 +15428,7 @@ async function runDecideSection(): Promise<void> {
     await runOpenAIDecisionsDecide();
     await runOpenAIDecisionsSurface();
     await runOpenAIDecisionsAmbientGuard();
+    await runScaleDownDecide();
     await runDecideCatalogSection();
   } finally {
     sharedKeyEnv.forEach((name, i) => setEnv(name, ambient[i]));
@@ -17869,6 +18823,9 @@ async function main(): Promise<void> {
   setEnv("SUBQ_MODEL", undefined);
   setEnv("OPENAI_DECISIONS_BASE_URL", undefined);
   setEnv("OPENAI_DECISIONS_MODEL", undefined);
+  setEnv("SCALEDOWN_API_KEY", undefined);
+  setEnv("SCALEDOWN_BASE_URL", undefined);
+  setEnv("SCALEDOWN_MODEL", undefined);
   setEnv("TYPESAFE_GATEWAY_URL", undefined);
 
   // Register providers once so the registry knows about everything.

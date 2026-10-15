@@ -64,7 +64,7 @@ OPENAI_MODEL=gpt-4o
 > **`OPENAI_API_KEY` also configures decisions.** The same variable configures the
 > [OpenAI Decisions provider](openai-decisions.md) (`openai-decisions`, which
 > serves `decide()`). So setting it for chat also lets NeuroLink's built-in
-> features send decision requests to OpenAI when no TypeSafe, Laya, XOR,
+> features send decision requests to OpenAI when no TypeSafe, Laya, XOR, SubQ,
 > Perplexity or Cloudflare Clef provider is configured, and context compaction
 > needs no other opt-in to do so. Those are paid calls, and they fail open. To
 > avoid that, pass the key through the SDK as `credentials.openai.apiKey` instead
