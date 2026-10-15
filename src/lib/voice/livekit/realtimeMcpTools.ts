@@ -1,12 +1,13 @@
 /**
- * MCP tools → Gemini function tools bridge (realtime mode).
+ * MCP tools → realtime function tools bridge (realtime mode).
  *
- * In speech-to-speech mode Gemini owns the tool loop, so an external MCP
- * server's tools are registered as LiveKit/Gemini function tools rather than
- * NeuroLink tools. This connects to the MCP server as the calling user
- * (`x-auth-token` + base64 `x-context`), sanitizes each tool's schema into the
- * Gemini-safe subset, wires WRITE-labeled (destructive) tools through a HITL
- * confirmation, and forwards tool start/result events to the browser bridge.
+ * In speech-to-speech mode the realtime model (Gemini Live, or xAI Grok Voice)
+ * owns the tool loop, so an external MCP server's tools are registered as
+ * LiveKit function tools rather than NeuroLink tools. This connects to the MCP
+ * server as the calling user (`x-auth-token` + base64 `x-context`), sanitizes
+ * each tool's schema into the Gemini-safe subset (kept for both backends), wires
+ * WRITE-labeled (destructive) tools through a HITL confirmation, and forwards
+ * tool start/result events to the browser bridge.
  *
  * `@livekit/agents` and `@modelcontextprotocol/sdk` are imported dynamically so
  * the core package does not require them unless the realtime agent is used.
@@ -61,7 +62,7 @@ export function mcpResultToText(result: unknown): string {
 }
 
 /**
- * The function-result text returned to Gemini when the user rejects a HITL tool.
+ * The function-result text returned to the model when the user rejects a HITL tool.
  * Scope the rejection to THIS attempt — a "never retry" wording made the model
  * refuse the tool permanently even when the user later asked for it again.
  */
@@ -213,7 +214,7 @@ export async function buildRealtimeMcpTools(
           try {
             // Third argument is RequestOptions; the SDK aborts the in-flight
             // request when `timeout` elapses. Without it a stalled server holds
-            // the turn open indefinitely — Gemini blocks on the function
+            // the turn open indefinitely — the model waits on the function
             // result, so the user hears nothing at all rather than an error.
             const result = await client.callTool(
               {

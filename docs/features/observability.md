@@ -283,7 +283,7 @@ The proxy records the pool account label (not an email address), sets `userId` a
 
 ## Voice (LiveKit)
 
-Pipeline mode traces through `stream()` and carries the `voice` tag. Realtime mode records one trace per conversation turn, with transcripts as input and output and tool calls as `tool` records, and only when voice memory is enabled. Full transcripts are sent to Langfuse by default; use `mask` for sensitive data.
+Pipeline mode traces through `stream()` and carries the `voice` tag. Realtime mode records one trace per conversation turn, with transcripts as input and output and tool calls as `tool` records, and only when voice memory is enabled. The `realtime` generation record carries the model id and the provider of the realtime backend (`vertex` for Gemini Live, `xai` for Grok Voice). Full transcripts are sent to Langfuse by default; use `mask` for sensitive data.
 
 ## Troubleshooting
 

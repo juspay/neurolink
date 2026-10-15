@@ -11,6 +11,8 @@
 import type {
   LiveKitServerConfig,
   LiveKitBrainDefaults,
+  RealtimeVoiceAgentConfig,
+  RealtimeVoiceBackend,
   RealtimeVoiceConfig,
 } from "../../types/index.js";
 
@@ -84,6 +86,9 @@ export function resolveBrainDefaults(): LiveKitBrainDefaults {
 }
 
 const DEFAULT_REALTIME_MODEL = "gemini-live-2.5-flash";
+// xAI's documented flagship Grok Voice id. Never exercised against the real
+// service; the plugin's own default is `grok-voice-think-fast-1.0`.
+const DEFAULT_XAI_REALTIME_MODEL = "grok-voice-3.0";
 const DEFAULT_REALTIME_LOCATION = "global";
 const DEFAULT_RESPONSE_MODALITY = "AUDIO";
 const DEFAULT_SYSTEM_PROMPT =
@@ -94,29 +99,103 @@ const DEFAULT_LIGHTHOUSE_URL = "http://localhost:5173";
 const DEFAULT_MCP_PATH = "/ai/mcp/v2";
 
 /**
- * Resolve the realtime (Gemini Live speech-to-speech) voice configuration from
- * the environment.
+ * The backend named by `VOICE_REALTIME_BACKEND`: `gemini` or `xai`, matched
+ * case-insensitively, with blank or absent meaning `gemini`. The error names the
+ * variable and the choices and repeats nothing from the environment.
+ */
+function readRealtimeBackend(): RealtimeVoiceBackend {
+  const value = readEnv("VOICE_REALTIME_BACKEND", "gemini").toLowerCase();
+  if (value === "gemini" || value === "xai") {
+    return value;
+  }
+  throw new Error(
+    'VOICE_REALTIME_BACKEND must be "gemini" or "xai" (leave it unset for gemini)',
+  );
+}
+
+/**
+ * A backend passed in code. The type already limits it, but a plain-JavaScript
+ * caller is not held by the type, and a typo would otherwise take the xai
+ * branch and fail on a missing key. The error repeats nothing it was given.
+ */
+function requireKnownBackend(value: string): RealtimeVoiceBackend {
+  if (value === "gemini" || value === "xai") {
+    return value;
+  }
+  throw new Error('The realtime voice backend must be "gemini" or "xai"');
+}
+
+function isWebSocketUrl(value: string): boolean {
+  try {
+    const { protocol } = new URL(value);
+    return protocol === "ws:" || protocol === "wss:";
+  } catch {
+    return false;
+  }
+}
+
+/** A ws or wss URL. The error names the setting and does not repeat the value. */
+function requireWebSocketUrl(value: string, name: string): string {
+  if (!isWebSocketUrl(value)) {
+    throw new Error(`${name} must be a ws:// or wss:// URL`);
+  }
+  return value;
+}
+
+/** `XAI_REALTIME_BASE_URL`, which must be a ws or wss URL when set. */
+function readXaiBaseUrl(): string | undefined {
+  const value = readOptionalEnv("XAI_REALTIME_BASE_URL");
+  return value === undefined
+    ? undefined
+    : requireWebSocketUrl(value, "XAI_REALTIME_BASE_URL");
+}
+
+/** A caller-supplied `xaiBaseURL` gets the same check as the variable; blank means unset, so the variable applies. */
+function resolveXaiBaseUrl(override: string | undefined): string | undefined {
+  const value = override?.trim();
+  return value ? requireWebSocketUrl(value, "xaiBaseURL") : readXaiBaseUrl();
+}
+
+/**
+ * Resolve the realtime (speech-to-speech) voice configuration from the
+ * environment.
  *
  * Every value has a safe default so a worker can run with no realtime-specific
- * env at all. Vertex `project` is resolved from `VERTEX_PROJECT`, then the
- * service-account project (`GOOGLE_AUTH_BREEZE_PROJECT_ID`), then
- * `GOOGLE_CLOUD_PROJECT_ID`. The MCP URL is `VOICE_MCP_URL` if set, otherwise
- * `${LIGHTHOUSE_URL}/ai/mcp/v2`.
+ * env at all. `VOICE_REALTIME_BACKEND` picks the model family (`gemini`, the
+ * default, or `xai`); `backend` here overrides it and then the environment's
+ * value is not read. A non-blank `xaiBaseURL` here likewise replaces
+ * `XAI_REALTIME_BASE_URL` after the same ws or wss check.
+ * `VOICE_LIVE_MODEL` overrides the backend's default model.
+ * Vertex `project` is resolved from `VERTEX_PROJECT`, then the service-account
+ * project (`GOOGLE_AUTH_BREEZE_PROJECT_ID`), then `GOOGLE_CLOUD_PROJECT_ID`;
+ * project, location and modality only matter to the gemini backend. The MCP URL
+ * is `VOICE_MCP_URL` if set, otherwise `${LIGHTHOUSE_URL}/ai/mcp/v2`.
  */
-export function resolveRealtimeVoiceConfig(): RealtimeVoiceConfig {
+export function resolveRealtimeVoiceConfig(
+  overrides: Pick<RealtimeVoiceAgentConfig, "backend" | "xaiBaseURL"> = {},
+): RealtimeVoiceConfig {
+  const backend =
+    overrides.backend === undefined
+      ? readRealtimeBackend()
+      : requireKnownBackend(overrides.backend);
   const lighthouseUrl = readEnv("LIGHTHOUSE_URL", DEFAULT_LIGHTHOUSE_URL);
   const mcpUrl = readEnv(
     "VOICE_MCP_URL",
     `${lighthouseUrl}${DEFAULT_MCP_PATH}`,
   );
   return {
+    backend,
     project:
       readOptionalEnv("VERTEX_PROJECT") ??
       readOptionalEnv("GOOGLE_AUTH_BREEZE_PROJECT_ID") ??
       readOptionalEnv("GOOGLE_CLOUD_PROJECT_ID"),
     location: readEnv("VERTEX_LOCATION", DEFAULT_REALTIME_LOCATION),
-    model: readEnv("VOICE_LIVE_MODEL", DEFAULT_REALTIME_MODEL),
+    model: readEnv(
+      "VOICE_LIVE_MODEL",
+      backend === "xai" ? DEFAULT_XAI_REALTIME_MODEL : DEFAULT_REALTIME_MODEL,
+    ),
     voice: readOptionalEnv("VOICE_S2S_VOICE"),
+    xaiBaseURL: resolveXaiBaseUrl(overrides.xaiBaseURL),
     responseModality: readEnv(
       "VOICE_RESPONSE_MODALITY",
       DEFAULT_RESPONSE_MODALITY,

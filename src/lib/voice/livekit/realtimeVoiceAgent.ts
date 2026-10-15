@@ -1,14 +1,17 @@
 /**
- * LiveKit Agents agent definition — realtime (Gemini Live speech-to-speech).
+ * LiveKit Agents agent definition — realtime (speech-to-speech).
  *
  * `defineRealtimeVoiceAgent` returns the agent object placed as the default
  * export of a worker entry file. Unlike the cascaded `defineVoiceAgent`
  * (Silero VAD → STT → NeuroLink → TTS), here a single realtime model (Gemini
- * Live on Vertex) does STT + reasoning + TTS + turn detection over one
+ * Live on Vertex, or xAI Grok Voice) does STT + reasoning + TTS + turn
+ * detection over one connection. The backend is chosen by `VOICE_REALTIME_BACKEND`
+ * or the `backend` option; Gemini Live is the default.
  *
- * `@livekit/agents`, `@livekit/agents-plugin-google`, `@livekit/rtc-node`, and
- * `@google/genai` are imported dynamically so the core package does not require
- * them unless the realtime agent is used. Type-only imports are erased at build.
+ * `@livekit/agents`, the backend's LiveKit plugin (see `realtimeModel.ts`),
+ * `@livekit/rtc-node`, and `@google/genai` are imported dynamically so the core
+ * package does not require them unless the realtime agent is used. Type-only
+ * imports are erased at build.
  *
  * See docs/features/livekit-voice-agent.md.
  */
@@ -18,6 +21,7 @@ import type { JobContext, llm as llmNs } from "@livekit/agents";
 import { logger } from "../../utils/logger.js";
 import { resolveRealtimeVoiceConfig } from "./config.js";
 import { ensureVertexAdc, clearGeminiApiKeyEnv } from "./vertexAuth.js";
+import { createRealtimeLlm, requireXaiApiKey } from "./realtimeModel.js";
 import { readCallContextFromRoom } from "./roomContext.js";
 import { attachRealtimeEventBridge } from "./realtimeEventBridge.js";
 import { buildRealtimeMcpTools } from "./realtimeMcpTools.js";
@@ -142,7 +146,10 @@ async function installRealtimeJobLifecycle(
 function resolveConfig(
   overrides: RealtimeVoiceAgentConfig,
 ): RealtimeVoiceConfig {
-  const base = resolveRealtimeVoiceConfig();
+  const base = resolveRealtimeVoiceConfig({
+    backend: overrides.backend,
+    xaiBaseURL: overrides.xaiBaseURL,
+  });
   return {
     ...base,
     project: overrides.project ?? base.project,
@@ -158,7 +165,8 @@ function resolveConfig(
 }
 
 /**
- * Define a realtime (Gemini Live S2S) LiveKit voice agent.
+ * Define a realtime (speech-to-speech) LiveKit voice agent: Gemini Live by
+ * default, xAI Grok Voice with `VOICE_REALTIME_BACKEND=xai` or `backend: "xai"`.
  *
  * Place the result as the default export of the worker entry file and launch it
  * with `startRealtimeVoiceAgentWorker`. With no `config` everything is resolved
@@ -174,17 +182,26 @@ export function defineRealtimeVoiceAgent(
   const memoryConfig = config.memory;
 
   async function entry(ctx: JobContext): Promise<void> {
-    // The Gemini Live WS authenticates to Vertex via ADC; materialise it and
-    // force ADC (not an API key) auth before any realtime connection.
-    ensureVertexAdc();
-    clearGeminiApiKeyEnv();
+    const isGemini = cfg.backend === "gemini";
+    if (isGemini) {
+      // The Gemini Live WS authenticates to Vertex via ADC; materialise it and
+      // force ADC (not an API key) auth before any realtime connection.
+      ensureVertexAdc();
+      clearGeminiApiKeyEnv();
+    } else {
+      requireXaiApiKey();
+    }
 
     logger.info("realtime.config", {
+      backend: cfg.backend,
       model: cfg.model,
-      location: cfg.location,
-      project: cfg.project ?? null,
+      ...(isGemini
+        ? { location: cfg.location, project: cfg.project ?? null }
+        : {}),
       voice: cfg.voice ?? null,
-      modality: cfg.responseModality,
+      ...(isGemini
+        ? { modality: cfg.responseModality }
+        : { customBaseURL: cfg.xaiBaseURL !== undefined }),
       toolsEnabled: cfg.toolsEnabled,
       mcpUrl: cfg.mcpUrl,
     });
@@ -220,20 +237,23 @@ export function defineRealtimeVoiceAgent(
 
     logger.info("realtime.room.joined", {
       room: ctx.room.name ?? "unknown",
+      backend: cfg.backend,
       model: cfg.model,
-      location: cfg.location,
+      ...(isGemini ? { location: cfg.location } : {}),
       ms: sinceConnect(),
     });
 
     // Decide whether this call may be remembered BEFORE the lifecycle installs
     // its process reaper, so the shutdown flush is registered first.
-    const memory = await setUpRealtimeCallMemory(ctx, memoryConfig, cfg.model);
+    const memory = await setUpRealtimeCallMemory(ctx, memoryConfig, {
+      model: cfg.model,
+      backend: cfg.backend,
+    });
 
     await installRealtimeJobLifecycle(ctx, cfg);
 
     const { voice } = await import("@livekit/agents");
-    const google = await import("@livekit/agents-plugin-google");
-    const { Modality } = await import("@google/genai");
+    const realtimeLlm = await createRealtimeLlm(cfg);
 
     const bridge = await attachRealtimeEventBridge({
       room: ctx.room,
@@ -290,33 +310,10 @@ export function defineRealtimeVoiceAgent(
       }
     }
 
-    const modality = Object.values(Modality).find(
-      (value) => value === cfg.responseModality,
-    );
-    const modelOptions: NonNullable<
-      ConstructorParameters<typeof google.realtime.RealtimeModel>[0]
-    > = {
-      vertexai: true,
-      model: cfg.model,
-      // Emit text transcripts of BOTH sides; LiveKit forwards them to the room.
-      inputAudioTranscription: {},
-      outputAudioTranscription: {},
-    };
-    if (modality !== undefined) {
-      modelOptions.modalities = [modality];
-    }
-    if (cfg.project) {
-      modelOptions.project = cfg.project;
-    }
-    if (cfg.location) {
-      modelOptions.location = cfg.location;
-    }
-    if (cfg.voice) {
-      modelOptions.voice = cfg.voice;
-    }
-
     const session = new voice.AgentSession({
-      llm: new google.realtime.RealtimeModel(modelOptions),
+      // `RealtimeLlm` is declared structurally so the published declarations
+      // name no optional plugin; both backends return a `RealtimeModel`.
+      llm: realtimeLlm as llmNs.RealtimeModel,
     });
     // The conversation so far, so a call that appends to an open conversation
     // starts knowing it. Empty (and omitted) when there is nothing to seed.

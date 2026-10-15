@@ -30,7 +30,11 @@
  * Run: npx tsx test/continuous-test-suite-voice-turn-memory.ts
  */
 
+// First, so that no developer `.env` is loaded: a Langfuse key in it would make
+// NeuroLink register its own tracer provider before the span capture below can.
+import "./helpers/credentialFreeEnv.js";
 import { defineSuite, assert, assertEqual, delay } from "./helpers/harness.js";
+import { installSpanCapture } from "./helpers/spanCapture.js";
 import { NeuroLink } from "../src/lib/neurolink.js";
 import { ConversationMemoryManager } from "../src/lib/core/conversationMemoryManager.js";
 import { RedisConversationMemoryManager } from "../src/lib/core/redisConversationMemoryManager.js";
@@ -1394,6 +1398,61 @@ void runSuite(async () => {
       "m-11",
       "turn id so the client can mark that turn",
     );
+  });
+
+  await test("a remembered call traces each turn under the provider of its realtime backend: vertex for gemini, xai for xai", async () => {
+    const spans = installSpanCapture();
+    const cases: Array<
+      [
+        string,
+        Parameters<typeof setUpRealtimeCallMemory>[2],
+        { provider: string; model: string | undefined },
+      ]
+    > = [
+      [
+        "gemini",
+        { model: "gemini-live-2.5-flash", backend: "gemini" },
+        { provider: "vertex", model: "gemini-live-2.5-flash" },
+      ],
+      [
+        "xai",
+        { model: "grok-voice-3.0", backend: "xai" },
+        { provider: "xai", model: "grok-voice-3.0" },
+      ],
+      [
+        "no backend named",
+        { model: "gemini-live-2.5-flash" },
+        { provider: "vertex", model: "gemini-live-2.5-flash" },
+      ],
+    ];
+    for (const [label, call, expected] of cases) {
+      spans.reset();
+      const fake = fakeNeuroLink();
+      const { ctx, callbacks } = fakeContext(roomMetadata(liveBinding()));
+      const memory = await setUpRealtimeCallMemory(
+        ctx,
+        { secret: SECRET, seed: false, createNeuroLink: fake.createNeuroLink },
+        call,
+      );
+      assert(memory !== undefined, `${label}: memory set up`);
+      memory?.recorder.userTranscript(user("how are sales"));
+      memory?.recorder.assistantMessage({ id: `m-${label}`, text: "Up." });
+      await callbacks[0]();
+      assertEqual(fake.calls.length, 1, `${label}: the turn was stored`);
+      const generation = spans.allByName("realtime");
+      assertEqual(generation.length, 1, `${label}: one generation span`);
+      const attributes = generation[0].attributes;
+      assertEqual(
+        attributes["langfuse.observation.model.name"],
+        expected.model,
+        `${label}: model on the span`,
+      );
+      assertEqual(
+        attributes["langfuse.observation.metadata.provider"],
+        expected.provider,
+        `${label}: provider on the span`,
+      );
+    }
   });
 
   // -------------------------------------------------------------------------

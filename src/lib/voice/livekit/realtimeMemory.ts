@@ -19,6 +19,7 @@
 
 import type { JobContext } from "@livekit/agents";
 import { context, trace } from "@opentelemetry/api";
+import { AIProviderName } from "../../constants/enums.js";
 import { setLangfuseContext } from "../../services/server/ai/observability/instrumentation.js";
 import { observe, observeTrace } from "../../telemetry/observation.js";
 import { tracers } from "../../telemetry/tracers.js";
@@ -32,11 +33,18 @@ import type {
   ConversationSeedMessage,
   LiveKitVoiceEventType,
   RealtimeCallMemory,
+  RealtimeVoiceBackend,
   RealtimeVoiceMemoryConfig,
   VoiceTurnRecord,
 } from "../../types/index.js";
 
 const DEFAULT_FLUSH_BUDGET_MS = 800;
+
+/** The provider a backend's turn spans are attributed to: Gemini Live runs on Vertex AI, Grok Voice on xAI. */
+const TRACE_PROVIDER: Record<RealtimeVoiceBackend, AIProviderName> = {
+  gemini: AIProviderName.VERTEX,
+  xai: AIProviderName.XAI,
+};
 
 function traceTurn(
   turn: VoiceTurnRecord,
@@ -45,9 +53,10 @@ function traceTurn(
     userId: string;
     roomName?: string;
     model?: string;
+    provider: AIProviderName;
   },
 ): void {
-  const { sessionId, userId, roomName, model } = call;
+  const { sessionId, userId, roomName, model, provider } = call;
   try {
     setLangfuseContext(
       {
@@ -83,7 +92,7 @@ function traceTurn(
           input: [{ role: "user", content: turn.userMessage }],
           output: [{ role: "assistant", content: turn.aiResponse }],
           level,
-          metadata: { provider: "vertex" },
+          metadata: { provider },
         });
         generation.end(endTime);
 
@@ -117,12 +126,18 @@ function traceTurn(
   }
 }
 
-/** Verify the call's binding and prepare its recorder; `undefined` means "no memory for this call". */
+/**
+ * Verify the call's binding and prepare its recorder; `undefined` means "no
+ * memory for this call". `call` names the model and the realtime backend the
+ * call runs on, which the turn spans carry as `model` and `provider`; the
+ * backend defaults to `gemini`, the original and default one.
+ */
 export async function setUpRealtimeCallMemory(
   ctx: Pick<JobContext, "room" | "addShutdownCallback">,
   config: RealtimeVoiceMemoryConfig | undefined,
-  model?: string,
+  call: { model?: string; backend?: RealtimeVoiceBackend } = {},
 ): Promise<RealtimeCallMemory | undefined> {
+  const { model, backend = "gemini" } = call;
   if (!config) {
     return undefined;
   }
@@ -162,7 +177,13 @@ export async function setUpRealtimeCallMemory(
     write: async (turn) => {
       if (!tracedTurns.has(turn.turnId)) {
         tracedTurns.add(turn.turnId);
-        traceTurn(turn, { sessionId, userId, roomName: ctx.room.name, model });
+        traceTurn(turn, {
+          sessionId,
+          userId,
+          roomName: ctx.room.name,
+          model,
+          provider: TRACE_PROVIDER[backend],
+        });
       }
       const result = await neurolink.recordConversationTurn({
         sessionId,

@@ -9,6 +9,8 @@
  *
  * Pure, dependency-free, and assertion-free — values arrive as `unknown` and are
  * narrowed with the `isRecord` guard. Safe to reuse for any Gemini tool path.
+ * The xai realtime backend uses it too: the output is plain JSON Schema, and
+ * keeping it avoids sending xAI `$ref` or union shapes it has not been tried with.
  */
 
 const GEMINI_TYPES = new Set([
