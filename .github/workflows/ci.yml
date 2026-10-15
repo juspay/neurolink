@@ -1281,6 +1281,7 @@ jobs:
             test:anthropic-streaming-retry@10
             test:anthropic-thinking-disabled@5
             test:dynamic@10
+            test:session-middleware@35
             test:local-usage@8
             test:provider-fallback-latency@6
             test:decide-engine@5

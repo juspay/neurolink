@@ -126,6 +126,9 @@ export abstract class BaseServerAdapter extends EventEmitter {
           "Content-Type",
           "Authorization",
           "X-Request-ID",
+          // The session middleware's default header: without it a browser
+          // client on another origin could not send it.
+          "X-Session-Id",
         ],
         credentials: config.cors?.credentials ?? false,
         maxAge: config.cors?.maxAge ?? 86400,

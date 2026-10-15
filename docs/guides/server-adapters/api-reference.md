@@ -163,7 +163,7 @@ All middleware factory functions return `MiddlewareDefinition` objects. Register
 ```typescript
 type MiddlewareDefinition = {
   name: string;
-  order?: number; // lower = earlier (default varies)
+  order?: number; // informational: middleware runs in registration order
   handler: MiddlewareHandler;
   paths?: string[]; // apply to these paths (default: all)
   excludePaths?: string[]; // skip these paths
