@@ -164,6 +164,9 @@ streaming), in two stages:
    `OPENAI_API_BASE` or `credentials.openai.baseURL` names a host other than `https://api.openai.com` (a gateway's
    key is not used for the default); see
    [One key, two providers](../getting-started/providers/openai-decisions.md#one-key-two-providers).
+   `SCALEDOWN_API_KEY`, which no other provider reads, counts too: with it as the
+   only decision key, the transcript text goes to ScaleDown, the last provider in
+   the order.
 2. **Rewrite.** A text model fixes spelling, punctuation and capitalisation,
    writes dictionary terms correctly, reconciles a second opinion and writes
    Indic-script words in Latin letters the way people type them (Hinglish,

@@ -32,16 +32,16 @@ export type ClassifierDifficulty =
  * - `heuristic` — keyword/length scoring. Deterministic, zero latency.
  * - `llm` — a cheap classifier model via the injected `generate`.
  * - `jev` — a decision model, whichever decision provider is configured
- *   (TypeSafe's Jev, Laya, XOR, SubQ, Perplexity, Cloudflare Clef or OpenAI
- *   Decisions); one round trip that returns the confidence the provider
+ *   (TypeSafe's Jev, Laya, XOR, SubQ, Perplexity, Cloudflare Clef, OpenAI
+ *   Decisions or ScaleDown); one round trip that returns the confidence the provider
  *   reports (*calibrated* on TypeSafe's Jev, ~400ms there) rather than a
  *   self-reported one.
  * - `auto` — `jev` when a decision provider is configured, in the environment
  *   or in SDK credentials (`TYPESAFE_API_KEY`, `LAYA_API_KEY` with
  *   `LAYA_BASE_URL`, `XOR_API_KEY` with `XOR_BASE_URL`, `SUBQ_API_KEY`, `PERPLEXITY_API_KEY`,
- *   `CLOUDFLARE_API_KEY` with `CLOUDFLARE_ACCOUNT_ID`, or `OPENAI_API_KEY`,
+ *   `CLOUDFLARE_API_KEY` with `CLOUDFLARE_ACCOUNT_ID`, `OPENAI_API_KEY`,
  *   which does not count while `OPENAI_BASE_URL`, `OPENAI_API_BASE` or `credentials.openai.baseURL` names a
- *   host other than `https://api.openai.com`), otherwise `heuristic`.
+ *   host other than `https://api.openai.com`, or `SCALEDOWN_API_KEY`), otherwise `heuristic`.
  */
 export type ClassifierStrategyKind = "heuristic" | "llm" | "jev" | "auto";
 
@@ -214,15 +214,16 @@ export type ClassifierRouterConfig = {
    * decision provider is configured, in the environment or in SDK credentials
    * (`TYPESAFE_API_KEY`, `LAYA_API_KEY` with `LAYA_BASE_URL`,
    * `XOR_API_KEY` with `XOR_BASE_URL`, `SUBQ_API_KEY`, `PERPLEXITY_API_KEY`,
-   * `CLOUDFLARE_API_KEY` with `CLOUDFLARE_ACCOUNT_ID`, or `OPENAI_API_KEY`) and
-   * "heuristic" otherwise, so configuring one upgrades routing without any code
+   * `CLOUDFLARE_API_KEY` with `CLOUDFLARE_ACCOUNT_ID`, `OPENAI_API_KEY` or
+   * `SCALEDOWN_API_KEY`) and "heuristic" otherwise, so configuring one upgrades routing without any code
    * change. Behaviour for a caller with none of these is unchanged. Three of them
    * are shared with a text provider and count here too: `PERPLEXITY_API_KEY`
    * (Perplexity's), the Cloudflare pair (Workers AI's) and `OPENAI_API_KEY` (the
    * OpenAI chat provider's). A caller whose only key is `OPENAI_API_KEY` now
-   * resolves to "jev", answered by OpenAI Decisions as the last-resort decision
-   * provider; each classification is then a paid call that still falls back to
-   * the heuristic on any failure. The exception is a key that sits beside an
+   * resolves to "jev", answered by OpenAI Decisions (the default decision
+   * provider whenever none ahead of it in the order is configured); each
+   * classification is then a paid call that still falls back to the heuristic
+   * on any failure. The exception is a key that sits beside an
    * `OPENAI_BASE_URL`, `OPENAI_API_BASE` or `credentials.openai.baseURL` naming a host other than
    * `https://api.openai.com`: that key is a gateway's and does not count.
    */

@@ -697,6 +697,7 @@
     "perplexity-decider",
     "cloudflare-clef",
     "openai-decisions",
+    "scaledown",
     "jev",
     "model-routing",
     "semantic-router",

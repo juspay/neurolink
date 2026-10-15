@@ -19420,7 +19420,14 @@ Current user's request: ${currentInput}`;
           });
 
           const answerCount = Object.keys(result.answers).length;
-          const cost = calculateCost(providerName, result.model, {
+          // `providerName` is what the caller passed, so it can be an alias
+          // (`jev`, `scaledown-classify`). The pricing table is keyed by the
+          // canonical id and does not read the decide catalog, so an alias
+          // priced the decision at 0.
+          const pricedProvider =
+            PROVIDER_ALIAS_INDEX.get(providerName.toLowerCase()) ??
+            providerName;
+          const cost = calculateCost(pricedProvider, result.model, {
             input: result.usage.inputTokens,
             output: result.usage.outputTokens,
             total: result.usage.inputTokens + result.usage.outputTokens,

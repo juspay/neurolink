@@ -1,0 +1,68 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "scaledown",
+  "displayName": "ScaleDown",
+  "enumTypeName": "ScaleDownModels",
+  "aliases": ["scaledown-classify"],
+  "inferenceKinds": ["decide"],
+  "wire": { "baseURL": "https://api.scaledown.xyz" },
+  "models": {
+    "default": "classify-1",
+    "topModels": ["classify-1", "classify"],
+    "catalog": {
+      "classify-1": {
+        "contextWindow": 128000,
+        "maxOutputTokens": 1,
+        "vision": false,
+        "status": "preview",
+        "description": "Recommended - ScaleDown Classify 1, decision model for boolean, choice and score questions; context window and output limit not established"
+      },
+      "classify": {
+        "vision": false,
+        "status": "preview",
+        "description": "ScaleDown's name for its latest Classify model; whether it moves to a newer model is not established"
+      }
+    }
+  },
+  "decide": {
+    "dialect": "system-one",
+    "order": 8,
+    "baseURLNormalize": ["strip-trailing-slash"],
+    "endpoint": "{baseURL}/v1/scaledown",
+    "model": { "placement": "body" },
+    "authHeader": "x-api-key",
+    "stateEncoding": "text",
+    "errors": {
+      "rules": [
+        { "status": 401, "kind": "authentication" },
+        { "status": [402, 422], "kind": "invalid_request" },
+        { "status": 429, "kind": "rate_limit" },
+        { "status": 502, "kind": "server" },
+        { "status": 504, "kind": "timeout" },
+        { "statusMin": 500, "kind": "server" }
+      ],
+      "default": "invalid_request",
+      "bodyShapes": [{ "path": "detail.message" }, { "path": "detail" }]
+    }
+  },
+  "setup": {
+    "url": "https://docs.scaledown.ai",
+    "apiKeyFormat": null,
+    "billingPolicy": "promotional-credit",
+    "description": "API key from ScaleDown (see its documentation). Sign-up gives a free allowance; whether it expires is not established",
+    "instructions": [
+      "1. Create an account and an API key, following https://docs.scaledown.ai",
+      "2. Set {apiKeyEnvVar} in your .env file",
+      "3. ScaleDown's documentation says the key goes in an x-api-key header rather than Authorization: Bearer, and NeuroLink sends it that way",
+      "4. ScaleDown's documentation says a request made with no credit left returns HTTP 402"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-10-15",
+      "method": "Checked by the marketing session, not in this change: ScaleDown's docs at docs.scaledown.ai were read and probes were made against api.scaledown.xyz. No request was made to ScaleDown in this change"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/2005"
+  }
+}

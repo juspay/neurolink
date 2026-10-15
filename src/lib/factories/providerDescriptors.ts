@@ -500,18 +500,22 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
   },
   // Decision precedence is decideOrder, not position: typesafe 1, laya 2 and
   // xor 3 (from catalog/laya.json and catalog/xor.json), subq 4 (from
-  // catalog/subq.json), perplexity-decider 5, cloudflare-clef 6 and
-  // openai-decisions 7 (catalog/openai-decisions.json).
+  // catalog/subq.json), perplexity-decider 5, cloudflare-clef 6,
+  // openai-decisions 7 (catalog/openai-decisions.json) and scaledown 8
+  // (catalog/scaledown.json).
   // resolveDefaultDecisionProvider() returns the first configured
   // DECISION_PROVIDERS entry in that order, so a host configured for several
   // keeps Jev for every built-in consumer and reaches the others only by
   // naming them. Renumbering silently changes which model routes, compacts
   // and plans for every such host.
-  // perplexity-decider, cloudflare-clef and openai-decisions come last because
-  // each shares its environment key with a text provider: a key set only for
-  // that text provider must not displace a decision provider a host set up on
+  // perplexity-decider, cloudflare-clef and openai-decisions come after subq
+  // because each shares its environment key with a text provider: a key set only
+  // for that text provider must not displace a decision provider a host set up on
   // purpose. subq is ahead of them only because SUBQ_API_KEY belongs to no other
-  // provider.
+  // provider. scaledown is last by the owner's decision of 2026-10-15, not by
+  // that rule: SCALEDOWN_API_KEY belongs to no other provider either, so an
+  // ambient OPENAI_API_KEY, PERPLEXITY_API_KEY or Cloudflare pair outranks a
+  // ScaleDown key a host set on purpose, and ScaleDown is reached by naming it.
   {
     name: AIProviderName.PERPLEXITY_DECIDER,
     aliases: [],
@@ -583,9 +587,9 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     credentialsKey: "cloudflareClef",
     envVars: {
       // The same token and account id the `cloudflare` text provider reads, so
-      // ambient Workers AI settings configure this provider too. It sits last
-      // in this list, which is what keeps that from displacing any other
-      // decision provider a host has configured.
+      // ambient Workers AI settings configure this provider too. Its place in
+      // the decision order (see the comment above) keeps that from displacing
+      // TypeSafe, Laya, XOR or SubQ.
       apiKey: "CLOUDFLARE_API_KEY",
       // Cloudflare's own API is the endpoint, so a base URL is optional; but
       // the path carries the account id, so a token alone is useless. Both are

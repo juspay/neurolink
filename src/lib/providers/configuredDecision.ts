@@ -22,6 +22,11 @@ import { SystemOneDecisionProvider } from "./systemOneDecision.js";
 const readText = (value: unknown): string =>
   typeof value === "string" ? value.trim() : "";
 
+// JSON.stringify answers undefined for a value JSON cannot hold, such as a
+// state a JavaScript caller left out, although its own return type says string.
+const stateText = (state: DecisionState): string | undefined =>
+  typeof state === "string" ? state : JSON.stringify(state);
+
 /** A `decide` provider described entirely by its catalog entry. */
 export class ConfiguredDecisionProvider extends SystemOneDecisionProvider {
   private readonly entry: DecideCatalogJson;
@@ -109,10 +114,31 @@ export class ConfiguredDecisionProvider extends SystemOneDecisionProvider {
   }
 
   protected decisionHeaders(): Record<string, string> {
-    return {
-      Authorization: `Bearer ${this.apiKey}`,
-      "Content-Type": "application/json",
-    };
+    const credential: Record<string, string> =
+      this.entry.decide.authHeader === "x-api-key"
+        ? { "x-api-key": this.apiKey }
+        : { Authorization: `Bearer ${this.apiKey}` };
+    return { ...credential, "Content-Type": "application/json" };
+  }
+
+  /**
+   * The state the dialect is given. Only an entry that sets `stateEncoding`
+   * changes it, so every other entry sends exactly what the caller passed.
+   */
+  private encodeState(state: DecisionState): DecisionState {
+    if (this.entry.decide.stateEncoding !== "text") {
+      return state;
+    }
+    const text = stateText(state);
+    if (text === undefined || text.trim() === "") {
+      throw this.decisionError({
+        kind: "invalid_request",
+        // Never the state itself, which can hold anything the caller was sent.
+        message: `${this.vendorLabel()} needs non-blank state text; the state was empty or only whitespace.`,
+        retryable: false,
+      });
+    }
+    return text;
   }
 
   protected buildDecisionBody(
@@ -123,7 +149,7 @@ export class ConfiguredDecisionProvider extends SystemOneDecisionProvider {
   ): Record<string, unknown> {
     const { placement, alias } = this.entry.decide.model;
     return this.dialect().buildBody({
-      state,
+      state: this.encodeState(state),
       questions,
       model:
         placement === "body-unless-alias" && model === alias

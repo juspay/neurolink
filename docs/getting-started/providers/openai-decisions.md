@@ -36,21 +36,21 @@ it: there is no base URL to set.
 
 ### Key Facts
 
-|                       |                                                                                                                                                                                                                                                                                                                                                                                           |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Provider id           | `openai-decisions` (no aliases) — distinct from `openai`, the chat provider                                                                                                                                                                                                                                                                                                               |
-| Inference type        | `decide` only                                                                                                                                                                                                                                                                                                                                                                             |
-| Model                 | `gpt-6-luna`; `OPENAI_DECISIONS_MODEL` or a per-call `model` sets it                                                                                                                                                                                                                                                                                                                      |
-| Key                   | `OPENAI_API_KEY`, shared with the OpenAI chat provider, or `credentials.openaiDecisions.apiKey`                                                                                                                                                                                                                                                                                           |
-| Endpoint              | `https://api.openai.com/v1/decisions`; `OPENAI_DECISIONS_BASE_URL` can name another origin                                                                                                                                                                                                                                                                                                |
-| Media                 | images as inline data URLs, up to 8 per request (NeuroLink's own allowance, not OpenAI's); the endpoint has no video part                                                                                                                                                                                                                                                                 |
-| Request body cap      | 32 MiB on the encoded request, NeuroLink's own allowance, not OpenAI's                                                                                                                                                                                                                                                                                                                    |
-| State window          | 922,000 tokens is reported as an advisory figure (the model page's input figure); NeuroLink never refuses on it                                                                                                                                                                                                                                                                           |
-| Questions per request | no cap declared by NeuroLink; whether OpenAI has one is not established                                                                                                                                                                                                                                                                                                                   |
-| Default timeout       | 10 seconds for any number of questions; `timeoutMs` or `--timeout` replaces it. A starting point, not a measurement                                                                                                                                                                                                                                                                       |
-| Cost                  | priced per input token, input only; see [Cost](#cost) for the rate, its source and its date                                                                                                                                                                                                                                                                                               |
-| Precedence            | used automatically only when none of TypeSafe, Laya, XOR, SubQ, Perplexity or Cloudflare Clef is configured: the last resort. Its environment key is skipped for this while `OPENAI_BASE_URL`, `OPENAI_API_BASE` or `credentials.openai.baseURL` names a host other than `https://api.openai.com` (a gateway's key); see [A gateway's key](#a-gateways-key-is-never-used-for-the-default) |
-| Status                | public beta; NeuroLink's model status is `preview`                                                                                                                                                                                                                                                                                                                                        |
+|                       |                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Provider id           | `openai-decisions` (no aliases) — distinct from `openai`, the chat provider                                                                                                                                                                                                                                                                                                                                                             |
+| Inference type        | `decide` only                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Model                 | `gpt-6-luna`; `OPENAI_DECISIONS_MODEL` or a per-call `model` sets it                                                                                                                                                                                                                                                                                                                                                                    |
+| Key                   | `OPENAI_API_KEY`, shared with the OpenAI chat provider, or `credentials.openaiDecisions.apiKey`                                                                                                                                                                                                                                                                                                                                         |
+| Endpoint              | `https://api.openai.com/v1/decisions`; `OPENAI_DECISIONS_BASE_URL` can name another origin                                                                                                                                                                                                                                                                                                                                              |
+| Media                 | images as inline data URLs, up to 8 per request (NeuroLink's own allowance, not OpenAI's); the endpoint has no video part                                                                                                                                                                                                                                                                                                               |
+| Request body cap      | 32 MiB on the encoded request, NeuroLink's own allowance, not OpenAI's                                                                                                                                                                                                                                                                                                                                                                  |
+| State window          | 922,000 tokens is reported as an advisory figure (the model page's input figure); NeuroLink never refuses on it                                                                                                                                                                                                                                                                                                                         |
+| Questions per request | no cap declared by NeuroLink; whether OpenAI has one is not established                                                                                                                                                                                                                                                                                                                                                                 |
+| Default timeout       | 10 seconds for any number of questions; `timeoutMs` or `--timeout` replaces it. A starting point, not a measurement                                                                                                                                                                                                                                                                                                                     |
+| Cost                  | priced per input token, input only; see [Cost](#cost) for the rate, its source and its date                                                                                                                                                                                                                                                                                                                                             |
+| Precedence            | used automatically only when none of TypeSafe, Laya, XOR, SubQ, Perplexity or Cloudflare Clef is configured: the seventh of eight, ahead of only [ScaleDown](scaledown.md). Its environment key is skipped for this while `OPENAI_BASE_URL`, `OPENAI_API_BASE` or `credentials.openai.baseURL` names a host other than `https://api.openai.com` (a gateway's key); see [A gateway's key](#a-gateways-key-is-never-used-for-the-default) |
+| Status                | public beta; NeuroLink's model status is `preview`                                                                                                                                                                                                                                                                                                                                                                                      |
 
 ---
 
@@ -374,7 +374,8 @@ list of OpenAI's, because it has none to check against.
 Every built-in consumer of `decide` asks for the default decision provider. That
 is the first one that is configured, in the environment or in the `credentials`
 passed to the SDK, in the order TypeSafe, Laya, XOR, [SubQ](subq.md), Perplexity,
-[Cloudflare Clef](cloudflare-clef.md), then OpenAI Decisions. TypeSafe counts
+[Cloudflare Clef](cloudflare-clef.md), OpenAI Decisions, then
+[ScaleDown](scaledown.md). TypeSafe counts
 with either of its keys, `TYPESAFE_API_KEY` or `AI_GATEWAY_API_KEY`. Laya and XOR
 each count only with both their key and their base URL. Perplexity counts with
 its key alone. Cloudflare Clef counts only with both `CLOUDFLARE_API_KEY` and
@@ -383,7 +384,8 @@ its key alone. Cloudflare Clef counts only with both `CLOUDFLARE_API_KEY` and
 only in the environment does not count while `OPENAI_BASE_URL`,
 `OPENAI_API_BASE` or `credentials.openai.baseURL` names a host other than `https://api.openai.com`: see
 [A gateway's key is never used for the default](#a-gateways-key-is-never-used-for-the-default).
-A caller can always name it with `provider: "openai-decisions"`. So:
+ScaleDown counts with its key alone, `SCALEDOWN_API_KEY`, which no other provider
+reads. A caller can always name it with `provider: "openai-decisions"`. So:
 
 - **Only an OpenAI key, and no base URL for another host:** built-in features use
   OpenAI Decisions.
@@ -394,11 +396,14 @@ A caller can always name it with `provider: "openai-decisions"`. So:
 - **An OpenAI key, plus any key or credentials that configure an earlier provider:**
   built-in features use the earlier provider, in the order above. OpenAI
   Decisions runs only where a caller asks for `provider: "openai-decisions"`.
+- **An OpenAI key, plus `SCALEDOWN_API_KEY`:** built-in features use OpenAI
+  Decisions, which comes ahead of ScaleDown. ScaleDown runs only where a caller
+  asks for `provider: "scaledown"`.
 - **A key for the chat provider only:** the same as the first case. The key is
   shared, so the chat provider's key also configures this one. See
   [One key, two providers](#one-key-two-providers).
-- **None of TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef or OpenAI Decisions
-  configured:** everything behaves exactly as it did without a decision model.
+- **None of TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef, OpenAI Decisions
+  or ScaleDown configured:** everything behaves exactly as it did without a decision model.
 
 The classifier router's `auto` gate reads the credentials given to the
 `NeuroLink` constructor and the environment, not credentials passed on a single
@@ -531,7 +536,7 @@ has also configured `decide`:
   routing and RAG planning do so only where you have turned them on. A host that
   passes a transcription dictionary also sends transcript text. No code changes:
   the key is the switch.
-- **It is fail-open, and every other decision provider takes precedence.** If you
+- **It is fail-open, and the six providers ahead of it take precedence.** If you
   have configured any of them, the shared key changes nothing for the built-in
   consumers. A failure here leaves behaviour as it was, so a key the Decisions
   endpoint does not accept costs requests, not correctness.
@@ -801,5 +806,6 @@ cut to its scheme, host and path.
 - [XOR Provider Guide](xor.md)
 - [Perplexity Decisions Provider Guide](perplexity-decider.md)
 - [Cloudflare Clef Provider Guide](cloudflare-clef.md)
+- [ScaleDown Provider Guide](scaledown.md)
 - [OpenAI chat provider](openai.md)
 - [OpenAI's Decisions guide](https://developers.openai.com/api/docs/guides/decisions)

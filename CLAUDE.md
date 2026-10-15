@@ -121,7 +121,9 @@ configures it), Cloudflare Clef (`cloudflare-clef`, on Workers AI; it also reads
 images, no video, at Cloudflare's own API, so a token and an account id configure
 it) and OpenAI Decisions (`openai-decisions`, OpenAI's hosted Decisions API in
 public beta; it also reads images, no video, at the public `https://api.openai.com`,
-so a key alone configures it) all extend `SystemOneDecisionProvider` in
+so a key alone configures it) and ScaleDown (`scaledown`, hosted Classify models,
+text only, at the public `https://api.scaledown.xyz`, so a key alone configures
+it; described below) all extend `SystemOneDecisionProvider` in
 `src/lib/providers/systemOneDecision.ts`,
 which owns the request loop, retries, the auth circuit breaker and answer
 parsing; each provider supplies only its endpoint, headers, body and error
@@ -129,20 +131,24 @@ parsing. OpenAI Decisions is the one whose wire is not System One's (named
 questions in an array, an array of answers), so its catalog entry names
 `decide.dialect: "openai-decisions"`, translated by
 `src/lib/providers/decide/dialects/openaiDecisions.ts`; the Laya, XOR and SubQ entries
-use the `system-one` dialect. `resolveDefaultDecisionProvider()` returns the first
+use the `system-one` dialect, as does ScaleDown. `resolveDefaultDecisionProvider()` returns the first
 `DECISION_PROVIDERS` entry that is fully configured (a key, plus a base URL for
 Laya and XOR, which have no built-in endpoint), in descriptor order, so TypeSafe's
 entry sitting before Laya's, Laya's before XOR's, XOR's before SubQ's, SubQ's before
-Perplexity's, Perplexity's before Clef's, and Clef's before OpenAI Decisions', is what makes
+Perplexity's, Perplexity's before Clef's, Clef's before OpenAI Decisions', and OpenAI
+Decisions' before ScaleDown's, is what makes
 TypeSafe win whenever either of its keys (`TYPESAFE_API_KEY`, `AI_GATEWAY_API_KEY`)
 is set alongside `LAYA_API_KEY`, `XOR_API_KEY`, `SUBQ_API_KEY`, `PERPLEXITY_API_KEY`,
-`CLOUDFLARE_API_KEY` or `OPENAI_API_KEY`. Reordering them changes which model
+`CLOUDFLARE_API_KEY`, `OPENAI_API_KEY` or `SCALEDOWN_API_KEY`. Reordering them changes which model
 every built-in consumer uses. The three providers whose keys
 are shared with a text provider (Perplexity, Clef and OpenAI Decisions) stay
-last, after every provider a host sets up on purpose: a provider added after
-them would be displaced by an ambient key, which is why test 18.4 pins
-`openai-decisions` as the last entry. SubQ sits ahead of them only because
-`SUBQ_API_KEY` belongs to no other provider.
+behind every provider a host sets up on purpose, except ScaleDown (below): a provider added after
+them would be displaced by an ambient key. SubQ sits ahead of them only because
+`SUBQ_API_KEY` belongs to no other provider. ScaleDown's key belongs to no other
+provider either, yet ScaleDown sits last, after those three, by the owner's decision of
+2026-10-15 (`decide.order` 8): an ambient `OPENAI_API_KEY`, `PERPLEXITY_API_KEY` or
+Cloudflare pair outranks a `SCALEDOWN_API_KEY` a host set on purpose, and ScaleDown
+is reached by naming it. Test 18.4 pins `scaledown` as the last entry.
 
 **SubQ comes after XOR and ahead of Perplexity, Clef and OpenAI Decisions, and it is a catalog entry, not a class.**
 `src/lib/providers/catalog/subq.json` describes Subquadratic's hosted SubQ Snap
@@ -171,8 +177,8 @@ provider's slice) does not configure it; `credentials.perplexityDecider` does.
 
 **OpenAI Decisions' key is shared with the `openai` chat provider.** Both read
 `OPENAI_API_KEY`, so an ambient key set only for chat (or for `whisper`, which
-reads it too) also configures `decide`, as the last-resort default after TypeSafe,
-Laya, XOR, SubQ, Perplexity and Clef (descriptor order 7). The five internal consumers
+reads it too) also configures `decide`, as the default after TypeSafe,
+Laya, XOR, SubQ, Perplexity and Clef (descriptor order 7; only ScaleDown, order 8, follows it). The five internal consumers
 (routing, tool routing, context relevance, the summary gate, RAG planning) and
 the STT correction guard (for a host that passes a dictionary) then make paid
 decision calls, though they still fail open. A test that asserts the "nothing
@@ -217,7 +223,7 @@ or cost.
 the Workers AI endpoint ignored state text past about 2,048 tokens until
 2026-10-04 and read far more on 2026-10-07 (hosted service or model: unknown).** `CLOUDFLARE_API_KEY` and
 `CLOUDFLARE_ACCOUNT_ID` also configure `decide`, as a fallback after TypeSafe, Laya,
-XOR, SubQ and Perplexity (OpenAI Decisions comes after it); a test that
+XOR, SubQ and Perplexity (OpenAI Decisions and ScaleDown come after it); a test that
 asserts the "nothing configured" path must blank both (and `CLOUDFLARE_CLEF_*`).
 `credentials.cloudflare` does not configure it; `credentials.cloudflareClef` does,
 and its `accountId` stands in for `CLOUDFLARE_ACCOUNT_ID` through the descriptor's
@@ -245,6 +251,40 @@ which is why the limit above went from 1,500 to 16,000 estimated tokens.
 Only a 401 trips Clef's auth breaker (a 403 was never seen and must not latch the
 instance), and a `credentials.cloudflareClef` slice that names its own `baseURL`
 never borrows `CLOUDFLARE_API_KEY`.
+
+**ScaleDown is the last decision provider, it is a catalog entry, and its key is its own.**
+`src/lib/providers/catalog/scaledown.json` describes ScaleDown's hosted Classify
+models (`scaledown`, alias `scaledown-classify`; `decide.order` 8) and
+`ConfiguredDecisionProvider` runs it on the System One wire at
+`https://api.scaledown.xyz/v1/scaledown` (`wire.baseURL` is the default base, so
+`SCALEDOWN_BASE_URL` and `credentials.scaledown.baseURL` replace it; an origin or an
+origin with a path prefix, trailing slashes dropped). `SCALEDOWN_API_KEY` alone
+configures it and no other provider reads it, so any test that asserts the "nothing
+configured" path must blank it (and `SCALEDOWN_BASE_URL` and `SCALEDOWN_MODEL`) with
+the other decision keys. Two optional `decide` fields exist for it, and an entry that
+omits them behaves exactly as before: `decide.authHeader` (`"x-api-key"` sends
+`x-api-key: <key>` and no `Authorization` header at all; omitted or `"bearer"` is the
+Bearer header every other entry sends; decide-local, `quirks.authHeaderStyle` is the
+chat path's and is not read here) and `decide.stateEncoding` (`"text"` makes the state
+always a string: a string unchanged and untrimmed, any other value as its JSON text,
+so `{}` and `[]` go out as text, and a string that is blank after trimming is refused
+locally, before any request, as an `invalid_request` that names the rule and never the
+state). It declares no `decisionLimits` and no media, so media is refused before any
+request (that refusal wins over the blank-state check) and nothing is refused on
+size. A 401 trips the auth breaker; 402 and 422 are `invalid_request` and do not
+latch; 429 is `rate_limit`; 502 is `server`; a server-sent 504 is `timeout` and is not
+retried. Its price is a list price (USD 0.05 per million input tokens, output free; source:
+ScaleDown's launch post and the response's `usage.cost`, as reported by the marketing
+session on 2026-10-15), in `pricing.ts`'s `_default` row only. The wire facts
+(`x-api-key` only, the models `classify-1` and `classify`, 255 options answered and
+300 refused with 502, the limit between them not mapped and no local cap, the 429 and 504 texts) come from ScaleDown's documentation and
+the marketing session's probes of 2026-10-15, **not from this project**: every reply in
+the contract fixture and every 200 reply in the tests is an invented stand-in (the mocked
+suite's error texts are the ones the marketing session reported), and the catalog's `contextWindow`
+128000 and `maxOutputTokens` 1 are placeholders the schema requires, not ScaleDown
+statements. Docs and comments say "not measured" for context size, latency, rate
+limits and the option, question and level maximums, and never state an accuracy, a
+benchmark or a latency.
 
 **`decisionLimits` refuses what a model cannot read.** A descriptor may declare
 `decisionLimits: { maxStateTokens, maxQuestions?, models, media? }`; the base refuses an
@@ -287,7 +327,7 @@ still be refused. The
 provider also checks image format and the 2,048-tile cap per image locally,
 because a larger image stalls the API for about a minute before an HTML 504. XOR,
 Perplexity, Cloudflare Clef and OpenAI Decisions are the providers with `media`;
-every other provider refuses media before any request. `maxQuestions` is optional
+every other provider, ScaleDown included, refuses media before any request. `maxQuestions` is optional
 in `DecisionLimits` and in the `decisionLimits()` reading: absent means "no count
 cap", never `Infinity`.
 

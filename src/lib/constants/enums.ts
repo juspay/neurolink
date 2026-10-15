@@ -90,6 +90,7 @@ export enum AIProviderName {
   SAKANA_AI = "sakana-ai",
   SAMBANOVA = "sambanova",
   SARVAM = "sarvam",
+  SCALEDOWN = "scaledown",
   SCALEWAY = "scaleway",
   SILICONFLOW = "siliconflow",
   STACKIT = "stackit",
@@ -2012,6 +2013,11 @@ export enum SambanovaModels {
 export enum SarvamModels {
   SARVAM_105B = "sarvam-105b",
   SARVAM_105B_CONVERSATIONS = "sarvam-105b-conversations",
+}
+
+export enum ScaleDownModels {
+  CLASSIFY_1 = "classify-1",
+  CLASSIFY = "classify",
 }
 
 export enum ScalewayModels {

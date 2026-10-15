@@ -319,6 +319,7 @@ export type NeurolinkCredentials = {
   sakanaAi?: { apiKey?: string; baseURL?: string };
   sambanova?: { apiKey?: string; baseURL?: string };
   sarvam?: { apiKey?: string; baseURL?: string };
+  scaledown?: { apiKey?: string; baseURL?: string };
   scaleway?: { apiKey?: string; baseURL?: string };
   siliconflow?: { apiKey?: string; baseURL?: string };
   stackit?: { apiKey?: string; baseURL?: string };

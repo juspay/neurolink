@@ -8,7 +8,8 @@ keywords: cloudflare, cloudflare-clef, clef, clef-flash, workers ai, decide, dec
 
 **A provider of `decide`** — the same typed `boolean` / `choice` / `score`
 answers as [TypeSafe's Jev](typesafe.md), [Laya](laya.md), [XOR](xor.md),
-[Perplexity](perplexity-decider.md) and [OpenAI Decisions](openai-decisions.md),
+[SubQ](subq.md), [Perplexity](perplexity-decider.md),
+[OpenAI Decisions](openai-decisions.md) and [ScaleDown](scaledown.md),
 from Cloudflare's Clef models on Workers AI, and it also reads images. It emits
 no text at all.
 
@@ -51,7 +52,7 @@ or in beta.
 | Credentials             | an API token with Workers AI permission, and the account id                                                                                                                           |
 | Price                   | $0.24 per million input tokens for `clef`, $0.09 for `clef-flash`; no output price is listed (Cloudflare's Workers AI pricing page)                                                   |
 | Measured latency        | 2026-10-03: 0.3 to 1.0 s for a small request; 64 questions: 1.1 s (`clef-flash`), 1.3 s (`clef`); 2026-10-04: 1.5 s / 2.3 s                                                           |
-| Default decide provider | second to last: after TypeSafe, Laya, XOR, SubQ and Perplexity, before OpenAI Decisions                                                                                               |
+| Default decide provider | sixth of eight: after TypeSafe, Laya, XOR, SubQ and Perplexity, before OpenAI Decisions and ScaleDown                                                                                 |
 | Verified live           | 2026-10-03 and 2026-10-04, with a real account (see [Limits](#limits))                                                                                                                |
 
 ## Quick Start
@@ -181,8 +182,8 @@ await neurolink.decide({
 ## When NeuroLink uses it
 
 Built-in features that call `decide()` pick the first decision provider that is
-configured, in this order: TypeSafe, Laya, XOR, [SubQ](subq.md), Perplexity, Clef, then
-[OpenAI Decisions](openai-decisions.md). A host with none of the first five, but
+configured, in this order: TypeSafe, Laya, XOR, [SubQ](subq.md), Perplexity, Clef,
+[OpenAI Decisions](openai-decisions.md), then [ScaleDown](scaledown.md). A host with none of the first five, but
 with `CLOUDFLARE_API_KEY` and
 `CLOUDFLARE_ACCOUNT_ID` set for the Workers AI text provider, therefore has Clef
 as its default decision provider. Naming `provider: "cloudflare-clef"` reaches it
@@ -550,6 +551,7 @@ means one retry, after about 250 to 500 ms; the base class retries once.
 - [Perplexity Decisions Provider Guide](perplexity-decider.md)
 - [SubQ Provider Guide](subq.md)
 - [OpenAI Decisions Provider Guide](openai-decisions.md)
+- [ScaleDown Provider Guide](scaledown.md)
 - [Cloudflare Workers AI text provider](cloudflare.md)
 - [Clef on Workers AI](https://developers.cloudflare.com/workers-ai/models/clef/)
 - [Introducing Clef: our open-source decision models, and new RL fine-tuning platform](https://blog.cloudflare.com/clef-decision-models/) (Cloudflare Blog)
