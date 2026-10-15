@@ -423,6 +423,15 @@ happened. Covered by `pnpm run test:transcribe` (public surface, stub engines,
 CLI, routes) and `pnpm run test:transcribe:stream` (the chunked adapter under
 the determinism exception).
 
+**The endpointer is a public, dependency-free subpath.**
+`@juspay/neurolink/voice/endpointer` (package.json `exports`) points at
+`dist/voice/streaming/endpointer.js`, so a browser app can find where a spoken
+turn starts and ends without bundling the `voice` entry, which pulls in Node
+built-ins. The file must stay free of runtime imports (type-only imports are
+erased and fine): `test:transcribe` reads the shipped file and fails if an
+`import` or `require` appears. Put a shared helper inside the file, not behind
+an import.
+
 ### Pattern: Factory + Registry
 
 Every extensible system (providers, processors, chunkers, rerankers) follows the same pattern:

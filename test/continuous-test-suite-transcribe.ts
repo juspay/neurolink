@@ -36,10 +36,10 @@ import { spawnSync } from "node:child_process";
 import { createServer as createHttpServer } from "node:http";
 import type { IncomingMessage, Server as HttpServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   assert,
   assertEqual,
@@ -58,7 +58,13 @@ import {
   registerDefaultSTTHandlers,
 } from "../dist/index.js";
 import { attachTranscribeWebSocket } from "../dist/server/index.js";
+import {
+  ENDPOINTER_DEFAULTS,
+  Endpointer,
+  resolveEndpointerConfig,
+} from "../dist/voice/streaming/endpointer.js";
 import WebSocket from "ws";
+import ts from "typescript";
 import type {
   STTHandler,
   STTOptions,
@@ -1961,6 +1967,259 @@ await test("WebSocket upgrade: with no allow-list or a wildcard, any Origin open
     open.close();
     await new Promise<void>((resolve) => http.close(() => resolve()));
   }
+});
+
+// ---------------------------------------------------------------------------
+// The endpointer subpath: `@juspay/neurolink/voice/endpointer`.
+//
+// A browser app imports this module to find where a spoken turn starts and
+// ends. The cases below pin what that caller can rely on: the subpath resolves
+// through package.json `exports`, the shipped file stays free of imports (the
+// voice entry it replaces drags in Node built-ins), and the gate behaves the
+// same at the sample rates a browser delivers. The signal is seeded noise at
+// known offsets, so every run feeds identical samples.
+// ---------------------------------------------------------------------------
+
+const ENDPOINTER_SUBPATH = "@juspay/neurolink/voice/endpointer";
+const QUIET_AMPLITUDE = 0.002;
+const SPEECH_AMPLITUDE = 0.35;
+const WORKLET_BLOCK_FRAMES = 128;
+
+type EndpointerSegment = [seconds: number, amplitude: number];
+type EndpointerObservation = {
+  type: string;
+  reason: string | null;
+  atSeconds: number;
+};
+
+function seededNoise(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 0x100000000 - 0.5;
+  };
+}
+
+/** Feeds the gate in AudioWorklet-sized blocks and notes the stream time of each event. */
+function runEndpointer(
+  segments: EndpointerSegment[],
+  options: { rate?: number; endSilenceMs?: number; capSeconds?: number } = {},
+): EndpointerObservation[] {
+  const rate = options.rate ?? 48000;
+  const gate = new Endpointer(
+    resolveEndpointerConfig(
+      {
+        ...(options.endSilenceMs ? { endSilenceMs: options.endSilenceMs } : {}),
+        ...(options.capSeconds
+          ? {
+              softCutSeconds: options.capSeconds,
+              maxUtteranceSeconds: options.capSeconds,
+            }
+          : {}),
+      },
+      rate,
+    ),
+  );
+  const nextNoise = seededNoise(7);
+  const observed: EndpointerObservation[] = [];
+  let streamed = 0;
+  for (const [seconds, amplitude] of segments) {
+    const frames = Math.round(seconds * rate);
+    for (let done = 0; done < frames; done += WORKLET_BLOCK_FRAMES) {
+      const block = new Float32Array(
+        Math.min(WORKLET_BLOCK_FRAMES, frames - done),
+      );
+      for (let index = 0; index < block.length; index++) {
+        block[index] = nextNoise() * 2 * amplitude;
+      }
+      streamed += block.length;
+      for (const event of gate.push(block)) {
+        observed.push({
+          type: event.type,
+          reason: event.type === "end" ? event.reason : null,
+          atSeconds: streamed / rate,
+        });
+      }
+    }
+  }
+  return observed;
+}
+
+/** Every module the file would load at runtime, whatever the spelling of the import. */
+function runtimeDependencies(source: string): string[] {
+  const file = ts.createSourceFile(
+    "shipped.js",
+    source,
+    ts.ScriptTarget.ESNext,
+    true,
+    ts.ScriptKind.JS,
+  );
+  const found: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node)) {
+      found.push(node.moduleSpecifier.getText(file));
+    } else if (ts.isExportDeclaration(node) && node.moduleSpecifier) {
+      found.push(node.moduleSpecifier.getText(file));
+    } else if (
+      ts.isCallExpression(node) &&
+      (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+        (ts.isIdentifier(node.expression) &&
+          node.expression.text === "require"))
+    ) {
+      found.push(node.getText(file));
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return found;
+}
+
+await test("the shipped-file import check catches every spelling of a runtime dependency and ignores look-alikes", () => {
+  const spellings = [
+    'import"node:fs";',
+    'import { readFileSync } from "node:fs";',
+    'import * as os from "node:os";',
+    'export * from "./other.js";',
+    'export { thing } from "./other.js";',
+    'const loaded = await import("node:path");',
+    'const legacy = require("node:crypto");',
+  ];
+  for (const spelling of spellings) {
+    assertEqual(
+      runtimeDependencies(spelling).length,
+      1,
+      `must report one dependency for: ${spelling}`,
+    );
+  }
+  assertEqual(
+    runtimeDependencies(
+      [
+        "// import { x } from 'y' in a comment",
+        "const text = \"import('x') and require('y')\";",
+        "export const ENGINE_SAMPLE_RATE = 16000;",
+        "export class Gate {}",
+      ].join("\n"),
+    ).length,
+    0,
+    "comments, strings and plain exports are not dependencies",
+  );
+});
+
+await test("the endpointer subpath resolves through package.json exports and ships without imports", () => {
+  const shipped = fileURLToPath(import.meta.resolve(ENDPOINTER_SUBPATH));
+  const expected = fileURLToPath(
+    new URL("../dist/voice/streaming/endpointer.js", import.meta.url),
+  );
+  assertEqual(
+    shipped,
+    expected,
+    "the subpath must resolve to the built endpointer file",
+  );
+  // Type-only imports are erased from the built file, so any dependency left
+  // is one the browser would have to bundle.
+  assertEqual(
+    runtimeDependencies(readFileSync(shipped, "utf8")).length,
+    0,
+    "the shipped endpointer must not import anything at runtime",
+  );
+  assertEqual(
+    ENDPOINTER_DEFAULTS.endSilenceMs,
+    750,
+    "the documented end-of-speech wait is 750 ms",
+  );
+});
+
+await test("one spoken turn starts near its onset and ends endSilenceMs after it stops, at 16, 44.1 and 48 kHz", () => {
+  for (const rate of [16000, 44100, 48000]) {
+    const observed = runEndpointer(
+      [
+        [1.0, QUIET_AMPLITUDE],
+        [1.2, SPEECH_AMPLITUDE],
+        [1.5, QUIET_AMPLITUDE],
+      ],
+      { rate },
+    );
+    assertEqual(
+      observed.map((event) => event.type).join(","),
+      "start,end",
+      `exactly one turn at ${rate} Hz`,
+    );
+    assertEqual(
+      observed[1].reason,
+      "silence",
+      `turn ends on silence at ${rate} Hz`,
+    );
+    assert(
+      observed[0].atSeconds >= 1.0 && observed[0].atSeconds <= 1.1,
+      `start is reported within 100 ms of the onset at ${rate} Hz`,
+    );
+    const waited = observed[1].atSeconds - 2.2;
+    assert(
+      waited >= 0.7 && waited <= 0.8,
+      `end follows the last speech by about 750 ms at ${rate} Hz`,
+    );
+  }
+});
+
+await test("a click is dropped, quiet input starts nothing, and a pause splits a turn unless endSilenceMs is raised", () => {
+  assertEqual(
+    runEndpointer([[5.0, QUIET_AMPLITUDE]]).length,
+    0,
+    "quiet input must not start a turn",
+  );
+  const click = runEndpointer([
+    [1.0, QUIET_AMPLITUDE],
+    [0.08, SPEECH_AMPLITUDE],
+    [1.5, QUIET_AMPLITUDE],
+  ]);
+  assertEqual(
+    click.map((event) => event.type).join(","),
+    "start,drop",
+    "an 80 ms click starts a turn and is then dropped, never ended",
+  );
+  const withPause: EndpointerSegment[] = [
+    [1.0, QUIET_AMPLITUDE],
+    [1.0, SPEECH_AMPLITUDE],
+    [0.9, QUIET_AMPLITUDE],
+    [1.0, SPEECH_AMPLITUDE],
+    [1.5, QUIET_AMPLITUDE],
+  ];
+  assertEqual(
+    runEndpointer(withPause).filter((event) => event.type === "end").length,
+    2,
+    "a 0.9 s pause is longer than the default wait, so the turn splits",
+  );
+  assertEqual(
+    runEndpointer(withPause, { endSilenceMs: 1200 }).filter(
+      (event) => event.type === "end",
+    ).length,
+    1,
+    "a 1.2 s wait keeps the same speech as one turn",
+  );
+});
+
+await test("a turn that never pauses is cut at the cap the caller sets", () => {
+  const talk: EndpointerSegment[] = [[1.0, QUIET_AMPLITUDE]];
+  for (let index = 0; index < 107; index++) {
+    // 150 ms dips stay under the 320 ms gap a soft cut needs
+    talk.push([0.5, SPEECH_AMPLITUDE], [0.15, QUIET_AMPLITUDE]);
+  }
+  const byDefault = runEndpointer(talk).find((event) => event.type === "end");
+  assert(
+    byDefault?.reason === "hardCut" &&
+      byDefault.atSeconds > 27 &&
+      byDefault.atSeconds < 30,
+    "by default a non-stop turn is hard-cut near 28 s",
+  );
+  const raised = runEndpointer(talk, { capSeconds: 60 }).find(
+    (event) => event.type === "end",
+  );
+  assert(
+    raised?.reason === "hardCut" &&
+      raised.atSeconds > 59 &&
+      raised.atSeconds < 62,
+    "with the cap raised to 60 s the turn is cut near 60 s",
+  );
 });
 
 // ---------------------------------------------------------------------------

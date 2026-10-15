@@ -253,6 +253,48 @@ Tuning (`streaming`): `sampleRate` (16000), `endSilenceMs` (750), `intervalMs`
 (900), `softCutSeconds` (16), `maxUtteranceSeconds` (28), `onsetRms` (0.006),
 `prerollMs` (350), `minSpeechMs` (250).
 
+### Finding the end of a spoken turn in a browser
+
+`@juspay/neurolink/voice/endpointer` exports the energy gate the chunked adapter
+uses. It is a self-contained module (no Node built-ins, no other imports), so a
+browser app can ask where a spoken turn starts and ends without running a speech
+engine and without bundling the `voice` entry.
+
+```typescript
+import {
+  Endpointer,
+  resolveEndpointerConfig,
+} from "@juspay/neurolink/voice/endpointer";
+
+const gate = new Endpointer(
+  resolveEndpointerConfig(
+    { endSilenceMs: 1000, softCutSeconds: 60, maxUtteranceSeconds: 60 },
+    audioContext.sampleRate,
+  ),
+);
+
+// `samples` is a Float32Array at the context's sample rate, from an AudioWorklet
+for (const event of gate.push(samples)) {
+  if (event.type === "end") stopRecording(event.reason);
+  if (event.type === "drop") discardClick();
+}
+```
+
+- `start` is tentative: a click also starts an utterance, and a `drop` follows
+  about `endSilenceMs` later. `end` carries a `reason`: `silence`, `softCut`,
+  `hardCut` or `flush`.
+- Feed it a continuous stream of samples. The noise floor and every timer count
+  samples, so polling an `AnalyserNode` on a timer gives wrong timings.
+- The noise floor starts at a fixed value and rises by at most about 2x per
+  second. In a loud room the first two seconds can produce an utterance made of
+  noise, so keep the gate running for about two seconds before trusting events.
+- A signal that never dips (a fan, a steady hum) is absorbed as noise after a
+  few seconds. It measures energy, not speech: background talk keeps a turn open
+  until a cut.
+- `softCutSeconds` (16) ends a turn at the first gap of 320 ms or more once it is
+  that long. Raise it, together with `maxUtteranceSeconds`, when you want one
+  recording per turn.
+
 ## CLI
 
 ```bash

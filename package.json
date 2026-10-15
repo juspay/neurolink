@@ -397,6 +397,11 @@
       "import": "./dist/voice/index.js",
       "default": "./dist/voice/index.js"
     },
+    "./voice/endpointer": {
+      "types": "./dist/voice/streaming/endpointer.d.ts",
+      "import": "./dist/voice/streaming/endpointer.js",
+      "default": "./dist/voice/streaming/endpointer.js"
+    },
     "./music": {
       "types": "./dist/music/index.d.ts",
       "import": "./dist/music/index.js",
