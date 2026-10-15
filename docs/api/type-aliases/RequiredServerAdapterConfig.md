@@ -87,3 +87,9 @@ Required server adapter configuration (with defaults applied)
 ### shutdown
 
 > **shutdown**: [`RequiredShutdownConfig`](RequiredShutdownConfig.md)
+
+---
+
+### carryMiddlewareState
+
+> **carryMiddlewareState**: `boolean`

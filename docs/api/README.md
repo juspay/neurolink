@@ -2964,6 +2964,7 @@ console.log(result.content);
 - [RedactionConfig](type-aliases/RedactionConfig.md)
 - [RequiredRedactionConfig](type-aliases/RequiredRedactionConfig.md)
 - [ServerContext](type-aliases/ServerContext.md)
+- [ServerCarriedContext](type-aliases/ServerCarriedContext.md)
 - [ServerResponse](type-aliases/ServerResponse.md)
 - [StreamingConfig](type-aliases/StreamingConfig.md)
 - [HttpMethod](type-aliases/HttpMethod.md)
