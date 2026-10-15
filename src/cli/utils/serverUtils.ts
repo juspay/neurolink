@@ -54,6 +54,10 @@ const matchesKey = (key: Buffer, token: Buffer): boolean =>
  * Require one of `apiKeys` as `Authorization: Bearer <key>` or `X-API-Key`.
  * Health probes stay open so orchestrators can reach them, and the dev
  * playground header cannot bypass a key the operator configured.
+ *
+ * Every holder of a key gets the same `{ id: "api-key" }`, marked `shared` so
+ * the agent routes know it names no person and do not warn when a request
+ * names its own userId.
  */
 export function createServerApiKeyMiddleware(
   apiKeys: string[],
@@ -71,7 +75,7 @@ export function createServerApiKeyMiddleware(
     validate: async (token) => {
       const candidate = Buffer.from(token, "utf8");
       return keys.some((key) => matchesKey(key, candidate))
-        ? { id: "api-key" }
+        ? { id: "api-key", shared: true }
         : null;
     },
     skipPaths: [`${basePath.replace(/\/+$/, "")}/health`],

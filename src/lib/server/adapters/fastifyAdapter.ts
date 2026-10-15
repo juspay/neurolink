@@ -26,6 +26,7 @@ import type {
   RouteDefinition,
   ServerAdapterConfig,
   ServerAdapterEvents,
+  ServerCarriedContext,
   ServerContext,
   FastifyRateLimitContext,
 } from "../../types/index.js";
@@ -43,6 +44,11 @@ import {
 export class FastifyServerAdapter extends BaseServerAdapter {
   private app: FastifyInstance | null = null;
   private frameworkInitialized = false;
+  // The shutdown drain's record for each in-flight request. Fastify takes
+  // `request.id` from the caller's X-Request-ID, so that id can repeat across
+  // overlapping requests: a record named after it would be shared, and the
+  // first request to finish would untrack the other.
+  private connectionIds = new WeakMap<FastifyRequest, string>();
 
   constructor(neurolink: NeuroLink, config: ServerAdapterConfig = {}) {
     super(neurolink, config);
@@ -330,10 +336,12 @@ export class FastifyServerAdapter extends BaseServerAdapter {
         // Copy response headers from middleware (stored in request by middleware)
         const reqWithHeaders = request as FastifyRequest & {
           responseHeaders?: Record<string, string>;
+          carriedContext?: ServerCarriedContext;
         };
         if (reqWithHeaders.responseHeaders) {
           ctx.responseHeaders = { ...reqWithHeaders.responseHeaders };
         }
+        this.restoreCarriedContext(ctx, reqWithHeaders.carriedContext);
 
         // Emit request event
         this.emit("request", {
@@ -513,6 +521,7 @@ export class FastifyServerAdapter extends BaseServerAdapter {
         // Initialize response headers storage if not present
         const reqWithHeaders = request as FastifyRequest & {
           responseHeaders: Record<string, string>;
+          carriedContext?: ServerCarriedContext;
         };
         if (!reqWithHeaders.responseHeaders) {
           reqWithHeaders.responseHeaders = {};
@@ -531,9 +540,13 @@ export class FastifyServerAdapter extends BaseServerAdapter {
 
         // Copy existing response headers to context
         ctx.responseHeaders = { ...reqWithHeaders.responseHeaders };
+        this.restoreCarriedContext(ctx, reqWithHeaders.carriedContext);
 
         // Execute middleware
         await middleware.handler(ctx, async () => {
+          // What this middleware set (ctx.user included) is for the next
+          // middleware and the route handler, which build their own contexts.
+          reqWithHeaders.carriedContext = this.captureCarriedContext(ctx);
           // After middleware execution, merge response headers back to request
           if (ctx.responseHeaders) {
             Object.assign(reqWithHeaders.responseHeaders, ctx.responseHeaders);
@@ -574,13 +587,16 @@ export class FastifyServerAdapter extends BaseServerAdapter {
 
     // Track connections via Fastify hooks (must be registered before listen)
     app.addHook("onRequest", async (request: FastifyRequest) => {
-      const connectionId = `conn-${request.id}`;
+      const connectionId = `conn-${this.generateRequestId()}`;
+      this.connectionIds.set(request, connectionId);
       this.trackConnection(connectionId, request.raw.socket, request.id);
     });
 
     app.addHook("onResponse", async (request: FastifyRequest) => {
-      const connectionId = `conn-${request.id}`;
-      this.untrackConnection(connectionId);
+      const connectionId = this.connectionIds.get(request);
+      if (connectionId) {
+        this.untrackConnection(connectionId);
+      }
     });
 
     try {

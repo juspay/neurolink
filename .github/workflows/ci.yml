@@ -1259,6 +1259,7 @@ jobs:
             test:tool-reliability@57
             test:reasoning-parity-live@19
             test:auth@50
+            test:adapter-request-context@5
             test:vertex-claude-characterization@46
             test:openai-compat-catalog@24
             test:decide-catalog-schema@20

@@ -2656,6 +2656,8 @@ type ServeProcess = {
   home: string;
   exited: Promise<number | null>;
   readiness: ServeReadiness;
+  /** Everything the server wrote to stderr, which is where its logger writes. */
+  stderrPath: string;
 };
 
 /**
@@ -2679,6 +2681,8 @@ function startServe(
   const nodeOptions = [inherited.NODE_OPTIONS, `--import=${reporter}`]
     .filter(Boolean)
     .join(" ");
+  const stderrPath = path.join(home, "serve-stderr.log");
+  const stderrFd = fs.openSync(stderrPath, "w");
   const proc = spawn("node", [CLI_ENTRY, "serve", "--quiet", ...args], {
     cwd: home,
     env: {
@@ -2690,12 +2694,13 @@ function startServe(
       NEUROLINK_SERVER_TEST_READY_LOG: readiness.journalPath,
       NEUROLINK_SERVER_TEST_READY_NONCE: readiness.nonce,
     },
-    stdio: "ignore",
+    stdio: ["ignore", "ignore", stderrFd],
   });
+  fs.closeSync(stderrFd);
   const exited = new Promise<number | null>((resolve) => {
     proc.on("exit", (code) => resolve(code));
   });
-  return { proc, home, exited, readiness };
+  return { proc, home, exited, readiness, stderrPath };
 }
 
 /** Poll the liveness probe until it answers 200, or the process exits. */
@@ -2838,6 +2843,91 @@ async function testServeCliEveryFramework(): Promise<boolean | null> {
     logTest("serve on every framework", "FAIL", failure);
   }
   return failures.length === 0;
+}
+
+/**
+ * One shared API key is how `neurolink serve` authenticates, and every holder
+ * of it names its own userId in the body (that is how callers keep separate
+ * conversation memory). The agent routes warn when a signed-in user names a
+ * different userId than their own, unless the user is marked `shared`; the
+ * key's user must carry that mark, or every such request would log the warning
+ * meant for per-person authentication. The request uses a provider that does
+ * not exist, so it fails inside generate() without contacting anything.
+ */
+async function testServeCliSharedKeyNamesNoWarning(): Promise<boolean | null> {
+  logSection("Testing `neurolink serve` shared key does not warn");
+  const port = 9137;
+  const serve = startServe(["--port", `${port}`], {
+    NEUROLINK_SERVER_API_KEY: "key-one",
+  });
+  try {
+    if (!(await waitForServe(serve, port))) {
+      logTest("serve shared key warning", "FAIL", "never became healthy");
+      return false;
+    }
+    const res = await httpRequest(
+      "POST",
+      `http://127.0.0.1:${port}/api/agent/execute`,
+      {
+        input: "hello",
+        provider: "no-such-provider",
+        userId: "someone-else",
+        sessionId: "session-of-someone-else",
+      },
+      { Authorization: "Bearer key-one" },
+    );
+    // Preconditions: the key was accepted (not 401), the body validated (not
+    // 400), and the request got as far as generate(), which refused the
+    // provider. callerContext(), where the warning is raised, runs before
+    // generate() is called. The server's own error log of that failure goes to
+    // the same stderr the warning would, so seeing it shows the capture is live.
+    if (res.status !== 500 || !res.body.includes("no-such-provider")) {
+      logTest(
+        "serve shared key warning",
+        "FAIL",
+        `the request did not reach generate(): status ${res.status}`,
+      );
+      return false;
+    }
+    const reachedGenerate = async (): Promise<boolean> => {
+      const deadline = Date.now() + 10000;
+      while (Date.now() < deadline) {
+        if (
+          fs.readFileSync(serve.stderrPath, "utf8").includes("no-such-provider")
+        ) {
+          return true;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      return false;
+    };
+    if (!(await reachedGenerate())) {
+      logTest(
+        "serve shared key warning",
+        "FAIL",
+        "the server's stderr never showed generate() failing, so it is not being captured",
+      );
+      return false;
+    }
+    const stderr = fs.readFileSync(serve.stderrPath, "utf8");
+    if (stderr.includes("[agentRoutes]") && stderr.includes("perUserAuth")) {
+      logTest(
+        "serve shared key warning",
+        "FAIL",
+        "the shared key's user triggered the per-person authentication warning",
+      );
+      return false;
+    }
+    logTest(
+      "serve shared key warning",
+      "PASS",
+      "a body userId under the shared key logs no warning",
+    );
+    return true;
+  } finally {
+    await stopServe(serve);
+    fs.rmSync(serve.home, { recursive: true, force: true });
+  }
 }
 
 /** Without NEUROLINK_SERVER_API_KEY the server stays open, as before. */
@@ -3194,6 +3284,10 @@ async function runAllTests(): Promise<void> {
 
     // `neurolink serve` through the built CLI
     { name: "Serve CLI - Every Framework", fn: testServeCliEveryFramework },
+    {
+      name: "Serve CLI - Shared Key Names No Warning",
+      fn: testServeCliSharedKeyNamesNoWarning,
+    },
     { name: "Serve CLI - Without API Key", fn: testServeCliWithoutApiKey },
     { name: "Serve CLI - Port Resolution", fn: testServeCliPortResolution },
     { name: "Serve CLI - State Guard", fn: testServeCliStateGuard },

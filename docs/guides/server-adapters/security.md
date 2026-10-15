@@ -156,6 +156,173 @@ server.registerMiddleware(
 );
 ```
 
+### Carrying middleware state to guards and handlers (`carryMiddlewareState`)
+
+Authentication middleware sets `ctx.user`. On the built-in adapters, whether the
+middleware that runs after it, and the route handler, see it depends on the
+adapter and on `carryMiddlewareState`, which is **off by default**: each adapter
+then propagates context as it always did. Express, Fastify and Koa build a fresh
+context for every middleware step and for the handler and carry only the
+response headers; Hono shares one context between the steps and the handler only
+when the client sent its own `X-Request-ID`.
+
+The option does not apply to a context you build yourself: a custom adapter, or a
+route handler you call directly, can supply a context that already has `ctx.user`
+set.
+
+So by default a role guard (`createRoleMiddleware`) registered after
+`createAuthMiddleware` sees the user on one request shape only. Measured: it
+answers 401 to every request on Express, Fastify and Koa, and on Hono without a
+client `X-Request-ID`, even for a user holding the required role, and a
+rate-limit `keyGenerator` reads `ctx.user` as undefined there. Set the option on
+the server to carry `ctx.user`, `ctx.session`, `ctx.metadata` and the abort
+signal to later middleware and the handler on every built-in adapter:
+
+```typescript
+const server = await createServer(neurolink, {
+  framework: "express",
+  config: { carryMiddlewareState: true },
+});
+```
+
+With it on, the role guard admits a user holding the role (200) and refuses one
+without it (403), and a `keyGenerator` sees `ctx.user`, on every built-in adapter. A key
+generator that keys on the user id then does what it says, so make it ignore a
+shared identity (`ctx.user.shared`), or every holder of one API key falls into a
+single bucket; the rate-limit examples below do. Turning the option on does not
+change whose identity the agent routes trust, and `registerAllRoutes` turns it
+on by itself when given `perUserAuth`, as the next section says.
+
+### Who the agent routes treat as the user (`perUserAuth`)
+
+Whether the agent routes (`/agent/execute`, `/agent/stream`, and the skill
+mutation routes' `requestedBy`) trust `ctx.user` as a person is a separate
+choice from whether the server carries it: a single shared API key sets the same
+`ctx.user` for every caller, and taking it as the user would give every client
+one `userId` and no conversation memory.
+
+So without an opt-in the agent routes resolve identity as they always have:
+
+- On Express, Fastify and Koa, and on Hono when the client sent no
+  `X-Request-ID`, `userId` and `sessionId` come from the request body.
+  `ctx.user` and `ctx.session` are ignored (they are not in the handler's
+  context at all unless the server carries middleware state), and the skill
+  routes use the body's `requestedBy`.
+- On Hono, when the client sent its own `X-Request-ID` header, an authenticated
+  `ctx.user` wins over the body (and `ctx.session` over the body's
+  `sessionId`), as it did before. Hono kept the middleware's context under that
+  header, so the handler found it. That is the only built-in combination where
+  the default ever guarded `userId`.
+- A context the built-in adapters did not hand the carry to keeps the same
+  rule, an authenticated `ctx.user` wins: an adapter you wrote that sets
+  `ctx.user` itself, or a route handler you call directly with a context you
+  built (a test harness, for one).
+
+Set `perUserAuth: true` when your middleware identifies individual people (one
+credential per person). Only this option, with `carryMiddlewareState` on, makes the agent routes take
+the user from `ctx.user`, and ignore the body's `userId`, on every built-in
+adapter and for every request:
+
+```typescript
+registerAllRoutes(server, "/api", { perUserAuth: true });
+```
+
+`registerAllRoutes` also turns on `carryMiddlewareState` for the server, because
+the routes can only take identity from `ctx.user` if the adapter hands it to the
+handler. With `carryMiddlewareState` on, a `perUserAuth` request that your middleware
+authenticated reaches the handler with that user on every built-in adapter. A
+request that no middleware authenticated (optional authentication) runs as
+anonymous, with no `userId` and no session.
+
+If you register the agent routes yourself with
+`createAgentRoutes("/api", { perUserAuth: true })`, create the server with
+`carryMiddlewareState: true`. Without it, whether a `perUserAuth` request has a
+user depends on the adapter and the request:
+
+- Hono, when the client sent its own `X-Request-ID` header: an authenticated
+  request has its user and session. Hono hands the handler the middleware's context for such
+  a request whether or not `carryMiddlewareState` is on, so a client that chooses to send the
+  header is identified.
+- Every other request (Hono without that header, Express, Fastify and Koa): the
+  handler has no `ctx.user`, so the request runs as anonymous, with no `userId`
+  and no session. The body's `userId` and `sessionId` are still ignored.
+
+Both are the strict behaviour for the requests that have no user, but the
+inconsistency between them is rarely what you want, so set the option.
+
+**A server that uses a built-in adapter with per-person authentication must set
+`perUserAuth`.** Without it, on every built-in adapter except Hono with
+`X-Request-ID`, any authenticated caller can name another person's `userId` and
+`sessionId` in the request body and the agent routes will run as them. A custom
+adapter that sets `ctx.user` itself, or a handler called directly with a context
+you built, already takes the user from `ctx.user` over the body.
+
+The routes can tell you when that is happening, but only when the server carries
+middleware state. Without `perUserAuth` and with `carryMiddlewareState` on, the
+first time a request that is served from the body names a different `userId`
+than its non-`shared` `ctx.user`, the agent routes write one warning to stderr
+(once per server, so a busy server is not flooded; the warning shows even with
+debug logging off) saying that per-person authentication without `perUserAuth`
+lets a caller name another user. The request is not refused: the body's `userId`
+is still used. The message carries no user id or other request value.
+
+With `carryMiddlewareState` off, which is the default, there is no warning: the handler has no
+`ctx.user` on the requests served from the body, so there is nothing to compare
+the body's `userId` against. A per-person server that sets neither
+`carryMiddlewareState` nor `perUserAuth` therefore gets no notice, and any
+authenticated caller can still name another person; `registerAllRoutes` leaves
+`carryMiddlewareState` off unless it is given `perUserAuth`.
+
+When it is raised, the warning stays quiet for a request whose `ctx.user` is
+marked `shared: true`,
+for a body that names the same user or none, for a request with no
+authenticated user, for a Hono request with `X-Request-ID` (where `ctx.user`
+already wins), and whenever `perUserAuth` is on. `shared: true` marks an
+identity that stands for every holder of one credential, such as a shared API
+key, rather than one person. Middleware that authenticates a shared key should
+set it on the user it returns, from `createAuthMiddleware`'s `validate` or on
+`ctx.user` directly:
+
+```typescript
+createAuthMiddleware({
+  type: "api-key",
+  validate: async (key) =>
+    key === process.env.TEAM_KEY ? { id: "team-key", shared: true } : null,
+});
+```
+
+`neurolink serve` with `NEUROLINK_SERVER_API_KEY` sets the mark for you, and so
+does the dev playground user.
+
+| Mode                                       | Adapter and request                                                                                                                                                | `userId`                                                                                               | session                                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| default, no authentication                 | any                                                                                                                                                                | the body's `userId`                                                                                    | the body's (on Hono with `X-Request-ID`, a `ctx.session` set by middleware wins)      |
+| default, one shared key (`shared: true`)   | Express, Fastify, Koa; Hono without `X-Request-ID`                                                                                                                 | the body's `userId`                                                                                    | the body's                                                                            |
+| default, one shared key                    | Hono with `X-Request-ID`                                                                                                                                           | the key's identity (`api-key`), body ignored                                                           | none (`ctx.session` only), body ignored                                               |
+| default, per-person authentication         | Express, Fastify, Koa; Hono without `X-Request-ID`                                                                                                                 | the body's `userId`: **any caller can name anyone** (one warning, only with `carryMiddlewareState` on) | the body's; `ctx.session` is ignored                                                  |
+| default, per-person authentication         | Hono with `X-Request-ID`                                                                                                                                           | `ctx.user.id`, body ignored                                                                            | `ctx.session` only, body ignored                                                      |
+| default, per-person authentication         | your own adapter, or a direct handler call                                                                                                                         | `ctx.user.id`, body ignored                                                                            | `ctx.session` only, body ignored                                                      |
+| `perUserAuth: true`, user identified       | any, when the handler receives `ctx.user` (always with `registerAllRoutes`)                                                                                        | `ctx.user.id`, body ignored                                                                            | `ctx.session` only, body ignored                                                      |
+| `perUserAuth: true`, no authenticated user | any; also `createAgentRoutes` without `carryMiddlewareState` on Express, Fastify, Koa and Hono without `X-Request-ID`, where the handler never receives `ctx.user` | none, body ignored                                                                                     | none: body and `ctx.session` ignored, so anonymous callers never share a conversation |
+
+On Hono with `X-Request-ID` and no authenticated user (optional authentication),
+the default uses the body's `userId` and `ctx.session`, else the body's
+`sessionId`. The skill routes' `requestedBy` follows the same split: the body's
+by default, with the authenticated user winning on Hono with `X-Request-ID`, and
+always the authenticated user under `perUserAuth`.
+
+`neurolink serve` with `NEUROLINK_SERVER_API_KEY` is a shared key and uses the
+default. Do not set `perUserAuth` on a server with no authentication: nothing
+sets `ctx.user`, so every request would run without a user or a session.
+
+Hono behind one shared key has always been the odd case: clients that send
+`X-Request-ID` (NeuroLink's own HTTP client always does) run as the key's
+identity, `api-key` with no session, so all of them share one user and have no
+conversation memory, while clients that do not send it choose their own
+`userId` and `sessionId`. The default keeps that behaviour as it was. Do not set
+`perUserAuth` to fix it with a shared key: that makes every caller `api-key`
+on every adapter.
+
 ### Skip Paths Configuration
 
 Certain endpoints should bypass authentication:
@@ -234,8 +401,14 @@ server.registerMiddleware(
     maxRequests: 1000,
     windowMs: 3600000, // 1 hour
     keyGenerator: (ctx) => {
-      // Use user ID if authenticated, fall back to IP
-      return ctx.user?.id || ctx.headers["x-forwarded-for"] || "anonymous";
+      // A person's bucket is their user ID. A shared identity (one API key for
+      // many callers) would put every caller in one bucket, so it, and an
+      // anonymous caller, fall back to the forwarded address. Read
+      // x-forwarded-for only behind a trusted proxy that sets or overwrites it:
+      // otherwise the client chooses its own bucket by sending any value.
+      return ctx.user && !ctx.user.shared
+        ? ctx.user.id
+        : ctx.headers["x-forwarded-for"] || "anonymous";
     },
   }),
 );
@@ -252,7 +425,11 @@ server.registerMiddleware(
     windowMs: 60000,
     keyGenerator: (ctx) => {
       const apiKey = ctx.headers["x-api-key"];
-      return apiKey ? `key:${apiKey}` : `ip:${ctx.headers["x-forwarded-for"]}`;
+      // x-forwarded-for only behind a trusted proxy that sets or overwrites it
+      // (see above), and a string key when the header is absent
+      return apiKey
+        ? `key:${apiKey}`
+        : `ip:${ctx.headers["x-forwarded-for"] || "unknown"}`;
     },
     onRateLimitExceeded: (ctx, retryAfter) => {
       // Custom response with tier info
@@ -281,7 +458,12 @@ server.registerMiddleware(
     maxRequests: 100,
     windowMs: 60000,
     subWindows: 10, // 10 sub-windows for smoother limiting
-    keyGenerator: (ctx) => ctx.user?.id || ctx.headers["x-forwarded-for"],
+    // x-forwarded-for only behind a trusted proxy (see above), and always a
+    // string key: a request without the header would otherwise key on undefined
+    keyGenerator: (ctx) =>
+      ctx.user && !ctx.user.shared
+        ? ctx.user.id
+        : ctx.headers["x-forwarded-for"] || "anonymous",
   }),
 );
 ```
