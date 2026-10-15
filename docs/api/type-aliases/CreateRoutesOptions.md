@@ -115,12 +115,15 @@ Set to `true` when the authentication middleware identifies individual
 people (one credential per person). The agent routes then take `userId`
 and the session only from the authenticated user and ignore the request
 body's, on every adapter and for every request; a request with no
-authenticated user gets neither. Any truthy value turns it on.
+authenticated user gets neither. The memory routes scope every session to
+that user too (see `ServerMemoryRouteOptions`). Any truthy value turns it
+on.
 
 **A server with per-person authentication must set this.** Left at the
 default (`false`) requests choose `userId` and `sessionId` in the body, so
-any authenticated caller can name another person there and act as them.
-The one exception is Hono, where a request whose client sent its own
+any authenticated caller can name another person there and act as them,
+and the memory routes ignore who is calling. The agent routes have one
+exception, Hono, where a request whose client sent its own
 `X-Request-ID` header reaches the handler with the middleware's context and
 an authenticated `ctx.user` wins over the body, as before, and so on a
 context the built-in adapters did not build (your own adapter, a handler
@@ -144,3 +147,13 @@ groups only, so a caller that registers them itself must create the server
 with `carryMiddlewareState: true`; with the carry off, a `perUserAuth`
 request has a user only on Hono when the client sent its own
 `X-Request-ID`, and every other request runs as anonymous.
+
+---
+
+### memory?
+
+> `optional` **memory?**: `Omit`\<[`ServerMemoryRouteOptions`](ServerMemoryRouteOptions.md), `"perUserAuth"`\>
+
+Options for the conversation-memory routes (`<basePath>/memory/*`): which
+roles are admins when `perUserAuth` is on. Whether the routes are scoped is
+decided by the top-level `perUserAuth`, so it is not accepted here.

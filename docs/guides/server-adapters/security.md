@@ -192,10 +192,12 @@ on by itself when given `perUserAuth`, as the next section says.
 ### Who the agent routes treat as the user (`perUserAuth`)
 
 Whether the agent routes (`/agent/execute`, `/agent/stream`, and the skill
-mutation routes' `requestedBy`) trust `ctx.user` as a person is a separate
-choice from whether the server carries it: a single shared API key sets the same
-`ctx.user` for every caller, and taking it as the user would give every client
-one `userId` and no conversation memory.
+mutation routes' `requestedBy`) and the memory routes (`/memory/*`) trust
+`ctx.user` as a person is a separate choice from whether the server carries it:
+a single shared API key sets the same `ctx.user` for every caller, and taking it
+as the user would give every client one `userId` and no conversation memory
+(agent routes), or make every client a non-admin of its own deployment (memory
+routes).
 
 So without an opt-in the agent routes resolve identity as they always have:
 
@@ -213,6 +215,9 @@ So without an opt-in the agent routes resolve identity as they always have:
   rule, an authenticated `ctx.user` wins: an adapter you wrote that sets
   `ctx.user` itself, or a route handler you call directly with a context you
   built (a test harness, for one).
+
+The memory routes have none of these exceptions: without the opt-in they ignore
+`ctx.user` on every adapter and for every request.
 
 Set `perUserAuth: true` when your middleware identifies individual people (one
 credential per person). Only this option, with the carry on, gives the guard on
@@ -246,7 +251,9 @@ inconsistency between them is rarely what you want, so set the option.
 **A server with per-person authentication must set `perUserAuth`.** Without it,
 on every adapter except Hono with `X-Request-ID`, any authenticated caller can
 name another person's `userId` and `sessionId` in the request body and the agent
-routes will run as them.
+routes will run as them, and on every adapter any authenticated caller can read
+or erase another person's sessions through the memory routes. Any truthy value
+turns it on.
 
 The routes can tell you when that is happening, but only when the server carries
 middleware state. Without `perUserAuth` and with `carryMiddlewareState` on, the
@@ -302,9 +309,38 @@ the default uses the body's `userId` and `ctx.session`, else the body's
 by default, with the authenticated user winning on Hono with `X-Request-ID`, and
 always the authenticated user under `perUserAuth`.
 
+The memory routes follow the same switch, without the per-adapter exceptions in
+the table above. By default they behave as they always have: `?userId=` chooses
+the user on Redis, in-memory sessions are keyed by id alone, and
+`GET /memory/stats` and `DELETE /memory/sessions` are open to every caller that
+passes your authentication, whatever `carryMiddlewareState` says, because they
+never read `ctx.user`. With `perUserAuth: true` every memory route except
+`GET /memory/health` answers `401` to a request with no authenticated user (or
+an empty user id), a caller reaches only its own sessions, and statistics and
+clear-all need a role in `memory.adminRoles` (default `["admin"]`). On Redis an
+admin reaches another user's session by naming that user in `?userId=`; the
+"Memory routes and per-user authentication" section of the server adapters API
+reference lists exactly what an admin can and cannot reach.
+
+`registerAllRoutes` with `perUserAuth` is what hands `ctx.user` to the memory
+routes, because it turns on `carryMiddlewareState` for the server. If you
+register the memory routes yourself with
+`createMemoryRoutes("/api", { perUserAuth: true })`, create the server with
+`carryMiddlewareState: true`; without it the routes see no user and answer
+`401` to every request.
+
+**On Redis, the scoping holds only while no user id contains `:`.** The Redis
+manager keys a session as `<keyPrefix><userId>:<sessionId>` without escaping
+either part, and the session id comes from the URL, so user `a` asking for
+session `b:c` reaches the session `c` of user `a:b`. Issue user ids without `:`
+(and never `session-only`, the key a session created without a `userId` is
+stored under) if you scope Redis memory with `perUserAuth`. The in-memory
+manager is not affected.
+
 `neurolink serve` with `NEUROLINK_SERVER_API_KEY` is a shared key and uses the
 default. Do not set `perUserAuth` on a server with no authentication: nothing
-sets `ctx.user`, so every request would run without a user or a session.
+sets `ctx.user`, so every agent request would run without a user or a session
+and every memory route would answer `401`.
 
 Hono behind one shared key has always been the odd case: clients that send
 `X-Request-ID` (NeuroLink's own HTTP client always does) run as the key's
