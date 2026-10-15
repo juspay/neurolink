@@ -194,14 +194,16 @@ type CORSConfig = {
 };
 ```
 
-| Option        | Type       | Default                                                | Description                        |
-| ------------- | ---------- | ------------------------------------------------------ | ---------------------------------- |
-| `enabled`     | `boolean`  | `true`                                                 | Enable CORS support                |
-| `origins`     | `string[]` | `[]`                                                   | Allowed origins (`["*"]` = any)    |
-| `methods`     | `string[]` | `["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]` | Allowed HTTP methods               |
-| `headers`     | `string[]` | `["Content-Type", "Authorization"]`                    | Allowed headers                    |
-| `credentials` | `boolean`  | `false`                                                | Allow credentials                  |
-| `maxAge`      | `number`   | `86400`                                                | Preflight cache max age in seconds |
+| Option        | Type       | Default                                                             | Description                                            |
+| ------------- | ---------- | ------------------------------------------------------------------- | ------------------------------------------------------ |
+| `enabled`     | `boolean`  | `true`                                                              | Enable CORS support                                    |
+| `origins`     | `string[]` | `[]`                                                                | Allowed origins (`["*"]` = any)                        |
+| `methods`     | `string[]` | `["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]`              | Allowed HTTP methods                                   |
+| `headers`     | `string[]` | `["Content-Type", "Authorization", "X-Request-ID", "X-Session-Id"]` | Allowed headers (a list you pass replaces the default) |
+| `credentials` | `boolean`  | `false`                                                             | Allow credentials                                      |
+| `maxAge`      | `number`   | `86400`                                                             | Preflight cache max age in seconds                     |
+
+`X-Session-Id` is the header `createSessionMiddleware()` reads. That middleware does nothing on a server that does not carry middleware state (`carryMiddlewareState`, off by default); `registerAllRoutes` with `perUserAuth` turns the carry on, or set `carryMiddlewareState: true` on the server. See the [middleware guide](../guides/server-adapters/middleware.md#session-middleware).
 
 > **Security note:** With no `origins` listed, no web page can call the server cross-origin. List the origins you serve pages from, or set `["*"]` explicitly to allow any domain (then also set an API key). `neurolink serve --cors-origin https://myapp.com` does the same from the command line.
 
