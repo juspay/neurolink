@@ -647,6 +647,12 @@ jobs:
       # v12.28.0 had no gate at all until a bug-bounty report against 12.23.2
       # made that visible. Offline against a local replay endpoint: every
       # assertion passes with the environment stripped, none skip, ~2s.
+      #
+      # test:realtime-voice drives the Gemini Live and xAI realtime backends
+      # against loopback WebSocket and HTTP stand-ins, with no key. It opens
+      # local servers and spawns child node processes, so it ran first in the
+      # non-blocking extended-suites job, where all 34 assertions passed with
+      # none skipped in about 8s (run 39021843790). It gates merges from here.
       - name: Credential-free suites (the rest of test:unit)
         run: |
           pnpm run test:bugfixes
@@ -686,6 +692,7 @@ jobs:
           pnpm run test:runinfra-pilot
           pnpm run test:catalog-output-ceiling
           pnpm run test:package-declarations
+          pnpm run test:realtime-voice
 
   # action-smoke-test:
   #   name: GitHub Action Smoke Test

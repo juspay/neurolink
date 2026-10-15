@@ -10,18 +10,28 @@
 
 Realtime voice configuration resolved from the environment.
 
-In speech-to-speech mode one realtime model (Gemini Live on Vertex) does STT,
-reasoning, TTS, and turn detection — so there is no separate STT/TTS/VAD/EOU
-config. `resolveRealtimeVoiceConfig` fills every field from `process.env`
-(with defaults); `RealtimeVoiceAgentConfig` lets a caller override any of them.
+In speech-to-speech mode one realtime model (Gemini Live on Vertex, or xAI
+Grok Voice) does STT, reasoning, TTS, and turn detection — so there is no
+separate STT/TTS/VAD/EOU config. `resolveRealtimeVoiceConfig` fills every
+field from `process.env` (with defaults); `RealtimeVoiceAgentConfig` lets a
+caller override any of them. The API key of the xai backend is deliberately
+not part of the config: the xAI plugin reads `XAI_API_KEY` itself.
 
 ## Properties
+
+### backend
+
+> **backend**: [`RealtimeVoiceBackend`](RealtimeVoiceBackend.md)
+
+Which realtime model family handles the call (VOICE_REALTIME_BACKEND; default "gemini").
+
+---
 
 ### project
 
 > **project**: `string` \| `undefined`
 
-Vertex project id (from VERTEX*PROJECT / GOOGLE_AUTH*\* / GOOGLE_CLOUD_PROJECT_ID).
+Vertex project id (from VERTEX*PROJECT / GOOGLE_AUTH*\* / GOOGLE_CLOUD_PROJECT_ID). Gemini only.
 
 ---
 
@@ -29,7 +39,7 @@ Vertex project id (from VERTEX*PROJECT / GOOGLE_AUTH*\* / GOOGLE_CLOUD_PROJECT_I
 
 > **location**: `string`
 
-Vertex location; native-audio Live is served on `global`, not regionally.
+Vertex location; native-audio Live is served on `global`, not regionally. Gemini only.
 
 ---
 
@@ -37,7 +47,7 @@ Vertex location; native-audio Live is served on `global`, not regionally.
 
 > **model**: `string`
 
-Realtime model id (e.g. "gemini-live-2.5-flash").
+Realtime model id (e.g. "gemini-live-2.5-flash" for gemini, "grok-voice-3.0" for xai).
 
 ---
 
@@ -45,7 +55,15 @@ Realtime model id (e.g. "gemini-live-2.5-flash").
 
 > **voice**: `string` \| `undefined`
 
-Optional Gemini voice name; omit for the plugin default.
+Optional voice name for either backend; omit for the plugin default.
+
+---
+
+### xaiBaseURL
+
+> **xaiBaseURL**: `string` \| `undefined`
+
+xai only: WebSocket base URL of the realtime endpoint (XAI_REALTIME_BASE_URL); unset keeps the plugin's own endpoint.
 
 ---
 
@@ -53,7 +71,7 @@ Optional Gemini voice name; omit for the plugin default.
 
 > **responseModality**: `string`
 
-Response modality: "AUDIO" (native S2S) or "TEXT" (half-cascade).
+Response modality: "AUDIO" (native S2S) or "TEXT" (half-cascade). Gemini only.
 
 ---
 
@@ -77,7 +95,7 @@ Opening line the agent speaks on connect ("" disables).
 
 > **toolsEnabled**: `boolean`
 
-Whether to bridge Lighthouse MCP tools as Gemini function tools.
+Whether to bridge Lighthouse MCP tools as function tools of the realtime model (either backend).
 
 ---
 

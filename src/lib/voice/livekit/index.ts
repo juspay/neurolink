@@ -20,6 +20,7 @@ export { mintJoinToken } from "./tokens.js";
 export { createVoiceRoom, dispatchVoiceAgent } from "./roomDispatch.js";
 export { defineVoiceAgent } from "./voiceAgent.js";
 export { defineRealtimeVoiceAgent } from "./realtimeVoiceAgent.js";
+export { createRealtimeLlm } from "./realtimeModel.js";
 export {
   startVoiceAgentWorker,
   startRealtimeVoiceAgentWorker,

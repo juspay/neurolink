@@ -428,29 +428,35 @@ importers:
         specifier: ^15.3.1
         version: 15.4.0(koa@3.2.0)
       '@livekit/agents':
-        specifier: ^1.4.5
-        version: 1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
+        specifier: ^1.4.6
+        version: 1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
       '@livekit/agents-plugin-cartesia':
         specifier: ^1.4.5
-        version: 1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(zod@4.3.6)
+        version: 1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(zod@4.3.6)
       '@livekit/agents-plugin-deepgram':
         specifier: ^1.4.5
-        version: 1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)
+        version: 1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)
       '@livekit/agents-plugin-elevenlabs':
         specifier: ^1.4.5
-        version: 1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)
+        version: 1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)
       '@livekit/agents-plugin-google':
         specifier: ^1.4.5
-        version: 1.4.6(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(@modelcontextprotocol/sdk@1.32.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)
+        version: 1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(@modelcontextprotocol/sdk@1.32.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)
       '@livekit/agents-plugin-livekit':
         specifier: ^1.4.5
-        version: 1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))
+        version: 1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))
+      '@livekit/agents-plugin-openai':
+        specifier: ^1.4.6
+        version: 1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(zod@4.3.6)
       '@livekit/agents-plugin-silero':
         specifier: ^1.4.5
-        version: 1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)
+        version: 1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)
       '@livekit/agents-plugin-soniox':
         specifier: ^1.4.5
-        version: 1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)
+        version: 1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)
+      '@livekit/agents-plugin-xai':
+        specifier: ^1.4.6
+        version: 1.4.6(@livekit/agents-plugin-openai@1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(zod@4.3.6))(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(zod@4.3.6)
       '@livekit/rtc-node':
         specifier: ^0.13.29
         version: 0.13.29
@@ -1692,6 +1698,13 @@ packages:
     peerDependencies:
       '@livekit/agents': 1.4.5
 
+  '@livekit/agents-plugin-openai@1.4.6':
+    resolution: {integrity: sha512-iVcyMvnLNMrZDsH6sBV1DhDG1sXMKlyUhfAKkIfl4PDReFvIFT/p+4lPOQcEq1iFDIOD5nUSPkazuH24GDnuaA==}
+    peerDependencies:
+      '@livekit/agents': 1.4.6
+      '@livekit/rtc-node': ^0.13.29
+      zod: ^3.25.76 || ^4.1.8
+
   '@livekit/agents-plugin-silero@1.4.5':
     resolution: {integrity: sha512-+j0izXX+1gWJUwCDlp+diWPW2IJZkqLLCmj3lEfzIe/jW67G0dMkADzoWfGJlqOHsc5abPOt8UJkl5XQ+XfRCQ==}
     peerDependencies:
@@ -1704,8 +1717,15 @@ packages:
       '@livekit/agents': 1.4.5
       '@livekit/rtc-node': ^0.13.29
 
-  '@livekit/agents@1.4.5':
-    resolution: {integrity: sha512-E/GgjPhv649ow+Le9xIOHnBrTFzXuDJgjlT2KxryJ80fOArz5cZe7CY5c3OnB11izzbKR9wqOzzjaYoM5nF92w==}
+  '@livekit/agents-plugin-xai@1.4.6':
+    resolution: {integrity: sha512-K1VnBx1JvN/fA1KwIAQ4t4jtNKCR/onszTlgrIU4vbUwQjuAvD2mbmk9TUU4fNSq3cHAPoaO/0Ly2lgiFXYfzg==}
+    peerDependencies:
+      '@livekit/agents': 1.4.6
+      '@livekit/agents-plugin-openai': 1.4.6
+      '@livekit/rtc-node': ^0.13.29
+
+  '@livekit/agents@1.4.6':
+    resolution: {integrity: sha512-PsSlss2Av1sd4LpjOwP5UCatuMnXUEkGgl1oBhwBmDKFoTwSsha2+iV5NIbxC3vRi4LJ7vcHwzAxlcTc1aZw2Q==}
     hasBin: true
     peerDependencies:
       '@livekit/rtc-node': ^0.13.29
@@ -8334,9 +8354,9 @@ snapshots:
       '@langfuse/core': 5.13.1(@opentelemetry/api@1.9.1)
       '@opentelemetry/api': 1.9.1
 
-  '@livekit/agents-plugin-cartesia@1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(zod@4.3.6)':
+  '@livekit/agents-plugin-cartesia@1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(zod@4.3.6)':
     dependencies:
-      '@livekit/agents': 1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
+      '@livekit/agents': 1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
       '@livekit/rtc-node': 0.13.29
       ws: 8.21.0
       zod: 4.3.6
@@ -8345,9 +8365,9 @@ snapshots:
       - utf-8-validate
     optional: true
 
-  '@livekit/agents-plugin-deepgram@1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)':
+  '@livekit/agents-plugin-deepgram@1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)':
     dependencies:
-      '@livekit/agents': 1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
+      '@livekit/agents': 1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
       '@livekit/rtc-node': 0.13.29
       ws: 8.21.0
     transitivePeerDependencies:
@@ -8355,9 +8375,9 @@ snapshots:
       - utf-8-validate
     optional: true
 
-  '@livekit/agents-plugin-elevenlabs@1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)':
+  '@livekit/agents-plugin-elevenlabs@1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)':
     dependencies:
-      '@livekit/agents': 1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
+      '@livekit/agents': 1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
       '@livekit/mutex': 1.1.1
       '@livekit/rtc-node': 0.13.29
       ws: 8.21.0
@@ -8366,10 +8386,10 @@ snapshots:
       - utf-8-validate
     optional: true
 
-  '@livekit/agents-plugin-google@1.4.6(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(@modelcontextprotocol/sdk@1.32.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)':
+  '@livekit/agents-plugin-google@1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(@modelcontextprotocol/sdk@1.32.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)':
     dependencies:
       '@google/genai': 1.52.0(@modelcontextprotocol/sdk@1.32.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))
-      '@livekit/agents': 1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
+      '@livekit/agents': 1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
       '@livekit/mutex': 1.1.1
       '@livekit/rtc-node': 0.13.29
       '@types/json-schema': 7.0.15
@@ -8385,17 +8405,30 @@ snapshots:
       - zod
     optional: true
 
-  '@livekit/agents-plugin-livekit@1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))':
+  '@livekit/agents-plugin-livekit@1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))':
     dependencies:
       '@huggingface/hub': 2.4.1
       '@huggingface/transformers': 4.2.0
-      '@livekit/agents': 1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
+      '@livekit/agents': 1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
       onnxruntime-node: 1.24.3
     optional: true
 
-  '@livekit/agents-plugin-silero@1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)':
+  '@livekit/agents-plugin-openai@1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(zod@4.3.6)':
     dependencies:
-      '@livekit/agents': 1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
+      '@livekit/agents': 1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
+      '@livekit/mutex': 1.1.1
+      '@livekit/rtc-node': 0.13.29
+      openai: 6.42.0(ws@8.21.0)(zod@4.3.6)
+      ws: 8.21.0
+      zod: 4.3.6
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+    optional: true
+
+  '@livekit/agents-plugin-silero@1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)':
+    dependencies:
+      '@livekit/agents': 1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
       '@livekit/rtc-node': 0.13.29
       onnxruntime-node: 1.24.3
       ws: 8.21.0
@@ -8404,9 +8437,9 @@ snapshots:
       - utf-8-validate
     optional: true
 
-  '@livekit/agents-plugin-soniox@1.4.5(@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)':
+  '@livekit/agents-plugin-soniox@1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)':
     dependencies:
-      '@livekit/agents': 1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
+      '@livekit/agents': 1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
       '@livekit/rtc-node': 0.13.29
       ws: 8.21.0
     transitivePeerDependencies:
@@ -8414,7 +8447,20 @@ snapshots:
       - utf-8-validate
     optional: true
 
-  '@livekit/agents@1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)':
+  '@livekit/agents-plugin-xai@1.4.6(@livekit/agents-plugin-openai@1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(zod@4.3.6))(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(zod@4.3.6)':
+    dependencies:
+      '@livekit/agents': 1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
+      '@livekit/agents-plugin-openai': 1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(zod@4.3.6)
+      '@livekit/rtc-node': 0.13.29
+      openai: 6.42.0(ws@8.21.0)(zod@4.3.6)
+      ws: 8.21.0
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+      - zod
+    optional: true
+
+  '@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)':
     dependencies:
       '@bufbuild/protobuf': 1.10.1
       '@ffmpeg-installer/ffmpeg': 1.1.0
@@ -8425,7 +8471,7 @@ snapshots:
       '@livekit/typed-emitter': 3.0.0
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/api-logs': 0.54.2
-      '@opentelemetry/core': 2.8.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/core': 2.10.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/exporter-logs-otlp-proto': 0.54.2(@opentelemetry/api@1.9.1)
       '@opentelemetry/exporter-trace-otlp-proto': 0.54.2(@opentelemetry/api@1.9.1)
       '@opentelemetry/instrumentation-pino': 0.43.0(@opentelemetry/api@1.9.1)
@@ -8434,7 +8480,7 @@ snapshots:
       '@opentelemetry/sdk-logs': 0.54.2(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace-base': 2.7.1(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace-node': 2.7.1(@opentelemetry/api@1.9.1)
-      '@opentelemetry/semantic-conventions': 1.41.1
+      '@opentelemetry/semantic-conventions': 1.43.0
       '@types/pidusage': 2.0.5
       commander: 12.1.0
       fluent-ffmpeg: 2.1.3
@@ -9008,7 +9054,7 @@ snapshots:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/core': 2.10.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/resources': 2.7.1(@opentelemetry/api@1.9.1)
-      '@opentelemetry/semantic-conventions': 1.41.1
+      '@opentelemetry/semantic-conventions': 1.43.0
     optional: true
 
   '@opentelemetry/sdk-trace-node@2.6.1(@opentelemetry/api@1.9.1)':
@@ -10963,7 +11009,7 @@ snapshots:
       es-errors: 1.3.0
       get-intrinsic: 1.3.0
       has-tostringtag: 1.0.2
-      hasown: 2.0.2
+      hasown: 2.0.4
     optional: true
 
   es6-error@4.1.1:
@@ -11413,7 +11459,7 @@ snapshots:
       asynckit: 0.4.0
       combined-stream: 1.0.8
       es-set-tostringtag: 2.1.0
-      hasown: 2.0.2
+      hasown: 2.0.4
       mime-types: 2.1.35
     optional: true
 

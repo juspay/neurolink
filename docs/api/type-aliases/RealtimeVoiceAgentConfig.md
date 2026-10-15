@@ -15,6 +15,14 @@ everything via env.
 
 ## Properties
 
+### backend?
+
+> `optional` **backend?**: [`RealtimeVoiceBackend`](RealtimeVoiceBackend.md)
+
+Realtime backend; omitted means the environment's VOICE_REALTIME_BACKEND, and without it "gemini".
+
+---
+
 ### project?
 
 > `optional` **project?**: `string`
@@ -36,6 +44,14 @@ everything via env.
 ### voice?
 
 > `optional` **voice?**: `string`
+
+---
+
+### xaiBaseURL?
+
+> `optional` **xaiBaseURL?**: `string`
+
+xai only: WebSocket base URL of the realtime endpoint.
 
 ---
 
