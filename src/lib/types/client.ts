@@ -514,15 +514,52 @@ export type ClientMiddlewareContext = {
 // =============================================================================
 
 /**
+ * What `type` holds on the element `NeuroLinkProvider` returns: React's context
+ * provider descriptor, an exotic component that carries a `$$typeof` tag and is
+ * not meant to be called.
+ *
+ * Spelled without importing React, for the reason given on `ClientReactElement`.
+ * The call signature never returns, so the descriptor cannot be called for a
+ * value, and `props` is `unknown` so it still fits React's `JSXElementConstructor`.
+ */
+export type ClientReactProviderDescriptor = ((props: unknown) => never) & {
+  readonly $$typeof: symbol;
+};
+
+/**
+ * What `NeuroLinkProvider` returns, spelled without importing React.
+ *
+ * The published declaration of the hooks module cannot name a React type: `react`
+ * is an optional peer, and a consumer without it fails to compile the whole
+ * `@juspay/neurolink/client` entry point (TS2307). This is the shape of React's
+ * element, so a value of this type is still a valid JSX component return and
+ * assignable to `ReactNode` and `ReactElement`.
+ *
+ * `type` is either a host-element tag (a string) or the provider's descriptor,
+ * which is what the element returned by `NeuroLinkProvider` carries at runtime.
+ * Narrow it before use (`typeof element.type === "string"`); a string method
+ * called on it directly is a compile error. Nothing should rely on it: it names
+ * React's internal representation, which React may change.
+ */
+export type ClientReactElement = {
+  type: string | ClientReactProviderDescriptor;
+  props: unknown;
+  key: string | null;
+};
+
+/**
  * Props for the NeuroLinkProvider React component.
  *
- * `children` is typed as `unknown` so this module stays React-agnostic;
- * the provider component in reactHooks.tsx narrows it to `ReactNode`.
+ * `children` is typed as `unknown` so the declaration needs no React types.
+ * Anything React accepts as a child is accepted, and so is anything else: the
+ * type does not check it. The component renders it as a React node, so a value
+ * React cannot render (a function, a plain object) compiles and then fails in
+ * React at render time.
  */
 export type NeuroLinkProviderProps = {
   /** Client configuration */
   config: ClientConfig;
-  /** Child components (ReactNode at runtime) */
+  /** Child components. Typed `unknown` and rendered as a React node without a type check. */
   children: unknown;
 };
 

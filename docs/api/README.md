@@ -876,6 +876,8 @@ console.log(result.content);
 - [ClientMiddlewareRequest](type-aliases/ClientMiddlewareRequest.md)
 - [ClientMiddlewareResponse](type-aliases/ClientMiddlewareResponse.md)
 - [ClientMiddlewareContext](type-aliases/ClientMiddlewareContext.md)
+- [ClientReactProviderDescriptor](type-aliases/ClientReactProviderDescriptor.md)
+- [ClientReactElement](type-aliases/ClientReactElement.md)
 - [NeuroLinkProviderProps](type-aliases/NeuroLinkProviderProps.md)
 - [ClientChatMessage](type-aliases/ClientChatMessage.md)
 - [UseChatOptions](type-aliases/UseChatOptions.md)
