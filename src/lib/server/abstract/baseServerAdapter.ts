@@ -16,6 +16,7 @@ import {
 } from "../../observability/index.js";
 import { withTimeout } from "../../utils/errorHandling.js";
 import { logger } from "../../utils/logger.js";
+import { markContextCarried } from "../utils/carriedContextMark.js";
 import { tryImport } from "../../utils/tryImport.js";
 import {
   DrainTimeoutError,
@@ -32,6 +33,7 @@ import type {
   RouteDefinition,
   ServerAdapterConfig,
   ServerAdapterEvents,
+  ServerCarriedContext,
   ServerContext,
   ServerLifecycleState,
   ServerStatus,
@@ -64,6 +66,10 @@ export abstract class BaseServerAdapter extends EventEmitter {
   protected lifecycleState: ServerLifecycleState = "uninitialized";
   protected activeConnections: Map<string, TrackedConnection> = new Map();
   protected readonly shutdownConfig: RequiredShutdownConfig;
+
+  // Set by enableMiddlewareStateCarry(); the carryMiddlewareState option is the
+  // other way in.
+  private carryRequestedByRoutes = false;
 
   constructor(neurolink: NeuroLink, config: ServerAdapterConfig = {}) {
     super();
@@ -140,6 +146,7 @@ export abstract class BaseServerAdapter extends EventEmitter {
       enableSwagger: config.enableSwagger ?? false,
       disableBuiltInHealth: config.disableBuiltInHealth ?? false,
       shutdown: this.shutdownConfig,
+      carryMiddlewareState: config.carryMiddlewareState ?? false,
     };
   }
 
@@ -624,6 +631,81 @@ export abstract class BaseServerAdapter extends EventEmitter {
         description: "Server metrics endpoint",
         tags: ["system"],
       });
+    }
+  }
+
+  /**
+   * Ask the adapter to carry middleware state (`ctx.user` and the rest) to later
+   * middleware and the route handler, as the `carryMiddlewareState` option does.
+   * `registerAllRoutes()` calls it when given `perUserAuth`, which cannot work
+   * without the user in the handler. It takes effect for requests that start
+   * after the call, so call it before the server starts, as registering routes
+   * is.
+   */
+  public enableMiddlewareStateCarry(): void {
+    this.carryRequestedByRoutes = true;
+  }
+
+  /** Whether this adapter carries middleware state to the handler. */
+  protected carriesMiddlewareState(): boolean {
+    return this.config.carryMiddlewareState || this.carryRequestedByRoutes;
+  }
+
+  /**
+   * What middleware has set on its context that later middleware and the route
+   * handler must see. Each step gets a freshly built context, so unless this is
+   * parked in the framework's per-request storage an authenticated `ctx.user`
+   * set by middleware is gone before the handler runs. `undefined` when the
+   * adapter does not carry middleware state, so nothing is parked.
+   */
+  protected captureCarriedContext(
+    ctx: ServerContext,
+  ): ServerCarriedContext | undefined {
+    if (!this.carriesMiddlewareState()) {
+      return undefined;
+    }
+    return {
+      user: ctx.user,
+      session: ctx.session,
+      metadata: ctx.metadata,
+      abortSignal: ctx.abortSignal,
+      abortController: ctx.abortController,
+    };
+  }
+
+  /**
+   * Put what `captureCarriedContext` saved onto a freshly built context, and
+   * mark the context as one that received the carry. The agent routes read the
+   * mark: a request that never used to reach its handler with `ctx.user` must
+   * not start being identified by it unless the server opts in. Does nothing
+   * when the adapter does not carry middleware state: the context stays the
+   * fresh one it always was, and unmarked.
+   */
+  protected restoreCarriedContext(
+    ctx: ServerContext,
+    carried: ServerCarriedContext | undefined,
+  ): void {
+    if (!this.carriesMiddlewareState()) {
+      return;
+    }
+    markContextCarried(ctx);
+    if (!carried) {
+      return;
+    }
+    if (carried.user) {
+      ctx.user = carried.user;
+    }
+    if (carried.session) {
+      ctx.session = carried.session;
+    }
+    if (carried.metadata) {
+      ctx.metadata = { ...ctx.metadata, ...carried.metadata };
+    }
+    if (carried.abortSignal) {
+      ctx.abortSignal = carried.abortSignal;
+    }
+    if (carried.abortController) {
+      ctx.abortController = carried.abortController;
     }
   }
 

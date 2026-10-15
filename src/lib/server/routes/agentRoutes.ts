@@ -20,6 +20,7 @@ import type {
 import { withSpan } from "../../telemetry/withSpan.js";
 import { tracers } from "../../telemetry/tracers.js";
 import { logger } from "../../utils/logger.js";
+import { isContextCarried } from "../utils/carriedContextMark.js";
 
 /**
  * Resolve `request.tools` (an array of tool NAMES shared by the execute and
@@ -139,17 +140,160 @@ async function resolveRequestInput(
 /**
  * Create agent routes
  *
+ * `options.perUserAuth` decides where a request's identity comes from; see
+ * `ServerAgentRouteOptions`. Authentication middleware that sets `ctx.user`
+ * does not change that on its own: one shared API key sets the same user for
+ * every caller, so trusting it as a person would give every client the same
+ * userId and no conversation memory. The converse is the operator's to act on:
+ * a server whose authentication identifies individual people must set
+ * `perUserAuth`, or any authenticated caller can name another userId and
+ * sessionId in the body.
+ *
+ * Unset, identity resolves as it did before the adapters carried `ctx.user` to
+ * the handler: the body's `userId` and `sessionId`, with one exception. On
+ * Hono, a request whose client sent its own `X-Request-ID` header reached the
+ * handler with the middleware's context, so an authenticated `ctx.user` (and
+ * `ctx.session`) won over the body there, and still does. A context the
+ * built-in adapters did not hand the carry to also keeps that rule: a custom
+ * adapter that sets `ctx.user` itself, or a handler called directly with a
+ * context the caller built. Only `perUserAuth` (with the server carrying
+ * middleware state) makes these routes take the user from `ctx.user`, and
+ * ignore the body's `userId`, on every built-in adapter and for every request.
+ *
+ * `perUserAuth` needs the user in the handler, which an adapter hands over on
+ * every request only when the server carries middleware state.
+ * `registerAllRoutes()` turns that on for the server when it is given
+ * `perUserAuth`. A caller that registers these routes itself with `perUserAuth`
+ * must create the server with `carryMiddlewareState: true`. Without it, a
+ * request has a user only on Hono when the client sent its own `X-Request-ID`
+ * (Hono then hands the handler the middleware's context regardless); every
+ * other request (Hono without that header, Express, Fastify, Koa) runs as
+ * anonymous, with no `userId` and no session.
+ *
+ * Without `perUserAuth`, and when the server carries middleware state, the
+ * routes log one warning per instance the first time a request whose body names
+ * a different `userId` than its `ctx.user` is served from the body, unless that
+ * user is marked `shared: true` (an identity for every holder of one
+ * credential, which the CLI's API-key middleware sets). Such a request is
+ * served from the body; the warning only tells the operator that per-person
+ * authentication is running without the flag that makes it hold. With the
+ * carry off the handler has no `ctx.user` on those requests, so there is
+ * nothing to compare and no warning. A request where `ctx.user` already won has
+ * nothing to warn about.
+ *
  * @param options - Limits for `input.images` / `input.files`:
  *   `allowedInputRoots` (default: none, every local-path attachment is
  *   refused), `maxInputBytes` per attachment (default 50 MiB),
  *   `maxInputAttachments` per request (default 20, images and files together)
  *   and `maxInputTotalBytes` per request (default 100 MiB, one budget shared by
- *   images and files).
+ *   images and files); and `perUserAuth` (described above).
  */
 export function createAgentRoutes(
   basePath: string = "/api",
   options?: ServerAgentRouteOptions,
 ): RouteGroup {
+  // Truthiness, not `=== true`: a JavaScript caller passing "true" or 1 must get
+  // the strict mode, not silently the permissive one.
+  const perUser = Boolean(options?.perUserAuth);
+  // Without perUserAuth the body's userId wins (except where ctx.user already
+  // did), so an authenticated person who names someone else is acting as them.
+  // That is expected under one shared key (marked `shared`), where the body is
+  // how callers keep separate memory, and a misconfiguration under per-person
+  // authentication: say so, once, with no request values in the message.
+  // alwaysStderr, not warn: logger.warn is dropped unless debug logging is on,
+  // which would hide a security notice from the operator it is for.
+  let warnedNamingAnotherUser = false;
+  const warnIfNamingAnotherUser = (
+    ctx: ServerContext,
+    request: AgentExecuteRequest,
+  ): void => {
+    if (
+      warnedNamingAnotherUser ||
+      !ctx.user ||
+      ctx.user.shared === true ||
+      !isContextCarried(ctx) ||
+      typeof request.userId !== "string" ||
+      request.userId === ctx.user.id
+    ) {
+      return;
+    }
+    warnedNamingAnotherUser = true;
+    logger.alwaysStderr(
+      "[agentRoutes] An authenticated user named a different userId in the request body, and the body's userId was used. " +
+        "Per-person authentication without perUserAuth lets a caller name another user. " +
+        "Set perUserAuth: true, or mark an identity that stands for a shared credential with shared: true. " +
+        "This warning is logged once per server.",
+    );
+  };
+  // Who a skill mutation is attributed to. With perUserAuth the authenticated
+  // user wins and a caller-supplied name is never trusted. Otherwise the body's
+  // `requestedBy` is used, since a shared key's `ctx.user` names no person, for
+  // a context that received the adapters' carry; a context that did not (Hono
+  // with the caller's X-Request-ID, a custom adapter, a direct call) lets the
+  // authenticated user win, as it did before.
+  const skillRequester = (
+    ctx: ServerContext,
+    bodyRequestedBy: string | undefined,
+  ): string | undefined => {
+    if (perUser) {
+      return ctx.user?.id;
+    }
+    return isContextCarried(ctx)
+      ? bodyRequestedBy
+      : (ctx.user?.id ?? bodyRequestedBy);
+  };
+  // The identity generate() and stream() run under.
+  //
+  // perUserAuth: the middleware identifies individual people, so userId, email,
+  // roles and the session come only from ctx.user / ctx.session and the body's
+  // are ignored (no caller-supplied impersonation). The session is the
+  // authenticated user's: a request with no ctx.user gets none, even if a
+  // session middleware named one, because with optional authentication every
+  // anonymous caller that sends the same session id would otherwise share one
+  // conversation.
+  //
+  // Otherwise the body keeps choosing userId and sessionId, which is what every
+  // adapter did before it carried ctx.user to the handler: a context that
+  // received the adapters' carry is treated as the fresh one it used to be. The
+  // exceptions are the contexts that did not get the carry, where an
+  // authenticated ctx.user wins over the body, as it did, and so does the
+  // session: Hono with the caller's own X-Request-ID, a custom adapter that sets
+  // ctx.user itself, a handler called directly. Per-person authentication
+  // without perUserAuth therefore does not stop a caller naming someone else on
+  // the other requests.
+  const callerContext = (
+    ctx: ServerContext,
+    request: AgentExecuteRequest,
+  ): Record<string, unknown> => {
+    if (perUser) {
+      return {
+        sessionId: ctx.user ? ctx.session?.id : undefined,
+        userId: ctx.user?.id,
+        userEmail: ctx.user?.email,
+        userRoles: ctx.user?.roles,
+        requestId: ctx.requestId,
+      };
+    }
+    if (!isContextCarried(ctx)) {
+      return {
+        sessionId: ctx.user
+          ? ctx.session?.id
+          : (ctx.session?.id ?? request.sessionId),
+        userId: ctx.user ? ctx.user.id : request.userId,
+        userEmail: ctx.user?.email,
+        userRoles: ctx.user?.roles,
+        requestId: ctx.requestId,
+      };
+    }
+    warnIfNamingAnotherUser(ctx, request);
+    return {
+      sessionId: request.sessionId,
+      userId: request.userId,
+      userEmail: undefined,
+      userRoles: undefined,
+      requestId: ctx.requestId,
+    };
+  };
   return {
     prefix: `${basePath}/agent`,
     routes: [
@@ -207,17 +351,7 @@ export function createAgentRoutes(
                 temperature: request.temperature,
                 maxTokens: request.maxTokens,
                 ...(requestToolFilter ? { toolFilter: requestToolFilter } : {}),
-                context: {
-                  // When an authenticated user context exists (set by auth middleware),
-                  // always use its IDs to prevent caller-supplied impersonation.
-                  sessionId: ctx.user
-                    ? ctx.session?.id
-                    : (ctx.session?.id ?? request.sessionId),
-                  userId: ctx.user ? ctx.user.id : request.userId,
-                  userEmail: ctx.user?.email,
-                  userRoles: ctx.user?.roles,
-                  requestId: ctx.requestId,
-                },
+                context: callerContext(ctx, request),
               });
 
               // Map tool calls from SDK format to API format
@@ -281,17 +415,7 @@ export function createAgentRoutes(
             temperature: request.temperature,
             maxTokens: request.maxTokens,
             ...(streamToolFilter ? { toolFilter: streamToolFilter } : {}),
-            context: {
-              // When an authenticated user context exists (set by auth middleware),
-              // always use its IDs to prevent caller-supplied impersonation.
-              sessionId: ctx.user
-                ? ctx.session?.id
-                : (ctx.session?.id ?? request.sessionId),
-              userId: ctx.user ? ctx.user.id : request.userId,
-              userEmail: ctx.user?.email,
-              userRoles: ctx.user?.roles,
-              requestId: ctx.requestId,
-            },
+            context: callerContext(ctx, request),
           });
 
           // Create redactor (no-op if redaction is not enabled)
@@ -546,14 +670,12 @@ export function createAgentRoutes(
             return validation.error;
           }
           const { requestedBy, ...skill } = validation.data;
+          const requester = skillRequester(ctx, requestedBy);
           try {
             const result = await manager.requestMutation({
               type: "create",
               skill,
-              // Authenticated identity wins over caller-supplied attribution.
-              ...(ctx.user?.id || requestedBy
-                ? { requestedBy: ctx.user?.id ?? requestedBy }
-                : {}),
+              ...(requester ? { requestedBy: requester } : {}),
             });
             return result;
           } catch (error) {
@@ -586,14 +708,13 @@ export function createAgentRoutes(
             return validation.error;
           }
           const { requestedBy, ...patch } = validation.data;
+          const requester = skillRequester(ctx, requestedBy);
           try {
             const result = await manager.requestMutation({
               type: "update",
               skillId: ctx.params.id,
               patch,
-              ...(ctx.user?.id || requestedBy
-                ? { requestedBy: ctx.user?.id ?? requestedBy }
-                : {}),
+              ...(requester ? { requestedBy: requester } : {}),
             });
             return result;
           } catch (error) {
@@ -618,11 +739,12 @@ export function createAgentRoutes(
           if ("error" in manager) {
             return manager;
           }
+          const requester = skillRequester(ctx, undefined);
           try {
             const result = await manager.requestMutation({
               type: "delete",
               skillId: ctx.params.id,
-              ...(ctx.user?.id ? { requestedBy: ctx.user.id } : {}),
+              ...(requester ? { requestedBy: requester } : {}),
             });
             return result;
           } catch (error) {

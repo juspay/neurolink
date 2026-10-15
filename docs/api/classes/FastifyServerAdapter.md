@@ -423,6 +423,100 @@ Only registers health routes if disableBuiltInHealth is false (default)
 
 ---
 
+### enableMiddlewareStateCarry()
+
+> **enableMiddlewareStateCarry**(): `void`
+
+Ask the adapter to carry middleware state (`ctx.user` and the rest) to later
+middleware and the route handler, as the `carryMiddlewareState` option does.
+`registerAllRoutes()` calls it when given `perUserAuth`, which cannot work
+without the user in the handler. It takes effect for requests that start
+after the call, so call it before the server starts, as registering routes
+is.
+
+#### Returns
+
+`void`
+
+#### Inherited from
+
+[`BaseServerAdapter`](BaseServerAdapter.md).[`enableMiddlewareStateCarry`](BaseServerAdapter.md#enablemiddlewarestatecarry)
+
+---
+
+### carriesMiddlewareState()
+
+> `protected` **carriesMiddlewareState**(): `boolean`
+
+Whether this adapter carries middleware state to the handler.
+
+#### Returns
+
+`boolean`
+
+#### Inherited from
+
+[`BaseServerAdapter`](BaseServerAdapter.md).[`carriesMiddlewareState`](BaseServerAdapter.md#carriesmiddlewarestate)
+
+---
+
+### captureCarriedContext()
+
+> `protected` **captureCarriedContext**(`ctx`): [`ServerCarriedContext`](../type-aliases/ServerCarriedContext.md) \| `undefined`
+
+What middleware has set on its context that later middleware and the route
+handler must see. Each step gets a freshly built context, so unless this is
+parked in the framework's per-request storage an authenticated `ctx.user`
+set by middleware is gone before the handler runs. `undefined` when the
+adapter does not carry middleware state, so nothing is parked.
+
+#### Parameters
+
+##### ctx
+
+[`ServerContext`](../type-aliases/ServerContext.md)
+
+#### Returns
+
+[`ServerCarriedContext`](../type-aliases/ServerCarriedContext.md) \| `undefined`
+
+#### Inherited from
+
+[`BaseServerAdapter`](BaseServerAdapter.md).[`captureCarriedContext`](BaseServerAdapter.md#capturecarriedcontext)
+
+---
+
+### restoreCarriedContext()
+
+> `protected` **restoreCarriedContext**(`ctx`, `carried`): `void`
+
+Put what `captureCarriedContext` saved onto a freshly built context, and
+mark the context as one that received the carry. The agent routes read the
+mark: a request that never used to reach its handler with `ctx.user` must
+not start being identified by it unless the server opts in. Does nothing
+when the adapter does not carry middleware state: the context stays the
+fresh one it always was, and unmarked.
+
+#### Parameters
+
+##### ctx
+
+[`ServerContext`](../type-aliases/ServerContext.md)
+
+##### carried
+
+[`ServerCarriedContext`](../type-aliases/ServerCarriedContext.md) \| `undefined`
+
+#### Returns
+
+`void`
+
+#### Inherited from
+
+[`BaseServerAdapter`](BaseServerAdapter.md).[`restoreCarriedContext`](BaseServerAdapter.md#restorecarriedcontext)
+
+---
+
 ### generateRequestId()
 
 > `protected` **generateRequestId**(): `string`

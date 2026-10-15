@@ -34,6 +34,16 @@ User roles (optional)
 
 ---
 
+### shared?
+
+> `optional` **shared?**: `boolean`
+
+`true` when this identity stands for every holder of one credential, such
+as a shared API key, rather than one person. Carried to `ctx.user.shared`;
+see `AuthenticatedUser.shared`.
+
+---
+
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
