@@ -2050,6 +2050,7 @@ console.log(result.content);
 - [ProcessedYaml](type-aliases/ProcessedYaml.md)
 - [FfprobeStream](type-aliases/FfprobeStream.md)
 - [FfprobeData](type-aliases/FfprobeData.md)
+- [ProcessorFluentFfmpegModule](type-aliases/ProcessorFluentFfmpegModule.md)
 - [ExcelJSCell](type-aliases/ExcelJSCell.md)
 - [ExcelJSRow](type-aliases/ExcelJSRow.md)
 - [ExcelJSWorksheet](type-aliases/ExcelJSWorksheet.md)

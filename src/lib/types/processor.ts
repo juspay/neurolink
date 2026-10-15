@@ -684,6 +684,17 @@ export type FfprobeData = {
 };
 
 /**
+ * Structural shape of the `fluent-ffmpeg` export: a callable carrying the
+ * `ffprobe` and `setFfmpegPath` statics. Public declarations use this instead of
+ * `typeof import("fluent-ffmpeg")`, whose types live in a devDependency that
+ * consumers do not install.
+ */
+export type ProcessorFluentFfmpegModule = ((...args: never[]) => unknown) & {
+  ffprobe: (...args: never[]) => unknown;
+  setFfmpegPath: (...args: never[]) => unknown;
+};
+
+/**
  * Structural types for exceljs objects.
  * Defined here so the optional exceljs package is not required at typecheck time.
  */

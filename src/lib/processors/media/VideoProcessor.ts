@@ -62,6 +62,7 @@ import type {
   FileInfo,
   ProcessedVideo,
   ProcessorFileProcessingResult,
+  ProcessorFluentFfmpegModule,
   ProcessOptions,
   STTCredentials,
   STTHandler,
@@ -99,7 +100,7 @@ import { runFfmpeg } from "../../adapters/video/ffmpegAdapter.js";
  */
 export function assertFluentFfmpegShape(
   mod: unknown,
-): asserts mod is typeof import("fluent-ffmpeg") {
+): asserts mod is ProcessorFluentFfmpegModule {
   // Not `Partial<typeof import("fluent-ffmpeg")>`: Partial maps over properties
   // and drops the call signature, so `typeof x === "function"` would narrow the
   // result to `never`. Probe the statics structurally instead.
