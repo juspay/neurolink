@@ -200,6 +200,13 @@ pnpm run lint --fix
 pnpm run validate:security
 ```
 
+The secret scan runs [gitleaks](https://github.com/gitleaks/gitleaks) with the
+rules in `.gitleaks.toml` when it is on your `PATH` (`brew install gitleaks`).
+CI runners do not install it, so CI falls back to the ripgrep pattern scan in
+`scripts/security-check.ts`; run the full scan locally before pushing anything
+that touches credentials. A gitleaks that is installed but fails to run fails
+the check rather than passing it. Your own git-ignored `.env` is not scanned.
+
 **Console.log detected:**
 
 ```bash

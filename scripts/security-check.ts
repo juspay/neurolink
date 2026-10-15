@@ -14,6 +14,13 @@
 import { execSync, spawnSync } from "child_process";
 import fs from "fs";
 import path from "path";
+import {
+  GITLEAKS_CONFIG_FILE,
+  buildGitleaksArgs,
+  interpretGitleaksRun,
+  type GitleaksFinding,
+  type GitleaksRunOutcome,
+} from "./lib/gitleaksRun.js";
 import { isPlaceholderSecret, splitRgMatch } from "./lib/secretPlaceholder.js";
 
 // ANSI color codes for output formatting
@@ -338,13 +345,6 @@ type PnpmAuditJson = {
   advisories?: Record<string, PnpmAdvisory>;
 };
 
-type GitleaksFinding = {
-  RuleID?: string;
-  File?: string;
-  StartLine?: number;
-  Description?: string;
-};
-
 type SecurityResults = {
   secrets: { status: string; details: GitleaksFinding[] };
   dependencies: { status: string; details: unknown[] };
@@ -362,9 +362,12 @@ type SecurityResults = {
  * On the headroom, measured rather than assumed: gitleaks is invoked with
  * `--no-git` (see gitleaksArgs below), so it scans the working tree and does
  * NOT walk history — repo age and commit count do not enter into its runtime.
- * The whole of this script, gitleaks and `pnpm audit` and license checks
- * together, completes in about 1.4s here. 120s is therefore ~85x the observed
- * cost of everything, not a tight fit around one scanner.
+ * The figure that used to stand here (the whole script in about 1.4s) was
+ * taken while the gitleaks flags were wrong and the scan never ran. A real
+ * scan of a clean 133 MB export costs about 70 CPU-seconds: 8-12s of wall time
+ * on a 10-core laptop, 47s once while the machine was busy, and the whole
+ * script 35-55s with `pnpm audit`. That is 2.5x the slowest gitleaks run seen
+ * and wants the override below on a 2-core runner.
  *
  * It is still overridable, because that headroom is measured on one repository
  * and a much larger working tree, a cold CI runner fetching the binary, or a
@@ -701,21 +704,13 @@ class SecurityValidator {
     try {
       // Check if gitleaks is available
       const gitleaksCommand = "gitleaks";
-      const configPath = path.join(this.projectRoot, ".gitleaksrc.json");
+      const configPath = path.join(this.projectRoot, GITLEAKS_CONFIG_FILE);
 
-      const gitleaksArgs = [
-        "detect",
-        "--no-git",
-        "--exit-code",
-        "0",
-        "--format",
-        "json",
-      ];
-      if (fs.existsSync(configPath)) {
-        gitleaksArgs.push("--config", configPath);
-      }
+      const gitleaksArgs = buildGitleaksArgs(
+        fs.existsSync(configPath) ? configPath : undefined,
+      );
 
-      let gitleaksResult: string;
+      let outcome: GitleaksRunOutcome | undefined;
       let gitleaksScanFailed = false;
       let gitleaksUnavailable = false;
       try {
@@ -737,8 +732,11 @@ class SecurityValidator {
           throw result.error;
         }
 
-        // If gitleaks exits with non-zero but has stdout, use it (findings detected)
-        gitleaksResult = result.stdout || "[]";
+        outcome = interpretGitleaksRun({
+          status: result.status,
+          stdout: result.stdout ?? "",
+          stderr: result.stderr ?? "",
+        });
       } catch (gitleaksError: unknown) {
         // If gitleaks fails, fallback to empty result
         const err = gitleaksError as {
@@ -750,9 +748,8 @@ class SecurityValidator {
           this.log(`Gitleaks stderr: ${err.stderr.toString()}`, "yellow");
         }
         this.log(`Gitleaks error: ${err.message}`, "yellow");
-        gitleaksResult = "[]";
 
-        // "[]" means "gitleaks found nothing", and below that becomes
+        // No outcome means "gitleaks found nothing", and below that becomes
         // status = "passed". But a scan that was STARTED AND THEN KILLED did
         // not find nothing — it found nothing *yet*. Adding the bound above
         // made that case reachable in seconds rather than never, which without
@@ -780,21 +777,20 @@ class SecurityValidator {
         // Do not throw, fallback to empty findings and continue with basic detection
       }
 
-      let findings: GitleaksFinding[] = [];
-      try {
-        findings = JSON.parse(gitleaksResult.trim() || "[]");
-      } catch (_parseError: unknown) {
-        // If JSON parsing fails, try to extract findings manually
-        if (gitleaksResult.includes("Finding:")) {
-          this.addIssue(
-            "warning",
-            "secrets",
-            "Gitleaks found potential secrets (parsing details failed)",
-          );
-          this.results.secrets.status = "warning";
-          return;
-        }
+      // Started and failed is not the same as absent: with `--exit-code 0` a
+      // non-zero status or an unreadable report means gitleaks itself broke,
+      // and that must never read as a clean tree.
+      if (outcome?.kind === "failed") {
+        gitleaksScanFailed = true;
+        this.addIssue(
+          "error",
+          "secrets",
+          `The secret scan did not run to completion (${outcome.reason}), so the tree cannot be reported as clean`,
+        );
       }
+
+      const findings: GitleaksFinding[] =
+        outcome?.kind === "findings" ? outcome.findings : [];
 
       if (findings.length > 0) {
         // Process and filter findings

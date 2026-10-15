@@ -1,0 +1,166 @@
+title = "NeuroLink secret detection"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "neurolink-api-key"
+description = "NeuroLink API Key Pattern"
+regex = '''neurolink[_-]?api[_-]?key["'\s]*[=:]["'\s]*[a-zA-Z0-9]{32,64}'''
+keywords = ["neurolink_api_key", "neurolink-api-key", "neurolinkApiKey"]
+
+# The previous pattern (`bearer\s+[a-zA-Z0-9\-._~+/]+=*`) fired on any word after
+# "Bearer": 82 hits on a clean tree, every one under 20 characters and none with
+# a digit (`Bearer token`, `Bearer ${token}`), and none of them a credential.
+# A token has to be 20+ characters with real entropy to count.
+[[rules]]
+id = "custom-bearer-token"
+description = "Bearer Token Pattern"
+regex = '''(?i)bearer\s+([a-zA-Z0-9\-._~+/]{20,}=*)'''
+secretGroup = 1
+entropy = 3.5
+keywords = ["bearer"]
+
+[[rules]]
+id = "database-url"
+description = "Database Connection String"
+regex = '''(postgres|mysql|mongodb)://[a-zA-Z0-9_:@.-]+/[a-zA-Z0-9_-]+'''
+keywords = ["postgres://", "mysql://", "mongodb://"]
+
+# There is deliberately no `private-key` rule here. A rule with the same id
+# REPLACES the default one, and the old local pattern was weaker: it needed a
+# word before PRIVATE KEY, so it missed `BEGIN PRIVATE KEY` (PKCS#8, the form
+# service-account JSON carries) and any key without its END line. The default
+# rule keeps the id `private-key`, so the script still classifies it as critical.
+
+# Gitleaks matches `paths` as regular expressions against the repo-relative
+# path, where the retired .gitleaksrc.json held globs. Each glob was converted
+# keeping its scope: a pattern with a `/` is anchored at the repo root, a bare
+# basename glob matches at any depth.
+[[allowlists]]
+description = "Global allowlist for common false positives"
+paths = [
+  '''^\.gitleaks\.toml$''',
+  '''^node_modules/''',
+  '''^dist/''',
+  '''^build/''',
+  '''^\.svelte-kit/''',
+  '''^coverage/''',
+  '''(^|/)[^/]*\.min\.js$''',
+  '''(^|/)[^/]*\.bundle\.js$''',
+  '''^\.git/''',
+  '''^docs/(.+/)?[^/]+\.md$''',
+  '''^examples/''',
+  '''^test/(.+/)?[^/]+\.json$''',
+  '''^tools/''',
+  '''^memory-bank/''',
+]
+regexes = [
+  '''your[-_]api[-_]key[-_]here''',
+  '''replace[-_]with[-_]your''',
+  '''example[-_]key''',
+  '''test[-_]key''',
+  '''dummy[-_]key''',
+  '''placeholder''',
+  '''sample[-_]token''',
+  '''[Xx]{20,}''',
+  '''123456789''',
+  '''abcdefgh''',
+  '''sk-[Xx]{48}''',
+  '''AIza[Xx]{35}''',
+  # The doc example `abc123…`, in .env.example and in a bundled dependency's
+  # JSDoc: the only two places the default rules read it as a key.
+  '''abc123''',
+]
+stopwords = [
+  "example",
+  "test",
+  "dummy",
+  "placeholder",
+  "sample",
+  "demo",
+  "fake",
+  "mock",
+  "template",
+]
+
+# The scan runs with `--no-git`, which walks every file under the root and
+# ignores .gitignore, so a developer's own .env (git-ignored, never pushed, full
+# of live keys) failed the gate on every machine that has one: 47 findings in a
+# worktree, none of them in a tracked file. Only the local-only names are
+# listed. `.env.example` and `.env.test` are tracked templates and stay scanned,
+# which a pattern like `\.env\..*` would have exempted along with them.
+[[allowlists]]
+description = "Git-ignored local env files"
+paths = [
+  '''(^|/)\.env$''',
+  '''(^|/)\.env\.(local|development|production|staging|prod|dev)$''',
+  '''(^|/)\.env\.[a-z0-9_-]+\.local$''',
+]
+
+# A recorded LiteLLM rate-limit message ("Hashed API key: <sha256 hex>") kept in
+# the decide contract fixtures and the suites that replay them. It is the
+# one-way hash of a key, which the generic rule reads as a key.
+[[allowlists]]
+description = "Recorded LiteLLM message carrying a hashed API key"
+targetRules = ["generic-api-key"]
+regexTarget = "line"
+regexes = ['''Hashed API key: [0-9a-f]{64}''']
+
+# The generated docs search index is built from docs/**/*.md, which the global
+# allowlist above already exempts; this keeps its prose and its placeholder
+# `Authorization: Bearer <YOUR_TOKEN>` examples from being read as credentials.
+[[allowlists]]
+description = "Generated docs search index (prose from the docs)"
+targetRules = ["generic-api-key", "custom-bearer-token"]
+paths = ['''^docs-site/static/search-index\.json$''']
+
+# Constants a suite plants to prove a secret never reaches its output. The value
+# is invented, the line names it a token or marker, and the paths are small.
+[[allowlists]]
+description = "Planted sentinel constants in suites that assert nothing leaks"
+condition = "AND"
+targetRules = ["generic-api-key"]
+regexTarget = "line"
+paths = [
+  '''^test/continuous-test-suite-audio-transcription\.ts$''',
+  '''^test/continuous-test-suite-office-security\.ts$''',
+]
+regexes = ['''(TRANSCRIPT_TOKEN|SECRET_MARKER)''']
+
+# `prompt_cache_key` is a cache-routing id sent to the Codex backend, not a
+# credential. Scoped to the one suite that builds requests with it.
+[[allowlists]]
+description = "Codex prompt_cache_key in request fixtures"
+condition = "AND"
+targetRules = ["generic-api-key"]
+regexTarget = "line"
+paths = ['''^test/continuous-test-suite-codex\.ts$''']
+regexes = ['''prompt_cache_key''']
+
+# An HS256 token with only a `sub` claim and a 23-character signature (a real
+# one is 43), planted next to other `PLANTED` fixtures in a translation test.
+[[allowlists]]
+description = "Synthetic JWT in the Codex outbound translation suite"
+targetRules = ["jwt"]
+paths = ['''^test/continuous-test-suite-codex-outbound-translation\.ts$''']
+
+# Planted next to `api_key=plaintext-api-secret-123` in a test that a credential
+# leaked into a provider error body is redacted before it reaches telemetry.
+[[allowlists]]
+description = "Planted bearer token in the proxy telemetry redaction test"
+condition = "AND"
+targetRules = ["custom-bearer-token"]
+regexTarget = "line"
+paths = ['''^test/continuous-test-suite-proxy-telemetry\.ts$''']
+regexes = ['''plaintext-api-secret''']
+
+# The Google service-account sample in .env.example is a truncated JSON with
+# `"private_key_id":"..."`; the lazy private-key match runs on into the next
+# commented example, so it is pinned by the placeholder address inside it.
+[[allowlists]]
+description = "Service-account sample in .env.example"
+condition = "AND"
+targetRules = ["private-key"]
+paths = ['''^\.env\.example$''']
+regexes = ['''your-project\.iam\.gserviceaccount\.com''']
