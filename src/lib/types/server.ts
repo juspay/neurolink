@@ -1468,6 +1468,33 @@ export type CreateRoutesOptions = {
    * always mounted.
    */
   transcribe?: ServerTranscribeRouteOptions;
+  /**
+   * Options for the conversation-memory routes (`<basePath>/memory/*`): which
+   * roles may see other users' sessions and clear everything.
+   */
+  memory?: ServerMemoryRouteOptions;
+};
+
+// =============================================================================
+// MEMORY ROUTES (from server/routes/memoryRoutes.ts)
+// =============================================================================
+
+/** Options for `createMemoryRoutes()`. */
+export type ServerMemoryRouteOptions = {
+  /**
+   * Roles allowed to read another user's sessions, read memory statistics and
+   * clear every session. Default `["admin"]`. Only consulted when the request
+   * carries an authenticated user: a server with no per-user authentication
+   * (no auth, or one shared API key) has no identity to scope by, and its
+   * memory routes behave as they always have.
+   */
+  adminRoles?: string[];
+};
+
+/** Who is calling a memory route. */
+export type ServerMemoryActor = {
+  user: AuthenticatedUser | undefined;
+  admin: boolean;
 };
 
 // =============================================================================

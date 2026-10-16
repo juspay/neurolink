@@ -93,3 +93,12 @@ docs/features/codex-proxy-support.md.
 Options for the transcription routes (`POST <basePath>/agent/transcribe`
 and the OpenAI-compatible `POST /v1/audio/transcriptions`), which are
 always mounted.
+
+---
+
+### memory?
+
+> `optional` **memory?**: [`ServerMemoryRouteOptions`](ServerMemoryRouteOptions.md)
+
+Options for the conversation-memory routes (`<basePath>/memory/*`): which
+roles may see other users' sessions and clear everything.

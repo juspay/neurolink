@@ -3,7 +3,12 @@
  * Endpoints for conversation memory management
  */
 
-import type { RouteGroup, ServerContext } from "../../types/index.js";
+import type {
+  RouteGroup,
+  ServerContext,
+  ServerMemoryActor,
+  ServerMemoryRouteOptions,
+} from "../../types/index.js";
 import { withSpan } from "../../telemetry/withSpan.js";
 import { tracers } from "../../telemetry/tracers.js";
 import {
@@ -35,10 +40,71 @@ function tracedMemoryHandler<T>(
     );
 }
 
+const DEFAULT_ADMIN_ROLES = ["admin"];
+
+/**
+ * Who is calling. Without `ctx.user` (no auth, or one shared API key) there is
+ * no identity to scope by and the routes behave as they always have.
+ */
+function resolveMemoryActor(
+  ctx: ServerContext,
+  options?: ServerMemoryRouteOptions,
+): ServerMemoryActor {
+  const adminRoles = options?.adminRoles ?? DEFAULT_ADMIN_ROLES;
+  return {
+    user: ctx.user,
+    admin: (ctx.user?.roles ?? []).some((role) => adminRoles.includes(role)),
+  };
+}
+
+/**
+ * Whose sessions this request is about. An authenticated caller is always
+ * itself: `?userId=` may repeat its own id, and only an admin may name another.
+ * Taking the user from the query string is what let any authenticated caller
+ * read another user's conversations.
+ */
+function resolveSubjectUserId(
+  ctx: ServerContext,
+  actor: ServerMemoryActor,
+): { userId: string | undefined } | ReturnType<typeof createErrorResponse> {
+  const requested = ctx.query.userId;
+  if (!actor.user) {
+    return { userId: requested };
+  }
+  if (!requested || requested === actor.user.id) {
+    return { userId: actor.user.id };
+  }
+  if (actor.admin) {
+    return { userId: requested };
+  }
+  return createErrorResponse(
+    "FORBIDDEN",
+    "userId does not match the authenticated user",
+    undefined,
+    ctx.requestId,
+  );
+}
+
+/**
+ * The in-memory manager keys sessions by id alone, so ownership is the
+ * session's own `userId`. A session with none belongs to no one an
+ * authenticated caller can prove to be themselves, so only an admin sees it.
+ */
+function ownsSession(actor: ServerMemoryActor, session: unknown): boolean {
+  if (!actor.user || actor.admin) {
+    return true;
+  }
+  const owner = (session as { userId?: unknown } | null)?.userId;
+  return typeof owner === "string" && owner === actor.user.id;
+}
+
 /**
  * Handler: Get messages for a session
  */
-async function handleGetSessionMessages(ctx: ServerContext) {
+async function handleGetSessionMessages(
+  ctx: ServerContext,
+  options?: ServerMemoryRouteOptions,
+) {
   // Validate path params
   const paramValidation = validateParams(
     IdParamSchema,
@@ -51,6 +117,11 @@ async function handleGetSessionMessages(ctx: ServerContext) {
   }
 
   const { id: sessionId } = paramValidation.data;
+  const actor = resolveMemoryActor(ctx, options);
+  const subject = resolveSubjectUserId(ctx, actor);
+  if ("error" in subject) {
+    return subject;
+  }
 
   // Parse query params for pagination
   const limitParam = ctx.query.limit ? parseInt(ctx.query.limit, 10) : 50;
@@ -77,7 +148,7 @@ async function handleGetSessionMessages(ctx: ServerContext) {
     // Handle Redis memory manager (has getUserSessionHistory)
     if ("getUserSessionHistory" in memory) {
       // For Redis, we need a userId - check query params or use a default
-      const userId = ctx.query.userId || "default";
+      const userId = subject.userId || "default";
       const sessionMessages = await (
         memory as {
           getUserSessionHistory: (
@@ -104,11 +175,11 @@ async function handleGetSessionMessages(ctx: ServerContext) {
         memory as {
           getSession: (
             sessionId: string,
-          ) => { messages: unknown[] } | undefined;
+          ) => { messages: unknown[]; userId?: string } | undefined;
         }
       ).getSession(sessionId);
 
-      if (!session) {
+      if (!session || !ownsSession(actor, session)) {
         return createErrorResponse(
           "SESSION_NOT_FOUND",
           `Session '${sessionId}' not found`,
@@ -121,6 +192,15 @@ async function handleGetSessionMessages(ctx: ServerContext) {
     }
     // Fallback: try buildContextMessages if available
     else if ("buildContextMessages" in memory) {
+      // Ownership cannot be established for this manager.
+      if (actor.user && !actor.admin) {
+        return createErrorResponse(
+          "SESSION_NOT_FOUND",
+          `Session '${sessionId}' not found`,
+          undefined,
+          ctx.requestId,
+        );
+      }
       messages = await (
         memory as {
           buildContextMessages: (sessionId: string) => Promise<unknown[]>;
@@ -165,7 +245,10 @@ async function handleGetSessionMessages(ctx: ServerContext) {
 /**
  * Handler: Get session by ID
  */
-async function handleGetSession(ctx: ServerContext) {
+async function handleGetSession(
+  ctx: ServerContext,
+  options?: ServerMemoryRouteOptions,
+) {
   // Validate path params
   const paramValidation = validateParams(
     IdParamSchema,
@@ -178,6 +261,11 @@ async function handleGetSession(ctx: ServerContext) {
   }
 
   const { id: sessionId } = paramValidation.data;
+  const actor = resolveMemoryActor(ctx, options);
+  const subject = resolveSubjectUserId(ctx, actor);
+  if ("error" in subject) {
+    return subject;
+  }
   const memory = ctx.neurolink.conversationMemory;
 
   if (!memory) {
@@ -193,7 +281,7 @@ async function handleGetSession(ctx: ServerContext) {
     // Handle Redis memory manager (has getUserSessionObject or getUserSessionMetadata)
     if ("getUserSessionObject" in memory) {
       // For Redis, we need a userId - check query params or use a default
-      const userId = ctx.query.userId || "default";
+      const userId = subject.userId || "default";
       const sessionObject = await (
         memory as {
           getUserSessionObject: (
@@ -228,7 +316,7 @@ async function handleGetSession(ctx: ServerContext) {
         }
       ).getSession(sessionId);
 
-      if (!session) {
+      if (!session || !ownsSession(actor, session)) {
         return createErrorResponse(
           "SESSION_NOT_FOUND",
           `Session '${sessionId}' not found`,
@@ -265,9 +353,17 @@ async function handleGetSession(ctx: ServerContext) {
 /**
  * Handler: List all conversation sessions
  */
-async function handleListSessions(ctx: ServerContext) {
+async function handleListSessions(
+  ctx: ServerContext,
+  options?: ServerMemoryRouteOptions,
+) {
+  const actor = resolveMemoryActor(ctx, options);
+  const subject = resolveSubjectUserId(ctx, actor);
+  if ("error" in subject) {
+    return subject;
+  }
   // Parse query params
-  const userId = ctx.query.userId;
+  const userId = subject.userId;
   const limitParam = ctx.query.limit ? parseInt(ctx.query.limit, 10) : 50;
   const offsetParam = ctx.query.offset ? parseInt(ctx.query.offset, 10) : 0;
 
@@ -324,6 +420,15 @@ async function handleListSessions(ctx: ServerContext) {
         sessions = sessionIds.map((id) => ({ id }));
       }
     }
+    // In-memory manager: an authenticated non-admin sees only their own
+    // sessions, not the stats branch's count of everyone's.
+    else if (actor.user && !actor.admin && "listSessions" in memory) {
+      sessions = await (
+        memory as {
+          listSessions: (userId?: string) => Promise<unknown[]>;
+        }
+      ).listSessions(actor.user.id);
+    }
     // Handle in-memory manager - iterate over internal sessions Map
     else if ("getStats" in memory) {
       // For in-memory, we can use getSession to check if sessions exist
@@ -370,7 +475,19 @@ async function handleListSessions(ctx: ServerContext) {
 /**
  * Handler: Get memory statistics
  */
-async function handleGetStats(ctx: ServerContext) {
+async function handleGetStats(
+  ctx: ServerContext,
+  options?: ServerMemoryRouteOptions,
+) {
+  const actor = resolveMemoryActor(ctx, options);
+  if (actor.user && !actor.admin) {
+    return createErrorResponse(
+      "FORBIDDEN",
+      "Memory statistics require an admin role",
+      undefined,
+      ctx.requestId,
+    );
+  }
   const memory = ctx.neurolink.conversationMemory;
 
   if (!memory) {
@@ -407,7 +524,10 @@ async function handleGetStats(ctx: ServerContext) {
 /**
  * Handler: Clear a conversation session
  */
-async function handleClearSession(ctx: ServerContext) {
+async function handleClearSession(
+  ctx: ServerContext,
+  options?: ServerMemoryRouteOptions,
+) {
   // Validate params
   const paramValidation = validateParams(
     SessionIdParamSchema,
@@ -420,6 +540,11 @@ async function handleClearSession(ctx: ServerContext) {
   }
 
   const { sessionId } = paramValidation.data;
+  const actor = resolveMemoryActor(ctx, options);
+  const subject = resolveSubjectUserId(ctx, actor);
+  if ("error" in subject) {
+    return subject;
+  }
   const memory = ctx.neurolink.conversationMemory;
 
   if (!memory) {
@@ -432,8 +557,30 @@ async function handleClearSession(ctx: ServerContext) {
   }
 
   try {
-    // Use clearSession for ConversationMemoryManager
-    const cleared = await memory.clearSession?.(sessionId);
+    const redisBacked = "getUserSessionObject" in memory;
+    if (actor.user && !actor.admin && !redisBacked) {
+      const existing =
+        "getSession" in memory
+          ? (memory as { getSession: (id: string) => unknown }).getSession(
+              sessionId,
+            )
+          : undefined;
+      if (!existing || !ownsSession(actor, existing)) {
+        return createErrorResponse(
+          "SESSION_NOT_FOUND",
+          `Session '${sessionId}' not found`,
+          undefined,
+          ctx.requestId,
+        );
+      }
+    }
+    // The Redis manager derives the key from the user, so hand it the one
+    // this request is scoped to; the in-memory manager ignores the argument.
+    const cleared = await (
+      memory as {
+        clearSession?: (sessionId: string, userId?: string) => Promise<boolean>;
+      }
+    ).clearSession?.(sessionId, redisBacked ? subject.userId : undefined);
 
     if (cleared === false) {
       return createErrorResponse(
@@ -466,7 +613,19 @@ async function handleClearSession(ctx: ServerContext) {
 /**
  * Handler: Clear all conversation sessions
  */
-async function handleClearAllSessions(ctx: ServerContext) {
+async function handleClearAllSessions(
+  ctx: ServerContext,
+  options?: ServerMemoryRouteOptions,
+) {
+  const actor = resolveMemoryActor(ctx, options);
+  if (actor.user && !actor.admin) {
+    return createErrorResponse(
+      "FORBIDDEN",
+      "Clearing every session requires an admin role",
+      undefined,
+      ctx.requestId,
+    );
+  }
   const memory = ctx.neurolink.conversationMemory;
 
   if (!memory) {
@@ -517,8 +676,16 @@ async function handleMemoryHealth(ctx: ServerContext) {
  * Create memory management routes
  * Note: These routes provide a simplified interface to conversation memory.
  * The actual implementation depends on the memory manager type (ConversationMemoryManager or RedisConversationMemoryManager).
+ *
+ * When the request carries an authenticated user, the routes are scoped to it:
+ * a caller reaches only its own sessions, and statistics and clear-all need a
+ * role in `options.adminRoles` (default `["admin"]`). Without a user (no auth,
+ * or one shared API key) behaviour is unchanged.
  */
-export function createMemoryRoutes(basePath: string = "/api"): RouteGroup {
+export function createMemoryRoutes(
+  basePath: string = "/api",
+  options?: ServerMemoryRouteOptions,
+): RouteGroup {
   return {
     prefix: `${basePath}/memory`,
     routes: [
@@ -530,7 +697,7 @@ export function createMemoryRoutes(basePath: string = "/api"): RouteGroup {
         handler: tracedMemoryHandler(
           "neurolink.http.memory.getSessionMessages",
           `${basePath}/memory/sessions/:id/messages`,
-          handleGetSessionMessages,
+          (ctx) => handleGetSessionMessages(ctx, options),
         ),
         description: "Get messages for a session",
         tags: ["memory"],
@@ -542,7 +709,7 @@ export function createMemoryRoutes(basePath: string = "/api"): RouteGroup {
         handler: tracedMemoryHandler(
           "neurolink.http.memory.getSession",
           `${basePath}/memory/sessions/:id`,
-          handleGetSession,
+          (ctx) => handleGetSession(ctx, options),
         ),
         description: "Get session by ID",
         tags: ["memory"],
@@ -554,7 +721,7 @@ export function createMemoryRoutes(basePath: string = "/api"): RouteGroup {
         handler: tracedMemoryHandler(
           "neurolink.http.memory.listSessions",
           `${basePath}/memory/sessions`,
-          handleListSessions,
+          (ctx) => handleListSessions(ctx, options),
         ),
         description: "List all conversation sessions",
         tags: ["memory"],
@@ -565,7 +732,7 @@ export function createMemoryRoutes(basePath: string = "/api"): RouteGroup {
         handler: tracedMemoryHandler(
           "neurolink.http.memory.stats",
           `${basePath}/memory/stats`,
-          handleGetStats,
+          (ctx) => handleGetStats(ctx, options),
         ),
         description: "Get memory statistics",
         tags: ["memory"],
@@ -576,7 +743,7 @@ export function createMemoryRoutes(basePath: string = "/api"): RouteGroup {
         handler: tracedMemoryHandler(
           "neurolink.http.memory.clearSession",
           `${basePath}/memory/sessions/:sessionId`,
-          handleClearSession,
+          (ctx) => handleClearSession(ctx, options),
         ),
         description: "Clear a conversation session",
         tags: ["memory"],
@@ -587,7 +754,7 @@ export function createMemoryRoutes(basePath: string = "/api"): RouteGroup {
         handler: tracedMemoryHandler(
           "neurolink.http.memory.clearAllSessions",
           `${basePath}/memory/sessions`,
-          handleClearAllSessions,
+          (ctx) => handleClearAllSessions(ctx, options),
         ),
         description: "Clear all conversation sessions",
         tags: ["memory"],

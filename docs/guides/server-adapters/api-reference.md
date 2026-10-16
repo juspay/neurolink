@@ -685,11 +685,29 @@ function registerAllRoutes(
 | `createAgentRoutes(basePath?)`               | `/agent`  | `POST /agent/execute` -- Execute agent<br />`POST /agent/stream` -- Stream agent response (SSE)<br />`GET /agent/providers` -- List available providers<br />`POST /agent/embed` -- Generate single embedding<br />`POST /agent/embed-many` -- Generate batch embeddings                    |
 | `createToolRoutes(basePath?)`                | `/tools`  | `GET /tools` -- List all tools<br />`GET /tools/search` -- Search tools by query<br />`GET /tools/:name` -- Get tool details<br />`POST /tools/:name/execute` -- Execute tool<br />`POST /tools/execute` -- Execute tool (body-based)                                                       |
 | `createMCPRoutes(basePath?)`                 | `/mcp`    | `GET /mcp/servers` -- List MCP servers<br />`GET /mcp/servers/:name` -- Get server status<br />`GET /mcp/servers/:name/tools` -- List server tools<br />`POST /mcp/servers/:name/tools/:toolName/execute` -- Execute server tool                                                            |
-| `createMemoryRoutes(basePath?)`              | `/memory` | `GET /memory/sessions` -- List sessions<br />`GET /memory/sessions/:id` -- Get session details<br />`GET /memory/sessions/:id/messages` -- Get session messages<br />`DELETE /memory/sessions/:id` -- Delete session<br />`POST /memory/sessions/:sessionId/clear` -- Clear session history |
+| `createMemoryRoutes(basePath?, options?)`    | `/memory` | `GET /memory/sessions` -- List sessions<br />`GET /memory/sessions/:id` -- Get session details<br />`GET /memory/sessions/:id/messages` -- Get session messages<br />`DELETE /memory/sessions/:id` -- Delete session<br />`POST /memory/sessions/:sessionId/clear` -- Clear session history |
 | `createHealthRoutes(basePath?)`              | `/health` | `GET /health` -- Basic health check<br />`GET /health/live` -- Liveness probe<br />`GET /health/ready` -- Readiness probe<br />`GET /health/detailed` -- Detailed health with service status                                                                                                |
 | `createOpenApiRoutes(basePath?, getRoutes?)` | `/docs`   | `GET /docs/openapi.json` -- OpenAPI spec (JSON)<br />`GET /docs/openapi.yaml` -- OpenAPI spec (YAML)                                                                                                                                                                                        |
 
 All route factories accept a `basePath` parameter (default: `"/api"`).
+
+#### Memory routes and per-user authentication
+
+When a request carries an authenticated user (`ctx.user`, set by an auth middleware that identifies individuals), the memory routes are scoped to that user:
+
+| Route                                                                  | Authenticated user                                                                                                   | Admin role (`adminRoles`, default `["admin"]`) |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `GET /memory/sessions`, `GET /memory/sessions/:id`, `.../:id/messages` | Their own sessions. `?userId=` may repeat their own id; naming anyone else is `403`. Another user's session is `404` | May name another user with `?userId=`          |
+| `DELETE /memory/sessions/:sessionId`                                   | Their own sessions only (`404` otherwise)                                                                            | Any session                                    |
+| `GET /memory/stats`, `DELETE /memory/sessions`                         | `403`                                                                                                                | Allowed                                        |
+
+A server with no per-user identity (no authentication, or one shared API key) has nothing to scope by, and the memory routes behave as they always have. A session with no recorded owner (created without a `userId`) is visible only to an admin.
+
+```typescript
+registerAllRoutes(adapter, "/api", {
+  memory: { adminRoles: ["admin", "support"] },
+});
+```
 
 ### Proxy Route Factories
 

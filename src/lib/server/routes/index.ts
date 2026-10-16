@@ -55,7 +55,7 @@ export function createAllRoutes(
     createAgentRoutes(basePath),
     createToolRoutes(basePath),
     createMCPRoutes(basePath),
-    createMemoryRoutes(basePath),
+    createMemoryRoutes(basePath, options?.memory),
     createHealthRoutes(basePath),
     createTranscribeRoutes(basePath, options?.transcribe),
   ];
