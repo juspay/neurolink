@@ -231,6 +231,7 @@ export class ExpressServerAdapter extends BaseServerAdapter {
         if (res.locals.responseHeaders) {
           ctx.responseHeaders = { ...res.locals.responseHeaders };
         }
+        this.restoreCarriedContext(ctx, res.locals.carriedContext);
 
         // Emit request event
         this.emit("request", {
@@ -473,10 +474,14 @@ export class ExpressServerAdapter extends BaseServerAdapter {
 
           // Copy existing response headers to context
           ctx.responseHeaders = { ...res.locals.responseHeaders };
+          this.restoreCarriedContext(ctx, res.locals.carriedContext);
 
           // Execute middleware
           try {
             await middleware.handler(ctx, async () => {
+              // What this middleware set (ctx.user included) is for the next
+              // middleware and the route handler, which build their own contexts.
+              res.locals.carriedContext = this.captureCarriedContext(ctx);
               // After middleware execution, merge response headers back to res.locals
               if (ctx.responseHeaders) {
                 Object.assign(res.locals.responseHeaders, ctx.responseHeaders);

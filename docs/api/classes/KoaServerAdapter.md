@@ -423,6 +423,57 @@ Only registers health routes if disableBuiltInHealth is false (default)
 
 ---
 
+### captureCarriedContext()
+
+> `protected` **captureCarriedContext**(`ctx`): [`ServerCarriedContext`](../type-aliases/ServerCarriedContext.md)
+
+What middleware has set on its context that later middleware and the route
+handler must see. Each step gets a freshly built context, so unless this is
+parked in the framework's per-request storage an authenticated `ctx.user`
+set by middleware is gone before the handler runs.
+
+#### Parameters
+
+##### ctx
+
+[`ServerContext`](../type-aliases/ServerContext.md)
+
+#### Returns
+
+[`ServerCarriedContext`](../type-aliases/ServerCarriedContext.md)
+
+#### Inherited from
+
+[`BaseServerAdapter`](BaseServerAdapter.md).[`captureCarriedContext`](BaseServerAdapter.md#capturecarriedcontext)
+
+---
+
+### restoreCarriedContext()
+
+> `protected` **restoreCarriedContext**(`ctx`, `carried`): `void`
+
+Put what `captureCarriedContext` saved onto a freshly built context.
+
+#### Parameters
+
+##### ctx
+
+[`ServerContext`](../type-aliases/ServerContext.md)
+
+##### carried
+
+[`ServerCarriedContext`](../type-aliases/ServerCarriedContext.md) \| `undefined`
+
+#### Returns
+
+`void`
+
+#### Inherited from
+
+[`BaseServerAdapter`](BaseServerAdapter.md).[`restoreCarriedContext`](BaseServerAdapter.md#restorecarriedcontext)
+
+---
+
 ### generateRequestId()
 
 > `protected` **generateRequestId**(): `string`

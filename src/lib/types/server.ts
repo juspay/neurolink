@@ -333,6 +333,16 @@ export type ServerContext = {
 };
 
 /**
+ * What middleware sets on its context that later middleware and the route
+ * handler must see. Adapters build a fresh context for every step, so this is
+ * what they carry between steps in the framework's per-request storage.
+ */
+export type ServerCarriedContext = Pick<
+  ServerContext,
+  "user" | "session" | "metadata" | "abortSignal" | "abortController"
+>;
+
+/**
  * Server response object
  */
 export type ServerResponse<T = unknown> = {

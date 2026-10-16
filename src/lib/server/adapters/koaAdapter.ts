@@ -353,6 +353,7 @@ export class KoaServerAdapter extends BaseServerAdapter {
       if (ctx.state.responseHeaders) {
         serverCtx.responseHeaders = { ...ctx.state.responseHeaders };
       }
+      this.restoreCarriedContext(serverCtx, ctx.state.carriedContext);
 
       // Emit request event
       this.emit("request", {
@@ -544,9 +545,13 @@ export class KoaServerAdapter extends BaseServerAdapter {
 
         // Copy existing response headers to context
         serverCtx.responseHeaders = { ...ctx.state.responseHeaders };
+        this.restoreCarriedContext(serverCtx, ctx.state.carriedContext);
 
         // Execute middleware
         await middleware.handler(serverCtx, async () => {
+          // What this middleware set (ctx.user included) is for the next
+          // middleware and the route handler, which build their own contexts.
+          ctx.state.carriedContext = this.captureCarriedContext(serverCtx);
           // After middleware execution, merge response headers back to ctx.state
           if (serverCtx.responseHeaders) {
             Object.assign(ctx.state.responseHeaders, serverCtx.responseHeaders);

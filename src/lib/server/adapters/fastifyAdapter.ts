@@ -26,6 +26,7 @@ import type {
   RouteDefinition,
   ServerAdapterConfig,
   ServerAdapterEvents,
+  ServerCarriedContext,
   ServerContext,
   FastifyRateLimitContext,
 } from "../../types/index.js";
@@ -327,10 +328,12 @@ export class FastifyServerAdapter extends BaseServerAdapter {
         // Copy response headers from middleware (stored in request by middleware)
         const reqWithHeaders = request as FastifyRequest & {
           responseHeaders?: Record<string, string>;
+          carriedContext?: ServerCarriedContext;
         };
         if (reqWithHeaders.responseHeaders) {
           ctx.responseHeaders = { ...reqWithHeaders.responseHeaders };
         }
+        this.restoreCarriedContext(ctx, reqWithHeaders.carriedContext);
 
         // Emit request event
         this.emit("request", {
@@ -510,6 +513,7 @@ export class FastifyServerAdapter extends BaseServerAdapter {
         // Initialize response headers storage if not present
         const reqWithHeaders = request as FastifyRequest & {
           responseHeaders: Record<string, string>;
+          carriedContext?: ServerCarriedContext;
         };
         if (!reqWithHeaders.responseHeaders) {
           reqWithHeaders.responseHeaders = {};
@@ -528,9 +532,13 @@ export class FastifyServerAdapter extends BaseServerAdapter {
 
         // Copy existing response headers to context
         ctx.responseHeaders = { ...reqWithHeaders.responseHeaders };
+        this.restoreCarriedContext(ctx, reqWithHeaders.carriedContext);
 
         // Execute middleware
         await middleware.handler(ctx, async () => {
+          // What this middleware set (ctx.user included) is for the next
+          // middleware and the route handler, which build their own contexts.
+          reqWithHeaders.carriedContext = this.captureCarriedContext(ctx);
           // After middleware execution, merge response headers back to request
           if (ctx.responseHeaders) {
             Object.assign(reqWithHeaders.responseHeaders, ctx.responseHeaders);

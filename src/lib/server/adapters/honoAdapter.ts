@@ -71,8 +71,17 @@ export class HonoServerAdapter extends BaseServerAdapter {
   private server?: unknown;
   private rateLimitStore = new Map<string, HonoRateLimitEntry>();
   private rateLimitCleanupInterval?: ReturnType<typeof setInterval>;
-  // Store context by request ID for sharing between middleware and route handlers
-  private requestContextStore = new Map<string, ServerContext>();
+  // Context shared between middleware and the route handler. Keyed by the request
+  // object, never by the request id: the id can be the
+  // caller's own X-Request-ID, so two overlapping requests that send the same one
+  // would share a context, and the second would run with the first one's
+  // identity, headers and body. A WeakMap also frees an entry whose handler
+  // never ran.
+  private requestContextStore = new WeakMap<Request, ServerContext>();
+  // One id per request, for logs and events: the caller's X-Request-ID when sent,
+  // otherwise generated once, so every step reports the same id. With no header
+  // every step used to invent its own.
+  private requestIds = new WeakMap<Request, string>();
   // Populated by initializeFramework's dynamic imports; used by methods that
   // run after initialization (route registration, streaming) and so cannot
   // rely on initializeFramework's own local closure variables.
@@ -109,7 +118,7 @@ export class HonoServerAdapter extends BaseServerAdapter {
           headers[name] = value;
         });
         const minCtx = {
-          requestId: c.req.header("X-Request-ID") || this.generateRequestId(),
+          requestId: this.requestIdFor(c),
           method: c.req.method,
           path: c.req.path,
           headers,
@@ -272,8 +281,7 @@ export class HonoServerAdapter extends BaseServerAdapter {
 
     // Global error handler
     this.app.onError((error, c) => {
-      const requestId =
-        c.req.header("X-Request-ID") || this.generateRequestId();
+      const requestId = this.requestIdFor(c);
 
       this.logRequestError("HonoAdapter", requestId, error);
 
@@ -354,9 +362,11 @@ export class HonoServerAdapter extends BaseServerAdapter {
       | "options";
 
     this.app[method](route.path, async (c: HonoContext) => {
-      const requestId =
-        c.req.header("X-Request-ID") || this.generateRequestId();
-      const connectionId = `conn-${requestId}`;
+      const requestId = this.requestIdFor(c);
+      // Not derived from the request id, which a caller may repeat: two
+      // overlapping requests would then share one record and the first to
+      // finish would untrack the other.
+      const connectionId = `conn-${this.generateRequestId()}`;
       const startTime = Date.now();
 
       // Track connection for graceful shutdown
@@ -367,7 +377,12 @@ export class HonoServerAdapter extends BaseServerAdapter {
         const params = c.req.param() as Record<string, string>;
 
         // Reuse existing context from middleware if available, otherwise create new one
-        const existingCtx = this.requestContextStore.get(requestId);
+        const existingCtx = this.requestContextStore.get(c.req.raw);
+        // Middleware ran before the router matched this route, so the shared
+        // context carries no path parameters yet.
+        if (existingCtx) {
+          existingCtx.params = params;
+        }
         const ctx =
           existingCtx ||
           this.createContext({
@@ -489,7 +504,7 @@ export class HonoServerAdapter extends BaseServerAdapter {
         // Untrack connection when request completes
         this.untrackConnection(connectionId);
         // Clean up context store to prevent memory leaks
-        this.requestContextStore.delete(requestId);
+        this.requestContextStore.delete(c.req.raw);
       }
     });
   }
@@ -643,11 +658,10 @@ export class HonoServerAdapter extends BaseServerAdapter {
         const params = c.req.param() as Record<string, string>;
 
         // Get or generate request ID for context lookup
-        const requestId =
-          c.req.header("X-Request-ID") || this.generateRequestId();
+        const requestId = this.requestIdFor(c);
 
         // Reuse existing context from previous middleware if available
-        let ctx = this.requestContextStore.get(requestId);
+        let ctx = this.requestContextStore.get(c.req.raw);
         if (!ctx) {
           // Create new context for the first middleware
           ctx = this.createContext({
@@ -660,13 +674,27 @@ export class HonoServerAdapter extends BaseServerAdapter {
             body: await this.extractBody(c),
           });
           // Store context for sharing between middleware and route handlers
-          this.requestContextStore.set(requestId, ctx);
+          this.requestContextStore.set(c.req.raw, ctx);
         }
 
         // Execute middleware
         return middleware.handler(ctx, next);
       });
     }
+  }
+
+  /**
+   * The id of this request: the caller's `X-Request-ID` when sent, otherwise
+   * one generated on first use, and the same one on every later use.
+   */
+  private requestIdFor(c: HonoContext): string {
+    const known = this.requestIds.get(c.req.raw);
+    if (known) {
+      return known;
+    }
+    const id = c.req.header("X-Request-ID") || this.generateRequestId();
+    this.requestIds.set(c.req.raw, id);
+    return id;
   }
 
   /**
