@@ -8,8 +8,6 @@
 
 > **ServerTranscribeRouteOptions** = `object`
 
-Options for `createTranscribeRoutes()`.
-
 ## Properties
 
 ### allowedAudioRoots?
@@ -37,3 +35,12 @@ Largest audio accepted, decoded, in bytes. Default 50 MB.
 Prefix of the OpenAI-compatible route. Default `""`, so the route is
 `/v1/audio/transcriptions` and an OpenAI client pointed at
 `http://host:port/v1` works unchanged.
+
+---
+
+### evals?
+
+> `optional` **evals?**: [`ServerSTTEvalOptions`](ServerSTTEvalOptions.md) \| `false`
+
+The STT evaluation collector, `POST <openaiBasePath>/v1/evals/stt`.
+On by default; `false` removes its routes.

@@ -48,3 +48,36 @@ allow-list covers the HTTP routes and the stream.
 > `optional` **maxPayload?**: `number`
 
 Largest single frame, in bytes. Default 1 MiB.
+
+---
+
+### subscribePath?
+
+> `optional` **subscribePath?**: `string` \| `false`
+
+Listener path of transcription sessions: a socket here reads one
+session's speakers in its own languages. Default `<path>/subscribe`;
+`false` turns sessions off (a `?session=` on the stream path is then
+ignored).
+
+---
+
+### realtimePath?
+
+> `optional` **realtimePath?**: `string` \| `false`
+
+OpenAI Realtime transcription path (`?intent=transcription`): the
+protocol of OpenAI's `/v1/realtime`, so any OpenAI-Realtime client — the
+LiveKit `openai.STT(use_realtime=True)` plugin, Pipecat, the OpenAI SDK —
+streams to NeuroLink with no adapter. Default `/v1/realtime`; `false`
+turns it off.
+
+---
+
+### realtimeProfiles?
+
+> `optional` **realtimeProfiles?**: `Readonly`\<`Record`\<`string`, [`ServerSTTRealtimeProfile`](ServerSTTRealtimeProfile.md)\>\>
+
+Profiles a realtime client selects with its `model` name. Merged over
+`NEUROLINK_STT_REALTIME_PROFILES` (a JSON object of the same shape);
+these win on a name in both.

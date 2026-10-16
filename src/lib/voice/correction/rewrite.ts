@@ -19,6 +19,13 @@
  */
 
 import { TimeoutError, withTimeout } from "../../utils/async/withTimeout.js";
+import {
+  describeOutputTag,
+  hasIndicScript,
+  isIndicLanguage,
+  normalizeLanguageCode,
+} from "../languages.js";
+import { analyzeCodeMix } from "../codeMix.js";
 import { dictionaryBlock } from "./dictionary.js";
 import type {
   STTCorrectionDeps,
@@ -26,10 +33,129 @@ import type {
   STTDictionaryEntry,
   STTRewriteLinesOutcome,
   STTRewriteOutcome,
+  STTWordPair,
 } from "../../types/index.js";
 
-/** Default per-call rewrite timeout; on expiry the input text is kept. */
-export const DEFAULT_REWRITE_TIMEOUT_MS = 12000;
+/**
+ * The rewrite's provider/model/timeout settings, whatever shape `rewrite`
+ * took: `false` and `"auto"` carry none, an object carries its own.
+ */
+export function rewriteSettings(
+  rewrite: STTCorrectionOptions["rewrite"],
+): { provider?: string; model?: string; timeoutMs?: number } | undefined {
+  return rewrite && typeof rewrite === "object" ? rewrite : undefined;
+}
+
+/**
+ * Whether the rewrite is wanted for a text, under the "auto" rule: it runs
+ * when there is something for it to do and is skipped otherwise, which is
+ * what makes an already clean English sentence cost nothing. `"always"`
+ * (object form with `mode: "always"`) runs it every time; `false` never.
+ */
+export function rewriteWanted(
+  text: string,
+  options: STTCorrectionOptions | undefined,
+  signals: {
+    /** The rewrite has a second transcript to reconcile. */
+    hasSecondOpinion?: boolean;
+    /** The dictionary changed something (a term was applied). */
+    termsApplied?: number;
+    /** Detected language of the speech. */
+    language?: string;
+  } = {},
+): { wanted: boolean; reason: string } {
+  const rewrite = options?.rewrite;
+  if (rewrite === false) {
+    return { wanted: false, reason: "rewrite off" };
+  }
+  if (typeof rewrite === "object" && rewrite.mode === "always") {
+    return { wanted: true, reason: "always" };
+  }
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return { wanted: false, reason: "empty" };
+  }
+  if (signals.hasSecondOpinion) {
+    return { wanted: true, reason: "second opinion to reconcile" };
+  }
+  if (options?.cleanup === "clean") {
+    return { wanted: true, reason: "clean verbatim" };
+  }
+  if ((signals.termsApplied ?? 0) > 0) {
+    return { wanted: true, reason: "dictionary term applied" };
+  }
+  const transliterate = resolveTransliterate(options, signals.language);
+  if (transliterate === "latin" && needsRomanising(trimmed, signals.language)) {
+    return { wanted: true, reason: "romanise" };
+  }
+  if (options?.punctuate !== false) {
+    const words = trimmed.split(/\s+/u).length;
+    if (words >= 4 && !TERMINAL_PUNCTUATION.test(trimmed)) {
+      return { wanted: true, reason: "punctuate" };
+    }
+  }
+  return { wanted: false, reason: "nothing to change" };
+}
+
+/** Any letter outside the Latin blocks (Indic, Arabic, CJK, Cyrillic …). */
+const NON_LATIN_LETTER = /(?!\p{Script=Latin})\p{L}/u;
+/** Arabic-script letters, which are Indian-language text only for Urdu, Sindhi and Kashmiri. */
+const ARABIC_LETTER = /\p{Script=Arabic}/u;
+
+/**
+ * The script setting in effect. Unset, Indian languages (and speech whose
+ * language is unknown, as before) are written in Latin letters; any other
+ * known language keeps its own script.
+ */
+export function resolveTransliterate(
+  options: Pick<STTCorrectionOptions, "transliterate"> | undefined,
+  language: string | undefined,
+): "latin" | "native" {
+  if (options?.transliterate) {
+    return options.transliterate;
+  }
+  const code = normalizeLanguageCode(language);
+  return code && code !== "en" && !isIndicLanguage(code) ? "native" : "latin";
+}
+
+/**
+ * Whether `text` holds script the Latin setting converts: Indic letters, or
+ * Arabic letters when the language is Urdu, Sindhi or Kashmiri, or any
+ * non-Latin letters when the caller explicitly asked for Latin output in a
+ * language outside India.
+ */
+function needsRomanising(text: string, language: string | undefined): boolean {
+  if (hasIndicScript(text)) {
+    return true;
+  }
+  const code = normalizeLanguageCode(language);
+  if (
+    ARABIC_LETTER.test(text) &&
+    (code === "ur" || code === "sd" || code === "ks")
+  ) {
+    return true;
+  }
+  return (
+    code !== undefined &&
+    code !== "en" &&
+    !isIndicLanguage(code) &&
+    NON_LATIN_LETTER.test(text)
+  );
+}
+
+/**
+ * Whether the Indian-language prompt applies: Indian languages, English
+ * (code-mixed speech is often reported as English) and speech whose language
+ * is unknown. Any other known language gets the general prompt.
+ */
+function indicPrompt(language: string | undefined): boolean {
+  const code = normalizeLanguageCode(language);
+  return code === undefined || code === "en" || isIndicLanguage(code);
+}
+/** Ends with a sentence mark, the danda, or a closing quote/bracket after one. */
+const TERMINAL_PUNCTUATION = /[.!?\u0964\u0965\u2026][\s"'\u201D\u2019)\]]*$/u;
+
+const DEFAULT_REWRITE_TIMEOUT_MS = 12000;
 /** Default per-batch timeout for `rewriteLines`: a batch carries up to 25 lines. */
 export const DEFAULT_REWRITE_LINES_TIMEOUT_MS = 60000;
 /** Default share of words a rewrite may drop before it is discarded. */
@@ -92,10 +218,17 @@ export function buildRewriteSystemPrompt(options?: {
   punctuate?: boolean;
   dictionary?: readonly STTDictionaryEntry[];
   lines?: boolean;
+  cleanup?: "verbatim" | "clean";
+  /** Detected language of the speech; a known language outside India gets the general prompt. */
+  language?: string;
 }): string {
+  if (!indicPrompt(options?.language)) {
+    return buildGeneralRewriteSystemPrompt(options ?? {});
+  }
   const transliterate = options?.transliterate ?? "latin";
   const punctuate = options?.punctuate ?? true;
   const lines = options?.lines ?? false;
+  const clean = options?.cleanup === "clean";
   const table = dictionaryBlock(options?.dictionary);
 
   const rules = [
@@ -110,24 +243,45 @@ export function buildRewriteSystemPrompt(options?: {
         "and means that term here, is written as the term exactly.",
     );
   }
-  if (lines) {
-    rules.push(
-      "- Also fix near-homophones that make no sense in context when the intended word is obvious.",
-    );
-  }
+  // Indic engines mis-hear short words into near-homophones that read as
+  // real words (कल "tomorrow" → खाल "skin"); only context reveals them.
+  rules.push(
+    "- Fix near-homophones that make no sense in context when the intended word is obvious " +
+      '(खाल heard where कल, "tomorrow", is meant); never change a word that makes sense as heard.',
+  );
+  const fillers = clean ? "remove fillers" : "keep fillers";
   rules.push(
     punctuate
-      ? "- Add natural punctuation and capitalization; write numbers as digits; keep fillers."
-      : "- Do not add or change punctuation or capitalization; keep fillers.",
+      ? `- Add natural punctuation and capitalization; write numbers as digits; ${fillers}.`
+      : `- Do not add or change punctuation or capitalization; ${fillers}.`,
   );
-  rules.push(
-    lines
-      ? "- Keep every word: never summarize, add, drop, reorder or merge. Keep any speaker label at the " +
-          "start of a line unchanged. A line that needs no change is returned verbatim."
-      : "- Keep every word: never summarize, add, drop or reorder. With two transcripts, take " +
-          "Indian-language words from the one that has them in an Indian language and English words " +
-          "from the one that spells them in English; elsewhere prefer Transcript 1.",
-  );
+  if (clean) {
+    rules.push(
+      "- Clean verbatim: drop fillers (um, uh, hmm, a 'like' or 'you know' that carries no meaning), " +
+        'stutters and immediate word repeats ("they they they" → "they", "no, no, no" → "no"), ' +
+        "and false starts that the speaker restarted. Never drop a word that carries meaning, never " +
+        "summarize, add or reorder.",
+    );
+  } else {
+    rules.push(
+      lines
+        ? "- Keep every word: never summarize, add, drop, reorder or merge. Keep any speaker label at the " +
+            "start of a line unchanged. A line that needs no change is returned verbatim."
+        : "- Keep every word: never summarize, add, drop or reorder. With two transcripts, take " +
+            "Indian-language words from the one that has them in an Indian language and English words " +
+            "from the one that spells them in English; elsewhere prefer Transcript 1. When a word " +
+            "alignment is given, decide word by word: a pair that is the same English word (मीटिंग ≈ meeting) " +
+            "is that English word; where the English transcript has an English-sounding guess at an " +
+            "Indian-language word (भेज देना | page dinner), keep the Indian-language word. Sounding alike " +
+            "is not enough: when the English word makes no sense in the sentence, the speaker said the " +
+            'Indian-language word (खाल ≈ Call before "meeting hai" is kal, tomorrow).',
+    );
+  }
+  if (clean && lines) {
+    rules.push(
+      "- Never merge or reorder lines. Keep any speaker label at the start of a line unchanged.",
+    );
+  }
 
   const head = [
     "You are a post-editor for speech-recognition (ASR) transcripts. The speaker talks English, " +
@@ -149,6 +303,70 @@ export function buildRewriteSystemPrompt(options?: {
 }
 
 /**
+ * The rewrite prompt for a known language outside India: fix what the engine
+ * got wrong, keep the language and its script (unless Latin letters were
+ * asked for), never translate.
+ */
+function buildGeneralRewriteSystemPrompt(options: {
+  transliterate?: "latin" | "native";
+  punctuate?: boolean;
+  dictionary?: readonly STTDictionaryEntry[];
+  lines?: boolean;
+  cleanup?: "verbatim" | "clean";
+  language?: string;
+}): string {
+  const code = normalizeLanguageCode(options.language) ?? "und";
+  const name = describeOutputTag(code);
+  const punctuate = options.punctuate ?? true;
+  const lines = options.lines ?? false;
+  const clean = options.cleanup === "clean";
+  const table = dictionaryBlock(options.dictionary);
+  const rules = [
+    options.transliterate === "latin"
+      ? `- Write ${name} in Latin letters using its standard romanization; keep the words in ${name}.`
+      : `- Keep the text in ${name} and in its own writing system; never transliterate it.`,
+    `- NEVER translate. A ${name} word stays ${name} and an English word stays English.`,
+    "- Fix words the recognizer mis-heard when the intended word is obvious from context; " +
+      "English words get their correct English spelling.",
+  ];
+  if (table) {
+    rules.push(
+      '- Use the dictionary: a word or phrase that sounds like a term or one of its "also heard as" forms, ' +
+        "and means that term here, is written as the term exactly.",
+    );
+  }
+  const fillers = clean ? "remove fillers" : "keep fillers";
+  rules.push(
+    punctuate
+      ? `- Add natural punctuation and capitalization in ${name}'s own conventions; write numbers as digits; ${fillers}.`
+      : `- Do not add or change punctuation or capitalization; ${fillers}.`,
+  );
+  rules.push(
+    clean
+      ? "- Clean verbatim: drop fillers, stutters, immediate repeats and restarted false starts. " +
+          "Never drop a word that carries meaning, never summarize, add or reorder."
+      : lines
+        ? "- Keep every word: never summarize, add, drop, reorder or merge. Keep any speaker label at the " +
+          "start of a line unchanged. A line that needs no change is returned verbatim."
+        : "- Keep every word: never summarize, add, drop or reorder. With two transcripts, take each word " +
+          "from the one that wrote it correctly; elsewhere prefer Transcript 1.",
+  );
+  const head = [
+    `You are a post-editor for speech-recognition (ASR) transcripts. The speaker talks ${name}, ` +
+      "possibly mixed with English.",
+    lines
+      ? "Input: a numbered list of transcript lines."
+      : "Input: an ASR transcript, and possibly a second transcript of the same audio from another engine.",
+    "Write the speaker's words exactly as they said them:",
+    ...rules,
+    lines
+      ? "Output: the same numbered lines, one per input line, nothing else."
+      : "Output only the corrected text, nothing else.",
+  ].join("\n");
+  return table ? `${head}\n\n${table}` : head;
+}
+
+/**
  * User message for the rewrite. With a second opinion the two transcripts are
  * labelled; `literal` lists aliases the guard decided were meant literally, so
  * the rewrite does not turn them back into dictionary terms.
@@ -159,17 +377,95 @@ export function buildRewriteUserPrompt(
   extras?: {
     labels?: { primary?: string; secondary?: string };
     literal?: readonly string[];
+    /** Earlier corrected utterances, oldest first: context the model must not echo. */
+    previous?: readonly string[];
+    /** The two transcripts aligned word by word (Indic reading against English reading). */
+    pairs?: readonly STTWordPair[];
   },
 ): string {
   const second = secondOpinion?.trim();
+  const previous = (extras?.previous ?? [])
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const context = previous.length
+    ? "Earlier in this conversation (context only: do not correct, translate or repeat these):\n" +
+      previous.map((line) => `- ${line}`).join("\n") +
+      "\n\n"
+    : "";
   const body = second
     ? `Transcript 1 (${extras?.labels?.primary ?? "primary engine"}): ${primary}\n` +
       `Transcript 2 (${extras?.labels?.secondary ?? "second engine"}): ${second}`
     : `Transcript: ${primary}`;
+  const aligned = alignmentBlock(extras?.pairs);
   const literal = [...new Set(extras?.literal ?? [])].filter(Boolean);
+  if (aligned) {
+    return literal.length
+      ? `${context}${body}\n${aligned}\nMeant literally here, not dictionary terms: ${literal.map((w) => `"${w}"`).join(", ")}`
+      : `${context}${body}\n${aligned}`;
+  }
   return literal.length
-    ? `${body}\nMeant literally here, not dictionary terms: ${literal.map((w) => `"${w}"`).join(", ")}`
-    : body;
+    ? `${context}${body}\nMeant literally here, not dictionary terms: ${literal.map((w) => `"${w}"`).join(", ")}`
+    : `${context}${body}`;
+}
+
+/** Most aligned positions shown to the model. */
+const MAX_ALIGNED_PAIRS = 120;
+/** Largest word grid (primary × second opinion) aligned for reconciliation: ~500 × 500. */
+const MAX_ALIGN_CELLS = 250_000;
+
+/**
+ * The word alignment of two transcripts as a prompt block: same-sounding
+ * words side by side ("मीटिंग ≈ meeting"), and runs where only one engine
+ * heard something, so the rewrite decides word by word which reading holds
+ * the speaker's word in which language.
+ */
+export function alignmentBlock(
+  pairs: readonly STTWordPair[] | undefined,
+): string | undefined {
+  if (!pairs?.length) {
+    return undefined;
+  }
+  const cells = pairs
+    .slice(0, MAX_ALIGNED_PAIRS)
+    .map((p) =>
+      p.alike
+        ? `${p.indic} ≈ ${p.latin}`
+        : `${p.indic ?? "∅"} | ${p.latin ?? "∅"}`,
+    );
+  return (
+    "Word alignment of the two transcripts, in order (≈ sounds alike, | heard differently, ∅ nothing there):\n" +
+    cells.join("; ")
+  );
+}
+
+/**
+ * Word pairs for a reconciliation: the Indic-script transcript aligned
+ * against the Latin-script one, whichever order they came in; `undefined`
+ * when both are in the same script (nothing to line up across scripts).
+ */
+export function reconcilePairs(
+  primary: string,
+  secondOpinion: string | undefined,
+): { pairs: STTWordPair[]; englishShare: number } | undefined {
+  if (!secondOpinion?.trim()) {
+    return undefined;
+  }
+  const indicFirst = hasIndicScript(primary) && !hasIndicScript(secondOpinion);
+  const indicSecond = hasIndicScript(secondOpinion) && !hasIndicScript(primary);
+  if (!indicFirst && !indicSecond) {
+    return undefined;
+  }
+  // The alignment is quadratic; a whole long transcript is reconciled
+  // without pairs rather than stalling the event loop.
+  const cells =
+    primary.split(/\s+/u).length * secondOpinion.split(/\s+/u).length;
+  if (cells > MAX_ALIGN_CELLS) {
+    return undefined;
+  }
+  const mix = indicFirst
+    ? analyzeCodeMix(primary, secondOpinion)
+    : analyzeCodeMix(secondOpinion, primary);
+  return { pairs: mix.pairs, englishShare: mix.englishShare };
 }
 
 /** A label the model may echo in front of its answer ("Transcript 1 (…):"). */
@@ -201,10 +497,18 @@ function dropRatio(before: string, after: string): number {
   return Math.max(0, (inWords - countWords(after)) / inWords);
 }
 
-function resolveDropRatio(value: number | undefined): number {
+/** Share of words a clean-verbatim rewrite may remove when the caller set no `maxDropRatio`. */
+const CLEAN_MAX_DROP_RATIO = 0.5;
+
+function resolveDropRatio(
+  value: number | undefined,
+  cleanup?: "verbatim" | "clean",
+): number {
   return typeof value === "number" && Number.isFinite(value)
     ? Math.min(1, Math.max(0, value))
-    : DEFAULT_MAX_DROP_RATIO;
+    : cleanup === "clean"
+      ? CLEAN_MAX_DROP_RATIO
+      : DEFAULT_MAX_DROP_RATIO;
 }
 
 function errorMessage(error: unknown): string {
@@ -224,13 +528,19 @@ export async function rewriteTranscript(
     options?: STTCorrectionOptions;
     labels?: { primary?: string; secondary?: string };
     literal?: readonly string[];
+    /** Detected language of the speech. */
+    language?: string;
+    /** Earlier corrected utterances, oldest first. */
+    previous?: readonly string[];
+    /** The two transcripts aligned word by word (see `reconcilePairs`). */
+    pairs?: readonly STTWordPair[];
     onPartial?: (text: string) => void;
   },
   rewrite: STTCorrectionDeps["rewrite"],
 ): Promise<STTRewriteOutcome> {
   const started = Date.now();
   const { primary, secondOpinion, options } = input;
-  const settings = options?.rewrite === false ? undefined : options?.rewrite;
+  const settings = rewriteSettings(options?.rewrite);
   const timeoutMs =
     settings?.timeoutMs && settings.timeoutMs > 0
       ? settings.timeoutMs
@@ -268,13 +578,17 @@ export async function rewriteTranscript(
     content = await withTimeout(
       rewrite({
         system: buildRewriteSystemPrompt({
-          transliterate: options?.transliterate,
+          transliterate: resolveTransliterate(options, input.language),
           punctuate: options?.punctuate,
+          cleanup: options?.cleanup,
           dictionary: input.dictionary,
+          language: input.language,
         }),
         user: buildRewriteUserPrompt(primary, secondOpinion, {
           labels: input.labels,
           literal: input.literal,
+          previous: input.previous,
+          ...(input.pairs ? { pairs: input.pairs } : {}),
         }),
         provider: settings?.provider,
         model: settings?.model,
@@ -302,10 +616,54 @@ export async function rewriteTranscript(
     return keep("empty");
   }
   const ratio = dropRatio(primary, text);
-  if (ratio > resolveDropRatio(options?.maxDropRatio)) {
+  if (ratio > resolveDropRatio(options?.maxDropRatio, options?.cleanup)) {
     return keep("dropped", { dropRatio: ratio });
   }
+  if (addedWords(primary, secondOpinion, text, input.previous)) {
+    return keep("added");
+  }
   return { text, status: "ok", ms: Date.now() - started };
+}
+
+/**
+ * Whether a rewrite says more than was spoken: noticeably more words than
+ * the longer of the two readings it was given (a model that joins both
+ * readings one after the other instead of choosing between them), or a run
+ * of six words copied from an earlier utterance that the input does not
+ * contain (a model that repeats its context).
+ */
+function addedWords(
+  primary: string,
+  secondOpinion: string | undefined,
+  output: string,
+  previous: readonly string[] | undefined,
+): boolean {
+  const given = Math.max(countWords(primary), countWords(secondOpinion ?? ""));
+  const out = countWords(output);
+  if (out > given * 1.3 + 3) {
+    return true;
+  }
+  const norm = (t: string): string[] =>
+    t
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .split(/\s+/u)
+      .filter(Boolean);
+  const inputText = ` ${[...norm(primary), ...norm(secondOpinion ?? "")].join(" ")} `;
+  const outWords = norm(output);
+  for (const line of previous ?? []) {
+    const prev = norm(line);
+    for (let i = 0; i + 6 <= prev.length; i++) {
+      const run = prev.slice(i, i + 6).join(" ");
+      if (
+        ` ${outWords.join(" ")} `.includes(` ${run} `) &&
+        !inputText.includes(` ${run} `)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 /** Run `task` over `items` with at most `limit` in flight; results keep input order. */
@@ -344,24 +702,28 @@ export async function rewriteLines(
   options?: {
     dictionary?: readonly STTDictionaryEntry[];
     correction?: STTCorrectionOptions;
+    /** Detected language of the recording. */
+    language?: string;
   },
 ): Promise<STTRewriteLinesOutcome> {
   const started = Date.now();
   const out = [...lines];
-  const settings =
-    options?.correction?.rewrite === false
-      ? undefined
-      : options?.correction?.rewrite;
+  const settings = rewriteSettings(options?.correction?.rewrite);
   const timeoutMs =
     settings?.timeoutMs && settings.timeoutMs > 0
       ? settings.timeoutMs
       : DEFAULT_REWRITE_LINES_TIMEOUT_MS;
-  const maxDrop = resolveDropRatio(options?.correction?.maxDropRatio);
+  const maxDrop = resolveDropRatio(
+    options?.correction?.maxDropRatio,
+    options?.correction?.cleanup,
+  );
   const system = buildRewriteSystemPrompt({
-    transliterate: options?.correction?.transliterate,
+    transliterate: resolveTransliterate(options?.correction, options?.language),
     punctuate: options?.correction?.punctuate,
+    cleanup: options?.correction?.cleanup,
     dictionary: options?.dictionary,
     lines: true,
+    language: options?.language,
   });
 
   const indices = lines

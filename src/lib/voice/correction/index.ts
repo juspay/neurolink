@@ -21,8 +21,10 @@ import { DEFAULT_DECIDE_TIMEOUT_MS, decideCandidates } from "./guard.js";
 import {
   buildRewriteSystemPrompt,
   buildRewriteUserPrompt,
+  reconcilePairs,
   rewriteLines,
   rewriteTranscript,
+  rewriteWanted,
 } from "./rewrite.js";
 import type {
   STTCorrectionDeps,
@@ -43,6 +45,7 @@ export {
   findDictionaryCandidates,
   rewriteLines,
   rewriteTranscript,
+  rewriteWanted,
 };
 
 /** Correction is on when asked for, or by default when a dictionary or a rewrite is configured. */
@@ -159,11 +162,27 @@ export async function correctTranscript(
     timings.decideMs = guarded.decideMs;
   }
 
-  if (options?.rewrite !== false) {
+  const want = rewriteWanted(text, options, {
+    hasSecondOpinion: !!secondary,
+    termsApplied: guarded.decisions.filter((d) => d.choice === "term").length,
+    language: input.language,
+  });
+  if (!want.wanted) {
+    if (options?.rewrite !== false) {
+      steps.push(`rewrite skipped · ${want.reason}`);
+    }
+  } else {
+    const aligned = reconcilePairs(text, secondary);
+    if (aligned) {
+      steps.push(
+        `aligned two readings · ${Math.round(aligned.englishShare * 100)}% of words heard alike`,
+      );
+    }
     const outcome = await rewriteTranscript(
       {
         primary: text,
         secondOpinion: secondary,
+        ...(aligned ? { pairs: aligned.pairs } : {}),
         dictionary,
         options,
         labels: secondLed
@@ -175,6 +194,8 @@ export async function correctTranscript(
         literal: guarded.decisions
           .filter((d) => d.choice === "literal")
           .map((d) => d.heard),
+        language: input.language,
+        previous: input.previous,
         onPartial: input.onPartial,
       },
       deps.rewrite,
@@ -199,6 +220,9 @@ export async function correctTranscript(
           `rewrite dropped ${Math.round((outcome.dropRatio ?? 0) * 100)}% of words · kept text`,
         );
         break;
+      case "added":
+        steps.push("rewrite added words that were not said · kept text");
+        break;
     }
   }
 
@@ -208,6 +232,129 @@ export async function correctTranscript(
     decisions: guarded.decisions,
     steps,
     timings,
+  };
+}
+
+/**
+ * Split a transcript into sentences on terminal punctuation (., !, ?, the
+ * danda, an ellipsis), keeping the marks. Text without any mark is one
+ * sentence; a split that would leave a fragment under three words glues it
+ * to its neighbour so a stray "No." never travels alone.
+ */
+export function splitSentences(text: string): string[] {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return [];
+  }
+  const parts = trimmed
+    .split(/(?<=[.!?\u0964\u0965\u2026]["'\u201D\u2019)\]]*)\s+/u)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const out: string[] = [];
+  for (const part of parts) {
+    const words = part.split(/\s+/u).length;
+    if (out.length > 0 && words < 3) {
+      out[out.length - 1] = `${out[out.length - 1]} ${part}`;
+    } else {
+      out.push(part);
+    }
+  }
+  return out;
+}
+
+/**
+ * Correct one final sentence by sentence: each sentence gets its own
+ * dictionary pass, its own "does this need the rewrite" decision (an
+ * English sentence that is already clean costs nothing; a Devanagari one
+ * is romanised) and sentences run three at a time. The joined text has the
+ * same sentences in the same order; a sentence whose correction fails keeps
+ * its words. `onPartial` receives the whole utterance with the sentences
+ * corrected so far, so a caption can update progressively.
+ *
+ * Falls back to a single whole-text pass when there is one sentence or a
+ * second opinion (whole-utterance by nature) to reconcile.
+ */
+export async function correctTranscriptSentences(
+  input: STTCorrectionInput,
+  deps: STTCorrectionDeps,
+): Promise<STTCorrectionOutput & { sentences: number }> {
+  const sentences = splitSentences(input.text ?? "");
+  if (sentences.length < 2 || input.secondOpinion?.trim()) {
+    const one = await correctTranscript(input, deps);
+    return { ...one, sentences: Math.max(1, sentences.length) };
+  }
+  const started = Date.now();
+  const out = [...sentences];
+  const results: (STTCorrectionOutput | undefined)[] = sentences.map(
+    () => undefined,
+  );
+  let next = 0;
+  const emit = (): void => {
+    input.onPartial?.(out.join(" "));
+  };
+  const worker = async (): Promise<void> => {
+    while (next < sentences.length) {
+      const index = next++;
+      try {
+        const res = await correctTranscript(
+          {
+            ...input,
+            text: sentences[index],
+            secondOpinion: undefined,
+            onPartial: undefined,
+          },
+          deps,
+        );
+        results[index] = res;
+        out[index] = res.text.trim() ? res.text : sentences[index];
+      } catch {
+        out[index] = sentences[index];
+      }
+      emit();
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(3, sentences.length) }, () => worker()),
+  );
+  const decisions = results.flatMap((r) => r?.decisions ?? []);
+  const rewrites = results.filter((r) =>
+    r?.steps.some((st) => st.startsWith("rewrite ") && st.endsWith(" ms")),
+  ).length;
+  const skipped = results.filter((r) =>
+    r?.steps.some((st) => st.startsWith("rewrite skipped")),
+  ).length;
+  const kept = results.filter((r) =>
+    r?.steps.some((st) => st.includes("kept text")),
+  ).length;
+  const steps = [
+    `per sentence (${sentences.length})`,
+    ...(decisions.length
+      ? [
+          `dictionary ${decisions.filter((d) => d.choice === "term").length}/${decisions.length}`,
+        ]
+      : []),
+    ...(rewrites ? [`rewrite ${rewrites} sentence(s)`] : []),
+    ...(skipped ? [`rewrite skipped ${skipped} sentence(s)`] : []),
+    ...(kept ? [`${kept} sentence(s) kept their text`] : []),
+  ];
+  const sum = (key: "decideMs" | "rewriteMs"): number | undefined => {
+    const values = results
+      .map((r) => r?.timings[key])
+      .filter((v): v is number => typeof v === "number");
+    return values.length ? values.reduce((a, b) => a + b, 0) : undefined;
+  };
+  const decideMs = sum("decideMs");
+  const rewriteMs = sum("rewriteMs");
+  return {
+    text: out.join(" "),
+    decisions,
+    steps,
+    timings: {
+      ...(decideMs !== undefined ? { decideMs } : {}),
+      ...(rewriteMs !== undefined ? { rewriteMs } : {}),
+      correctionMs: Date.now() - started,
+    },
+    sentences: sentences.length,
   };
 }
 
@@ -225,6 +372,7 @@ export async function correctTranscriptLines(
   dictionary: readonly STTDictionaryEntry[] | undefined,
   options: STTCorrectionOptions | undefined,
   deps: STTCorrectionDeps,
+  language?: string,
 ): Promise<{
   lines: string[];
   decisions: STTDecisionRecord[];
@@ -240,6 +388,7 @@ export async function correctTranscriptLines(
     const outcome = await rewriteLines(lines, deps.rewrite, {
       dictionary,
       correction: options,
+      language,
     });
     const steps = [
       `rewrite ${outcome.batchesOk}/${outcome.batches} batches (${outcome.ms} ms)`,

@@ -1192,7 +1192,10 @@ OPENAI_STT_TIMEOUT_MS="120000"        # request timeout for long recordings
 # Several self-hosted engines at once, each a provider of its own (usable as
 # each other's fallback or second opinion). Keys are the provider names; a
 # name that collides with a shipped provider is ignored.
-NEUROLINK_STT_ENDPOINTS='{"qwen-asr":{"baseURL":"http://gpu-box:8004/v1","model":"qwen3-asr"},"indic":{"baseURL":"http://gpu-box:8006/v1"}}'
+# Per endpoint: baseURL (required), apiKey, model, timeoutMs, and for a server
+# that can take a language prior / answer with a language verdict only (the
+# IndicConformer wrapper): priorLanguageForm ("auto-{lang}") and lidModel.
+NEUROLINK_STT_ENDPOINTS='{"qwen-asr":{"baseURL":"http://gpu-box:8004/v1","model":"qwen3-asr"},"indic":{"baseURL":"http://gpu-box:8007/v1","model":"indic-conformer","priorLanguageForm":"auto-{lang}","lidModel":"indic-conformer-lid"}}'
 ```
 
 #### Correction layer
@@ -1202,6 +1205,10 @@ NEUROLINK_STT_ENDPOINTS='{"qwen-asr":{"baseURL":"http://gpu-box:8004/v1","model"
 # none (a request's correction.rewrite.provider/model still wins).
 NEUROLINK_STT_REWRITE_PROVIDER="openai"
 NEUROLINK_STT_REWRITE_MODEL="gpt-4o-mini"
+# Text provider and model that render transcripts into other languages
+# (`output.languages`), when a request names none; unset, the rewrite's.
+NEUROLINK_STT_OUTPUT_PROVIDER="openai"
+NEUROLINK_STT_OUTPUT_MODEL="gpt-4o"
 ```
 
 The dictionary guard uses whichever `decide` provider is configured (see the
@@ -1230,24 +1237,34 @@ NEUROLINK_WHISTLE_AUTO_DOWNLOAD="0"
 NEUROLINK_WHISTLE_KEYWORDS="1"
 ```
 
-| Variable                          | Default                                | Description                                                                                   |
-| --------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `NEUROLINK_STT_PROVIDER`          | first configured, else Whistle         | Default STT provider, alias or named endpoint                                                 |
-| `NEUROLINK_STT_MODEL`             | provider default                       | Model for the env-chosen provider                                                             |
-| `NEUROLINK_STT_LANGUAGE`          | `auto`                                 | Default language; `auto` lets the engine detect                                               |
-| `NEUROLINK_STT_ENDPOINTS`         | -                                      | JSON map of named OpenAI-compatible STT endpoints                                             |
-| `NEUROLINK_STT_REWRITE_PROVIDER`  | instance default                       | Text provider for the correction rewrite                                                      |
-| `NEUROLINK_STT_REWRITE_MODEL`     | provider default                       | Model for the correction rewrite                                                              |
-| `OPENAI_STT_API_KEY`              | `OPENAI_API_KEY` (api.openai.com only) | Key for the OpenAI-compatible STT endpoint; a custom base URL never receives `OPENAI_API_KEY` |
-| `OPENAI_STT_BASE_URL`             | `https://api.openai.com/v1`            | OpenAI-compatible `/audio/transcriptions` base URL                                            |
-| `OPENAI_STT_MODEL`                | `whisper-1`                            | Default model for `whisper`                                                                   |
-| `OPENAI_STT_TIMEOUT_MS`           | handler default                        | Request timeout for `whisper`                                                                 |
-| `DEEPGRAM_BASE_URL`               | `https://api.deepgram.com/v1`          | Deepgram REST base URL (stream uses the same host over `wss://`)                              |
-| `ELEVENLABS_STT_BASE_URL`         | `ELEVENLABS_BASE_URL`                  | ElevenLabs Scribe base URL                                                                    |
-| `NEUROLINK_WHISTLE_DIR`           | see precedence above                   | Directory holding Whistle's files (default: the bundled copy)                                 |
-| `NEUROLINK_MODEL_DIR`             | `~/.neurolink/models`                  | Root for local model files (`<root>/whistle`)                                                 |
-| `NEUROLINK_WHISTLE_AUTO_DOWNLOAD` | on                                     | `0`/`false`/`off`/`no` forbids the fallback download                                          |
-| `NEUROLINK_WHISTLE_KEYWORDS`      | off                                    | `1`/`true`/`on`/`yes` biases Whistle on the request's vocabulary                              |
+| Variable                                 | Default                                | Description                                                                                   |
+| ---------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `NEUROLINK_STT_PROVIDER`                 | first configured, else Whistle         | Default STT provider, alias or named endpoint                                                 |
+| `NEUROLINK_STT_MODEL`                    | provider default                       | Model for the env-chosen provider                                                             |
+| `NEUROLINK_STT_LANGUAGE`                 | `auto`                                 | Default language; `auto` lets the engine detect                                               |
+| `NEUROLINK_STT_ENDPOINTS`                | -                                      | JSON map of named OpenAI-compatible STT endpoints                                             |
+| `NEUROLINK_STT_REWRITE_PROVIDER`         | instance default                       | Text provider for the correction rewrite                                                      |
+| `NEUROLINK_STT_REWRITE_MODEL`            | provider default                       | Model for the correction rewrite                                                              |
+| `NEUROLINK_STT_OUTPUT_PROVIDER`          | the rewrite's provider                 | Text provider for output-language renderings                                                  |
+| `NEUROLINK_STT_OUTPUT_MODEL`             | the rewrite's model                    | Model for output-language renderings                                                          |
+| `NEUROLINK_STT_REALTIME_PROFILES`        | -                                      | JSON map of profiles an OpenAI-Realtime client selects by `model` on `/v1/realtime`           |
+| `NEUROLINK_STT_EVAL_LANGFUSE_PUBLIC_KEY` | -                                      | With the secret key: export `POST /v1/evals/stt` batches and scores to this Langfuse project  |
+| `NEUROLINK_STT_EVAL_LANGFUSE_SECRET_KEY` | -                                      | Secret key of the evaluation Langfuse project                                                 |
+| `NEUROLINK_STT_EVAL_LANGFUSE_BASE_URL`   | `https://cloud.langfuse.com`           | Langfuse host for the evaluation export                                                       |
+| `NEUROLINK_STT_EVAL_DIR`                 | - (memory only)                        | Directory where `POST /v1/evals/stt` keeps one JSON-lines file per call, replayed on start    |
+| `OPENAI_STT_API_KEY`                     | `OPENAI_API_KEY` (api.openai.com only) | Key for the OpenAI-compatible STT endpoint; a custom base URL never receives `OPENAI_API_KEY` |
+| `OPENAI_STT_PRIOR_LANGUAGE_FORM`         | -                                      | `language` template (`auto-{lang}`) that carries a language prior to a custom STT server      |
+| `OPENAI_STT_LID_MODEL`                   | -                                      | Model name the custom STT server runs in language-verdict-only mode (the batch probe)         |
+| `OPENAI_STT_VOCABULARY_PROMPT`           | on                                     | Send dictionary terms as a "Names and terms used" prompt; `0` for servers that echo it        |
+| `OPENAI_STT_BASE_URL`                    | `https://api.openai.com/v1`            | OpenAI-compatible `/audio/transcriptions` base URL                                            |
+| `OPENAI_STT_MODEL`                       | `whisper-1`                            | Default model for `whisper`                                                                   |
+| `OPENAI_STT_TIMEOUT_MS`                  | handler default                        | Request timeout for `whisper`                                                                 |
+| `DEEPGRAM_BASE_URL`                      | `https://api.deepgram.com/v1`          | Deepgram REST base URL (stream uses the same host over `wss://`)                              |
+| `ELEVENLABS_STT_BASE_URL`                | `ELEVENLABS_BASE_URL`                  | ElevenLabs Scribe base URL                                                                    |
+| `NEUROLINK_WHISTLE_DIR`                  | see precedence above                   | Directory holding Whistle's files (default: the bundled copy)                                 |
+| `NEUROLINK_MODEL_DIR`                    | `~/.neurolink/models`                  | Root for local model files (`<root>/whistle`)                                                 |
+| `NEUROLINK_WHISTLE_AUTO_DOWNLOAD`        | on                                     | `0`/`false`/`off`/`no` forbids the fallback download                                          |
+| `NEUROLINK_WHISTLE_KEYWORDS`             | off                                    | `1`/`true`/`on`/`yes` biases Whistle on the request's vocabulary                              |
 
 See [The transcribe inference type](/docs/features/transcribe) and
 [Whistle](/docs/getting-started/providers/whistle).

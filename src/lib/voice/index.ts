@@ -422,6 +422,9 @@ function endpointHandler(endpoint: STTEndpointConfig): OpenAISTT {
     baseURL: endpoint.baseURL,
     timeoutMs: endpoint.timeoutMs,
     model: endpoint.model,
+    priorLanguageForm: endpoint.priorLanguageForm,
+    lidModel: endpoint.lidModel,
+    vocabularyPrompt: endpoint.vocabularyPrompt,
   });
 }
 

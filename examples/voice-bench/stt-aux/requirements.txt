@@ -1,0 +1,13 @@
+torch==2.14.1
+torchaudio==2.11.0
+speechbrain
+transformers
+uroman
+soundfile
+numpy
+fastapi
+uvicorn
+python-multipart
+safetensors
+sentencepiece
+huggingface_hub

@@ -505,6 +505,9 @@ importers:
       music-metadata:
         specifier: ^11.16.1
         version: 11.16.1
+      onnxruntime-node:
+        specifier: ^1.24.3
+        version: 1.24.3
       pdf-parse:
         specifier: ^2.4.5
         version: 2.4.5

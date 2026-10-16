@@ -24,13 +24,25 @@
  */
 import { logger } from "../utils/logger.js";
 import {
+  collapseRepetitions,
+  isPromptEcho,
+  loopShare,
+} from "./correction/guards.js";
+import {
   SpanSerializer,
   SpanStatus,
   SpanType,
   getMetricsAggregator,
 } from "../observability/index.js";
 import { createWavFile } from "./audio-utils.js";
-import { correctTranscript, isCorrectionEnabled } from "./correction/index.js";
+import { normalizeSpeechLevel } from "./audioLevel.js";
+import { normalizeLanguageCode } from "./languages.js";
+import { outputLanguagesOf, renderOutputs } from "./output/render.js";
+import {
+  correctTranscript,
+  correctTranscriptSentences,
+  isCorrectionEnabled,
+} from "./correction/index.js";
 import {
   StreamEventQueue,
   chunkedTranscribeStream,
@@ -46,10 +58,13 @@ import {
   updateLocalAgreement,
 } from "./streaming/localAgreement.js";
 import type {
+  STTChunkedPassOptions,
   STTChunkedRun,
+  STTDictionaryEntry,
   STTHandler,
   STTOptions,
   STTResult,
+  STTStreamEngineRole,
   TranscribeDeps,
   TranscribeStreamEvent,
   TranscribeStreamOptions,
@@ -68,6 +83,9 @@ const NON_STT_KEYS = new Set([
   "dictionary",
   "correction",
   "fallback",
+  "routing",
+  "chunking",
+  "output",
   "streaming",
   "credentials",
 ]);
@@ -89,6 +107,113 @@ export function encodeWav16k(pcm: Float32Array): Buffer {
  * dictionary terms as vocabulary and appended to the prompt, `"auto"`
  * language left to the engine.
  */
+/** The words an engine is prompted with (dictionary terms, the caller's vocabulary, the fixed phrasing). */
+export function promptTermsOf(options: {
+  dictionary?: STTDictionaryEntry[];
+  vocabulary?: string[];
+}): string[] {
+  return [
+    ...(options.vocabulary ?? []),
+    ...(options.dictionary ?? []).flatMap((d) => [
+      d.term,
+      ...(d.heardAs ?? []),
+    ]),
+    "Names and terms used",
+  ].filter((t) => typeof t === "string" && t.trim().length > 0);
+}
+
+function wordCount(text: string): number {
+  return text.split(/\s+/u).filter(Boolean).length;
+}
+
+/**
+ * Engine output through the guards: a looping phrase is collapsed and the
+ * share of words it took is recorded on `metadata.loopShare`; an output
+ * that is only the prompt echoed back becomes empty. `note` receives a
+ * human-readable line for each guard that fired.
+ */
+export function guardEngineResult(
+  res: STTResult,
+  promptTerms: readonly string[],
+  note: (line: string) => void,
+): STTResult {
+  const original = res.text ?? "";
+  if (!original.trim()) {
+    return res;
+  }
+  if (isPromptEcho(original, promptTerms)) {
+    note("prompt echo discarded");
+    return {
+      ...res,
+      text: "",
+      words: undefined,
+      segments: undefined,
+      metadata: {
+        ...(res.metadata ?? { latency: 0 }),
+        hallucination: "prompt-echo",
+      },
+    };
+  }
+  const collapsed = collapseRepetitions(original);
+  if (collapsed.removed === 0) {
+    return res;
+  }
+  const share = loopShare(collapsed.removed, wordCount(original));
+  note(`repetition collapsed (${collapsed.removed} words)`);
+  const metadata = {
+    ...(res.metadata ?? { latency: 0 }),
+    loopShare: share,
+  };
+  if (!res.segments || res.segments.length <= 1) {
+    return {
+      ...res,
+      text: collapsed.text,
+      // Word timings no longer line up with the collapsed text.
+      words: undefined,
+      segments: res.segments?.length
+        ? [{ ...res.segments[0], text: collapsed.text }]
+        : undefined,
+      metadata,
+    };
+  }
+  // Many segments (a long, diarized file): collapse each segment on its own,
+  // so speaker turns and timings survive, and drop word timings only inside
+  // the segments whose text changed.
+  const changed: Array<{ start: number; end: number }> = [];
+  const segments = res.segments.map((segment) => {
+    const own = collapseRepetitions(segment.text);
+    if (own.removed === 0) {
+      return segment;
+    }
+    changed.push({
+      start: segment.start ?? Number.NEGATIVE_INFINITY,
+      end: segment.end ?? Number.POSITIVE_INFINITY,
+    });
+    return { ...segment, text: own.text };
+  });
+  if (changed.length === 0) {
+    // The loop ran across segment boundaries: keep the segments as the
+    // engine wrote them, and only the joined text collapsed.
+    return { ...res, text: collapsed.text, metadata };
+  }
+  const words = res.words?.filter((w) => {
+    const { start, end } = w;
+    return (
+      start === undefined ||
+      end === undefined ||
+      !changed.some((c) => start >= c.start && end <= c.end)
+    );
+  });
+
+  return {
+    ...res,
+    text: segments.map((s) => s.text).join(" "),
+    segments,
+    words,
+    metadata,
+  };
+}
+
 function buildEngineOptions(
   options: TranscribeStreamOptions,
   model: string | undefined,
@@ -123,6 +248,18 @@ function buildEngineOptions(
     format: audio.format,
     sampleRate: audio.sampleRate,
   };
+}
+
+/**
+ * A final's language when it can be trusted: an unsure verdict ("hi?", the
+ * Indic engine's fallback label on speech it could not place) must never
+ * decide a rewrite's rules or make a rendering look like the same language.
+ */
+function confidentLanguage(final: {
+  language?: string;
+  languageDetected?: boolean;
+}): string | undefined {
+  return final.languageDetected === false ? undefined : final.language;
 }
 
 /** Uint8Array frames → Buffers (no copy), reporting each frame as it is handed over. */
@@ -453,7 +590,17 @@ export async function* runTranscribeStream(
     options.dictionary,
     options.correction,
   );
-  const secondSpec = correcting ? options.correction?.secondOpinion : undefined;
+  const secondSetting = correcting
+    ? options.correction?.secondOpinion
+    : undefined;
+  // "auto": the fallback engine reads every utterance the primary leads, so
+  // the rewrite can reconcile both readings of code-mixed speech.
+  const secondSpec =
+    secondSetting === "auto"
+      ? options.fallback
+        ? { provider: options.fallback.provider, model: options.fallback.model }
+        : undefined
+      : secondSetting;
   const secondProvider =
     !useNative && secondSpec
       ? resolveOptional(secondSpec.provider, "second-opinion")
@@ -467,6 +614,32 @@ export async function* runTranscribeStream(
     wavAudio,
   );
   const secondOpts = buildEngineOptions(options, secondSpec?.model, wavAudio);
+  const otherOpts = buildEngineOptions(options, undefined, wavAudio);
+
+  // Language routing: which provider transcribes which language.
+  const routes = new Map<string, string>();
+  const pinnedLanguage = normalizeLanguageCode(options.language) !== undefined;
+  if (!useNative && !pinnedLanguage) {
+    for (const [lang, name] of Object.entries(options.routing?.engines ?? {})) {
+      const key = lang.trim() === "*" ? "*" : normalizeLanguageCode(lang);
+      const resolved =
+        key && typeof name === "string" && name.trim()
+          ? resolveOptional(name, `routing (${lang})`)
+          : undefined;
+      if (key && resolved) {
+        routes.set(key, resolved);
+      }
+    }
+  }
+  const optionsFor = (name: string): STTOptions =>
+    name === provider
+      ? primaryOpts
+      : name === fallbackProvider
+        ? fallbackOpts
+        : otherOpts;
+  const normalize = options.streaming?.normalize !== false;
+  const levelled = (pcm: Float32Array): Float32Array =>
+    normalize ? normalizeSpeechLevel(pcm) : pcm;
 
   // Per-utterance bookkeeping shared by the adapter hooks and the correction tasks.
   const finalPassMs = new Map<number, number>();
@@ -476,13 +649,218 @@ export async function* runTranscribeStream(
     Promise<{ text: string | null; ms: number }>
   >();
 
-  const run: STTChunkedRun = async (pcm, pass) => {
-    const wav = encodeWav16k(pcm);
-    const t0 = Date.now();
-    const res: STTResult =
+  // Words the engines were prompted with: an output made only of these is
+  // the prompt echoed back on a pause, not speech.
+  const promptTerms = promptTermsOf(options);
+  const guardNotes = new Map<number, string[]>();
+  const noteGuard = (utterance: number, note: string): void => {
+    const notes = guardNotes.get(utterance) ?? [];
+    if (!notes.includes(note)) {
+      notes.push(note);
+    }
+    guardNotes.set(utterance, notes);
+  };
+  // `fileModeStreamOptions` turns interim passes off with an infinite cadence;
+  // a live caller cannot send one (JSON has no Infinity).
+  const fileMode = options.streaming?.intervalMs === Number.POSITIVE_INFINITY;
+
+  const callEngine = (
+    wav: Buffer,
+    engine: STTStreamEngineRole,
+    prior: string | undefined,
+    hint?: string,
+  ): Promise<STTResult> =>
+    engine === "fallback" && fallbackProvider
+      ? deps.transcribe(
+          wav,
+          fallbackProvider,
+          hint ? { ...fallbackOpts, language: hint } : fallbackOpts,
+        )
+      : deps.transcribe(
+          wav,
+          provider,
+          prior ? { ...primaryOpts, languagePrior: prior } : primaryOpts,
+        );
+
+  /** The utterance as two halves, joined: what an engine that choked on the whole gets instead. */
+  const runHalves = async (
+    pcm: Float32Array,
+    pass: STTChunkedPassOptions,
+  ): Promise<STTResult> => {
+    const mid = Math.floor(pcm.length / 2);
+    const halves = await Promise.all([
+      callEngine(
+        encodeWav16k(pcm.subarray(0, mid)),
+        pass.engine,
+        pass.languagePrior,
+        pass.languageHint,
+      ),
+      callEngine(
+        encodeWav16k(pcm.subarray(mid)),
+        pass.engine,
+        pass.languagePrior,
+        pass.languageHint,
+      ),
+    ]);
+    return guardEngineResult(
+      {
+        ...halves[0],
+        text: [halves[0].text, halves[1].text]
+          .filter((t) => t.trim())
+          .join(" "),
+        words: undefined,
+        segments: undefined,
+      },
+      promptTerms,
+      () => undefined,
+    );
+  };
+
+  /** Utterances handed to another engine by routing: later passes go straight to it. */
+  const routedUtterances = new Map<number, { target: string; lang: string }>();
+
+  /** One pass on a routed engine, tagged with it; `undefined` when it heard nothing or failed. */
+  const runRouted = async (
+    pcm: Float32Array,
+    pass: STTChunkedPassOptions,
+    target: string,
+    lang: string,
+    fallbackLanguage: string | undefined,
+  ): Promise<STTResult | undefined> => {
+    try {
+      const alt = guardEngineResult(
+        await deps.transcribe(encodeWav16k(pcm), target, {
+          ...optionsFor(target),
+          languagePrior: lang,
+        }),
+        promptTerms,
+        (note) => noteGuard(pass.utterance, note),
+      );
+      if (alt.text.trim() && alt.metadata?.languageDetected !== false) {
+        return {
+          ...alt,
+          language: alt.language ?? fallbackLanguage,
+          metadata: {
+            ...(alt.metadata ?? { latency: 0 }),
+            routedProvider: target,
+          },
+        };
+      }
+      noteGuard(pass.utterance, `routing ${lang} → ${target} heard nothing`);
+    } catch (error) {
+      noteGuard(
+        pass.utterance,
+        `routing ${lang} → ${target} failed (${error instanceof Error ? error.message : String(error)})`,
+      );
+    }
+    return undefined;
+  };
+
+  /**
+   * A pass whose detected language belongs to another engine is read again
+   * by that engine, and the rest of the utterance goes to it; its text is
+   * used when it heard words and reads the language. Any failure keeps the
+   * text already in hand.
+   */
+  const routeFinal = async (
+    res: STTResult,
+    pcm: Float32Array,
+    pass: STTChunkedPassOptions,
+  ): Promise<STTResult> => {
+    if (routes.size === 0) {
+      return res;
+    }
+    const lang = normalizeLanguageCode(res.language);
+    if (!lang) {
+      return res;
+    }
+    const target = routes.get(lang) ?? routes.get("*");
+    const used =
       pass.engine === "fallback" && fallbackProvider
-        ? await deps.transcribe(wav, fallbackProvider, fallbackOpts)
-        : await deps.transcribe(wav, provider, primaryOpts);
+        ? fallbackProvider
+        : provider;
+    if (!target || target === used) {
+      return res;
+    }
+    const alt = await runRouted(pcm, pass, target, lang, res.language);
+    if (!alt) {
+      return res;
+    }
+    noteGuard(pass.utterance, `routed ${lang} → ${target}`);
+    routedUtterances.set(pass.utterance, { target, lang });
+    return alt;
+  };
+
+  const run: STTChunkedRun = async (rawPcm, pass) => {
+    const t0 = Date.now();
+    const pcm = levelled(rawPcm);
+    const routed = routedUtterances.get(pass.utterance);
+    if (routed) {
+      const direct = await runRouted(
+        pcm,
+        pass,
+        routed.target,
+        routed.lang,
+        routed.lang,
+      );
+      if (direct) {
+        if (pass.final) {
+          finalPassMs.set(pass.utterance, Date.now() - t0);
+        }
+        return direct;
+      }
+    }
+    let res: STTResult;
+    try {
+      res = await callEngine(
+        encodeWav16k(pcm),
+        pass.engine,
+        pass.languagePrior,
+        pass.languageHint,
+      );
+    } catch (error) {
+      // A final the engine could not finish (a decoding loop that ran into
+      // the timeout, most often) is tried as two halves before it is given
+      // up: a loop is a property of the chunk, not of the speech, and a
+      // retry of the same audio would only stall as long again.
+      if (!pass.final || pcm.length < ENGINE_SAMPLE_RATE * 4) {
+        throw error;
+      }
+      let halves: STTResult;
+      try {
+        halves = await runHalves(pcm, pass);
+      } catch {
+        throw error;
+      }
+      noteGuard(
+        pass.utterance,
+        `engine failed on the whole utterance (${error instanceof Error ? error.message : String(error)}) · re-run as two halves`,
+      );
+      if (pass.final) {
+        finalPassMs.set(pass.utterance, Date.now() - t0);
+      }
+      return halves;
+    }
+    res = guardEngineResult(res, promptTerms, (note) =>
+      noteGuard(pass.utterance, note),
+    );
+    // A final that was mostly a loop is, on a file, worth a second attempt
+    // as two halves: the loop is a property of the chunk, not the speech.
+    const loop = res.metadata?.loopShare;
+    if (
+      fileMode &&
+      pass.final &&
+      typeof loop === "number" &&
+      loop >= 0.5 &&
+      pcm.length >= ENGINE_SAMPLE_RATE * 4
+    ) {
+      const joined = await runHalves(pcm, pass).catch(() => undefined);
+      if (joined && wordCount(joined.text) > wordCount(res.text)) {
+        noteGuard(pass.utterance, "loop: utterance re-run as two halves");
+        res = joined;
+      }
+    }
+    res = await routeFinal(res, pcm, pass);
     if (pass.final) {
       finalPassMs.set(pass.utterance, Date.now() - t0);
     }
@@ -508,6 +886,7 @@ export async function* runTranscribeStream(
         ...options.streaming,
         sampleRate: inputRate,
         engineLabel: provider,
+        ...(options.routing ? { routing: options.routing } : {}),
         ...(fallbackProvider
           ? {
               fallback: {
@@ -527,7 +906,13 @@ export async function* runTranscribeStream(
           }
           secondOpinions.set(
             utterance,
-            runSecondOpinion(deps, pcm, secondProvider, secondOpts, utterance),
+            runSecondOpinion(
+              deps,
+              levelled(pcm),
+              secondProvider,
+              secondOpts,
+              utterance,
+            ),
           );
         },
       });
@@ -538,6 +923,95 @@ export async function* runTranscribeStream(
     const p = secondOpinions.get(utterance);
     secondOpinions.delete(utterance);
     return p ? await p : undefined;
+  };
+
+  // Corrected utterances, oldest first: the rewrite's read-only context.
+  const contextUtterances = Math.max(
+    0,
+    Math.floor(options.correction?.contextUtterances ?? 0),
+  );
+  const recentCorrected: Array<{ utterance: number; text: string }> = [];
+  const previousFor = (utterance: number): string[] | undefined =>
+    contextUtterances > 0
+      ? recentCorrected
+          .filter((r) => r.utterance < utterance)
+          .slice(-contextUtterances)
+          .map((r) => r.text)
+      : undefined;
+
+  // Output languages: every utterance rendered once into the languages in
+  // effect when it settles, with earlier utterances as context.
+  const outputContext = Math.max(
+    0,
+    Math.floor(options.output?.contextUtterances ?? 3),
+  );
+  const outputHistory: Array<{
+    utterance: number;
+    text: string;
+    outputs: Record<string, string>;
+  }> = [];
+  const emitOutputs = async (
+    utterance: number,
+    source: string,
+    corrected: string | undefined,
+    language: string | undefined,
+    basedOn: "final" | "corrected",
+  ): Promise<void> => {
+    const languages = outputLanguagesOf(options.output);
+    if (languages.length === 0 || aborted || !source.trim()) {
+      return;
+    }
+    const rendered = await renderOutputs(
+      {
+        source: [source],
+        ...(corrected && corrected !== source
+          ? { corrected: [corrected] }
+          : {}),
+        ...(language ? { language } : {}),
+        languages,
+        previous:
+          outputContext > 0
+            ? outputHistory
+                .filter((h) => h.utterance < utterance)
+                .slice(-outputContext)
+                .map((h) => ({ text: h.text, outputs: h.outputs }))
+            : [],
+        ...(options.dictionary ? { dictionary: options.dictionary } : {}),
+        ...(options.output ? { options: options.output } : {}),
+      },
+      deps,
+    );
+    if (aborted) {
+      return;
+    }
+    const texts: Record<string, string> = {};
+    for (const tag of languages) {
+      const r = rendered[tag];
+      if (!r) {
+        continue;
+      }
+      if (r.text) {
+        texts[tag] = r.text;
+      }
+      out.push({
+        type: "output",
+        utterance,
+        language: tag,
+        text: r.text,
+        status: r.status,
+        basedOn,
+        ms: r.ms,
+        ...(r.reason ? { reason: r.reason } : {}),
+      });
+    }
+    outputHistory.push({
+      utterance,
+      text: corrected ?? source,
+      outputs: texts,
+    });
+    if (outputHistory.length > 20) {
+      outputHistory.shift();
+    }
   };
 
   /** Correction of one final; pushes `correcting` partials and one `corrected`. */
@@ -552,10 +1026,27 @@ export async function* runTranscribeStream(
     finalPassMs.delete(utterance);
     endedAt.delete(utterance);
     const steps = [...preSteps];
-    const secondOpinion =
-      !final.fallbackUsed && alt?.text ? alt.text : undefined;
-    if (secondSpec && !final.fallbackUsed && !useNative && !alt?.text) {
+    // The final's own alternative (both engines ran on an utterance whose
+    // language they disagreed on) is the better second reading: it is the
+    // engine that lost, whichever one led.
+    const alternative =
+      secondSetting === "auto" && final.alternative?.text.trim()
+        ? final.alternative
+        : undefined;
+    const secondOpinion = alternative
+      ? alternative.text
+      : !final.fallbackUsed && alt?.text
+        ? alt.text
+        : undefined;
+    if (alternative) {
+      steps.push(`reconciled with ${alternative.engine}'s reading`);
+    }
+    if (alternative) {
+      // The step above already says which reading was reconciled.
+    } else if (secondSpec && !final.fallbackUsed && !useNative && !alt?.text) {
       steps.push("second opinion returned nothing");
+    } else if (secondOpinion && secondProvider) {
+      steps.push(`second opinion ${secondProvider}`);
     }
     // Nothing after the consumer has gone: no second opinion is reconciled
     // and no rewrite is paid for that nobody will read.
@@ -563,7 +1054,11 @@ export async function* runTranscribeStream(
       return;
     }
     try {
-      const res = await correctTranscript(
+      const correctFn =
+        options.correction?.perSentence === false
+          ? correctTranscript
+          : correctTranscriptSentences;
+      const res = await correctFn(
         {
           text: final.text,
           ...(secondOpinion ? { secondOpinion } : {}),
@@ -571,6 +1066,12 @@ export async function* runTranscribeStream(
           ...(options.correction ? { options: options.correction } : {}),
           ...(final.languageDetected !== undefined
             ? { languageDetected: final.languageDetected }
+            : {}),
+          ...(confidentLanguage(final)
+            ? { language: confidentLanguage(final) }
+            : {}),
+          ...(previousFor(utterance)?.length
+            ? { previous: previousFor(utterance) }
             : {}),
           onPartial: (text) => {
             if (text) {
@@ -594,6 +1095,18 @@ export async function* runTranscribeStream(
           totalMs: Date.now() - started,
         },
       });
+      const settled = res.text || final.text;
+      recentCorrected.push({ utterance, text: settled });
+      if (recentCorrected.length > 20) {
+        recentCorrected.shift();
+      }
+      await emitOutputs(
+        utterance,
+        final.text,
+        settled,
+        confidentLanguage(final),
+        "corrected",
+      );
     } catch (err) {
       // correctTranscript keeps its own timeouts and fails open; this is the
       // last guard so a bug there costs the correction, never the transcript.
@@ -610,6 +1123,13 @@ export async function* runTranscribeStream(
         steps: [...steps, `correction failed: ${message} · raw text kept`],
         timings: { transcribeMs, totalMs: Date.now() - started },
       });
+      await emitOutputs(
+        utterance,
+        final.text,
+        undefined,
+        confidentLanguage(final),
+        "final",
+      );
     }
   };
 
@@ -630,16 +1150,34 @@ export async function* runTranscribeStream(
   const producer = (async () => {
     try {
       for (;;) {
-        const { value: ev, done } = await iterator.next();
-        if (done || aborted) {
+        const next = await iterator.next();
+        if (next.done || aborted) {
           break;
         }
+        const raw: TranscribeStreamEvent = next.value;
+        if (raw.type === "silence") {
+          routedUtterances.delete(raw.utterance);
+        }
+        // A final reused from a routed interim names the engine that wrote it.
+        const routedTo =
+          raw.type === "final"
+            ? routedUtterances.get(raw.utterance)
+            : undefined;
+        const ev: TranscribeStreamEvent =
+          raw.type === "final" && routedTo && !raw.fallbackUsed
+            ? { ...raw, engine: routedTo.target }
+            : raw;
         if (ev.type === "final") {
           utterances++;
+          routedUtterances.delete(ev.utterance);
           out.push(ev);
-          const preSteps = ev.fallbackUsed
-            ? [`${provider} unsure → ${ev.engine} took over`]
-            : [];
+          const preSteps = [
+            ...(ev.fallbackUsed
+              ? [`${provider} unsure → ${ev.engine} took over`]
+              : []),
+            ...(guardNotes.get(ev.utterance) ?? []),
+          ];
+          guardNotes.delete(ev.utterance);
           if (correcting && !aborted) {
             track(
               takeSecondOpinion(ev.utterance).then((alt) =>
@@ -648,6 +1186,17 @@ export async function* runTranscribeStream(
             );
           } else {
             secondOpinions.delete(ev.utterance);
+            if (!aborted) {
+              track(
+                emitOutputs(
+                  ev.utterance,
+                  ev.text,
+                  undefined,
+                  confidentLanguage(ev),
+                  "final",
+                ),
+              );
+            }
           }
         } else if (ev.type === "silence" && secondOpinions.has(ev.utterance)) {
           // The primary heard nothing; the second engine may have. Its text

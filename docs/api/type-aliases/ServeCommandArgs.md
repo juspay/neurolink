@@ -50,6 +50,14 @@ Browser origins allowed by CORS (`--cors-origin`, repeatable or comma-separated)
 
 ---
 
+### maxUpload?
+
+> `optional` **maxUpload?**: `string`
+
+Largest raw upload (multipart / audio bodies) the server accepts, e.g. "64mb" (`--max-upload`).
+
+---
+
 ### rateLimit?
 
 > `optional` **rateLimit?**: `number`

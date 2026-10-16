@@ -87,7 +87,10 @@ export class FastifyServerAdapter extends BaseServerAdapter {
     if (this.config.bodyParser.enabled) {
       this.app.addContentTypeParser(
         /^\s*(multipart\/form-data|application\/octet-stream|audio\/)/i,
-        { parseAs: "buffer" },
+        {
+          parseAs: "buffer",
+          bodyLimit: this.parseBodyLimit(this.config.bodyParser.rawMaxSize),
+        },
         (request, body, done) => {
           done(
             null,

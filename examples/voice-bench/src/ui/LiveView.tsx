@@ -379,6 +379,98 @@ function TranscriptDoc() {
   );
 }
 
+/** Every finished sentence in each output language, one tab per language. */
+function OutputsPanel() {
+  const langs = useBench((s) => s.outputLangs);
+  const entries = useBench((s) => s.entries);
+  const [picked, setPicked] = useState<string | null>(null);
+  const endRef = useRef<HTMLDivElement>(null);
+  const { vb } = useTheme();
+  const active = picked && langs.includes(picked) ? picked : langs[0];
+  const lines = entries
+    .filter((e) => e.kind !== "tts" && e.outputs?.[active ?? ""])
+    .map((e) => ({ id: e.id, out: e.outputs![active!] }));
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: "nearest" });
+  }, [lines.length, active]);
+  if (!langs.length || !active) return null;
+  return (
+    <Surface
+      sx={{ flex: "none", boxShadow: "none", px: { xs: 2, md: 2.5 }, py: 1.25 }}
+    >
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          flexWrap: "wrap",
+          mb: 1,
+        }}
+      >
+        <Typography sx={{ fontWeight: 650, fontSize: "0.875rem", mr: 1 }}>
+          Output languages
+        </Typography>
+        {langs.map((l) => (
+          <ButtonBase
+            key={l}
+            onClick={() => setPicked(l)}
+            aria-pressed={l === active}
+            sx={{
+              px: 1.25,
+              py: 0.25,
+              borderRadius: "999px",
+              fontSize: "0.8125rem",
+              fontWeight: l === active ? 650 : 500,
+              color: l === active ? vb.accentInk : "text.secondary",
+              border: "1px solid",
+              borderColor: l === active ? vb.accentInk : "divider",
+            }}
+          >
+            {l}
+          </ButtonBase>
+        ))}
+        {lines.length > 0 && (
+          <Box sx={{ ml: "auto" }}>
+            <CopyButton
+              getText={() =>
+                lines
+                  .map((x) => x.out.text)
+                  .filter(Boolean)
+                  .join("\n")
+              }
+            />
+          </Box>
+        )}
+      </Box>
+      <Box
+        sx={{ maxHeight: 180, overflowY: "auto", display: "grid", gap: 0.5 }}
+      >
+        {lines.length === 0 ? (
+          <Typography sx={{ fontSize: "0.875rem", color: "text.secondary" }}>
+            Sentences appear here in {active} once they are corrected.
+          </Typography>
+        ) : (
+          lines.map((x) => (
+            <Typography
+              key={x.id}
+              sx={{
+                fontSize: "0.9375rem",
+                lineHeight: 1.55,
+                overflowWrap: "anywhere",
+                color: x.out.text ? "text.primary" : "text.secondary",
+                fontStyle: x.out.text ? "normal" : "italic",
+              }}
+            >
+              {x.out.text || `(${x.out.status})`}
+            </Typography>
+          ))
+        )}
+        <div ref={endRef} />
+      </Box>
+    </Surface>
+  );
+}
+
 function RawStrip() {
   const rows = useBench((s) => s.rawRows);
   const [open, setOpen] = useState(
@@ -676,6 +768,27 @@ export function EntryCard({ entry }: { entry: Entry }) {
           {entry.raw}
         </Typography>
       )}
+      {Object.entries(entry.outputs ?? {}).map(([tag, o]) => (
+        <Typography
+          key={tag}
+          sx={{ fontSize: "0.9375rem", overflowWrap: "anywhere" }}
+        >
+          <Box
+            component="b"
+            sx={{ fontWeight: 600, mr: 0.75, color: vb.accentInk }}
+          >
+            {tag}
+          </Box>
+          {o.text || (
+            <Box
+              component="span"
+              sx={{ color: "text.secondary", fontStyle: "italic" }}
+            >
+              ({o.status})
+            </Box>
+          )}
+        </Typography>
+      ))}
     </Surface>
   );
 }
@@ -1270,6 +1383,7 @@ export function LiveView() {
               }}
             >
               <TranscriptDoc />
+              <OutputsPanel />
               <RawStrip />
             </Box>
             {mode === "ptt" && <PttFeed />}

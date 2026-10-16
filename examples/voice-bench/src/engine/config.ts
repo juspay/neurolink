@@ -9,9 +9,11 @@ declare global {
 export const cfg: BenchConfig = window.ASR_CONFIG ?? {};
 export const base = (cfg.baseUrl ?? "").replace(/\/$/, "");
 export const nlBase = (cfg.neurolinkBaseUrl ?? "").replace(/\/$/, "");
+// "indic" is Indic-Transcribe-Flex (Indian languages, Indian English and code-mixed speech in
+// one model); IndicConformer is no longer on the default route.
 export const NL_PROVIDERS: Record<EngineId, string> = {
   local: "spark",
-  indic: "indic",
+  indic: "bodhan",
   whistle: "whistle",
   scribe: "elevenlabs-stt",
   ...(cfg.neurolinkProviders ?? {}),
@@ -38,11 +40,11 @@ export const ENGINE_LABEL: Record<EngineId, string> = {
   local: "qwen3-asr",
   scribe: "scribe v2",
   whistle: "whistle",
-  indic: "indic-conformer",
+  indic: "indic-transcribe",
 };
 export const LIVE_LABEL: Partial<Record<EngineId, string>> = {
   local: "Spark · Qwen3-ASR",
-  indic: "IndicConformer",
+  indic: "Indic-Transcribe",
   whistle: "Whistle",
 };
 

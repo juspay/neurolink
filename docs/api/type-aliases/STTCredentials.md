@@ -36,6 +36,24 @@ Any OpenAI-compatible `/audio/transcriptions` endpoint (OpenAI, vLLM, LiteLLM, s
 
 Default model name sent to the endpoint (`whisper-1` when omitted).
 
+#### priorLanguageForm?
+
+> `optional` **priorLanguageForm?**: `string`
+
+See `STTEndpointConfig.priorLanguageForm`. Env: `OPENAI_STT_PRIOR_LANGUAGE_FORM`.
+
+#### lidModel?
+
+> `optional` **lidModel?**: `string`
+
+See `STTEndpointConfig.lidModel`. Env: `OPENAI_STT_LID_MODEL`.
+
+#### vocabularyPrompt?
+
+> `optional` **vocabularyPrompt?**: `boolean`
+
+See `STTEndpointConfig.vocabularyPrompt`. Env: `OPENAI_STT_VOCABULARY_PROMPT`.
+
 ---
 
 ### endpoints?

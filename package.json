@@ -374,6 +374,7 @@
     "docs-site/mcp-server/*.d.ts",
     "docs-site/static/search-index.json",
     "models/whistle/*",
+    "models/silero-vad/*",
     "scripts/observability/*",
     "README.md",
     "CHANGELOG.md",
@@ -611,6 +612,7 @@
     "mammoth": "1.12.0",
     "mediabunny": "^1.40.1",
     "music-metadata": "^11.16.1",
+    "onnxruntime-node": "^1.24.3",
     "pdf-parse": "^2.4.5",
     "pptxgenjs": "^4.0.1",
     "sharp": "^0.35.3"

@@ -205,12 +205,73 @@ export const TranscribeDictionaryEntrySchema = z.object({
 
 const sttProviderName = z.string().min(1).max(100);
 
+/** A BCP-47 output tag (`es`, `fr-CA`, `hi-Latn`, `zh-Hant`) or `source`. */
+export const TranscribeOutputLanguageSchema = z
+  .string()
+  .trim()
+  .regex(
+    /^(?:source|[A-Za-z]{2,3}(?:-[A-Za-z]{4})?(?:-(?:[A-Za-z]{2}|\d{3}))?)$/u,
+    "must be a BCP-47 tag such as es, fr-CA or hi-Latn, or source",
+  );
+
+/** Output languages and how they are rendered. */
+export const TranscribeOutputSchema = z.object({
+  languages: z.array(TranscribeOutputLanguageSchema).max(8),
+  provider: z.string().min(1).max(100).optional(),
+  model: z.string().min(1).max(200).optional(),
+  timeoutMs: z.number().int().positive().max(120_000).optional(),
+  contextUtterances: z.number().int().min(0).max(10).optional(),
+  glossary: z.boolean().optional(),
+});
+
+/** A text frame on the transcribe WebSocket after the config: change the output languages. */
+export const TranscribeOutputControlSchema = z.object({
+  type: z.literal("output"),
+  languages: z.array(TranscribeOutputLanguageSchema).max(8),
+});
+
+/** A listener's frame on the session socket: which languages and speakers to follow. */
+export const TranscribeSubscribeSchema = z.object({
+  type: z.literal("subscribe"),
+  languages: z.array(TranscribeOutputLanguageSchema).max(8).optional(),
+  speakers: z.array(z.string().min(1).max(100)).max(64).optional(),
+  backlog: z.boolean().optional(),
+  interim: z.boolean().optional(),
+});
+
 /**
  * Engine and correction settings shared by `POST /agent/transcribe`, the
  * OpenAI-compatible route's extension fields and the transcribe WebSocket's
  * config frame. Unknown keys (including `credentials`) are stripped: a caller
  * cannot swap in its own key or point an engine at another host.
  */
+const EvalTimeSchema = z.number().finite().nonnegative().nullish();
+
+export const STTEvalSegmentSchema = z.object({
+  id: z.string().min(1).max(200),
+  source: z.enum(["primary", "shadow"]),
+  model: z.string().max(200),
+  participant_identity: z.string().max(500),
+  participant_name: z.string().max(500).optional(),
+  text: z.string().max(20_000),
+  language: z.string().max(35).nullish(),
+  start_time: EvalTimeSchema,
+  end_time: EvalTimeSchema,
+  received_at: z.number().finite().nonnegative(),
+});
+
+export const STTEvalBatchSchema = z.object({
+  call_id: z.string().min(1).max(500),
+  room: z.string().max(500).optional(),
+  batch: z.number().int().nonnegative(),
+  final: z.boolean().optional(),
+  models: z.object({
+    primary: z.string().max(200),
+    shadow: z.string().max(200),
+  }),
+  segments: z.array(STTEvalSegmentSchema).max(5_000),
+});
+
 export const TranscribeConfigSchema = z.object({
   provider: sttProviderName.optional(),
   model: z.string().min(1).max(200).optional(),
@@ -225,23 +286,31 @@ export const TranscribeConfigSchema = z.object({
       rewrite: z
         .union([
           z.literal(false),
+          z.literal("auto"),
           z.object({
             provider: z.string().min(1).max(100).optional(),
             model: z.string().min(1).max(200).optional(),
             timeoutMs: z.number().int().positive().max(120_000).optional(),
+            mode: z.enum(["auto", "always"]).optional(),
           }),
         ])
         .optional(),
+      perSentence: z.boolean().optional(),
       transliterate: z.enum(["latin", "native"]).optional(),
       punctuate: z.boolean().optional(),
+      cleanup: z.enum(["verbatim", "clean"]).optional(),
       secondOpinion: z
-        .object({
-          provider: sttProviderName,
-          model: z.string().min(1).max(200).optional(),
-        })
+        .union([
+          z.literal("auto"),
+          z.object({
+            provider: sttProviderName,
+            model: z.string().min(1).max(200).optional(),
+          }),
+        ])
         .optional(),
       context: z.string().max(1000).optional(),
       maxDropRatio: z.number().min(0).max(1).optional(),
+      contextUtterances: z.number().int().min(0).max(10).optional(),
     })
     .optional(),
   fallback: z
@@ -251,6 +320,21 @@ export const TranscribeConfigSchema = z.object({
       when: z.array(z.enum(["unsure", "empty", "error"])).optional(),
     })
     .optional(),
+  routing: z
+    .object({
+      probe: z.boolean().optional(),
+      lockAfterPasses: z.number().int().min(1).max(5).optional(),
+      prior: z.enum(["carry", "none"]).optional(),
+      engines: z
+        .record(z.string().min(1).max(35), sttProviderName)
+        .refine((engines) => Object.keys(engines).length <= 64, {
+          message: "at most 64 routes",
+        })
+        .optional(),
+    })
+    .optional(),
+  chunking: z.enum(["engine", "utterances"]).optional(),
+  output: TranscribeOutputSchema.optional(),
   diarization: z.boolean().optional(),
   wordTimestamps: z.boolean().optional(),
   timeoutMs: z.number().int().positive().max(600_000).optional(),
@@ -290,6 +374,13 @@ export const TranscribeRequestSchema = TranscribeConfigSchema.extend({
  * The transcribe WebSocket's first text frame: the config plus streaming tuning.
  */
 export const TranscribeStreamConfigSchema = TranscribeConfigSchema.extend({
+  /**
+   * `"file"`: the socket carries a whole recording as fast as the client can
+   * send it, not a microphone. No interim passes, utterances transcribed
+   * several at a time, a failed final retried, file-sized engine timeouts and
+   * shorter utterance cuts, with results per utterance as they finish.
+   */
+  mode: z.enum(["live", "file"]).optional(),
   streaming: z
     .object({
       mode: z.enum(["auto", "native", "chunked"]).optional(),
@@ -301,9 +392,35 @@ export const TranscribeStreamConfigSchema = TranscribeConfigSchema.extend({
       onsetRms: z.number().positive().optional(),
       prerollMs: z.number().nonnegative().optional(),
       minSpeechMs: z.number().nonnegative().optional(),
+      concurrency: z.number().int().min(1).max(8).optional(),
+      finalRetries: z.number().int().min(0).max(3).optional(),
+      // The detector and its thresholds; where its model lives is the server's business.
+      vad: z
+        .object({
+          engine: z.enum(["auto", "silero", "energy"]).optional(),
+          onset: z.number().min(0).max(1).optional(),
+          sustain: z.number().min(0).max(1).optional(),
+          startMs: z.number().nonnegative().max(2000).optional(),
+        })
+        .optional(),
+      normalize: z.boolean().optional(),
     })
     .optional(),
 });
+
+export const STTRealtimeProfileSchema = TranscribeStreamConfigSchema.omit({
+  mode: true,
+}).extend({
+  completed: z.enum(["corrected", "final"]).optional(),
+  correctionWaitMs: z.number().int().min(0).max(30_000).optional(),
+  clientLanguage: z.boolean().optional(),
+  clientTurnDetection: z.boolean().optional(),
+});
+
+export const STTRealtimeProfilesSchema = z.record(
+  z.string().min(1).max(100),
+  STTRealtimeProfileSchema,
+);
 
 // ============================================
 // Error Response Type Guards / Helpers

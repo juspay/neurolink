@@ -18,6 +18,8 @@ import type {
   RouteGroup,
   ServerContext,
   ServerOpenAITranscriptionResponse,
+  ServerSTTEvalBatchRequest,
+  ServerTranscribeCapabilities,
   ServerTranscribeRequest,
   ServerTranscribeRouteOptions,
   ServerTranscribeStreamConfig,
@@ -31,7 +33,16 @@ import { logger } from "../../utils/logger.js";
 import { MAX_AUDIO_BYTES } from "../../utils/sizeGuard.js";
 import { RawBodyTooLargeError } from "../utils/rawBody.js";
 import {
+  getSTTProviderDescriptor,
+  listConfiguredSTTProviders,
+  resolveDefaultSTTProvider,
+  resolveSTTEndpoints,
+} from "../../factories/sttDescriptors.js";
+import { STTProcessor } from "../../utils/sttProcessor.js";
+import { STTEvalStore } from "../../voice/eval/sttEvalStore.js";
+import {
   createErrorResponse,
+  STTEvalBatchSchema,
   TranscribeConfigSchema,
   TranscribeRequestSchema,
   validateRequest,
@@ -282,6 +293,9 @@ function toTranscribeOptions(
     ...(config.dictionary ? { dictionary: config.dictionary } : {}),
     ...(config.correction ? { correction: config.correction } : {}),
     ...(config.fallback ? { fallback: config.fallback } : {}),
+    ...(config.routing ? { routing: config.routing } : {}),
+    ...(config.chunking ? { chunking: config.chunking } : {}),
+    ...(config.output ? { output: config.output } : {}),
     ...(config.diarization !== undefined
       ? { diarization: config.diarization }
       : {}),
@@ -432,6 +446,7 @@ function toVerboseJson(
       : {}),
     steps: result.steps,
     timings: result.timings,
+    ...(result.outputs ? { outputs: result.outputs } : {}),
   };
 }
 
@@ -503,6 +518,11 @@ async function handleOpenAITranscription(
   const fallback = textField(form, "fallback");
   const language = textField(form, "language");
   const prompt = textField(form, "prompt");
+  const chunking = textField(form, "chunking");
+  const outputLanguages = (textField(form, "output_languages") ?? "")
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
 
   const candidate = {
     provider: textField(form, "provider") ?? engine.provider,
@@ -515,12 +535,21 @@ async function handleOpenAITranscription(
           correction: {
             enabled: true,
             ...(secondOpinion
-              ? { secondOpinion: { provider: secondOpinion } }
+              ? {
+                  secondOpinion:
+                    secondOpinion === "auto"
+                      ? ("auto" as const)
+                      : { provider: secondOpinion },
+                }
               : {}),
           },
         }
       : {}),
     ...(fallback ? { fallback: { provider: fallback } } : {}),
+    ...(chunking ? { chunking } : {}),
+    ...(outputLanguages.length
+      ? { output: { languages: outputLanguages } }
+      : {}),
     ...(isTruthyField(form.get("diarize")) ? { diarization: true } : {}),
     ...(granularities.includes("word") ? { wordTimestamps: true } : {}),
   };
@@ -600,6 +629,22 @@ const TRANSCRIBE_REQUEST_JSON_SCHEMA = {
     },
     correction: { type: "object" },
     fallback: { type: "object" },
+    routing: { type: "object" },
+    chunking: { type: "string", enum: ["engine", "utterances"] },
+    output: {
+      type: "object",
+      description:
+        "Renderings in other languages: languages is a list of BCP-47 tags (es, fr-CA, hi-Latn) or source",
+      properties: {
+        languages: { type: "array", items: { type: "string" } },
+        provider: { type: "string" },
+        model: { type: "string" },
+        timeoutMs: { type: "number" },
+        contextUtterances: { type: "number" },
+        glossary: { type: "boolean" },
+      },
+      required: ["languages"],
+    },
     diarization: { type: "boolean" },
     wordTimestamps: { type: "boolean" },
     timeoutMs: { type: "number" },
@@ -614,6 +659,50 @@ const TRANSCRIBE_REQUEST_JSON_SCHEMA = {
  *   `maxAudioBytes` (default 50 MB) and `openaiBasePath` (default `""`, so the
  *   OpenAI-compatible route is `/v1/audio/transcriptions`).
  */
+/** `GET /agent/transcribe/providers`: engines, default and correction models, from the process environment. */
+function describeTranscription(
+  ctx: ServerContext,
+): ServerTranscribeCapabilities {
+  const endpoints = resolveSTTEndpoints();
+  const configured = new Set(listConfiguredSTTProviders());
+  const names = [
+    ...configured,
+    ...STTProcessor.listProviders().filter((n) => !configured.has(n)),
+  ];
+  const providers: ServerTranscribeCapabilities["providers"] = names.map(
+    (name) => {
+      const endpoint = endpoints[name];
+      if (endpoint) {
+        return {
+          name,
+          kind: "endpoint",
+          ...(endpoint.model ? { model: endpoint.model } : {}),
+          ...(endpoint.lidModel ? { languageProbe: true } : {}),
+          ...(endpoint.priorLanguageForm ? { languagePrior: true } : {}),
+        };
+      }
+      return {
+        name,
+        kind: getSTTProviderDescriptor(name) ? "builtin" : "registered",
+      };
+    },
+  );
+  const decision = ctx.neurolink.decisionLimits();
+  const rewriteProvider =
+    process.env.NEUROLINK_STT_REWRITE_PROVIDER?.trim() || null;
+  const rewriteModel = process.env.NEUROLINK_STT_REWRITE_MODEL?.trim() || null;
+  return {
+    default: resolveDefaultSTTProvider(),
+    providers,
+    correction: {
+      decision: decision
+        ? { provider: decision.provider, model: decision.model }
+        : null,
+      rewrite: { provider: rewriteProvider, model: rewriteModel },
+    },
+  };
+}
+
 export function createTranscribeRoutes(
   basePath: string = "/api",
   options: ServerTranscribeRouteOptions = {},
@@ -621,6 +710,9 @@ export function createTranscribeRoutes(
   const limit = options.maxAudioBytes ?? MAX_AUDIO_BYTES;
   const nativePath = `${basePath}/agent/transcribe`;
   const openaiPath = `${options.openaiBasePath ?? ""}/v1/audio/transcriptions`;
+  const evalPath = `${options.openaiBasePath ?? ""}/v1/evals/stt`;
+  const evalStore =
+    options.evals === false ? undefined : new STTEvalStore(options.evals);
 
   return {
     // Empty prefix: the two routes live under different roots, and every
@@ -668,14 +760,88 @@ export function createTranscribeRoutes(
         tags: ["agent", "transcribe"],
       },
       {
+        method: "GET",
+        path: `${nativePath}/providers`,
+        handler: async (ctx: ServerContext) => describeTranscription(ctx),
+        description:
+          "The STT providers this server is configured with, the default one, and the decision and rewrite models behind correction",
+        tags: ["agent", "transcribe"],
+      },
+      {
         method: "POST",
         path: openaiPath,
         handler: (ctx: ServerContext) =>
           handleOpenAITranscription(ctx, options, limit, openaiPath),
         description:
-          "OpenAI-compatible transcription (multipart/form-data: file, model, language, prompt, response_format; extensions: provider, diarize, dictionary, correct, fallback, second_opinion)",
+          "OpenAI-compatible transcription (multipart/form-data: file, model, language, prompt, response_format; extensions: provider, diarize, dictionary, correct, fallback, second_opinion, chunking, output_languages)",
         tags: ["transcribe", "openai-compatible"],
       },
+      ...(evalStore ? createEvalRoutes(evalPath, evalStore) : []),
     ],
   };
+}
+
+/**
+ * The STT evaluation collector: a sender posts what two STTs wrote for the
+ * same call (`primary` shown, `shadow` run alongside), and reads back how far
+ * apart they were per speaker.
+ */
+function createEvalRoutes(
+  evalPath: string,
+  store: STTEvalStore,
+): RouteGroup["routes"] {
+  return [
+    {
+      method: "POST",
+      path: evalPath,
+      handler: async (ctx: ServerContext) => {
+        const validation = validateRequest(
+          STTEvalBatchSchema,
+          ctx.body,
+          ctx.requestId,
+        );
+        if (!validation.success) {
+          return validation.error;
+        }
+        const batch: ServerSTTEvalBatchRequest = validation.data;
+        return store.accept(batch);
+      },
+      description:
+        "Accept a batch of one call's segments from two STTs (primary shown, shadow for evaluation); a resent segment id replaces the earlier one",
+      tags: ["transcribe", "evaluation"],
+    },
+    {
+      method: "GET",
+      path: evalPath,
+      handler: async () => ({ calls: await store.list() }),
+      description: "Calls collected for STT evaluation, most recent first",
+      tags: ["transcribe", "evaluation"],
+    },
+    {
+      method: "GET",
+      path: `${evalPath}/:callId`,
+      handler: async (ctx: ServerContext) => {
+        // Adapters already decode path params; decoding again would turn a
+        // literal "%" in an id into something else, or throw on "%E0%A4%A".
+        const callId = ctx.params.callId ?? "";
+        const report = await store.report(
+          callId,
+          ctx.query.segments === "true",
+        );
+        return (
+          report ??
+          createErrorResponse(
+            "NOT_FOUND",
+            `No STT evaluation for call ${callId}`,
+            undefined,
+            ctx.requestId,
+            404,
+          )
+        );
+      },
+      description:
+        "Per-speaker comparison of the two STTs for one call (?segments=true adds the segments)",
+      tags: ["transcribe", "evaluation"],
+    },
+  ];
 }

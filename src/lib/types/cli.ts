@@ -1349,6 +1349,8 @@ export type ServeCommandArgs = {
   cors?: boolean;
   /** Browser origins allowed by CORS (`--cors-origin`, repeatable or comma-separated). */
   corsOrigin?: string[];
+  /** Largest raw upload (multipart / audio bodies) the server accepts, e.g. "64mb" (`--max-upload`). */
+  maxUpload?: string;
   rateLimit?: number;
   swagger?: boolean;
   config?: string;
@@ -1588,9 +1590,13 @@ export type CliTranscribeArgs = {
   rewrite?: boolean;
   transliterate?: "latin" | "native";
   secondOpinion?: string;
+  /** `--to`: output languages (comma-separated BCP-47 tags). */
+  to?: string | string[];
   fallback?: string;
   context?: string;
   stream?: boolean;
+  /** With `--stream`: which speech detector finds utterances. */
+  vad?: "auto" | "silero" | "energy";
   format?: "text" | "json" | "srt" | "vtt";
   timeout?: number;
   quiet?: boolean;

@@ -66,6 +66,9 @@ import {
 import WebSocket from "ws";
 import ts from "typescript";
 import type {
+  ServerSTTEvalBatchResponse,
+  ServerSTTEvalCallSummary,
+  ServerSTTEvalReport,
   STTHandler,
   STTOptions,
   STTResult,
@@ -150,6 +153,10 @@ for (const name of BLANKED_ENV) {
 const EMPTY_WHISTLE_DIR = tempDir("neurolink-whistle-empty-");
 process.env.NEUROLINK_WHISTLE_AUTO_DOWNLOAD = "0";
 process.env.NEUROLINK_WHISTLE_DIR = EMPTY_WHISTLE_DIR;
+// The streams below feed noise bursts, which the Silero detector rightly
+// scores as not-speech; the energy gate is what they drive. The detector's
+// own test asks for it by name.
+process.env.NEUROLINK_STT_VAD = "energy";
 
 /**
  * Env for a CLI child. The child loads `.env` itself and dotenv does not
@@ -160,6 +167,7 @@ function cliEnv(extra: Record<string, string> = {}): Record<string, string> {
   const env: Record<string, string> = {
     NEUROLINK_WHISTLE_AUTO_DOWNLOAD: "0",
     NEUROLINK_WHISTLE_DIR: EMPTY_WHISTLE_DIR,
+    NEUROLINK_STT_VAD: "energy",
     NEUROLINK_LOG_LEVEL: "error",
   };
   for (const name of BLANKED_ENV) {
@@ -248,6 +256,28 @@ function burstSamples(
 
 const ONE_SECOND_WAV = wavOf(new Float32Array(16000));
 
+/** Lead-in silence, then one noise burst per entry (seconds), each followed by 1.2 s of near-silence. */
+function burstsWav(bursts: number[]): Buffer {
+  const rate = 16000;
+  const rand = noise(23);
+  const out: number[] = [];
+  const quiet = (seconds: number) => {
+    for (let i = 0; i < Math.round(seconds * rate); i++) {
+      out.push(rand() * 0.002);
+    }
+  };
+  quiet(0.5);
+  for (const seconds of bursts) {
+    const n = Math.round(seconds * rate);
+    const ramp = 0.05 * rate;
+    for (let i = 0; i < n; i++) {
+      out.push(rand() * 0.6 * Math.min(1, i / ramp, (n - i) / ramp));
+    }
+    quiet(1.2);
+  }
+  return wavOf(Float32Array.from(out));
+}
+
 type Call = { audio: Buffer; options: STTOptions };
 
 /** What a stub answers: an `STTResult` without the fields a stub has no use for. */
@@ -269,9 +299,11 @@ function asResult(answer: StubResult): STTResult {
 function stub(
   name: string,
   answer: (call: Call, index: number) => StubResult | Promise<StubResult>,
+  extras: Partial<Pick<STTHandler, "languageProbeModel">> = {},
 ): { calls: Call[] } {
   const calls: Call[] = [];
   const handler: STTHandler = {
+    ...extras,
     isConfigured: () => true,
     getSupportedFormats: () => ["wav", "mp3", "ogg", "flac", "webm", "m4a"],
     transcribe: async (audio, options = {}) => {
@@ -1086,6 +1118,242 @@ await test("a rewrite that fails keeps the dictionary-applied text (never loses 
   );
 });
 
+await test("rewrite auto: a clean, punctuated Latin sentence with no memory hit skips the rewrite; a Devanagari one or an unpunctuated one does not", async () => {
+  // No text provider is configured in this suite, so a rewrite that runs
+  // fails and is reported; one that is skipped says so. Either way no words
+  // are lost, which is what makes the skip observable here.
+  const clean = stub(
+    `${NS}-clean`,
+    fixed("The quick brown fox jumps over the lazy dog."),
+  );
+  const a = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-clean`,
+    correction: { enabled: true },
+  });
+  assert(
+    a.steps.some((st) => st.startsWith("rewrite skipped")),
+    "a clean English sentence must skip the rewrite",
+  );
+  assertEqual(
+    a.text,
+    "The quick brown fox jumps over the lazy dog.",
+    "the text must be untouched",
+  );
+  assertEqual(clean.calls.length, 1, "one engine call");
+
+  const bare = stub(
+    `${NS}-bare`,
+    fixed("the quick brown fox jumps over the lazy dog"),
+  );
+  const b = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-bare`,
+    correction: { enabled: true },
+  });
+  assert(
+    !b.steps.some((st) => st.startsWith("rewrite skipped")),
+    "an unpunctuated sentence must try the rewrite",
+  );
+  assertEqual(
+    b.text,
+    "the quick brown fox jumps over the lazy dog",
+    "a failed rewrite keeps the text",
+  );
+  assert(bare.calls.length === 1, "one engine call");
+
+  stub(`${NS}-deva`, fixed("खाल मीटिंग है एट थ्री पी एम।"));
+  const c = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-deva`,
+    correction: { enabled: true },
+  });
+  assert(
+    !c.steps.some((st) => st.startsWith("rewrite skipped")),
+    "Devanagari text with Latin output requested must try the rewrite",
+  );
+  const d = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-deva`,
+    correction: { enabled: true, transliterate: "native" },
+  });
+  assert(
+    d.steps.some((st) => st.startsWith("rewrite skipped")),
+    "the same text with native script requested and the danda present has nothing to change",
+  );
+
+  const always = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-clean`,
+    correction: { enabled: true, rewrite: { mode: "always" } },
+  });
+  assert(
+    !always.steps.some((st) => st.startsWith("rewrite skipped")),
+    "mode always must run the rewrite regardless",
+  );
+});
+
+await test("per sentence: a multi-sentence final is corrected sentence by sentence, in order, with each sentence deciding its own rewrite", async () => {
+  stub(
+    `${NS}-sent`,
+    fixed(
+      "call jasper about it. The quick brown fox jumps over the lazy dog. khaal meeting hai at three pm",
+    ),
+  );
+  const res = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-sent`,
+    dictionary: [{ term: "Jaspr", heardAs: ["jasper"] }],
+    correction: { enabled: true, rewrite: false },
+  });
+  assert(
+    res.steps.some((st) => st === "per sentence (3)"),
+    "three sentences must be corrected separately",
+  );
+  assertEqual(
+    res.text,
+    "call Jaspr about it. The quick brown fox jumps over the lazy dog. khaal meeting hai at three pm",
+    "the dictionary applies in the sentence that holds the alias and the order is kept",
+  );
+  assertEqual(
+    res.decisions?.length,
+    1,
+    "one decision, from the first sentence",
+  );
+
+  const withRewrite = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-sent`,
+    dictionary: [{ term: "Jaspr", heardAs: ["jasper"] }],
+    correction: { enabled: true },
+  });
+  assert(
+    withRewrite.steps.some((st) => st.startsWith("rewrite skipped 1 sentence")),
+    "the clean English sentence must be the one that skips the rewrite",
+  );
+  assertEqual(
+    withRewrite.text.split(/\s+/).length,
+    "call Jaspr about it. The quick brown fox jumps over the lazy dog. khaal meeting hai at three pm".split(
+      /\s+/,
+    ).length,
+    "no sentence may lose a word when its rewrite fails",
+  );
+
+  const whole = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-sent`,
+    correction: { enabled: true, rewrite: false, perSentence: false },
+  });
+  assert(
+    !whole.steps.some((st) => st.startsWith("per sentence")),
+    "perSentence false keeps the single pass",
+  );
+});
+
+await test("batch language probe: an engine with a language-only model is asked first; unsure sends the audio to the fallback without a full primary pass", async () => {
+  const primary = stub(
+    `${NS}-probe-primary`,
+    (call) =>
+      call.options.model === "indic-lid"
+        ? { text: "", language: "hi", metadata: { languageDetected: false } }
+        : {
+            text: "देव शब्द",
+            language: "hi",
+            metadata: { languageDetected: false },
+          },
+    { languageProbeModel: () => "indic-lid" },
+  );
+  const fallback = stub(`${NS}-probe-fallback`, fixed("english words here"));
+  const res = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-probe-primary`,
+    fallback: { provider: `${NS}-probe-fallback` },
+    correction: { rewrite: false },
+  });
+  assertEqual(
+    res.engine.provider,
+    `${NS}-probe-fallback`,
+    "the fallback must answer",
+  );
+  assertEqual(res.engine.fallbackUsed, true, "fallbackUsed must be set");
+  assertEqual(
+    res.text,
+    "english words here",
+    "the fallback's words are the transcript",
+  );
+  assertEqual(
+    primary.calls.length,
+    1,
+    "the primary must be called once, for the probe only",
+  );
+  assertEqual(
+    primary.calls[0]?.options.model,
+    "indic-lid",
+    "the probe must use the language-only model",
+  );
+  assertEqual(fallback.calls.length, 1, "one fallback call");
+  assert(
+    res.steps.some((st) => st.startsWith("language probe unsure")),
+    "the probe must be reported",
+  );
+
+  // Confident probe: the primary transcribes, the fallback is never called.
+  const sure = stub(
+    `${NS}-probe-sure`,
+    (call) =>
+      call.options.model === "indic-lid"
+        ? { text: "", language: "ta", metadata: { languageDetected: true } }
+        : {
+            text: "தமிழ் சொற்கள்",
+            language: "ta",
+            metadata: { languageDetected: true },
+          },
+    { languageProbeModel: () => "indic-lid" },
+  );
+  const fb2 = stub(`${NS}-probe-fb2`, fixed("never"));
+  const r2 = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-probe-sure`,
+    fallback: { provider: `${NS}-probe-fb2` },
+    correction: { rewrite: false },
+  });
+  assertEqual(
+    r2.engine.provider,
+    `${NS}-probe-sure`,
+    "the primary must answer",
+  );
+  assertEqual(sure.calls.length, 2, "probe plus one full pass");
+  assertEqual(
+    fb2.calls.length,
+    0,
+    "the fallback must not be called when the probe is confident",
+  );
+
+  // A pinned language or routing.probe false skips the probe entirely.
+  const r3 = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-probe-sure`,
+    language: "ta",
+    fallback: { provider: `${NS}-probe-fb2` },
+    correction: { rewrite: false },
+  });
+  assert(
+    !r3.steps.some((st) => st.startsWith("language probe")),
+    "a pinned language must skip the probe",
+  );
+  const r4 = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-probe-sure`,
+    fallback: { provider: `${NS}-probe-fb2` },
+    routing: { probe: false },
+    correction: { rewrite: false },
+  });
+  assert(
+    !r4.steps.some((st) => st.startsWith("language probe")),
+    "routing.probe false must skip the probe",
+  );
+});
+
 await test("an empty engine transcript stays empty rather than being invented, and correction is skipped", async () => {
   stub(`${NS}-silent`, fixed(""));
   const result = await nl.transcribe({
@@ -1148,6 +1416,120 @@ await test("transcribeStream streams a batch engine through the chunked adapter,
       (c) => c.options.language === undefined && c.options.format === "wav",
     ),
     "stream passes must send 16 kHz WAV and leave an auto language to the engine",
+  );
+});
+
+await test("transcribeStream with the Silero detector: spoken audio makes an utterance the engine sees without its closing pause, a noise burst makes none", async () => {
+  const wav = spokenWav(
+    "The quick brown fox jumps over the lazy dog.",
+    "fox-vad.wav",
+  );
+  if (!wav) {
+    throw new Skip("no `say` command to synthesize speech");
+  }
+  // The spoken sentence between 0.5 s of lead-in and 1.5 s of closing silence,
+  // so the utterance opens and closes the way a live one does.
+  const file = readFileSync(wav);
+  const speech = file.subarray(file.indexOf("data") + 8);
+  const pcm = Buffer.concat([
+    Buffer.alloc(16000),
+    speech,
+    Buffer.alloc(16000 * 3),
+  ]);
+  const wordsPerHalfSecond = (call: Call): StubResult => {
+    const seconds = (call.audio.length - 44) / 32000;
+    return {
+      text: Array.from(
+        { length: Math.max(1, Math.floor(seconds * 2)) },
+        (_, i) => `w${i + 1}`,
+      ).join(" "),
+    };
+  };
+  async function* frames(bytes: Buffer): AsyncGenerator<Buffer> {
+    for (let at = 0; at < bytes.length; at += 3200) {
+      yield bytes.subarray(at, at + 3200);
+      await new Promise<void>((r) => setImmediate(r));
+    }
+  }
+  const stream = async (
+    provider: string,
+    bytes: Buffer,
+  ): Promise<TranscribeStreamEvent[]> => {
+    const events: TranscribeStreamEvent[] = [];
+    for await (const event of nl.transcribeStream({
+      audio: frames(bytes),
+      provider,
+      language: "auto",
+      streaming: { vad: { engine: "silero" } },
+    })) {
+      events.push(event);
+    }
+    return events;
+  };
+
+  const { calls } = stub(`${NS}-vad`, wordsPerHalfSecond);
+  const events = await stream(`${NS}-vad`, pcm);
+  const fatal = events.find((e) => e.type === "error" && !e.recoverable);
+  if (
+    fatal &&
+    fatal.type === "error" &&
+    /onnxruntime|Silero/.test(fatal.message)
+  ) {
+    throw new Skip("the Silero detector cannot load on this machine");
+  }
+  const finals = events.filter(
+    (e): e is Extract<TranscribeStreamEvent, { type: "final" }> =>
+      e.type === "final",
+  );
+  assert(finals.length >= 1, "spoken audio must make at least one utterance");
+  assert(
+    finals.every((f) => f.vad === "silero"),
+    "finals must say the Silero detector found them",
+  );
+  assert(
+    finals.reduce((sum, f) => sum + (f.speechSeconds ?? 0), 0) > 1,
+    "the detector must count the sentence as speech",
+  );
+  const lastCall = calls[calls.length - 1];
+  assert(lastCall !== undefined, "the engine must have been called");
+  // The recorded closing pause is replaced by digital silence: the last
+  // 300 ms of what the engine got must be exact zeros, which room noise
+  // never is.
+  const tail = lastCall.audio.subarray(lastCall.audio.length - 9600);
+  let nonZero = 0;
+  for (let i = 0; i < tail.length; i += 2) {
+    if (tail.readInt16LE(i) !== 0) {
+      nonZero++;
+    }
+  }
+  assertEqual(
+    nonZero,
+    0,
+    "the closing pause must not reach the engine; the chunk must end in silence",
+  );
+  assert(
+    events.every((e) => e.type !== "error"),
+    "a clean spoken stream must not report an error",
+  );
+
+  const noise = stub(`${NS}-vad-noise`, wordsPerHalfSecond);
+  const quiet = await stream(
+    `${NS}-vad-noise`,
+    wavOf(burstSamples(3, 2, 1.2)).subarray(44),
+  );
+  assertEqual(
+    quiet.filter((e) => e.type === "final").length,
+    0,
+    "noise bursts must not make an utterance",
+  );
+  assertEqual(
+    noise.calls.length,
+    0,
+    "the engine must never be called on noise",
+  );
+  assert(
+    quiet.every((e) => e.type !== "error"),
+    "a stream of noise is not an error",
   );
 });
 
@@ -1660,6 +2042,529 @@ await test("POST /v1/audio/transcriptions: 400 for non-multipart, missing file, 
   );
 });
 
+await test("chunking utterances: a recording goes through the live pipeline, one segment per utterance in order, each with its own engine decision", async () => {
+  const wav = burstsWav([2, 2.5, 2]);
+  let n = 0;
+  const primary = stub(`${NS}-utt-primary`, (call) => {
+    n++;
+    // The second utterance (the 2.5 s burst, ~4 s with pre-roll, trailing
+    // silence and the 400 ms silence pad every engine chunk ends in; the 2 s
+    // bursts come to ~3.5 s) is "English": unsure here, Latin words from the
+    // fallback.
+    const seconds = call.audio.length / 32000;
+    return seconds > 3.75
+      ? { text: "देव", language: "hi", metadata: { languageDetected: false } }
+      : {
+          text: `hindi utterance ${n}`,
+          language: "hi",
+          metadata: { languageDetected: true },
+        };
+  });
+  const fallback = stub(`${NS}-utt-fallback`, (call) => ({
+    text: `english words ${Math.round(call.audio.length / 32000)}`,
+  }));
+  const res = await nl.transcribe({
+    audio: wav,
+    provider: `${NS}-utt-primary`,
+    fallback: { provider: `${NS}-utt-fallback` },
+    chunking: "utterances",
+    correction: { rewrite: false },
+  });
+  assertEqual(res.segments?.length, 3, "three bursts must give three segments");
+  assert(
+    (res.segments ?? []).every(
+      (seg, i) =>
+        i === 0 || (seg.start ?? 0) >= (res.segments?.[i - 1]?.end ?? 0) - 0.01,
+    ),
+    "segments must be in time order",
+  );
+  assert(
+    res.steps[0]?.startsWith("transcribed ") &&
+      res.steps[0].includes("per utterance (3 utterances, 1 by"),
+    "the summary must count the utterances and the hand-off",
+  );
+  assertEqual(
+    res.engine.fallbackUsed,
+    true,
+    "fallbackUsed must be set when any utterance was handed over",
+  );
+  const texts = (res.segments ?? []).map((seg) => seg.text);
+  assert(
+    texts[1]?.startsWith("english words"),
+    "the unsure middle utterance must come from the fallback",
+  );
+  assert(
+    texts[0]?.startsWith("hindi utterance") &&
+      texts[2]?.startsWith("hindi utterance"),
+    "the confident utterances must stay on the primary",
+  );
+  assertEqual(
+    res.text,
+    texts.join(" "),
+    "the text must be the segments joined in order",
+  );
+  assertEqual(
+    primary.calls.length,
+    3,
+    "one primary pass per utterance: the probe is the final, no interim passes on a file",
+  );
+  assertEqual(
+    fallback.calls.length,
+    3,
+    "one fallback pass per utterance (the probe)",
+  );
+  assert(
+    typeof res.duration === "number" && res.duration > 9,
+    "the duration must be the recording's",
+  );
+});
+
+await test("chunking utterances: a final that fails once is retried, so a busy engine does not turn an utterance into silence", async () => {
+  const wav = burstsWav([2]);
+  let calls = 0;
+  stub(`${NS}-utt-flaky`, () => {
+    calls++;
+    if (calls === 1) {
+      throw new Error("gateway hiccup");
+    }
+    return {
+      text: "recovered words",
+      language: "en",
+      metadata: { languageDetected: true },
+    };
+  });
+  const res = await nl.transcribe({
+    audio: wav,
+    provider: `${NS}-utt-flaky`,
+    chunking: "utterances",
+    correction: { rewrite: false },
+  });
+  assertEqual(
+    res.text,
+    "recovered words",
+    "the retried final must supply the words",
+  );
+  assert(
+    !res.steps.some((st) => st.includes("silence")),
+    "nothing may be reported as silence after a successful retry",
+  );
+  assertEqual(calls, 2, "exactly one retry");
+});
+
+await test("repetition guard: a decoding loop is collapsed to two occurrences, the real words around it are kept, and the step says so", async () => {
+  const loop = Array.from({ length: 300 }, () => "Same one.").join(" ");
+  stub(
+    `${NS}-loop`,
+    fixed(
+      `They can be the same same one. ${loop} And you make sure that you publish it.`,
+    ),
+  );
+  const res = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-loop`,
+    correction: { rewrite: false },
+  });
+  const words = res.text.split(/\s+/);
+  assert(words.length < 30, "the loop must be gone");
+  assert(
+    res.text.startsWith("They can be the same same one.") &&
+      res.text.endsWith("And you make sure that you publish it."),
+    "the words around the loop must survive untouched",
+  );
+  assertEqual(
+    (res.text.match(/same one\./gi) ?? []).length,
+    2,
+    "two occurrences of the looped phrase are kept",
+  );
+  assert(
+    res.steps.some((st) => st.startsWith("repetition collapsed (")),
+    "the collapse must be reported",
+  );
+
+  // Natural repeats stay: three in a row is speech, not a loop.
+  stub(`${NS}-noloop`, fixed("no, no, no, that is not what I meant"));
+  const ok = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-noloop`,
+    correction: { rewrite: false },
+  });
+  assertEqual(
+    ok.text,
+    "no, no, no, that is not what I meant",
+    "a triple is kept as said",
+  );
+});
+
+await test("prompt-echo guard: an output made only of the prompted terms is not a transcript", async () => {
+  const dictionary = [
+    { term: "NeuroLink", heardAs: ["neural link"] },
+    { term: "DGX Spark" },
+  ];
+  stub(
+    `${NS}-echo`,
+    fixed(
+      "NeuroLink, DGX Spark, Jira. Names and terms used: NeuroLink, DGX Spark, Jira.",
+    ),
+  );
+  const res = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-echo`,
+    dictionary,
+    vocabulary: ["Jira"],
+    correction: { rewrite: false },
+  });
+  assertEqual(res.text, "", "an echo must come back as no text");
+  assert(
+    res.steps.some((st) => st === "prompt echo discarded"),
+    "the discard must be reported",
+  );
+
+  // The same terms inside real speech are untouched.
+  stub(
+    `${NS}-real`,
+    fixed("we deploy NeuroLink on the DGX Spark and track it in Jira"),
+  );
+  const real = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-real`,
+    dictionary,
+    vocabulary: ["Jira"],
+    correction: { rewrite: false },
+  });
+  assertEqual(
+    real.text,
+    "we deploy NeuroLink on the DGX Spark and track it in Jira",
+    "speech that uses the terms is kept",
+  );
+});
+
+await test("vocabulary prompt: a named endpoint receives the term list unless it opts out", async () => {
+  await withRecordingServerFields(async (baseUrl, seen) => {
+    const dictionary = [{ term: "NeuroLink", heardAs: ["neural link"] }];
+    await nl.transcribe({
+      audio: ONE_SECOND_WAV,
+      provider: "local-asr",
+      dictionary,
+      correction: { rewrite: false },
+      credentials: {
+        stt: { endpoints: { "local-asr": { baseURL: `${baseUrl}/v1` } } },
+      },
+    });
+    assert(
+      (seen[0]?.prompt ?? "").includes("Names and terms used: NeuroLink"),
+      "a custom endpoint gets the term list by default, as it always did",
+    );
+    await nl.transcribe({
+      audio: ONE_SECOND_WAV,
+      provider: "local-asr",
+      dictionary,
+      correction: { rewrite: false },
+      credentials: {
+        stt: {
+          endpoints: {
+            "local-asr": { baseURL: `${baseUrl}/v1`, vocabularyPrompt: false },
+          },
+        },
+      },
+    });
+    assert(
+      !(seen[1]?.prompt ?? "").includes("Names and terms used"),
+      "an endpoint that opted out does not get the term list",
+    );
+  });
+});
+
+await test("clean mode: a clean sentence still goes to the rewrite (fillers are its job); verbatim leaves it alone", async () => {
+  // No text provider is configured here, so an attempted rewrite fails and
+  // keeps the text; a skipped one says so. That difference is the contract.
+  stub(
+    `${NS}-cleanmode`,
+    fixed("So, um, the quick brown fox, like, jumps over the lazy dog."),
+  );
+  const verbatim = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-cleanmode`,
+    correction: { enabled: true },
+  });
+  assert(
+    verbatim.steps.some((st) => st.startsWith("rewrite skipped")),
+    "verbatim mode skips a clean sentence",
+  );
+  const clean = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-cleanmode`,
+    correction: { enabled: true, cleanup: "clean" },
+  });
+  assert(
+    !clean.steps.some((st) => st.startsWith("rewrite skipped")),
+    "clean mode must attempt the rewrite",
+  );
+  assertEqual(
+    clean.text,
+    "So, um, the quick brown fox, like, jumps over the lazy dog.",
+    "with no text provider the words are kept as they were",
+  );
+});
+
+await test("POST /api/agent/transcribe: output languages come back per tag, source needs no model, and a failed rendering leaves the transcript alone", async () => {
+  const res = await postJson({
+    audio: ONE_SECOND_WAV.toString("base64"),
+    provider: `${NS}-route`,
+    output: { languages: ["source", "es"], timeoutMs: 3000 },
+  });
+  assertEqual(
+    res.status,
+    200,
+    "a request with output languages must answer 200",
+  );
+  const body = (await res.json()) as { data?: TranscribeResult };
+  assertEqual(
+    body.data?.text,
+    "route words here",
+    "the transcript must be unchanged",
+  );
+  assertEqual(
+    body.data?.outputs?.source?.status,
+    "same-language",
+    "source must be the transcript itself",
+  );
+  assertEqual(
+    body.data?.outputs?.source?.text,
+    "route words here",
+    "source must carry the text",
+  );
+  const es = body.data?.outputs?.es?.status;
+  assert(
+    es === "error" || es === "timeout" || es === "rejected",
+    "with no text model configured the Spanish rendering must report its failure",
+  );
+});
+
+await test("POST /api/agent/transcribe: an output tag that is not BCP-47 is a 400", async () => {
+  const res = await postJson({
+    audio: ONE_SECOND_WAV.toString("base64"),
+    provider: `${NS}-route`,
+    output: { languages: ["not a language"] },
+  });
+  assertEqual(res.status, 400, "an invalid output tag must be refused");
+});
+
+await test("POST /v1/audio/transcriptions: output_languages reaches verbose_json as outputs", async () => {
+  const res = await postForm({
+    file: new Blob([new Uint8Array(ONE_SECOND_WAV)], { type: "audio/wav" }),
+    model: `${NS}-route`,
+    response_format: "verbose_json",
+    output_languages: "source",
+  });
+  assertEqual(res.status, 200, "the OpenAI-compatible route must answer 200");
+  const body = (await res.json()) as {
+    outputs?: Record<string, { status: string; text: string }>;
+  };
+  assertEqual(
+    body.outputs?.source?.text,
+    "route words here",
+    "outputs.source must be the transcript",
+  );
+});
+
+await test("WebSocket sessions: a listener follows a speaker in its own languages; an output control frame changes the speaker's own", async () => {
+  const http = createHttpServer((_req, res) => {
+    res.statusCode = 404;
+    res.end();
+  });
+  await new Promise<void>((resolve) => http.listen(0, "127.0.0.1", resolve));
+  const { port } = http.address() as AddressInfo;
+  stub(`${NS}-session`, () => ({
+    text: "session words here",
+    language: "en",
+    metadata: { languageDetected: true },
+  }));
+  const attached = await attachTranscribeWebSocket(http, nl, { path: "/live" });
+  type Ev = {
+    type: string;
+    speaker?: string;
+    language?: string;
+    status?: string;
+    text?: string;
+  };
+  try {
+    const heard: Ev[] = [];
+    const listener = new WebSocket(
+      `ws://127.0.0.1:${port}/live/subscribe?session=room1`,
+    );
+    await new Promise<void>((resolve, reject) => {
+      listener.on("open", () => resolve());
+      listener.on("error", reject);
+    });
+    listener.on("message", (m) => heard.push(JSON.parse(m.toString())));
+    listener.send(JSON.stringify({ type: "subscribe", languages: ["source"] }));
+    await new Promise((r) => setTimeout(r, 50));
+
+    const spoken: Ev[] = [];
+    const pcm = burstsWav([2, 2]).subarray(44);
+    await new Promise<void>((resolve, reject) => {
+      const ws = new WebSocket(
+        `ws://127.0.0.1:${port}/live?session=room1&speaker=alice`,
+      );
+      ws.on("message", (m) => spoken.push(JSON.parse(m.toString())));
+      ws.on("close", () => resolve());
+      ws.on("error", reject);
+      ws.on("open", () => {
+        ws.send(
+          JSON.stringify({
+            mode: "file",
+            provider: `${NS}-session`,
+            correction: { rewrite: false },
+          }),
+        );
+        ws.send(JSON.stringify({ type: "output", languages: ["source"] }));
+        for (let i = 0; i < pcm.length; i += 3200) {
+          ws.send(pcm.subarray(i, i + 3200));
+        }
+        ws.send(JSON.stringify({ type: "end" }));
+      });
+    });
+    await new Promise((r) => setTimeout(r, 100));
+    const finals = heard.filter((e) => e.type === "final");
+    assert(
+      finals.length >= 1,
+      "the listener must receive the speaker's finals",
+    );
+    assert(
+      finals.every((e) => e.speaker === "alice"),
+      "listener events must name the speaker",
+    );
+    const outs = heard.filter((e) => e.type === "output");
+    assert(
+      outs.length === finals.length &&
+        outs.every(
+          (e) => e.language === "source" && e.status === "same-language",
+        ),
+      "the listener must get one output per utterance in its language",
+    );
+    assert(
+      spoken.some((e) => e.type === "output" && e.language === "source"),
+      "the control frame must give the speaker its own outputs",
+    );
+    listener.close();
+  } finally {
+    attached.close();
+    await new Promise<void>((resolve) => http.close(() => resolve()));
+  }
+});
+
+await test("WebSocket mode file: a whole recording streams through in one session, finals in order, no interim passes, several utterances at a time", async () => {
+  const http = createHttpServer((_req, res) => {
+    res.statusCode = 404;
+    res.end();
+  });
+  await new Promise<void>((resolve) => http.listen(0, "127.0.0.1", resolve));
+  const { port } = http.address() as AddressInfo;
+  let inFlight = 0;
+  let peak = 0;
+  const engine = stub(`${NS}-wsfile`, async (call) => {
+    inFlight++;
+    peak = Math.max(peak, inFlight);
+    await new Promise((r) => setTimeout(r, 120));
+    inFlight--;
+    return {
+      text: `utterance of ${Math.round(call.audio.length / 32000)} s`,
+      language: "en",
+      metadata: { languageDetected: true },
+    };
+  });
+  const attached = await attachTranscribeWebSocket(http, nl, { path: "/file" });
+  try {
+    const wav = burstsWav([2, 2, 2, 2]);
+    const pcm = wav.subarray(44);
+    const events: Array<{ type: string; utterance?: number; text?: string }> =
+      [];
+    await new Promise<void>((resolve, reject) => {
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/file`);
+      ws.on("message", (m) => events.push(JSON.parse(m.toString())));
+      ws.on("close", () => resolve());
+      ws.on("error", reject);
+      ws.on("open", () => {
+        ws.send(
+          JSON.stringify({
+            mode: "file",
+            provider: `${NS}-wsfile`,
+            correction: { rewrite: false },
+          }),
+        );
+        for (let i = 0; i < pcm.length; i += 3200) {
+          ws.send(pcm.subarray(i, i + 3200));
+        }
+        ws.send(JSON.stringify({ type: "end" }));
+      });
+    });
+    const finals = events.filter((e) => e.type === "final");
+    assertEqual(finals.length, 4, "four bursts must give four finals");
+    assert(
+      finals.every(
+        (e, i) =>
+          i === 0 || (e.utterance ?? 0) > (finals[i - 1].utterance ?? 0),
+      ),
+      "finals must arrive in utterance order",
+    );
+    assertEqual(
+      events.filter((e) => e.type === "interim").length,
+      0,
+      "file mode runs no interim passes",
+    );
+    assertEqual(engine.calls.length, 4, "one engine pass per utterance");
+    assert(
+      peak >= 2,
+      "utterances must overlap in flight (file-mode concurrency)",
+    );
+  } finally {
+    attached.close();
+    await new Promise<void>((resolve) => http.close(() => resolve()));
+  }
+});
+
+await test("GET /api/agent/transcribe/providers reports the engines, the default and the correction models without secrets", async () => {
+  const res = await app.request("/api/agent/transcribe/providers");
+  assertEqual(res.status, 200, "the providers route must answer 200");
+  const body = (await res.json()) as {
+    data?: {
+      default: string;
+      providers: Array<{ name: string; kind: string }>;
+      correction: {
+        decision: unknown;
+        rewrite: { provider: string | null; model: string | null };
+      };
+    };
+  };
+  const d = body.data;
+  if (d === undefined) {
+    throw new Error("the envelope must carry data");
+  }
+  assert(
+    typeof d.default === "string" && d.default.length > 0,
+    "a default provider must be named",
+  );
+  assert(
+    d.providers.some(
+      (p) => p.name === `${NS}-route` && p.kind === "registered",
+    ),
+    "a handler registered at runtime must be listed as registered",
+  );
+  assertEqual(
+    d.correction.decision,
+    null,
+    "no decision provider is configured in this suite",
+  );
+  assert(
+    "provider" in d.correction.rewrite && "model" in d.correction.rewrite,
+    "the rewrite entry must carry provider and model",
+  );
+  assert(
+    !JSON.stringify(d).match(/sk-|Bearer|apiKey/i),
+    "the report must not contain a key",
+  );
+});
+
 await test("POST /api/agent/transcribe: dictionary and correction ride through to the correction layer", async () => {
   const engine = stub(`${NS}-route-dict`, fixed("call jasper"));
   const res = await postJson({
@@ -1703,6 +2608,34 @@ async function withRecordingServer<T>(
     });
     req.resume();
     req.on("end", () => {
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ text: "local words", language: "en" }));
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  try {
+    return await fn(`http://127.0.0.1:${port}`, seen);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+}
+
+/** Like withRecordingServer, but also records the multipart `prompt` field of each request. */
+async function withRecordingServerFields<T>(
+  fn: (
+    baseUrl: string,
+    seen: Array<{ path: string; prompt: string | undefined }>,
+  ) => Promise<T>,
+): Promise<T> {
+  const seen: Array<{ path: string; prompt: string | undefined }> = [];
+  const server: HttpServer = createHttpServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => chunks.push(c));
+    req.on("end", () => {
+      const body = Buffer.concat(chunks).toString("latin1");
+      const m = body.match(/name="prompt"\r\n\r\n([^\r]*)/);
+      seen.push({ path: req.url ?? "", prompt: m?.[1] });
       res.setHeader("content-type", "application/json");
       res.end(JSON.stringify({ text: "local words", language: "en" }));
     });
@@ -1973,6 +2906,585 @@ await test("WebSocket upgrade: with no allow-list or a wildcard, any Origin open
 });
 
 // ---------------------------------------------------------------------------
+// Review fixes: words are never dropped by a guard, failures are errors, and
+// an operator's upload cap holds.
+// ---------------------------------------------------------------------------
+
+await test("prompt-echo guard: a speaker who says only one dictionary term is kept", async () => {
+  stub(`${NS}-one-term`, fixed("Juspay."));
+  const res = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-one-term`,
+    dictionary: [{ term: "Juspay" }, { term: "Hyperswitch" }],
+    correction: { rewrite: false },
+  });
+  assertEqual(
+    res.text,
+    "Juspay.",
+    "a single spoken term is speech, not an echo",
+  );
+  assert(
+    !res.steps.includes("prompt echo discarded"),
+    "no discard may be reported",
+  );
+});
+
+await test("repetition guard: a loop in one segment of a long file keeps every segment and the other segments' word timings", async () => {
+  const loop = "yeah yeah yeah yeah yeah yeah";
+  stub(`${NS}-seg-loop`, () => ({
+    text: `first turn here ${loop} third turn here`,
+    segments: [
+      {
+        text: "first turn here",
+        start: 0,
+        end: 1,
+        speaker: "A",
+        isFinal: true,
+      },
+      { text: loop, start: 1, end: 2, speaker: "B", isFinal: true },
+      {
+        text: "third turn here",
+        start: 2,
+        end: 3,
+        speaker: "A",
+        isFinal: true,
+      },
+    ],
+    words: [
+      { word: "first", start: 0, end: 0.3 },
+      { word: "turn", start: 0.3, end: 0.6 },
+      { word: "here", start: 0.6, end: 1 },
+      { word: "yeah", start: 1.1, end: 1.3 },
+      { word: "third", start: 2, end: 2.3 },
+    ],
+  }));
+  const res = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-seg-loop`,
+    correction: { rewrite: false },
+  });
+  assertEqual(
+    res.segments?.length,
+    3,
+    "every segment must survive the collapse",
+  );
+  assertEqual(res.segments?.[1]?.speaker, "B", "speaker turns must survive");
+  assert(
+    (res.segments?.[1]?.text.split(/\s+/).length ?? 99) < 6,
+    "the looping segment must be collapsed",
+  );
+  assert(
+    res.words?.some((w) => w.word === "third") === true &&
+      !res.words?.some((w) => w.word === "yeah"),
+    "word timings are dropped only inside the collapsed segment",
+  );
+});
+
+await test("chunking utterances: an engine that fails every utterance is an error, not an empty transcript", async () => {
+  stub(`${NS}-utt-broken`, () => {
+    throw new Error("401 invalid api key");
+  });
+  let failed = false;
+  try {
+    await nl.transcribe({
+      audio: burstsWav([2, 2]),
+      provider: `${NS}-utt-broken`,
+      chunking: "utterances",
+      correction: { rewrite: false },
+    });
+  } catch {
+    failed = true;
+  }
+  assert(failed, "a call where nothing could be read must reject");
+});
+
+await test("server: an explicit bodyParser.maxSize also caps raw uploads", async () => {
+  const adapter = await createServer(new NeuroLink(), {
+    framework: "hono",
+    config: { port: 0, host: "127.0.0.1", bodyParser: { maxSize: "1kb" } },
+  });
+  await adapter.initialize();
+  registerAllRoutes(adapter, "/api", {});
+  const capped = adapter.getFrameworkInstance() as HonoLike;
+  // A fixed-length body: a streamed FormData cancelled mid-read makes
+  // undici throw outside the request in this in-process harness.
+  const response = await capped.request("/v1/audio/transcriptions", {
+    method: "POST",
+    headers: { "content-type": "multipart/form-data; boundary=x" },
+    body: new Uint8Array(ONE_SECOND_WAV),
+  });
+  assertEqual(
+    response.status,
+    413,
+    "a 32 KB upload over a 1 KB maxSize must be refused",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// STT evaluation collector: POST /v1/evals/stt, GET /v1/evals/stt[/:callId]
+// ---------------------------------------------------------------------------
+
+async function evalApp(transcribe: Record<string, unknown>): Promise<HonoLike> {
+  const adapter = await createServer(new NeuroLink(), {
+    framework: "hono",
+    config: { port: 0, host: "127.0.0.1" },
+  });
+  await adapter.initialize();
+  registerAllRoutes(adapter, "/api", { transcribe });
+  return adapter.getFrameworkInstance() as HonoLike;
+}
+
+function evalSegment(
+  id: string,
+  source: "primary" | "shadow",
+  text: string,
+  at: number,
+  speaker = "alice",
+): Record<string, unknown> {
+  return {
+    id,
+    source,
+    model: source === "primary" ? "google" : "neurolink",
+    participant_identity: speaker,
+    participant_name: speaker === "alice" ? "Alice" : "",
+    text,
+    language: source === "primary" ? "en-US" : "en",
+    start_time: at,
+    end_time: at + 2,
+    received_at: at + 2.5,
+  };
+}
+
+function postEval(target: HonoLike, body: unknown): Promise<Response> {
+  return target.request("/v1/evals/stt", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+async function readData<T>(response: Response): Promise<T> {
+  const body = (await response.json()) as { data?: T } & T;
+  return (body.data ?? body) as T;
+}
+
+const EVAL_T0 = 1_792_000_000;
+const EVAL_MODELS = { primary: "google", shadow: "neurolink" };
+
+await test("evals: a batch is accepted, counted per source, and resent ids replace rather than double", async () => {
+  const call = `${NS}-eval-upsert`;
+  const first = await postEval(app, {
+    call_id: call,
+    room: "room-1",
+    batch: 1,
+    final: false,
+    models: EVAL_MODELS,
+    segments: [
+      evalSegment("p1", "primary", "we ship the release on friday", EVAL_T0),
+      evalSegment("s1", "shadow", "we ship the release on friday", EVAL_T0),
+    ],
+  });
+  assertEqual(first.status, 200, "a valid batch must answer 200");
+  const accepted = await readData<ServerSTTEvalBatchResponse>(first);
+  assertEqual(accepted.inserted, 2, "both segments are new");
+  assertEqual(accepted.segments.primary, 1, "one primary segment held");
+  assertEqual(accepted.segments.shadow, 1, "one shadow segment held");
+
+  const resent = await readData<ServerSTTEvalBatchResponse>(
+    await postEval(app, {
+      call_id: call,
+      room: "room-1",
+      batch: 2,
+      models: EVAL_MODELS,
+      segments: [
+        evalSegment("s1", "shadow", "we ship the release on monday", EVAL_T0),
+      ],
+    }),
+  );
+  assertEqual(resent.inserted, 0, "a resent id is not new");
+  assertEqual(resent.updated, 1, "a resent id replaces the earlier segment");
+  assertEqual(resent.segments.shadow, 1, "the shadow count must not double");
+
+  const report = await readData<ServerSTTEvalReport>(
+    await app.request(`/v1/evals/stt/${encodeURIComponent(call)}`),
+  );
+  const alice = report.speakers_compared[0];
+  assertEqual(alice?.participant_name, "Alice", "the speaker keeps their name");
+  assertEqual(
+    alice?.disagreement,
+    Math.round((1 / 6) * 1000) / 1000,
+    "one word in six differs after the resend",
+  );
+  assertEqual(
+    alice?.primary.model,
+    "google",
+    "the primary side names its model",
+  );
+  assertEqual(
+    alice?.primary.mean_latency_s,
+    0.5,
+    "latency is received_at minus end_time",
+  );
+});
+
+await test("evals: an empty final batch marks the call final, and the list shows it", async () => {
+  const call = `${NS}-eval-final`;
+  await postEval(app, {
+    call_id: call,
+    batch: 1,
+    models: EVAL_MODELS,
+    segments: [evalSegment("p1", "primary", "hello there", EVAL_T0)],
+  });
+  const closing = await postEval(app, {
+    call_id: call,
+    batch: 3,
+    final: true,
+    models: EVAL_MODELS,
+    segments: [],
+  });
+  assertEqual(closing.status, 200, "an empty final batch is valid");
+  assertEqual(
+    (await readData<ServerSTTEvalBatchResponse>(closing)).final,
+    true,
+    "the call is final",
+  );
+  const { calls } = await readData<{ calls: ServerSTTEvalCallSummary[] }>(
+    await app.request("/v1/evals/stt"),
+  );
+  const listed = calls.find((c) => c.call_id === call);
+  assert(listed !== undefined, "the call must be listed");
+  assertEqual(listed?.batches, 2, "two batches seen (numbers may skip)");
+  assertEqual(listed?.final, true, "the listing shows the call final");
+});
+
+await test("evals: script differences count as agreement phonetically, not on plain words", async () => {
+  const call = `${NS}-eval-script`;
+  await postEval(app, {
+    call_id: call,
+    batch: 1,
+    models: EVAL_MODELS,
+    segments: [
+      evalSegment("p1", "primary", "namaste aap kaise hain", EVAL_T0, "bob"),
+      evalSegment("s1", "shadow", "नमस्ते आप कैसे हैं", EVAL_T0, "bob"),
+    ],
+  });
+  const report = await readData<ServerSTTEvalReport>(
+    await app.request(`/v1/evals/stt/${call}?segments=true`),
+  );
+  const bob = report.speakers_compared[0];
+  assertEqual(
+    bob?.participant_name,
+    "bob",
+    "an empty name falls back to the identity",
+  );
+  assertEqual(bob?.disagreement, 1, "every plain word differs across scripts");
+  assert(
+    (bob?.phonetic_disagreement ?? 1) < 0.5,
+    "phonetic keys must see the same words in both scripts",
+  );
+  assertEqual(
+    report.segment_list?.length,
+    2,
+    "?segments=true lists the segments",
+  );
+});
+
+await test("evals: an invalid batch is a 400, an unknown call a 404", async () => {
+  const bad = await postEval(app, {
+    call_id: `${NS}-eval-bad`,
+    batch: 1,
+    models: EVAL_MODELS,
+    segments: [
+      { ...evalSegment("x", "primary", "hi", EVAL_T0), source: "other" },
+    ],
+  });
+  assertEqual(bad.status, 400, "an unknown source must be refused");
+  const missing = await app.request(`/v1/evals/stt/${NS}-eval-never-sent`);
+  assertEqual(missing.status, 404, "an unknown call must be a 404");
+});
+
+await test("evals: with a directory, calls survive a new server", async () => {
+  const dir = tempDir("neurolink-stt-eval-");
+  const call = `${NS}-eval-disk/with:odd chars`;
+  const before = await evalApp({ evals: { dir } });
+  await postEval(before, {
+    call_id: call,
+    batch: 1,
+    final: true,
+    models: EVAL_MODELS,
+    segments: [
+      evalSegment("p1", "primary", "the build is green", EVAL_T0),
+      evalSegment("s1", "shadow", "the build is green", EVAL_T0),
+    ],
+  });
+  const after = await evalApp({ evals: { dir } });
+  const response = await after.request(
+    `/v1/evals/stt/${encodeURIComponent(call)}`,
+  );
+  assertEqual(response.status, 200, "the call must be read back from disk");
+  const report = await readData<ServerSTTEvalReport>(response);
+  assertEqual(report.final, true, "the final flag survives");
+  assertEqual(report.overall.disagreement, 0, "identical readings agree");
+});
+
+await test("evals: an id with a literal % round-trips, and malformed percent-encoding is not a 500", async () => {
+  const call = `${NS}-eval-100%-done`;
+  await postEval(app, {
+    call_id: call,
+    batch: 1,
+    models: EVAL_MODELS,
+    segments: [evalSegment("p1", "primary", "all done", EVAL_T0)],
+  });
+  const found = await app.request(`/v1/evals/stt/${encodeURIComponent(call)}`);
+  assertEqual(found.status, 200, "a literal % in the id must find the call");
+  const broken = await app.request("/v1/evals/stt/%E0%A4%A");
+  assert(broken.status < 500, "malformed percent-encoding is a client error");
+});
+
+await test("evals: concurrent batches for one call persist in arrival order", async () => {
+  const dir = tempDir("neurolink-stt-eval-order-");
+  const call = `${NS}-eval-order`;
+  const live = await evalApp({ evals: { dir } });
+  const versions = ["first reading", "second reading", "third reading"];
+  await Promise.all(
+    versions.map((text, i) =>
+      postEval(live, {
+        call_id: call,
+        batch: i + 1,
+        models: EVAL_MODELS,
+        segments: [evalSegment("p1", "primary", text, EVAL_T0)],
+      }),
+    ),
+  );
+  const replayed = await evalApp({ evals: { dir } });
+  const report = await readData<ServerSTTEvalReport>(
+    await replayed.request(`/v1/evals/stt/${call}?segments=true`),
+  );
+  assertEqual(
+    report.segment_list?.[0]?.text,
+    "third reading",
+    "the last batch to arrive must win after a replay",
+  );
+  assertEqual(report.batches, 3, "every batch is recorded");
+});
+
+await test("probe: the batch language probe is skipped when an unsure verdict cannot change the path", async () => {
+  const probes: string[] = [];
+  stub(
+    `${NS}-noprobe-primary`,
+    (call) => {
+      if (call.options.model === "indic-lid") {
+        probes.push("probe");
+      }
+      return { text: "plain words", language: "hi" };
+    },
+    { languageProbeModel: () => "indic-lid" },
+  );
+  stub(`${NS}-noprobe-fallback`, fixed("fallback words"));
+  const res = await nl.transcribe({
+    audio: ONE_SECOND_WAV,
+    provider: `${NS}-noprobe-primary`,
+    fallback: { provider: `${NS}-noprobe-fallback`, when: ["error"] },
+    correction: { rewrite: false },
+  });
+  assertEqual(res.text, "plain words", "the primary answers");
+  assertEqual(
+    probes.length,
+    0,
+    "no probe call when fallback.when excludes unsure",
+  );
+});
+
+// The Langfuse export is configured by the server's environment alone. A
+// fake ingestion endpoint records what arrives; the env is set only around
+// the store's construction.
+type LangfuseCapture = {
+  url: string;
+  auth: string[];
+  events: Array<{ type: string; body: Record<string, unknown> }>;
+  close: () => Promise<void>;
+};
+
+async function fakeLangfuse(): Promise<LangfuseCapture> {
+  const auth: string[] = [];
+  const events: LangfuseCapture["events"] = [];
+  const server = createHttpServer((req, res) => {
+    let raw = "";
+    req.on("data", (chunk: Buffer) => {
+      raw += chunk.toString("utf8");
+    });
+    req.on("end", () => {
+      auth.push(req.headers.authorization ?? "");
+      const parsed = JSON.parse(raw || "{}") as {
+        batch?: LangfuseCapture["events"];
+      };
+      events.push(...(parsed.batch ?? []));
+      res.writeHead(207, { "content-type": "application/json" });
+      res.end(JSON.stringify({ successes: [], errors: [] }));
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  return {
+    url: `http://127.0.0.1:${port}`,
+    auth,
+    events,
+    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+  };
+}
+
+async function withEvalLangfuseEnv<T>(
+  url: string,
+  run: () => Promise<T>,
+): Promise<T> {
+  const keys = {
+    NEUROLINK_STT_EVAL_LANGFUSE_PUBLIC_KEY: "pk-test",
+    NEUROLINK_STT_EVAL_LANGFUSE_SECRET_KEY: "sk-test",
+    NEUROLINK_STT_EVAL_LANGFUSE_BASE_URL: url,
+  };
+  const before = Object.fromEntries(
+    Object.keys(keys).map((k) => [k, process.env[k]]),
+  );
+  Object.assign(process.env, keys);
+  try {
+    return await run();
+  } finally {
+    for (const [k, v] of Object.entries(before)) {
+      if (v === undefined) {
+        delete process.env[k];
+      } else {
+        process.env[k] = v;
+      }
+    }
+  }
+}
+
+async function waitFor(check: () => boolean, ms = 5000): Promise<boolean> {
+  const until = Date.now() + ms;
+  while (Date.now() < until) {
+    if (check()) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  return check();
+}
+
+await test("evals: batches export to the Langfuse project in the server's env — one trace, one event per segment, scores; a resend upserts", async () => {
+  const langfuse = await fakeLangfuse();
+  const decoy = await fakeLangfuse();
+  try {
+    const target = await withEvalLangfuseEnv(langfuse.url, () => evalApp({}));
+    const call = `${NS}-eval-langfuse`;
+    const first = await postEval(target, {
+      call_id: call,
+      room: "standup",
+      batch: 1,
+      models: EVAL_MODELS,
+      segments: [
+        evalSegment("p1", "primary", "we ship on friday", EVAL_T0),
+        evalSegment("s1", "shadow", "we ship on monday", EVAL_T0),
+      ],
+    });
+    assertEqual(first.status, 200, "the batch is accepted");
+    // A resend of s1, with a body field naming another endpoint: the
+    // request cannot choose where evaluation data goes.
+    await postEval(target, {
+      call_id: call,
+      batch: 2,
+      final: true,
+      models: EVAL_MODELS,
+      segments: [evalSegment("s1", "shadow", "we ship on friday", EVAL_T0)],
+      langfuse: { baseUrl: decoy.url },
+    });
+    const scoresOf = () =>
+      langfuse.events.filter(
+        (e) => e.type === "score-create" && e.body.name === "stt_disagreement",
+      );
+    assert(
+      await waitFor(() => scoresOf().length >= 2),
+      "both batches must reach the configured endpoint",
+    );
+    assert(
+      langfuse.auth.every(
+        (a) =>
+          a === `Basic ${Buffer.from("pk-test:sk-test").toString("base64")}`,
+      ),
+      "ingestion uses the env key pair",
+    );
+    const traces = langfuse.events.filter((e) => e.type === "trace-create");
+    assert(
+      traces.every(
+        (e) => e.body.name === "stt-eval" && e.body.sessionId === call,
+      ) && new Set(traces.map((e) => e.body.id)).size === 1,
+      "every batch upserts the one trace of its call",
+    );
+    const s1 = langfuse.events.filter(
+      (e) =>
+        e.type === "event-create" &&
+        (e.body.metadata as { segment_id?: string }).segment_id === "s1",
+    );
+    assert(
+      s1.length === 2 && s1[0].body.id === s1[1].body.id,
+      "a resent segment reuses its event id, so Langfuse updates it",
+    );
+    assertEqual(
+      scoresOf().at(-1)?.body.value,
+      0,
+      "the score after the resend reflects the updated reading",
+    );
+    assert(
+      new Set(scoresOf().map((e) => e.body.id)).size === 1,
+      "the score is upserted, not duplicated",
+    );
+    assertEqual(decoy.events.length, 0, "nothing goes where the request asked");
+  } finally {
+    await langfuse.close();
+    await decoy.close();
+  }
+});
+
+await test("evals: an unreachable Langfuse never fails the batch, and without the env nothing is exported", async () => {
+  const down = await withEvalLangfuseEnv("http://127.0.0.1:9", () =>
+    evalApp({}),
+  );
+  const accepted = await postEval(down, {
+    call_id: `${NS}-eval-langfuse-down`,
+    batch: 1,
+    models: EVAL_MODELS,
+    segments: [evalSegment("p1", "primary", "hello", EVAL_T0)],
+  });
+  assertEqual(accepted.status, 200, "the sender's batch must not fail");
+
+  const langfuse = await fakeLangfuse();
+  try {
+    const plain = await evalApp({});
+    await postEval(plain, {
+      call_id: `${NS}-eval-langfuse-off`,
+      batch: 1,
+      models: EVAL_MODELS,
+      segments: [evalSegment("p1", "primary", "hello", EVAL_T0)],
+      langfuse: { baseUrl: langfuse.url },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    assertEqual(langfuse.events.length, 0, "no env, no export");
+  } finally {
+    await langfuse.close();
+  }
+});
+
+await test("evals: evals:false removes the routes", async () => {
+  const off = await evalApp({ evals: false });
+  const response = await postEval(off, {
+    call_id: `${NS}-eval-off`,
+    batch: 1,
+    models: EVAL_MODELS,
+    segments: [],
+  });
+  assertEqual(response.status, 404, "the route must not exist");
+});
+
+// ---------------------------------------------------------------------------
 // The endpointer subpath: `@juspay/neurolink/voice/endpointer`.
 //
 // A browser app imports this module to find where a spoken turn starts and
@@ -2223,6 +3735,360 @@ await test("a turn that never pauses is cut at the cap the caller sets", () => {
       raised.atSeconds < 62,
     "with the cap raised to 60 s the turn is cut near 60 s",
   );
+});
+
+// ---------------------------------------------------------------------------
+// OpenAI Realtime transcription (`/v1/realtime?intent=transcription`): the
+// frames below are the ones the stock LiveKit `openai.STT(use_realtime=True)`
+// plugin (livekit-plugins-openai 1.3.11) sends — its session.update, 24 kHz
+// PCM16 in 50 ms base64 appends, and no commit.
+// ---------------------------------------------------------------------------
+
+type RealtimeEvent = {
+  type: string;
+  item_id?: string;
+  delta?: string;
+  transcript?: string;
+  previous_item_id?: string | null;
+  error?: { code?: string };
+  session?: Record<string, unknown>;
+};
+
+/** 24 kHz PCM16: 0.5 s near-silence, then each burst followed by 1.2 s of near-silence. */
+function pcm24(bursts: number[]): Buffer {
+  const rate = 24000;
+  const rand = noise(31);
+  const out: number[] = [];
+  const quiet = (seconds: number) => {
+    for (let i = 0; i < Math.round(seconds * rate); i++) {
+      out.push(rand() * 0.002);
+    }
+  };
+  quiet(0.5);
+  for (const seconds of bursts) {
+    const n = Math.round(seconds * rate);
+    const ramp = 0.05 * rate;
+    for (let i = 0; i < n; i++) {
+      out.push(rand() * 0.6 * Math.min(1, i / ramp, (n - i) / ramp));
+    }
+    quiet(1.2);
+  }
+  const pcm = Buffer.alloc(out.length * 2);
+  out.forEach((v, i) =>
+    pcm.writeInt16LE(Math.round(Math.max(-1, Math.min(1, v)) * 0x7fff), i * 2),
+  );
+  return pcm;
+}
+
+async function realtimeServer(
+  options: Record<string, unknown>,
+): Promise<{ url: string; close: () => Promise<void> }> {
+  const http = createHttpServer((_req, res) => {
+    res.statusCode = 404;
+    res.end();
+  });
+  // An upgrade no handler claims (a path that is turned off) keeps its
+  // socket open for some other listener, so the server destroys its own
+  // sockets on close instead of waiting for them.
+  const sockets = new Set<import("node:net").Socket>();
+  http.on("connection", (socket) => {
+    sockets.add(socket);
+    socket.on("close", () => sockets.delete(socket));
+  });
+  await new Promise<void>((resolve) => http.listen(0, "127.0.0.1", resolve));
+  const { port } = http.address() as AddressInfo;
+  const attached = await attachTranscribeWebSocket(http, nl, options);
+  return {
+    url: `ws://127.0.0.1:${port}`,
+    close: async () => {
+      attached.close();
+      for (const socket of sockets) {
+        socket.destroy();
+      }
+      await new Promise<void>((resolve) => http.close(() => resolve()));
+    },
+  };
+}
+
+/** Runs one realtime session; resolves with every event once `until` holds or the server closes. */
+function realtimeSession(
+  url: string,
+  drive: (ws: WebSocket) => Promise<void>,
+  until: (events: RealtimeEvent[]) => boolean,
+  init: { headers?: Record<string, string>; protocols?: string[] } = {},
+): Promise<{ events: RealtimeEvent[]; closeCode?: number }> {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(url, init.protocols ?? [], {
+      headers: init.headers ?? {},
+    });
+    const events: RealtimeEvent[] = [];
+    let done = false;
+    const finish = (closeCode?: number) => {
+      if (done) {
+        return;
+      }
+      done = true;
+      clearTimeout(guard);
+      resolve({ events, closeCode });
+      ws.close();
+    };
+    const guard = setTimeout(() => finish(), 20_000);
+    ws.on("message", (m) => {
+      events.push(JSON.parse(m.toString()) as RealtimeEvent);
+      if (until(events)) {
+        finish();
+      }
+    });
+    ws.on("close", (code) => finish(code));
+    ws.on("error", (err) => (done ? undefined : reject(err)));
+    ws.on("open", () => {
+      drive(ws).catch(reject);
+    });
+  });
+}
+
+const LIVEKIT_SESSION_UPDATE = {
+  type: "session.update",
+  session: {
+    type: "transcription",
+    audio: {
+      input: {
+        format: { type: "audio/pcm", rate: 24000 },
+        transcription: { model: "gpt-4o-mini-transcribe", language: "en" },
+        turn_detection: {
+          type: "server_vad",
+          threshold: 0.5,
+          prefix_padding_ms: 600,
+          silence_duration_ms: 350,
+        },
+      },
+    },
+  },
+};
+
+async function appendPaced(
+  ws: WebSocket,
+  pcm: Buffer,
+  speed = 1,
+): Promise<void> {
+  const chunk = 2400 * 2; // 50 ms at 24 kHz
+  for (let i = 0; i < pcm.length; i += chunk) {
+    ws.send(
+      JSON.stringify({
+        type: "input_audio_buffer.append",
+        audio: pcm.subarray(i, i + chunk).toString("base64"),
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 50 / speed));
+  }
+}
+
+await test("realtime: the LiveKit plugin's own frames get speech_started, deltas, committed and a completed transcript, with no commit sent", async () => {
+  stub(`${NS}-rt-live`, () => ({
+    text: "realtime words arrive here",
+    language: "en",
+    metadata: { languageDetected: true },
+  }));
+  const server = await realtimeServer({
+    realtimeProfiles: {
+      default: { provider: `${NS}-rt-live`, correction: { rewrite: false } },
+    },
+  });
+  try {
+    const { events } = await realtimeSession(
+      `${server.url}/v1/realtime?intent=transcription`,
+      async (ws) => {
+        ws.send(JSON.stringify(LIVEKIT_SESSION_UPDATE));
+        // Speech, then the mic simply stops: no commit, no close.
+        await appendPaced(ws, pcm24([2.5]).subarray(0, 24000 * 2 * 3), 1.5);
+      },
+      (evs) =>
+        evs.some(
+          (e) =>
+            e.type === "conversation.item.input_audio_transcription.completed",
+        ),
+    );
+    assertEqual(
+      events[0]?.type,
+      "session.created",
+      "session.created comes first",
+    );
+    assert(
+      events.some((e) => e.type === "session.updated"),
+      "the session.update is acknowledged",
+    );
+    const types = events.map((e) => e.type);
+    const at = (type: string) => types.indexOf(type);
+    const completed = events.find(
+      (e) => e.type === "conversation.item.input_audio_transcription.completed",
+    );
+    assertEqual(
+      completed?.transcript,
+      "realtime words arrive here",
+      "completed carries the utterance's text",
+    );
+    assert(
+      at("input_audio_buffer.speech_started") >= 0 &&
+        at("input_audio_buffer.speech_started") <
+          at("input_audio_buffer.speech_stopped") &&
+        at("input_audio_buffer.speech_stopped") <
+          at("input_audio_buffer.committed") &&
+        at("input_audio_buffer.committed") <
+          at("conversation.item.input_audio_transcription.completed"),
+      "item events go out in OpenAI's order",
+    );
+    const deltas = events
+      .filter(
+        (e) => e.type === "conversation.item.input_audio_transcription.delta",
+      )
+      .map((e) => e.delta ?? "")
+      .join("");
+    assert(
+      "realtime words arrive here".startsWith(deltas.trim()),
+      "concatenated deltas are a prefix of the transcript (nothing to retract)",
+    );
+    assert(
+      events.every((e) => !e.item_id || e.item_id === completed?.item_id),
+      "one utterance, one item id",
+    );
+    assert(
+      events.some((e) => e.type === "neurolink.final"),
+      "NeuroLink's own final rides along as an extra event",
+    );
+  } finally {
+    await server.close();
+  }
+});
+
+await test("realtime: the beta dialect, a model naming a provider, a commit closing each utterance, and items completing strictly in order", async () => {
+  let n = 0;
+  stub(`${NS}-rt-beta`, () => {
+    n++;
+    return {
+      text: `utterance number ${n}`,
+      language: "en",
+      metadata: { languageDetected: true },
+    };
+  });
+  const server = await realtimeServer({});
+  try {
+    const { events } = await realtimeSession(
+      `${server.url}/v1/realtime?intent=transcription`,
+      async (ws) => {
+        ws.send(
+          JSON.stringify({
+            type: "transcription_session.update",
+            session: {
+              input_audio_format: "pcm16",
+              input_audio_transcription: { model: `${NS}-rt-beta` },
+            },
+          }),
+        );
+        await appendPaced(ws, pcm24([1.5, 1.5]), 8);
+        ws.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
+      },
+      (evs) =>
+        evs.filter(
+          (e) =>
+            e.type === "conversation.item.input_audio_transcription.completed",
+        ).length >= 2,
+    );
+    assert(
+      events.some((e) => e.type === "transcription_session.updated"),
+      "the beta update is answered in its own dialect",
+    );
+    const completed = events.filter(
+      (e) => e.type === "conversation.item.input_audio_transcription.completed",
+    );
+    assertEqual(completed.length, 2, "two utterances, two items");
+    assert(
+      completed.every((e) => /^utterance number \d$/u.test(e.transcript ?? "")),
+      "the model name selected the provider",
+    );
+    const firstDone = events.indexOf(completed[0]);
+    const second = completed[1].item_id;
+    assert(
+      events.findIndex((e) => e.item_id === second) > firstDone,
+      "no event of the second item goes out before the first completes",
+    );
+    const committed = events.filter(
+      (e) => e.type === "input_audio_buffer.committed",
+    );
+    assertEqual(
+      committed[1]?.previous_item_id,
+      completed[0].item_id,
+      "committed chains previous_item_id",
+    );
+  } finally {
+    await server.close();
+  }
+});
+
+await test("realtime: Bearer or the OpenAI browser subprotocol key is required; another intent is refused; realtimePath:false turns the path off", async () => {
+  stub(`${NS}-rt-auth`, () => ({ text: "x", language: "en" }));
+  const server = await realtimeServer({ authToken: "rt-secret" });
+  const off = await realtimeServer({ realtimePath: false });
+  // An upgrade nobody serves is left for another listener and never
+  // answered, so a quiet second counts as "not opened".
+  const upgrade = (
+    url: string,
+    init: { headers?: Record<string, string>; protocols?: string[] },
+  ) =>
+    new Promise<string>((resolve) => {
+      const ws = new WebSocket(url, init.protocols ?? [], {
+        headers: init.headers ?? {},
+      });
+      const quiet = setTimeout(() => {
+        ws.terminate();
+        resolve("unanswered");
+      }, 1000);
+      const done = (result: string) => {
+        clearTimeout(quiet);
+        resolve(result);
+      };
+      ws.on("open", () => {
+        ws.close();
+        done("open");
+      });
+      ws.on("unexpected-response", (_req, res) => done(String(res.statusCode)));
+      ws.on("error", () => done("error"));
+    });
+  try {
+    const path = `${server.url}/v1/realtime?intent=transcription`;
+    assertEqual(await upgrade(path, {}), "401", "no token is refused");
+    assertEqual(
+      await upgrade(path, { headers: { Authorization: "Bearer rt-secret" } }),
+      "open",
+      "the Bearer header opens",
+    );
+    assertEqual(
+      await upgrade(path, {
+        protocols: ["realtime", "openai-insecure-api-key.rt-secret"],
+      }),
+      "open",
+      "the browser subprotocol key opens",
+    );
+    const wrong = await realtimeSession(
+      `${server.url}/v1/realtime?intent=conversation`,
+      async () => undefined,
+      () => false,
+      { headers: { Authorization: "Bearer rt-secret" } },
+    );
+    assertEqual(
+      wrong.events[0]?.error?.code,
+      "unsupported_intent",
+      "a conversation intent gets an OpenAI-shaped error",
+    );
+    assertEqual(wrong.closeCode, 1008, "and the socket closes 1008");
+    assert(
+      (await upgrade(`${off.url}/v1/realtime?intent=transcription`, {})) !==
+        "open",
+      "realtimePath:false leaves the path unserved",
+    );
+  } finally {
+    await server.close();
+    await off.close();
+  }
 });
 
 // ---------------------------------------------------------------------------

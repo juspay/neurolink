@@ -24,7 +24,7 @@ Enable body parsing (default: true)
 
 > `optional` **maxSize?**: `string`
 
-Maximum body size (default: "10mb")
+Maximum body size for parsed bodies (default: "10mb")
 
 ---
 
@@ -33,6 +33,18 @@ Maximum body size (default: "10mb")
 > `optional` **jsonLimit?**: `string`
 
 JSON body limit (default: "10mb")
+
+---
+
+### rawMaxSize?
+
+> `optional` **rawMaxSize?**: `string`
+
+Maximum size of a raw upload: `multipart/form-data`, `audio/*` and
+`application/octet-stream` bodies, which reach a route as bytes
+(the transcription routes). Default: `maxSize` when set, else "64mb";
+the transcription routes apply their own `maxAudioBytes` (50 MB)
+beneath it.
 
 ---
 

@@ -112,6 +112,14 @@ Inline dictionary entries: `"Term|heard,as|meaning"`.
 
 ---
 
+### to?
+
+> `optional` **to?**: `string` \| `string`[]
+
+`--to`: output languages (comma-separated BCP-47 tags).
+
+---
+
 ### fallback?
 
 > `optional` **fallback?**: `string`
@@ -127,6 +135,14 @@ Inline dictionary entries: `"Term|heard,as|meaning"`.
 ### stream?
 
 > `optional` **stream?**: `boolean`
+
+---
+
+### vad?
+
+> `optional` **vad?**: `"auto"` \| `"silero"` \| `"energy"`
+
+With `--stream`: which speech detector finds utterances.
 
 ---
 

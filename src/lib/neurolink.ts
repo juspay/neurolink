@@ -19954,6 +19954,37 @@ Current user's request: ${currentInput}`;
           clearTimeout(timer);
         }
       },
+      render: async (o) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), o.timeoutMs);
+        // Output rendering is translation, often worth a stronger model than
+        // the rewrite; it has its own setting and falls back to the rewrite's.
+        const provider =
+          o.provider ??
+          (process.env.NEUROLINK_STT_OUTPUT_PROVIDER?.trim() ||
+            process.env.NEUROLINK_STT_REWRITE_PROVIDER?.trim());
+        const model =
+          o.model ??
+          (process.env.NEUROLINK_STT_OUTPUT_MODEL?.trim() ||
+            process.env.NEUROLINK_STT_REWRITE_MODEL?.trim());
+        try {
+          const generated = await this.generate({
+            input: { text: o.user },
+            systemPrompt: o.system,
+            schema: o.schema,
+            ...(provider ? { provider } : {}),
+            ...(model ? { model } : {}),
+            maxTokens: o.maxTokens,
+            temperature: 0,
+            disableTools: true,
+            memory: { enabled: false },
+            abortSignal: controller.signal,
+          });
+          return generated.structuredData ?? generated.content ?? "";
+        } finally {
+          clearTimeout(timer);
+        }
+      },
     };
   }
 

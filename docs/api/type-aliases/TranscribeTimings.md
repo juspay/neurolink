@@ -40,6 +40,14 @@
 
 ---
 
+### outputMs?
+
+> `optional` **outputMs?**: `number`
+
+Rendering into the output languages.
+
+---
+
 ### totalMs
 
 > **totalMs**: `number`

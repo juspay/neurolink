@@ -1,6 +1,8 @@
 import {
+  Autocomplete,
   Box,
   Button,
+  Chip,
   MenuItem,
   Select,
   Switch,
@@ -15,7 +17,11 @@ import { useState, type ReactNode } from "react";
 import { cfg, LANGUAGES } from "../engine/config";
 import { serverHas } from "../engine/neurolink";
 import { clearCards } from "../engine/feed";
-import { setRoute } from "../engine/live";
+import {
+  liveRestartIfRunning,
+  nlLiveSetOutputs,
+  setRoute,
+} from "../engine/live";
 import {
   setState,
   storage,
@@ -27,11 +33,53 @@ import type { Route, Tune } from "../engine/types";
 import { showView } from "./AppShell";
 import { Page, PageHeader, SectionHead, Surface } from "./common";
 
+// BCP-47: a language, an optional script (hi-Latn), an optional region (fr-CA).
+const OUTPUT_TAG_RE =
+  /^(?:source|[A-Za-z]{2,3}(?:-[A-Za-z]{4})?(?:-(?:[A-Za-z]{2}|\d{3}))?)$/;
+const SPOKEN_CHOICES: [string, string][] = [
+  ["en", "English"],
+  ["hi", "Hindi"],
+  ["ta", "Tamil"],
+  ["te", "Telugu"],
+  ["kn", "Kannada"],
+  ["ml", "Malayalam"],
+  ["bn", "Bengali"],
+  ["mr", "Marathi"],
+  ["gu", "Gujarati"],
+  ["pa", "Punjabi"],
+  ["or", "Odia"],
+  ["as", "Assamese"],
+  ["ur", "Urdu"],
+  ["ne", "Nepali"],
+];
+const OUTPUT_CHOICES: [string, string][] = [
+  ["en", "English"],
+  ["hi", "Hindi"],
+  ["hi-Latn", "Hindi in Latin letters (Hinglish)"],
+  ["ta", "Tamil"],
+  ["ta-Latn", "Tamil in Latin letters (Tanglish)"],
+  ["te", "Telugu"],
+  ["kn", "Kannada"],
+  ["ml", "Malayalam"],
+  ["bn", "Bengali"],
+  ["mr", "Marathi"],
+  ["gu", "Gujarati"],
+  ["pa", "Punjabi"],
+  ["ur", "Urdu"],
+  ["es", "Spanish"],
+  ["fr", "French"],
+  ["de", "German"],
+  ["pt", "Portuguese"],
+  ["ar", "Arabic"],
+  ["ja", "Japanese"],
+  ["zh", "Chinese"],
+];
+
 const ROUTES: { v: Route; title: string; desc: string }[] = [
   {
     v: "auto",
     title: "Auto",
-    desc: "Recommended. IndicConformer first, Spark when it is unsure — chosen per utterance.",
+    desc: "Recommended. Indic-Transcribe-Flex for Indian languages, Indian English and code-mixed speech; Spark only when it returns nothing.",
   },
   {
     v: "whistle",
@@ -68,7 +116,7 @@ const TUNING: {
   },
   {
     k: "intervalIndic",
-    label: "Interim pass interval — IndicConformer (ms)",
+    label: "Interim pass interval — Indic-Transcribe (ms)",
     min: 300,
     max: 3000,
     step: 50,
@@ -146,9 +194,31 @@ export function SettingsView() {
   const serverFileMode = useBench((s) => s.serverFileMode);
   const { vb } = useTheme();
   const [resetN, setResetN] = useState(0);
-  const setFlag = (k: "correct" | "romanize" | "clean", v: boolean) => {
+  const outputLangs = useBench((s) => s.outputLangs);
+  const expectedLangs = useBench((s) => s.expectedLangs);
+  const setExpected = (tags: string[]) => {
+    const clean = [...new Set(tags)];
+    storage.set("voice-bench-expected", clean);
+    setState({ expectedLangs: clean });
+    void liveRestartIfRunning();
+  };
+  const setOutputs = (tags: string[]) => {
+    const clean = [
+      ...new Set(
+        tags.map((t) => t.trim()).filter((t) => OUTPUT_TAG_RE.test(t)),
+      ),
+    ].slice(0, 8);
+    storage.set("voice-bench-outputs", clean);
+    setState({ outputLangs: clean });
+    nlLiveSetOutputs(clean);
+  };
+  const setFlag = (
+    k: "correct" | "romanize" | "clean" | "reconcile",
+    v: boolean,
+  ) => {
     storage.set("voice-bench-" + k, v);
     setState((s) => ({ flags: { ...s.flags, [k]: v } }));
+    void liveRestartIfRunning();
   };
   const setTune = (t: Tune) => {
     storage.set("voice-bench-tuning", t);
@@ -200,6 +270,7 @@ export function SettingsView() {
             onChange={(e) => {
               storage.set("voice-bench-lang", e.target.value);
               setState({ lang: e.target.value });
+              void liveRestartIfRunning();
             }}
             inputProps={{ "aria-label": "Language" }}
             sx={{ minWidth: 200 }}
@@ -257,6 +328,97 @@ export function SettingsView() {
           </Row>
         )}
       </Surface>
+
+      {server && (
+        <Surface>
+          <SectionHead title="Spoken languages" />
+          <Row
+            title="Speakers use"
+            desc="The recognizer only chooses among these, so a fragment of background speech is never written as Bengali or Marathi. Leave it empty to allow any of the 22 Indian languages and English."
+          >
+            <Autocomplete
+              multiple
+              size="small"
+              options={SPOKEN_CHOICES.map(([v]) => v)}
+              getOptionLabel={(v) =>
+                SPOKEN_CHOICES.find(([t]) => t === v)?.[1] ?? v
+              }
+              value={expectedLangs}
+              onChange={(_e, v) => setExpected(v as string[])}
+              renderValue={(value, getItemProps) =>
+                value.map((v, index) => (
+                  <Chip
+                    {...getItemProps({ index })}
+                    key={v}
+                    size="small"
+                    label={v}
+                  />
+                ))
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder={expectedLangs.length ? "" : "any language"}
+                  slotProps={{
+                    ...params.slotProps,
+                    htmlInput: {
+                      ...params.slotProps.htmlInput,
+                      "aria-label": "Spoken languages",
+                    },
+                  }}
+                />
+              )}
+              sx={{ minWidth: 260, maxWidth: 420 }}
+            />
+          </Row>
+        </Surface>
+      )}
+
+      {server && (
+        <Surface>
+          <SectionHead title="Output languages" />
+          <Row
+            title="Also write every sentence in"
+            desc="Each sentence is rendered once into every language here, after it is corrected: es, fr, de, ta … translate; hi-Latn writes Hindi in Latin letters (Hinglish), whatever was spoken. Changes apply from the next sentence."
+          >
+            <Autocomplete
+              multiple
+              freeSolo
+              size="small"
+              options={OUTPUT_CHOICES.map(([v]) => v)}
+              getOptionLabel={(v) =>
+                OUTPUT_CHOICES.find(([t]) => t === v)?.[1] ?? v
+              }
+              value={outputLangs}
+              onChange={(_e, v) => setOutputs(v as string[])}
+              renderValue={(value, getItemProps) =>
+                value.map((v, index) => (
+                  <Chip
+                    {...getItemProps({ index })}
+                    key={v}
+                    size="small"
+                    label={v}
+                  />
+                ))
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder={outputLangs.length ? "" : "transcript only"}
+                  slotProps={{
+                    ...params.slotProps,
+                    htmlInput: {
+                      ...params.slotProps.htmlInput,
+                      "aria-label": "Output languages",
+                    },
+                  }}
+                />
+              )}
+              sx={{ minWidth: 260, maxWidth: 420 }}
+            />
+          </Row>
+        </Surface>
+      )}
 
       <Surface>
         <Row

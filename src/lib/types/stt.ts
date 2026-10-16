@@ -51,6 +51,13 @@ export type STTOptions = {
    * `vocabulary` terms are appended by the handlers that accept a prompt.
    */
   prompt?: string;
+  /**
+   * The language a previous utterance was confidently detected as. Engines
+   * that take a prior (the IndicConformer wrapper, through its
+   * `priorLanguageForm`) keep it unless the audio clearly says otherwise;
+   * every other engine ignores it. Only sent when no `language` is pinned.
+   */
+  languagePrior?: string;
   /** Per-request timeout in milliseconds, for handlers that honour one. */
   timeoutMs?: number;
   /** Minimum confidence threshold */
@@ -108,6 +115,12 @@ export type STTResult = {
     provider?: string;
     /** Model used */
     model?: string;
+    /** Set by the output guards: what the engine produced was not speech. */
+    hallucination?: "prompt-echo";
+    /** Share of the words a collapsed decoding loop had taken (0 when none). */
+    loopShare?: number;
+    /** Set by language routing: the provider whose text this is, when not the pass's own engine. */
+    routedProvider?: string;
     /** What `confidence` was derived from, for providers that must choose. */
     confidenceSource?: STTConfidenceSource;
     /** Additional provider-specific metadata */
@@ -200,6 +213,13 @@ export type STTHandler = {
    * what to do rather than "set the required API keys".
    */
   describeConfiguration?(): string;
+  /**
+   * The model name that runs this engine in language-identification-only
+   * mode (no transcript, just the language verdict and scores, in a fraction
+   * of the time), when the server has one. The batch path probes with it
+   * before deciding which engine transcribes.
+   */
+  languageProbeModel?(): string | undefined;
   maxAudioDuration?: number;
   supportsStreaming?: boolean;
 };
@@ -633,6 +653,14 @@ export type WhisperTranscriptionSegment = {
    * segment with a speaker; the handler surfaces it as `TranscriptionSegment.speaker`.
    */
   speaker?: string;
+  /**
+   * Extension, same meaning as the response-level fields: a gateway that
+   * normalises the top level of `verbose_json` to OpenAI's schema (LiteLLM
+   * does) keeps unknown keys inside segments, so a server may repeat its
+   * language-detection verdict here and it survives the hop.
+   */
+  language_detected?: boolean;
+  language_scores?: Array<{ language: string; score: number }>;
 };
 
 export type WhisperVerboseResponse = {
@@ -907,14 +935,17 @@ export type GeminiResponse = {
 /** The three files the built-in Whistle engine needs on disk. */
 export type WhistleAssetName = "needle.js" | "needle.wasm" | "whistle.cact";
 
-/** One pinned Whistle asset: where it comes from and what it must hash to. */
-export type WhistleAsset = {
-  name: WhistleAssetName;
+/** One pinned model file NeuroLink ships or fetches on first use: where it comes from and what it must hash to. */
+export type LocalModelAsset = {
+  name: string;
   url: string;
   sha256: string;
   /** Exact size in bytes, used for the download notice and a cheap pre-check. */
   bytes: number;
 };
+
+/** One pinned Whistle asset. */
+export type WhistleAsset = LocalModelAsset & { name: WhistleAssetName };
 
 /** Absolute paths of the three Whistle files once they are present and verified. */
 export type WhistleAssetPaths = Record<WhistleAssetName, string>;

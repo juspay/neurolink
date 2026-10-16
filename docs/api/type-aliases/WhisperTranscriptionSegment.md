@@ -79,3 +79,28 @@ OpenAI always sends these decoder stats; OpenAI-compatible servers may omit them
 Not part of OpenAI's schema. Diarizing OpenAI-compatible servers (the
 NeuroLink diarization sidecar, Deepgram's compat endpoint, …) label each
 segment with a speaker; the handler surfaces it as `TranscriptionSegment.speaker`.
+
+---
+
+### language_detected?
+
+> `optional` **language_detected?**: `boolean`
+
+Extension, same meaning as the response-level fields: a gateway that
+normalises the top level of `verbose_json` to OpenAI's schema (LiteLLM
+does) keeps unknown keys inside segments, so a server may repeat its
+language-detection verdict here and it survives the hop.
+
+---
+
+### language_scores?
+
+> `optional` **language_scores?**: `object`[]
+
+#### language
+
+> **language**: `string`
+
+#### score
+
+> **score**: `number`

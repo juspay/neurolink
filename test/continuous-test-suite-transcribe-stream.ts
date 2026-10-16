@@ -30,16 +30,25 @@
  * Run: pnpm run test:transcribe:stream
  */
 import { assert, assertEqual, defineSuite } from "./helpers/harness.js";
-import { chunkedTranscribeStream } from "../src/lib/voice/streaming/chunkedStreamAdapter.js";
+import {
+  chunkedTranscribeStream,
+  ENGINE_TAIL_PAD_MS,
+} from "../src/lib/voice/streaming/chunkedStreamAdapter.js";
 import { runTranscribeStream } from "../src/lib/voice/transcribeStream.js";
+import { runTranscribe } from "../src/lib/voice/transcribe.js";
+import { TranscriptionSession } from "../src/lib/voice/session/transcriptionSession.js";
+import { createWavFile } from "../src/lib/voice/audio-utils.js";
 import type {
   STTChunkedPassOptions,
   STTHandler,
   STTOptions,
   STTResult,
+  STTSpeechDetector,
   TranscribeDeps,
   TranscribeStreamEvent,
+  TranscribeStreamOptions,
   TranscriptionSegment,
+  TranscriptionSessionEvent,
 } from "../src/lib/types/index.js";
 
 const { test, runSuite } = defineSuite("Transcribe stream (chunked adapter)", {
@@ -47,6 +56,11 @@ const { test, runSuite } = defineSuite("Transcribe stream (chunked adapter)", {
 });
 
 const RATE = 16000;
+
+// The signal below is white noise, which a real speech detector rightly scores
+// as not-speech. These tests drive the energy gate; the detector tests inject
+// a scripted detector of their own.
+process.env.NEUROLINK_STT_VAD = "energy";
 
 // ---------------------------------------------------------------------------
 // Signal
@@ -87,6 +101,15 @@ function signal(bursts: number[], gapSeconds = 1.2): Float32Array {
   return Float32Array.from(out);
 }
 
+/** `seconds` of near-silence at the signal generator's noise floor. */
+function pause(seconds: number): Float32Array {
+  const rand = noise(5);
+  return Float32Array.from(
+    { length: Math.round(seconds * RATE) },
+    () => rand() * 0.002,
+  );
+}
+
 /** Float samples → PCM16LE, yielded in 100 ms frames with a macrotask between frames. */
 async function* frames(samples: Float32Array): AsyncGenerator<Buffer> {
   const pcm = Buffer.alloc(samples.length * 2);
@@ -107,7 +130,7 @@ async function* frames(samples: Float32Array): AsyncGenerator<Buffer> {
 // Scripted engine
 // ---------------------------------------------------------------------------
 
-type Pass = STTChunkedPassOptions & { samples: number };
+type Pass = STTChunkedPassOptions & { samples: number; tail: Float32Array };
 
 /** What the scripted engine answers: an `STTResult` without the fields it has no use for. */
 type ScriptResult = Omit<Partial<STTResult>, "metadata"> & {
@@ -146,7 +169,12 @@ function scripted(
   return {
     passes,
     run: async (pcm, options) => {
-      const pass = { ...options, samples: pcm.length };
+      const pass = {
+        ...options,
+        samples: pcm.length,
+        // The last 300 ms of what the engine got, for the silence-pad check.
+        tail: pcm.slice(Math.max(0, pcm.length - 4800)),
+      };
       passes.push(pass);
       return asResult(await script(pass));
     },
@@ -421,7 +449,7 @@ await test("a short click the engine did hear words in is finalized, never dropp
   );
 });
 
-await test("language takeover: two unsure passes after 3 s hand the utterance to the fallback for good", async () => {
+await test("language takeover (probe off): two unsure passes after 3 s hand the utterance to the fallback for good", async () => {
   const engine = scripted((p) =>
     p.engine === "fallback"
       ? {
@@ -439,6 +467,7 @@ await test("language takeover: two unsure passes after 3 s hand the utterance to
     chunkedTranscribeStream(frames(signal([6])), engine.run, {
       engineLabel: "primary-engine",
       fallback: { label: "fallback-engine" },
+      routing: { probe: false },
     }),
   );
   const firstFallback = engine.passes.findIndex((p) => p.engine === "fallback");
@@ -493,8 +522,35 @@ await test("language takeover: two unsure passes after 3 s hand the utterance to
   );
 });
 
-await test("language takeover: one confident primary pass rules it out, and a short utterance never switches", async () => {
-  // First pass confident, every later pass unsure: the confident pass wins.
+await test("language takeover (probe off): two confident primary passes rule it out, one only delays it, and a short utterance never switches", async () => {
+  // The first two passes confident, every later pass unsure: the primary keeps the utterance.
+  const steady = scripted((p) => ({
+    text: wordsFor(p.utterance, p.seconds),
+    language: "en",
+    metadata: { languageDetected: p.seconds < 2.4 },
+  }));
+  const steadyEvents = await collect(
+    chunkedTranscribeStream(frames(signal([6])), steady.run, {
+      fallback: { label: "fallback-engine" },
+      routing: { probe: false },
+    }),
+  );
+  assert(
+    steady.passes.filter((p) => p.seconds < 2.4).length >= 2 &&
+      steady.passes.some((p) => p.seconds >= 3),
+    "precondition: two passes under 2.4 s, and passes after 3 s",
+  );
+  assert(
+    steady.passes.every((p) => p.engine === "primary"),
+    "two confident passes on the utterance must rule the takeover out",
+  );
+  assert(
+    finalsOf(steadyEvents)[0]?.fallbackUsed === undefined,
+    "the final must not be marked fallbackUsed",
+  );
+
+  // One confident pass, then unsure for good: a language score on a second
+  // of audio jitters, so one verdict only delays the hand-off.
   const flaky = scripted((p) => ({
     text: wordsFor(p.utterance, p.seconds),
     language: "en",
@@ -503,20 +559,13 @@ await test("language takeover: one confident primary pass rules it out, and a sh
   const flakyEvents = await collect(
     chunkedTranscribeStream(frames(signal([6])), flaky.run, {
       fallback: { label: "fallback-engine" },
+      routing: { probe: false },
     }),
   );
-  assert(
-    flaky.passes.some((p) => p.seconds < 1.5) &&
-      flaky.passes.some((p) => p.seconds >= 3),
-    "precondition: passes must run both before 1.5 s and after 3 s",
-  );
-  assert(
-    flaky.passes.every((p) => p.engine === "primary"),
-    "a confident pass on the utterance must rule the takeover out",
-  );
-  assert(
-    finalsOf(flakyEvents)[0]?.fallbackUsed === undefined,
-    "the final must not be marked fallbackUsed",
+  assertEqual(
+    finalsOf(flakyEvents)[0]?.fallbackUsed,
+    true,
+    "one confident pass followed by unsure ones must still hand over",
   );
 
   // Always unsure, but 1.6 s of noise plus pre-roll and trailing silence is
@@ -528,6 +577,7 @@ await test("language takeover: one confident primary pass rules it out, and a sh
   await collect(
     chunkedTranscribeStream(frames(signal([1.6])), short.run, {
       fallback: { label: "fallback-engine" },
+      routing: { probe: false },
     }),
   );
   assert(
@@ -537,6 +587,499 @@ await test("language takeover: one confident primary pass rules it out, and a sh
   assert(
     short.passes.every((p) => p.engine === "primary"),
     "an utterance under 3 s must never switch engines",
+  );
+});
+
+await test("probe (default with a fallback): the first pass runs both engines and the fallback leads at once when the primary is unsure", async () => {
+  // A fallback that names no language: the primary's own verdict decides.
+  const engine = scripted((p) =>
+    p.engine === "fallback"
+      ? { text: `fb ${wordsFor(p.utterance, p.seconds)}` }
+      : {
+          text: `देव ${wordsFor(p.utterance, p.seconds)}`,
+          language: "hi",
+          metadata: { languageDetected: false },
+        },
+  );
+  const events = await collect(
+    chunkedTranscribeStream(frames(signal([6])), engine.run, {
+      engineLabel: "primary-engine",
+      fallback: { label: "fallback-engine" },
+    }),
+  );
+  const firstProbe = engine.passes.findIndex((p) => p.seconds >= 0.8);
+  assert(firstProbe >= 0, "precondition: a pass with at least 0.8 s of audio");
+  const probeSeconds = engine.passes[firstProbe].seconds;
+  const atProbe = engine.passes.filter((p) => p.seconds === probeSeconds);
+  assert(
+    atProbe.some((p) => p.engine === "primary") &&
+      atProbe.some((p) => p.engine === "fallback"),
+    "the probe pass must run the primary and the fallback on the same audio",
+  );
+  // The default probes twice: the second probe pass may still hand the
+  // utterance back to a primary that turned confident. Here it never does,
+  // so from the second probe on every pass stays on the fallback.
+  const probeTimes = [
+    ...new Set(
+      engine.passes
+        .filter((p) => p.engine === "primary" && p.seconds >= 0.8)
+        .map((p) => p.seconds),
+    ),
+  ];
+  assertEqual(
+    probeTimes.length,
+    2,
+    "the primary must run on exactly two probe passes",
+  );
+  assert(
+    engine.passes
+      .filter((p) => p.seconds > probeTimes[1])
+      .every((p) => p.engine === "fallback"),
+    "after the second probe every pass must stay on the fallback (locked)",
+  );
+  const firstFallbackPass = engine.passes.find((p) => p.engine === "fallback");
+  assert(
+    firstFallbackPass !== undefined && firstFallbackPass.seconds < 3,
+    "the hand-off must happen well before the 3 s takeover floor",
+  );
+  const interims = interimsOf(events, 1);
+  assert(
+    interims.some((e) => e.engine === "fallback-engine" && e.seconds < 3),
+    "a fallback caption must be shown before 3 s",
+  );
+  const final = finalsOf(events)[0];
+  assertEqual(
+    final?.fallbackUsed,
+    true,
+    "the final must be marked fallbackUsed",
+  );
+  assert(
+    (final?.text ?? "").startsWith("fb "),
+    "the final text must be the fallback's",
+  );
+});
+
+await test("probe: a confident primary locks the utterance after two consistent probes, and a fallback that answers in the primary's script does not take over", async () => {
+  const confident = scripted((p) =>
+    p.engine === "fallback"
+      ? { text: `fb ${wordsFor(p.utterance, p.seconds)}` }
+      : {
+          text: wordsFor(p.utterance, p.seconds),
+          language: "ta",
+          metadata: { languageDetected: true },
+        },
+  );
+  const events = await collect(
+    chunkedTranscribeStream(frames(signal([6])), confident.run, {
+      fallback: { label: "fallback-engine" },
+    }),
+  );
+  const fallbackCalls = confident.passes.filter((p) => p.engine === "fallback");
+  assertEqual(
+    fallbackCalls.length,
+    2,
+    "a confident primary locks on the second consistent probe: the fallback runs exactly twice",
+  );
+  assert(
+    confident.passes.filter((p) => p.engine === "primary").length >= 3,
+    "the primary must keep every later pass",
+  );
+  assertEqual(finalsOf(events)[0]?.fallbackUsed, undefined, "no takeover");
+
+  // Primary unsure, but the fallback answers in a non-Latin script: no hand-off from the probe.
+  const sameScript = scripted((p) =>
+    p.engine === "fallback"
+      ? { text: `देव ${wordsFor(p.utterance, p.seconds)}` }
+      : {
+          text: `देव ${wordsFor(p.utterance, p.seconds)}`,
+          metadata: { languageDetected: false },
+        },
+  );
+  const sameEvents = await collect(
+    chunkedTranscribeStream(frames(signal([2.4])), sameScript.run, {
+      fallback: { label: "fallback-engine" },
+    }),
+  );
+  assert(
+    interimsOf(sameEvents, 1)[0]?.engine !== "fallback-engine",
+    "the probe must not hand over to a fallback that cannot read the language either",
+  );
+});
+
+await test("probe with a fallback that names its language: English heard and the primary unsure settles at once, pinned to English", async () => {
+  const engine = scripted((p) =>
+    p.engine === "fallback"
+      ? {
+          text: `fb ${wordsFor(p.utterance, p.seconds)}`,
+          language: p.languageHint ?? "en",
+        }
+      : {
+          text: `देव ${wordsFor(p.utterance, p.seconds)}`,
+          language: "hi",
+          metadata: { languageDetected: false },
+        },
+  );
+  const events = await collect(
+    chunkedTranscribeStream(frames(signal([6])), engine.run, {
+      engineLabel: "primary-engine",
+      fallback: { label: "fallback-engine" },
+    }),
+  );
+  // Agreeing verdicts are provisional below 2.5 s of audio, then settle:
+  // the primary stops running and the fallback is pinned to English.
+  const primaryPasses = engine.passes.filter((p) => p.engine === "primary");
+  const settledAt = Math.max(...primaryPasses.map((p) => p.seconds));
+  assert(
+    settledAt >= 2.5 && settledAt < 4,
+    "the primary must keep probing until 2.5 s, then stop",
+  );
+  assert(
+    !primaryPasses.some((p) => p.final),
+    "a settled utterance's final needs no second look",
+  );
+  const later = engine.passes.filter(
+    (p) => p.engine === "fallback" && p.seconds > settledAt,
+  );
+  assert(
+    later.length > 0 && later.every((p) => p.languageHint === "en"),
+    "the fallback must be pinned to English once settled",
+  );
+  assert(
+    engine.passes
+      .filter((p) => p.engine === "fallback" && p.seconds <= settledAt)
+      .every((p) => p.languageHint === undefined),
+    "provisional passes must not pin the fallback",
+  );
+  const f = finalsOf(events)[0];
+  assertEqual(
+    f?.engine,
+    "fallback-engine",
+    "the fallback must write the utterance",
+  );
+  assertEqual(
+    f?.language,
+    "en",
+    "the label must be the language the fallback heard, never the primary's unsure guess",
+  );
+  assert(
+    interimsOf(events, f?.utterance ?? -1).every((i) => !/[ऀ-ॿ]/u.test(i.text)),
+    "no interim may show the primary's Devanagari",
+  );
+});
+
+await test("probe with a fallback that names its language: a confident primary and English heard is mixed speech; the primary leads and the final looks again", async () => {
+  const engine = scripted((p) =>
+    p.engine === "fallback"
+      ? { text: `fb ${wordsFor(p.utterance, p.seconds)}`, language: "en" }
+      : {
+          text: `देव ${wordsFor(p.utterance, p.seconds)}`,
+          language: "hi",
+          metadata: { languageDetected: true },
+        },
+  );
+  const events = await collect(
+    chunkedTranscribeStream(frames(signal([6])), engine.run, {
+      fallback: { label: "fallback-engine" },
+    }),
+  );
+  const f = finalsOf(events)[0];
+  assertEqual(f?.engine, "primary", "the confident primary leads mixed speech");
+  assertEqual(
+    f?.language,
+    "hi",
+    "the label is the primary's confident language",
+  );
+  assert(
+    engine.passes.some((p) => p.final && p.engine === "fallback") &&
+      engine.passes.some((p) => p.final && p.engine === "primary"),
+    "the final pass must run both engines when they disagreed",
+  );
+});
+
+await test("probe: an Indic verdict from the fallback in an English stream on audio the primary cannot place is asked again in English", async () => {
+  // The first utterance makes the stream English; on the second, the
+  // fallback drifts into Devanagari unless it is asked in English.
+  let firstUtterance: number | undefined;
+  const engine = scripted((p) => {
+    firstUtterance ??= p.utterance;
+    if (p.engine === "fallback") {
+      if (p.languageHint === "en") {
+        return {
+          text: `as an ${wordsFor(p.utterance, p.seconds)}`,
+          language: "en",
+        };
+      }
+      if (p.utterance !== firstUtterance) {
+        return { text: "एज़न", language: "hi" };
+      }
+      return {
+        text: `english ${wordsFor(p.utterance, p.seconds)}`,
+        language: "en",
+      };
+    }
+    return { text: "", language: "hi", metadata: { languageDetected: false } };
+  });
+  const events = await collect(
+    chunkedTranscribeStream(frames(signal([3, 3])), engine.run, {
+      fallback: { label: "fallback-engine" },
+    }),
+  );
+  const finals = finalsOf(events);
+  assertEqual(finals.length, 2, "precondition: two utterances");
+  assert(
+    events.every(
+      (e) =>
+        !(e.type === "interim" || e.type === "final") || !/[ऀ-ॿ]/u.test(e.text),
+    ),
+    "the second utterance must never show the fallback's Devanagari drift",
+  );
+  assert(
+    engine.passes.some(
+      (p) =>
+        p.engine === "fallback" &&
+        p.languageHint === "en" &&
+        p.utterance === finals[1]?.utterance,
+    ),
+    "the fallback must be asked again in English",
+  );
+});
+
+await test('secondOpinion "auto": on an utterance the engines disagreed about, the losing reading travels with the final and is reconciled with a word alignment', async () => {
+  const d = modelDeps(
+    {
+      primary: () => ({
+        text: "खाल मीटिंग है एट थ्री पी एम प्लीज़ रिपोर्ट भेज देना",
+        language: "hi",
+        metadata: {
+          languageDetected: true,
+          languageScores: [{ language: "hi", score: -0.15 }],
+        },
+      }),
+      spark: () => ({
+        text: "Call meeting here at three p.m. Please report page dinner",
+        language: "en",
+      }),
+    },
+    () => ({}),
+  );
+  const events = await collect(
+    runTranscribeStream(
+      {
+        audio: frames(signal([4])),
+        fallback: { provider: "spark" },
+        correction: { secondOpinion: "auto", rewrite: { mode: "always" } },
+      },
+      d,
+    ),
+  );
+  const f = finalsOf(events)[0];
+  assert(
+    f?.alternative !== undefined,
+    "a disagreed-on final must carry the other engine's reading",
+  );
+  const prompt = d.rewrites.at(-1)?.user ?? "";
+  assert(prompt.includes("Transcript 2"), "the rewrite must get both readings");
+  assert(
+    prompt.includes("Word alignment"),
+    "the rewrite must get the word alignment",
+  );
+  assert(
+    prompt.includes("मीटिंग ≈ meeting"),
+    "same-sounding words must be paired",
+  );
+  const corrected = events.find((e) => e.type === "corrected");
+  assert(
+    corrected?.type === "corrected" &&
+      corrected.steps.some((st) => st.startsWith("reconciled with")),
+    "the steps must say which reading was reconciled",
+  );
+});
+
+await test("probe: a primary that states no language confidence keeps the lead when the fallback names a language", async () => {
+  const engine = scripted((p) =>
+    p.engine === "fallback"
+      ? { text: `fb ${wordsFor(p.utterance, p.seconds)}`, language: "en" }
+      : { text: `primary ${wordsFor(p.utterance, p.seconds)}`, language: "en" },
+  );
+  const events = await collect(
+    chunkedTranscribeStream(frames(signal([4])), engine.run, {
+      engineLabel: "deepgram",
+      fallback: { label: "whisper" },
+    }),
+  );
+  assertEqual(
+    finalsOf(events)[0]?.engine,
+    "deepgram",
+    "the primary must keep the utterance",
+  );
+  assert(
+    engine.passes.every((p) => p.languageHint === undefined),
+    "no pass may be pinned to a language",
+  );
+});
+
+await test("probe: a Spanish utterance on a non-Indic primary is never re-asked in English", async () => {
+  const engine = scripted((p) =>
+    p.engine === "fallback"
+      ? {
+          text:
+            p.languageHint === "en" ? "see clear tomorrow" : "sí claro mañana",
+          language: p.languageHint ?? "es",
+        }
+      : { text: "", language: "es", metadata: { languageDetected: false } },
+  );
+  const events = await collect(
+    chunkedTranscribeStream(frames(signal([1.8])), engine.run, {
+      fallback: { label: "whisper" },
+    }),
+  );
+  assert(
+    engine.passes.every((p) => p.languageHint !== "en"),
+    "the fallback must not be forced into English",
+  );
+  assert(
+    finalsOf(events).every((f) => !f.text.includes("see clear")),
+    "the Spanish reading must stand",
+  );
+});
+
+await test("probe: one confident verdict after an unsure one does not lock; a third probe decides, by what it says", async () => {
+  // The primary's verdicts on its passes: the first interim is already a
+  // probe, so the probes see unsure, confident, and the deciding one.
+  const flipFlop = (third: boolean) => {
+    let primaryPasses = 0;
+    return scripted((p) => {
+      if (p.engine === "fallback") {
+        return { text: `fb ${wordsFor(p.utterance, p.seconds)}` };
+      }
+      primaryPasses++;
+      const verdict =
+        primaryPasses <= 1 ? false : primaryPasses === 2 ? true : third;
+      return {
+        text: `देव ${wordsFor(p.utterance, p.seconds)}`,
+        language: "hi",
+        metadata: { languageDetected: verdict },
+      };
+    });
+  };
+  const wobble = flipFlop(false);
+  const wobbleEvents = await collect(
+    chunkedTranscribeStream(frames(signal([6])), wobble.run, {
+      fallback: { label: "fallback-engine" },
+    }),
+  );
+  assert(
+    wobble.passes.filter((p) => p.engine === "fallback").length >= 3,
+    "disagreeing verdicts must buy a third probe",
+  );
+  assertEqual(
+    finalsOf(wobbleEvents)[0]?.engine,
+    "fallback-engine",
+    "unsure, confident, unsure must end with the fallback",
+  );
+  const settles = flipFlop(true);
+  const settleEvents = await collect(
+    chunkedTranscribeStream(frames(signal([6])), settles.run, {
+      fallback: { label: "fallback-engine" },
+    }),
+  );
+  assertEqual(
+    finalsOf(settleEvents)[0]?.engine,
+    "primary",
+    "unsure, confident, confident must end with the primary",
+  );
+  assertEqual(
+    finalsOf(settleEvents)[0]?.fallbackUsed,
+    undefined,
+    "a primary that confirmed itself is not a takeover",
+  );
+});
+
+await test("prior: the last confident language is carried into the next utterance's primary passes, unless routing.prior is none", async () => {
+  const engine = scripted((p) => ({
+    text: wordsFor(p.utterance, p.seconds),
+    language: "ta",
+    metadata: { languageDetected: true },
+  }));
+  await collect(
+    chunkedTranscribeStream(frames(signal([3, 3])), engine.run, {
+      fallback: { label: "fallback-engine" },
+    }),
+  );
+  const second = engine.passes.filter(
+    (p) => p.utterance === 2 && p.engine === "primary",
+  );
+  assert(
+    second.length > 0,
+    "precondition: the second utterance ran primary passes",
+  );
+  assert(
+    second.every((p) => p.languagePrior === "ta"),
+    "every primary pass of the second utterance must carry the prior from the first",
+  );
+  assert(
+    engine.passes
+      .filter((p) => p.engine === "fallback")
+      .every((p) => p.languagePrior === undefined),
+    "the prior is never sent to the fallback engine",
+  );
+
+  const cold = scripted((p) => ({
+    text: wordsFor(p.utterance, p.seconds),
+    language: "ta",
+    metadata: { languageDetected: true },
+  }));
+  await collect(
+    chunkedTranscribeStream(frames(signal([3, 3])), cold.run, {
+      fallback: { label: "fallback-engine" },
+      routing: { prior: "none" },
+    }),
+  );
+  assert(
+    cold.passes.every((p) => p.languagePrior === undefined),
+    "with routing.prior none, no pass carries a prior",
+  );
+});
+
+await test("near-silence guard: a mostly-pause utterance whose only output is a filler in a foreign script is reported as silence; real speech in that script is kept", async () => {
+  // A 3 s burst of English, then a long quiet tail that still clears the
+  // onset gate briefly: the engine answers the pause with one Devanagari word.
+  const engine = scripted((p) =>
+    p.utterance === 1
+      ? { text: "the quick brown fox jumps over the lazy dog", language: "en" }
+      : { text: "हाँ", language: "hi" },
+  );
+  const audio = Float32Array.from([
+    ...signal([3]),
+    ...pause(0.6),
+    ...signal([0.3], 2.5),
+  ]);
+  const events = await collect(
+    chunkedTranscribeStream(frames(audio), engine.run),
+  );
+  const finals = finalsOf(events);
+  assert(
+    finals.length >= 1 && finals[0].text.startsWith("the quick"),
+    "the speech utterance must be final text",
+  );
+  const silences = events.filter((e) => e.type === "silence");
+  assert(
+    silences.length >= 1 && !finals.some((f) => f.text === "हाँ"),
+    "the pause's one-word foreign output must be reported as silence, not text",
+  );
+
+  // The same one-word output in the session's own script is kept.
+  const sameScript = scripted((p) =>
+    p.utterance === 1
+      ? { text: "the quick brown fox jumps over the lazy dog", language: "en" }
+      : { text: "yes", language: "en" },
+  );
+  const kept = await collect(
+    chunkedTranscribeStream(frames(audio), sameScript.run),
+  );
+  assert(
+    finalsOf(kept).some((f) => f.text === "yes"),
+    "a short answer in the session's script is kept",
   );
 });
 
@@ -594,13 +1137,220 @@ await test("audio at another input rate reaches the engine resampled to 16 kHz",
   assert(engine.passes.length >= 2, "precondition: passes must have run");
   assert(
     engine.passes.every(
-      (p) => Math.abs(p.samples - Math.floor(p.seconds * 16000)) <= 16,
+      (p) =>
+        Math.abs(
+          p.samples -
+            (ENGINE_TAIL_PAD_MS / 1000) * 16000 -
+            Math.floor(p.seconds * 16000),
+        ) <= 16,
     ),
     "every pass must receive the utterance at 16 kHz",
   );
   assert(
     (finals[0]?.seconds ?? 0) > 3 && (finals[0]?.seconds ?? 0) < 5,
     "utterance seconds must be measured at the input rate",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Speech detector
+// ---------------------------------------------------------------------------
+
+/**
+ * A detector that calls a frame speech when its RMS is above `threshold`:
+ * the energy rule wearing a detector's interface, so the gate's behaviour
+ * under a detector is pinned on the same deterministic signal.
+ */
+function energyDetector(
+  name = "scripted",
+  threshold = 0.05,
+): STTSpeechDetector & { frames: number; resets: number } {
+  const detector = {
+    name,
+    frameSamples: 512,
+    frames: 0,
+    resets: 0,
+    score(frame: Float32Array): number {
+      detector.frames++;
+      let sum = 0;
+      for (const v of frame) {
+        sum += v * v;
+      }
+      return Math.sqrt(sum / frame.length) > threshold ? 0.95 : 0.02;
+    },
+    reset(): void {
+      detector.resets++;
+    },
+  };
+  return detector;
+}
+
+await test("speech detector: the gate follows the detector — three bursts make three finals that name it and count their speech; a detector that hears no speech yields no utterance and no engine pass", async () => {
+  const engine = scripted((p) => ({ text: wordsFor(p.utterance, p.seconds) }));
+  const detector = energyDetector();
+  const events = await collect(
+    chunkedTranscribeStream(frames(signal([3, 3, 3])), engine.run, {
+      speechDetector: detector,
+    }),
+  );
+  const finals = finalsOf(events);
+  assertEqual(finals.length, 3, "three bursts must yield three finals");
+  assertEqual(
+    detector.resets,
+    1,
+    "the detector must be reset once, at the start of the stream",
+  );
+  assert(detector.frames > 200, "every frame of the stream must be scored");
+  assert(
+    finals.every((f) => f.vad === "scripted"),
+    "finals must name the detector that found them",
+  );
+  assert(
+    finals.every(
+      (f) => (f.speechSeconds ?? 0) > 2.5 && (f.speechSeconds ?? 0) < 3.4,
+    ),
+    "speechSeconds must count the burst, not the closing pause",
+  );
+  assert(
+    finals.every((f) => f.seconds > f.speechSeconds!),
+    "the utterance's span must be longer than its speech",
+  );
+
+  const deaf: STTSpeechDetector = {
+    name: "deaf",
+    frameSamples: 512,
+    score: () => 0,
+    reset: () => undefined,
+  };
+  const idle = scripted((p) => ({ text: wordsFor(p.utterance, p.seconds) }));
+  const nothing = await collect(
+    chunkedTranscribeStream(frames(signal([3, 3, 3])), idle.run, {
+      speechDetector: deaf,
+    }),
+  );
+  assertEqual(
+    nothing.filter((e) => e.type === "final" || e.type === "silence").length,
+    0,
+    "a detector that hears no speech must open no utterance",
+  );
+  assertEqual(
+    idle.passes.length,
+    0,
+    "the engine must never be called when nothing is speech",
+  );
+  assert(
+    nothing.every((e) => e.type !== "error"),
+    "a silent stream is not an error",
+  );
+});
+
+await test("speech detector: the onset confirmation is kept by the pre-roll, and the engine gets the utterance without its closing pause", async () => {
+  const engine = scripted((p) => ({ text: wordsFor(p.utterance, p.seconds) }));
+  const events = await collect(
+    chunkedTranscribeStream(frames(signal([2])), engine.run, {
+      speechDetector: energyDetector(),
+      vad: { startMs: 200 },
+      // One interim early, then nothing until the final: the final pass must run and is what is measured.
+      intervalMs: 5000,
+    }),
+  );
+  const finals = finalsOf(events);
+  assertEqual(finals.length, 1, "one burst must yield one final");
+  const finalPass = engine.passes.filter((p) => p.final).at(-1);
+  if (finalPass === undefined) {
+    throw new Error("a final pass must have run");
+  }
+  // The utterance holds some pre-roll, the 2 s burst and 750 ms of closing
+  // pause; the engine must get the whole burst (confirmation included) but
+  // not the pause — only the silence pad after it.
+  const pad = (ENGINE_TAIL_PAD_MS / 1000) * RATE;
+  assert(
+    finalPass.samples >= 2.0 * RATE + pad,
+    "the burst must reach the engine in full, the onset confirmation included",
+  );
+  assert(
+    finalPass.samples < 2.6 * RATE + pad,
+    "the closing pause must be trimmed from what the engine gets",
+  );
+  assert(
+    finalPass.tail.every((v) => v === 0),
+    "what the engine gets must end in digital silence, not the recorded pause",
+  );
+  assert(
+    finals[0].seconds > 2.8,
+    "the utterance itself must keep its full span",
+  );
+  assert(
+    finals[0].segment.endTime! - finals[0].segment.startTime! > 2.8,
+    "segment times must span the whole utterance",
+  );
+});
+
+await test("speech detector: one that breaks mid-stream hands the gate to the energy rule, and the utterances still arrive, labelled energy", async () => {
+  let calls = 0;
+  const flaky: STTSpeechDetector = {
+    name: "flaky",
+    frameSamples: 512,
+    score: () => {
+      calls++;
+      if (calls > 10) {
+        throw new Error("detector broke");
+      }
+      return 0.02;
+    },
+    reset: () => undefined,
+  };
+  const engine = scripted((p) => ({ text: wordsFor(p.utterance, p.seconds) }));
+  const events = await collect(
+    chunkedTranscribeStream(frames(signal([3, 3])), engine.run, {
+      speechDetector: flaky,
+    }),
+  );
+  const finals = finalsOf(events);
+  assertEqual(finals.length, 2, "both bursts must still be finalized");
+  assert(
+    finals.every((f) => f.vad === "energy"),
+    "finals after the failure must say the energy gate found them",
+  );
+  assert(
+    events.every((e) => e.type !== "error"),
+    "a detector failure is handled, not reported as a stream error",
+  );
+  assertEqual(calls, 11, "the detector must not be asked again once it broke");
+});
+
+await test("speech detector: a short utterance cannot hold more words than its speech allows — reported as silence; the same words on enough speech are kept", async () => {
+  const chatty = scripted(() => ({ text: "w1 w2 w3 w4 w5 w6 w7 w8" }));
+  const short = await collect(
+    chunkedTranscribeStream(frames(signal([0.4])), chatty.run, {
+      speechDetector: energyDetector(),
+    }),
+  );
+  assertEqual(
+    finalsOf(short).length,
+    0,
+    "eight words on 0.4 s of speech must not become a final",
+  );
+  const silence = short.find((e) => e.type === "silence");
+  if (silence === undefined) {
+    throw new Error("the utterance must be reported as silence");
+  }
+  assert(
+    silence.type === "silence" &&
+      silence.vad === "scripted" &&
+      (silence.speechSeconds ?? 1) < 0.6,
+    "the silence event must carry the detector and its speech count",
+  );
+  const spoken = scripted(() => ({ text: "w1 w2 w3 w4 w5 w6 w7 w8" }));
+  const long = await collect(
+    chunkedTranscribeStream(frames(signal([2])), spoken.run, {
+      speechDetector: energyDetector(),
+    }),
+  );
+  assertEqual(
+    finalsOf(long).length,
+    1,
+    "eight words on 2 s of speech are a sentence and must be kept",
   );
 });
 
@@ -848,6 +1598,653 @@ await test("runTranscribeStream: a native handler's commits are joined into one 
     d.calls.length,
     0,
     "a native stream must not go through batch passes",
+  );
+});
+
+// ===========================================================================
+// Quality layers and output languages
+// ===========================================================================
+
+type RenderCall = { system: string; user: string; keys: string[] };
+type RewriteCall = { system: string; user: string };
+
+/** `deps` plus a scripted rewrite (echoes the transcript) and render (one string per tag per line). */
+function modelDeps(
+  engines: Record<string, (seconds: number, n: number) => ScriptResult>,
+  render: (
+    keys: string[],
+    lines: number,
+    user: string,
+  ) => Record<string, string[]>,
+): TranscribeDeps &
+  DepsLog & { renders: RenderCall[]; rewrites: RewriteCall[] } {
+  const base = deps(engines);
+  const renders: RenderCall[] = [];
+  const rewrites: RewriteCall[] = [];
+  return {
+    ...base,
+    renders,
+    rewrites,
+    rewrite: async (o) => {
+      rewrites.push({ system: o.system, user: o.user });
+      const line = o.user.split("\n").find((l) => l.startsWith("Transcript"));
+      return (line ?? "").replace(/^Transcript[^:]*:\s*/u, "");
+    },
+    render: async (o) => {
+      const shape = (o.schema as unknown as { shape: Record<string, unknown> })
+        .shape;
+      const keys = Object.keys(shape);
+      renders.push({ system: o.system, user: o.user, keys });
+      const lines = (
+        o.user.split("Lines to render (as recognized):\n")[1] ?? ""
+      )
+        .split("\n\n")[0]
+        .split("\n")
+        .filter((l) => /^\d+\. /u.test(l)).length;
+      return render(keys, lines, o.user);
+    },
+  };
+}
+
+type OutputEvent = Extract<TranscribeStreamEvent, { type: "output" }>;
+const outputsOf = (events: readonly { type: string }[]): OutputEvent[] =>
+  events.filter((e): e is OutputEvent => e.type === "output");
+
+await test("outputs: one render call per utterance covers every language, after its corrected event; source needs no call", async () => {
+  const d = modelDeps(
+    {
+      primary: (s) => ({
+        text: `hello team ${wordsFor(1, s)}.`,
+        language: "en",
+      }),
+    },
+    (keys, lines) =>
+      Object.fromEntries(
+        keys.map((k) => [
+          k,
+          Array.from({ length: lines }, () =>
+            k === "es" ? "hola equipo" : "bonjour équipe",
+          ),
+        ]),
+      ),
+  );
+  const events = await collect(
+    runTranscribeStream(
+      {
+        audio: frames(signal([3, 3])),
+        correction: { rewrite: false },
+        dictionary: [{ term: "Jaspr" }],
+        output: { languages: ["es", "fr", "source"] },
+      },
+      d,
+    ),
+  );
+  const finals = finalsOf(events);
+  assertEqual(finals.length, 2, "precondition: two utterances");
+  assertEqual(d.renders.length, 2, "one render call per utterance");
+  assert(
+    d.renders.every(
+      (r) =>
+        r.keys.length === 2 && r.keys.includes("es") && r.keys.includes("fr"),
+    ),
+    "each call must carry every language that needs a model, and not source",
+  );
+  const outs = outputsOf(events);
+  assertEqual(outs.length, 6, "three outputs per utterance");
+  for (const f of finals) {
+    const corrected = events.findIndex(
+      (e) => e.type === "corrected" && e.utterance === f.utterance,
+    );
+    const mine = outs.filter((o) => o.utterance === f.utterance);
+    assert(
+      mine.every(
+        (o) => events.indexOf(o) > corrected && o.basedOn === "corrected",
+      ),
+      "outputs must follow the corrected event",
+    );
+    assertEqual(
+      mine.find((o) => o.language === "es")?.status,
+      "ok",
+      "es must render",
+    );
+    assertEqual(
+      mine.find((o) => o.language === "source")?.status,
+      "same-language",
+      "source must be the transcript",
+    );
+  }
+  assert(
+    d.renders[1]?.user.includes("Earlier in the conversation") === true,
+    "the second utterance must see the first as context",
+  );
+  assert(
+    d.renders[0]?.system.includes('"Jaspr"') === true,
+    "dictionary terms must be kept as a glossary",
+  );
+});
+
+await test("outputs: a rendering in the wrong script is retried alone and then refused; the transcript is untouched", async () => {
+  const d = modelDeps(
+    {
+      primary: () => ({ text: "please send the report today", language: "en" }),
+    },
+    (keys, lines) =>
+      Object.fromEntries(
+        keys.map((k) => [
+          k,
+          Array.from({ length: lines }, () => "please send the report today"),
+        ]),
+      ),
+  );
+  const events = await collect(
+    runTranscribeStream(
+      { audio: frames(signal([3])), output: { languages: ["hi"] } },
+      d,
+    ),
+  );
+  const out = outputsOf(events)[0];
+  assertEqual(
+    out?.status,
+    "rejected",
+    "Latin text for a Devanagari target must be refused",
+  );
+  assertEqual(
+    out?.basedOn,
+    "final",
+    "without correction the output follows the final",
+  );
+  assertEqual(d.renders.length, 2, "a refused target gets exactly one retry");
+  assertEqual(
+    finalsOf(events)[0]?.text,
+    "please send the report today",
+    "the final must be unchanged",
+  );
+});
+
+await test("outputs: a failing render model never costs the transcript", async () => {
+  const d = deps({
+    primary: () => ({ text: "status update for everyone", language: "en" }),
+  });
+  d.render = async () => {
+    throw new Error("model down");
+  };
+  const events = await collect(
+    runTranscribeStream(
+      { audio: frames(signal([3])), output: { languages: ["de"] } },
+      d,
+    ),
+  );
+  assertEqual(finalsOf(events).length, 1, "the final must still arrive");
+  assertEqual(
+    outputsOf(events)[0]?.status,
+    "error",
+    "the output must report the failure",
+  );
+});
+
+await test("outputs: languages read from a live source change from the next utterance on", async () => {
+  let live: string[] = [];
+  const d = modelDeps(
+    { primary: (s) => ({ text: `words ${wordsFor(1, s)}`, language: "en" }) },
+    (keys, lines) =>
+      Object.fromEntries(
+        keys.map((k) => [k, Array.from({ length: lines }, () => "palabras")]),
+      ),
+  );
+  const events: TranscribeStreamEvent[] = [];
+  for await (const e of runTranscribeStream(
+    {
+      audio: frames(signal([3, 3])),
+      output: { languages: { current: () => live } },
+    },
+    d,
+  )) {
+    events.push(e);
+    if (e.type === "final" && e.utterance === finalsOf(events)[0]?.utterance) {
+      live = ["es"];
+    }
+  }
+  const outs = outputsOf(events);
+  assert(
+    outs.length >= 1 && outs.every((o) => o.language === "es"),
+    "languages set mid-stream must render",
+  );
+  assert(
+    outs.every((o) => o.utterance !== finalsOf(events)[0]?.utterance) ||
+      outs.length === 2,
+    "renders follow the languages in effect when an utterance settles",
+  );
+});
+
+await test("routing.engines: a final whose language belongs to another engine is read again by it", async () => {
+  const d = deps({
+    primary: (s) => ({ text: `primary ${wordsFor(1, s)}`, language: "hi" }),
+    indic: () => ({
+      text: "नमस्ते सब लोग",
+      language: "hi",
+      metadata: { languageDetected: true },
+    }),
+  });
+  const events = await collect(
+    runTranscribeStream(
+      {
+        audio: frames(signal([3])),
+        routing: { engines: { hi: "indic", "*": "primary" } },
+      },
+      d,
+    ),
+  );
+  const f = finalsOf(events)[0];
+  assertEqual(
+    f?.engine,
+    "indic",
+    "the final must name the engine that produced it",
+  );
+  assertEqual(
+    f?.text,
+    "नमस्ते सब लोग",
+    "the routed engine's text must be used",
+  );
+  const routed = d.calls.find((c) => c.provider === "indic");
+  assertEqual(
+    routed?.options.languagePrior,
+    "hi",
+    "the routed engine must get the language as a prior",
+  );
+});
+
+await test("routing.engines: a routed engine that hears nothing keeps the original text", async () => {
+  const d = deps({
+    primary: (s) => ({ text: `kept ${wordsFor(1, s)}`, language: "ta" }),
+    indic: () => ({ text: "" }),
+  });
+  const events = await collect(
+    runTranscribeStream(
+      { audio: frames(signal([3])), routing: { engines: { ta: "indic" } } },
+      d,
+    ),
+  );
+  assertEqual(
+    finalsOf(events)[0]?.engine,
+    "primary",
+    "the original engine must stay",
+  );
+  assert(
+    d.calls.some((c) => c.provider === "indic"),
+    "precondition: the route was tried",
+  );
+});
+
+await test('correction.secondOpinion "auto" runs the fallback engine as the second opinion', async () => {
+  const d = deps({
+    primary: (s) => ({
+      text: `primary ${wordsFor(1, s)}`,
+      metadata: { languageDetected: true },
+    }),
+    spark: (s) => ({ text: `spark ${wordsFor(1, s)}` }),
+  });
+  await collect(
+    runTranscribeStream(
+      {
+        audio: frames(signal([3])),
+        fallback: { provider: "spark" },
+        routing: { probe: false },
+        correction: { rewrite: false, secondOpinion: "auto" },
+        dictionary: [{ term: "Zed" }],
+      },
+      d,
+    ),
+  );
+  assert(
+    d.calls.some((c) => c.provider === "spark"),
+    "the fallback must have read the utterance as a second opinion",
+  );
+});
+
+await test("correction: the rewrite sees earlier corrected utterances as read-only context", async () => {
+  const d = modelDeps(
+    {
+      primary: (s) => ({
+        text: `mera naam ${wordsFor(1, s)} hai`,
+        language: "hi",
+      }),
+    },
+    () => ({}),
+  );
+  await collect(
+    runTranscribeStream(
+      {
+        audio: frames(signal([3, 3, 3])),
+        correction: { rewrite: { mode: "always" }, contextUtterances: 3 },
+      },
+      d,
+    ),
+  );
+  assert(d.rewrites.length >= 3, "precondition: every utterance was rewritten");
+  assert(
+    !d.rewrites[0]?.user.includes("Earlier in this conversation"),
+    "the first utterance has no context",
+  );
+  assert(
+    d.rewrites[2]?.user.includes("Earlier in this conversation") === true,
+    "later utterances must carry context",
+  );
+});
+
+await test("correction: a rewrite that joins both readings or copies earlier context is rejected; the transcript is kept", async () => {
+  const d = modelDeps(
+    {
+      primary: (s) => ({
+        text: `please send the report today ${wordsFor(1, s)}`,
+        language: "en",
+      }),
+    },
+    () => ({}),
+  );
+  d.rewrite = async (o) => {
+    const line =
+      o.user.split("\n").find((l) => l.startsWith("Transcript")) ?? "";
+    const said = line.replace(/^Transcript[^:]*:\s*/u, "");
+    return `${said} ${said}`;
+  };
+  const events = await collect(
+    runTranscribeStream(
+      {
+        audio: frames(signal([3])),
+        correction: { rewrite: { mode: "always" } },
+      },
+      d,
+    ),
+  );
+  const corrected = events.find((e) => e.type === "corrected");
+  const final = finalsOf(events)[0];
+  assert(
+    corrected?.type === "corrected",
+    "precondition: the utterance was corrected",
+  );
+  assert(
+    corrected?.type === "corrected" && corrected.text === final?.text,
+    "a doubled rewrite must be discarded and the engine text kept",
+  );
+  assert(
+    corrected?.type === "corrected" &&
+      corrected.steps.some((st) => st.includes("added words")),
+    "the steps must say why the rewrite was refused",
+  );
+});
+
+await test("correction: a known language outside India keeps its script and gets the general prompt", async () => {
+  const d = modelDeps(
+    { primary: () => ({ text: "今日は会議があります", language: "ja" }) },
+    () => ({}),
+  );
+  const events = await collect(
+    runTranscribeStream({ audio: frames(signal([3])), correction: {} }, d),
+  );
+  const corrected = events.find((e) => e.type === "corrected");
+  assert(
+    corrected?.type === "corrected" &&
+      corrected.steps.some((st) => st.startsWith("rewrite skipped")),
+    "Japanese text must not be romanized by default",
+  );
+  const d2 = modelDeps(
+    {
+      primary: () => ({
+        text: "esto es una prueba del sistema",
+        language: "es",
+      }),
+    },
+    () => ({}),
+  );
+  await collect(
+    runTranscribeStream(
+      {
+        audio: frames(signal([3])),
+        correction: { rewrite: { mode: "always" } },
+      },
+      d2,
+    ),
+  );
+  assert(
+    (d2.rewrites[0]?.system ?? "").includes("Spanish") &&
+      !(d2.rewrites[0]?.system ?? "").includes("Indian language"),
+    "a Spanish utterance must get the Spanish prompt",
+  );
+});
+
+await test("streaming.normalize: a quiet utterance reaches the engine at speech level; off leaves it as is", async () => {
+  const quiet = signal([3]).map((v) => v * 0.06);
+  const levelOf = (wav: Buffer): number => {
+    let sum = 0;
+    const n = (wav.length - 44) / 2;
+    for (let i = 0; i < n; i++) {
+      const v = wav.readInt16LE(44 + i * 2) / 32768;
+      sum += v * v;
+    }
+    return Math.sqrt(sum / Math.max(1, n));
+  };
+  const heard: number[] = [];
+  const make = (): TranscribeDeps => {
+    const d = deps({ primary: () => ({ text: "quiet words here" }) });
+    const inner = d.transcribe;
+    d.transcribe = async (audio, provider, options) => {
+      heard.push(levelOf(audio));
+      return inner(audio, provider, options);
+    };
+    return d;
+  };
+  await collect(
+    runTranscribeStream(
+      { audio: frames(quiet), streaming: { onsetRms: 0.003 } },
+      make(),
+    ),
+  );
+  const on = Math.max(...heard);
+  heard.length = 0;
+  await collect(
+    runTranscribeStream(
+      {
+        audio: frames(quiet),
+        streaming: { onsetRms: 0.003, normalize: false },
+      },
+      make(),
+    ),
+  );
+  const off = Math.max(...heard);
+  assert(
+    Number.isFinite(on) && Number.isFinite(off),
+    "precondition: the engine was called both times",
+  );
+  assert(
+    on > off * 2,
+    "normalized audio must be markedly louder than the raw quiet audio",
+  );
+});
+
+await test("sessions: speakers without a name get distinct names instead of colliding", async () => {
+  const d = modelDeps(
+    { primary: (s) => ({ text: `hello ${wordsFor(1, s)}`, language: "en" }) },
+    () => ({}),
+  );
+  const session = new TranscriptionSession({
+    transcribeStream: (o: TranscribeStreamOptions) => runTranscribeStream(o, d),
+  } as unknown as ConstructorParameters<typeof TranscriptionSession>[0]);
+  const seen: TranscriptionSessionEvent[] = [];
+  session.subscribe({}, (e) => seen.push(e));
+  await Promise.all([
+    session.addSpeaker("", { audio: frames(signal([2])) }),
+    session.addSpeaker("  ", { audio: frames(signal([2])) }),
+  ]);
+  const names = new Set(
+    seen.filter((e) => e.type === "final").map((e) => e.speaker),
+  );
+  assertEqual(
+    names.size,
+    2,
+    "two unnamed speakers must both be transcribed under their own names",
+  );
+});
+
+await test("sessions: each utterance renders once into the union of listeners' languages; listeners get only theirs", async () => {
+  const d = modelDeps(
+    {
+      primary: (s) => ({
+        text: `agenda item ${wordsFor(1, s)}`,
+        language: "en",
+      }),
+    },
+    (keys, lines) =>
+      Object.fromEntries(
+        keys.map((k) => [k, Array.from({ length: lines }, () => `${k}-text`)]),
+      ),
+  );
+  const session = new TranscriptionSession({
+    transcribeStream: (o: TranscribeStreamOptions) => runTranscribeStream(o, d),
+  } as unknown as ConstructorParameters<typeof TranscriptionSession>[0]);
+  const a: TranscriptionSessionEvent[] = [];
+  const b: TranscriptionSessionEvent[] = [];
+  const c: TranscriptionSessionEvent[] = [];
+  session.subscribe({ languages: ["es"] }, (e) => a.push(e));
+  session.subscribe({ languages: ["es"] }, (e) => b.push(e));
+  session.subscribe({ languages: ["fr"], interim: false }, (e) => c.push(e));
+  await session.addSpeaker("alice", { audio: frames(signal([3, 3])) });
+  const utterances = finalsOf(a).length;
+  assertEqual(
+    utterances,
+    2,
+    "precondition: two utterances reached every listener",
+  );
+  assertEqual(
+    d.renders.length,
+    utterances,
+    "one render per utterance, however many listeners",
+  );
+  assert(
+    d.renders.every((r) => r.keys.length === 2),
+    "each render covers es and fr once",
+  );
+  assert(
+    outputsOf(a).every((o) => o.language === "es") && outputsOf(a).length === 2,
+    "listener a gets only es",
+  );
+  assert(
+    outputsOf(c).every((o) => o.language === "fr") && outputsOf(c).length === 2,
+    "listener c gets only fr",
+  );
+  assert(
+    c.every((e) => e.type !== "interim"),
+    "interim: false must drop interim captions",
+  );
+  assert(
+    a.every((e) => e.speaker === "alice"),
+    "events must name their speaker",
+  );
+  const late: TranscriptionSessionEvent[] = [];
+  session.subscribe({ languages: ["fr"] }, (e) => late.push(e));
+  assertEqual(
+    finalsOf(late).length,
+    2,
+    "a late listener must get the backlog finals",
+  );
+  assertEqual(
+    outputsOf(late).length,
+    2,
+    "and the renderings already made in its language",
+  );
+  assertEqual(
+    b.length,
+    a.length,
+    "two listeners on the same language see the same events",
+  );
+});
+
+await test("batch: outputs render per segment and corrected words keep timings", async () => {
+  const d = modelDeps(
+    {
+      primary: () => ({
+        text: "first line here second line here",
+        language: "en",
+        words: [
+          { word: "first", start: 0, end: 0.4 },
+          { word: "line", start: 0.4, end: 0.8 },
+          { word: "here", start: 0.8, end: 1.2 },
+        ],
+        segments: [
+          {
+            index: 0,
+            text: "first line here",
+            start: 0,
+            end: 1.2,
+            isFinal: true,
+          },
+          {
+            index: 1,
+            text: "second line here",
+            start: 1.2,
+            end: 2.4,
+            isFinal: true,
+          },
+        ],
+      }),
+    },
+    (keys, lines) =>
+      Object.fromEntries(
+        keys.map((k) => [
+          k,
+          Array.from({ length: lines }, (_, i) => `linea ${i + 1}`),
+        ]),
+      ),
+  );
+  const wav = createWavFile(Buffer.alloc(16000 * 2), 16000, 1, 16);
+  const result = await runTranscribe(
+    { audio: wav, format: "wav", output: { languages: ["es"] } },
+    d,
+  );
+  const es = result.outputs?.es;
+  assertEqual(es?.status, "ok", "the rendering must succeed");
+  assertEqual(es?.segments?.length, 2, "one rendered line per segment");
+  assertEqual(
+    es?.text,
+    "linea 1 linea 2",
+    "the text joins the rendered segments",
+  );
+  assertEqual(d.renders.length, 1, "both segments go in one call");
+  assert(
+    typeof result.timings.outputMs === "number",
+    "the rendering time must be reported",
+  );
+});
+
+await test("outputs: tags are case-insensitive (ES, Fr-CA render like es, fr-CA)", async () => {
+  const d = modelDeps(
+    {
+      primary: () => ({
+        text: "see you tomorrow at the office",
+        language: "en",
+      }),
+    },
+    (keys, lines) =>
+      Object.fromEntries(
+        keys.map((k) => [
+          k,
+          Array.from({ length: lines }, () =>
+            k.toLowerCase().startsWith("es")
+              ? "nos vemos mañana"
+              : "à demain au bureau",
+          ),
+        ]),
+      ),
+  );
+  const events = await collect(
+    runTranscribeStream(
+      { audio: frames(signal([3])), output: { languages: ["ES", "Fr-CA"] } },
+      d,
+    ),
+  );
+  const outs = outputsOf(events);
+  assert(
+    outs.length === 2 && outs.every((o) => o.status === "ok"),
+    "upper-case tags must render, not fail as invalid",
   );
 });
 

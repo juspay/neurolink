@@ -82,6 +82,12 @@ export class OpenAISTT implements STTHandler {
   private readonly defaultTimeoutMs: number;
   /** The `model` sent when the request names none. */
   private readonly defaultModel: string;
+  /** `language` template (`{lang}`) that carries a prior to this server; `null` sends none. */
+  private readonly priorLanguageForm: string | null;
+  /** Model name that answers with a language verdict only; `null` when the server has none. */
+  private readonly lidModel: string | null;
+  /** Whether dictionary terms are sent as a prompt; off for servers that do not bias on it. */
+  private readonly vocabularyPrompt: boolean;
 
   /**
    * Maximum audio duration in seconds (25 minutes)
@@ -140,6 +146,37 @@ export class OpenAISTT implements STTHandler {
           : DEFAULT_TIMEOUT_MS;
     this.defaultModel =
       slice.model ?? process.env.OPENAI_STT_MODEL ?? "whisper-1";
+    const priorForm = (
+      slice.priorLanguageForm ??
+      process.env.OPENAI_STT_PRIOR_LANGUAGE_FORM ??
+      ""
+    ).trim();
+    this.priorLanguageForm =
+      priorForm.includes("{lang}") && !this.isOfficialEndpoint
+        ? priorForm
+        : null;
+    const lid = (
+      slice.lidModel ??
+      process.env.OPENAI_STT_LID_MODEL ??
+      ""
+    ).trim();
+    this.lidModel = lid && !this.isOfficialEndpoint ? lid : null;
+    const vocabEnv =
+      process.env.OPENAI_STT_VOCABULARY_PROMPT?.trim().toLowerCase();
+    this.vocabularyPrompt =
+      slice.vocabularyPrompt ??
+      (vocabEnv === undefined || vocabEnv === ""
+        ? true
+        : !(
+            vocabEnv === "0" ||
+            vocabEnv === "false" ||
+            vocabEnv === "off" ||
+            vocabEnv === "no"
+          ));
+  }
+
+  languageProbeModel(): string | undefined {
+    return this.lidModel ?? undefined;
   }
 
   /** True when pointed at OpenAI itself rather than a compatible server. */
@@ -286,13 +323,25 @@ export class OpenAISTT implements STTHandler {
       // Add optional parameters. No language (or "auto") leaves detection to
       // the server; sending a guess would pin every request to it.
       const language = options.language?.trim();
+      const prior = options.languagePrior?.trim();
       if (language && language.toLowerCase() !== "auto") {
         formData.append("language", language);
+      } else if (
+        prior &&
+        this.priorLanguageForm &&
+        /^[a-z]{2,3}$/i.test(prior)
+      ) {
+        // Detection stays on; the server is told what it heard last time, in
+        // the form it documented. Never sent to a server without that form.
+        formData.append(
+          "language",
+          this.priorLanguageForm.replace("{lang}", prior.toLowerCase()),
+        );
       }
 
       const prompt = OpenAISTT.buildPrompt(
         whisperOptions.prompt,
-        options.vocabulary,
+        this.vocabularyPrompt ? options.vocabulary : undefined,
       );
       if (prompt) {
         formData.append("prompt", prompt);
@@ -497,14 +546,24 @@ export class OpenAISTT implements STTHandler {
   /**
    * Optional language-identification fields a self-hosted server may add to
    * `verbose_json`. Each is read only when it has the expected shape; a
-   * server that sends none (OpenAI itself) contributes nothing.
+   * server that sends none (OpenAI itself) contributes nothing. The top-level
+   * fields win; when a gateway has stripped them (LiteLLM rewrites the top
+   * level to OpenAI's schema but keeps extra keys inside segments), the same
+   * fields on the first segment are read instead.
    */
   private static readLanguageExtensions(
     data: WhisperVerboseResponse,
   ): Record<string, unknown> {
     const out: Record<string, unknown> = {};
-    if (typeof data.language_detected === "boolean") {
-      out.languageDetected = data.language_detected;
+    const first = Array.isArray(data.segments) ? data.segments[0] : undefined;
+    const detected =
+      typeof data.language_detected === "boolean"
+        ? data.language_detected
+        : first && typeof first.language_detected === "boolean"
+          ? first.language_detected
+          : undefined;
+    if (typeof detected === "boolean") {
+      out.languageDetected = detected;
     }
     if (
       typeof data.language_confidence === "number" &&
@@ -512,8 +571,13 @@ export class OpenAISTT implements STTHandler {
     ) {
       out.languageConfidence = data.language_confidence;
     }
-    if (Array.isArray(data.language_scores)) {
-      const scores = data.language_scores.filter(
+    const rawScores = Array.isArray(data.language_scores)
+      ? data.language_scores
+      : first && Array.isArray(first.language_scores)
+        ? first.language_scores
+        : undefined;
+    if (Array.isArray(rawScores)) {
+      const scores = rawScores.filter(
         (entry): entry is { language: string; score: number } =>
           typeof entry === "object" &&
           entry !== null &&

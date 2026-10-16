@@ -278,12 +278,13 @@ type BodyParserConfig = {
 };
 ```
 
-| Option       | Type      | Default  | Description                     |
-| ------------ | --------- | -------- | ------------------------------- |
-| `enabled`    | `boolean` | `true`   | Enable body parsing             |
-| `maxSize`    | `string`  | `"10mb"` | Maximum body size               |
-| `jsonLimit`  | `string`  | `"10mb"` | JSON body size limit            |
-| `urlEncoded` | `boolean` | `true`   | Enable URL-encoded body parsing |
+| Option       | Type      | Default                  | Description                                                                                                             |
+| ------------ | --------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `enabled`    | `boolean` | `true`                   | Enable body parsing                                                                                                     |
+| `maxSize`    | `string`  | `"10mb"`                 | Maximum body size                                                                                                       |
+| `jsonLimit`  | `string`  | `"10mb"`                 | JSON body size limit                                                                                                    |
+| `rawMaxSize` | `string`  | `maxSize`, else `"64mb"` | Largest raw upload (`multipart/form-data`, `audio/*`, `application/octet-stream`); `neurolink serve --max-upload 128mb` |
+| `urlEncoded` | `boolean` | `true`                   | Enable URL-encoded body parsing                                                                                         |
 
 ### Example: Large Payload Support
 

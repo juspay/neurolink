@@ -104,3 +104,18 @@ what to do rather than "set the required API keys".
 #### Returns
 
 `string`
+
+---
+
+### languageProbeModel()?
+
+> `optional` **languageProbeModel**(): `string` \| `undefined`
+
+The model name that runs this engine in language-identification-only
+mode (no transcript, just the language verdict and scores, in a fraction
+of the time), when the server has one. The batch path probes with it
+before deciding which engine transcribes.
+
+#### Returns
+
+`string` \| `undefined`

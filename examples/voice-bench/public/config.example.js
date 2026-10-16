@@ -8,7 +8,7 @@ window.ASR_CONFIG = {
   // The page's engines → the server's STT provider names (NEUROLINK_STT_ENDPOINTS keys or built-ins).
   neurolinkProviders: {
     local: "spark",
-    indic: "indic",
+    indic: "bodhan",
     whistle: "whistle",
     scribe: "elevenlabs-stt",
   },

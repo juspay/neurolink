@@ -52,6 +52,10 @@ import {
   nlLanguage,
   nlSteps,
   nlTranscribe,
+  nlFallbackFor,
+  nlModelFor,
+  nlOutput,
+  nlProviderFor,
   nlTransliterate,
   type NlDecision,
   serverHas,
@@ -169,6 +173,27 @@ setSampleSink((buf) => {
 });
 
 // ------------------------------------------------------------------ engine / mode
+/**
+ * A live session reads its settings once, in the config it sends when it opens. A setting changed
+ * while the mic is on (correction, script, clean verbatim, language) restarts the session so it
+ * takes effect at once instead of on the next press of the mic.
+ */
+let restarting: Promise<void> | null = null;
+export function liveRestartIfRunning(): Promise<void> {
+  // One restart at a time: rapid setting changes share the one in flight.
+  if (restarting) return restarting;
+  if (!live.on || !live.nl) return Promise.resolve();
+  restarting = (async () => {
+    try {
+      await liveStop();
+      await liveStart();
+    } finally {
+      restarting = null;
+    }
+  })();
+  return restarting;
+}
+
 export function setRoute(r: Route) {
   if (live.on) void liveStop();
   storage.set("voice-bench-route", r);
@@ -231,7 +256,8 @@ async function stopRecording() {
 const routed = (e: EngineId): EngineId => {
   if (e !== "indic") return e;
   const lang = getState().lang;
-  if (lang && !INDIC_LANGS.includes(lang)) return "local";
+  // Indic-Transcribe reads Indian English too; only other languages go to Spark.
+  if (lang && lang !== "en" && !INDIC_LANGS.includes(lang)) return "local";
   return useServer() && !serverHas("indic") ? "local" : e;
 };
 
@@ -340,6 +366,13 @@ async function transcribeViaServer(eng: EngineId, wav: Blob, seconds: number) {
           d.timings?.decideMs != null ? Math.round(d.timings.decideMs) : null,
       });
     else fields.correctSteps = nlSteps(d).join(" · ");
+    if (d.outputs)
+      fields.outputs = Object.fromEntries(
+        Object.entries(d.outputs).map(([tag, o]) => [
+          tag,
+          { text: o.text, status: o.status },
+        ]),
+      );
     updateEntry(entry, fields);
     if (correct && text) renderDecision(entry);
   } catch (e) {
@@ -712,7 +745,9 @@ const NL_SEND_SAMPLES = 1600,
   NL_KEEP_SAMPLES = 600 * SAMPLE_RATE; // 100 ms of 16 kHz PCM per frame; 10 min kept for playback
 
 function nlLiveConfig(eng: EngineId) {
-  const c: Record<string, unknown> = { provider: NL_PROVIDERS[eng] };
+  const c: Record<string, unknown> = { provider: nlProviderFor(eng) };
+  const model = nlModelFor(eng);
+  if (model) c.model = model;
   const lang = nlLanguage(eng);
   if (lang) c.language = lang;
   const ctxS = nlContext();
@@ -725,14 +760,26 @@ function nlLiveConfig(eng: EngineId) {
       ...(flags().clean && getState().serverFileMode
         ? { cleanup: "clean" }
         : {}),
+      // Indic-Transcribe already reads code-mixed speech; reconciling it with Spark (weaker on
+      // Indian speech) only applies to the other engines' fallbacks, so it is not sent here.
     };
   } else {
     const p = asrContextPrompt();
     if (p) c.prompt = p;
   } // no dictionary: it would switch correction on
-  if (eng === "indic") c.fallback = { provider: NL_PROVIDERS.local };
+  const fb = nlFallbackFor(eng);
+  if (fb) Object.assign(c, fb);
+  const output = nlOutput();
+  if (output) c.output = output;
   c.streaming = { sampleRate: SAMPLE_RATE };
   return c;
+}
+
+/** Tell the live socket the output languages changed; they apply from the next utterance. */
+export function nlLiveSetOutputs(languages: string[]) {
+  const ws = live.nl?.ws;
+  if (ws && ws.readyState === WebSocket.OPEN)
+    ws.send(JSON.stringify({ type: "output", languages }));
 }
 
 function nlLiveStart() {
@@ -883,8 +930,10 @@ type NlEvent = {
     | "final"
     | "correcting"
     | "corrected"
+    | "output"
     | "silence";
   utterance?: number;
+  status?: string;
   message?: string;
   recoverable?: boolean;
   language?: string;
@@ -992,6 +1041,14 @@ function nlEvent(s: NlSession, ev: NlEvent) {
       s,
       `${live.on && live.nl === s ? "listening" : "stopped"} · last correction ${Math.round(t.correctionMs ?? t.totalMs ?? 0)} ms`,
     );
+  } else if (ev.type === "output") {
+    if (!ev.language) return;
+    updateEntry(e, {
+      outputs: {
+        ...e.outputs,
+        [ev.language]: { text: ev.text ?? "", status: ev.status ?? "ok" },
+      },
+    });
   } else if (ev.type === "silence") {
     if (e.liveFinal && e.text) return;
     Object.assign(e, {

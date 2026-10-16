@@ -6,32 +6,12 @@
 
 # Type Alias: WhistleAsset
 
-> **WhistleAsset** = `object`
+> **WhistleAsset** = [`LocalModelAsset`](LocalModelAsset.md) & `object`
 
-One pinned Whistle asset: where it comes from and what it must hash to.
+One pinned Whistle asset.
 
-## Properties
+## Type Declaration
 
 ### name
 
 > **name**: [`WhistleAssetName`](WhistleAssetName.md)
-
----
-
-### url
-
-> **url**: `string`
-
----
-
-### sha256
-
-> **sha256**: `string`
-
----
-
-### bytes
-
-> **bytes**: `number`
-
-Exact size in bytes, used for the download notice and a cheap pre-check.
