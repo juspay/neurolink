@@ -249,9 +249,36 @@ export function resolveToolPolicy(
 
   // --- discovery -----------------------------------------------------------
   const discovery = instanceConfig?.discovery === true;
+  let discoveryScope: ResolvedToolPolicy["discoveryScope"] = "external";
+  let discoveryAlwaysVisible: string[] = [];
   if (discovery) {
     sources.push("tools.discovery");
+    const configScope = instanceConfig?.discoveryScope;
+    if (configScope === "all") {
+      discoveryScope = "all";
+    } else if (configScope !== undefined && configScope !== "external") {
+      warnOnce(
+        "shape:tools.discoveryScope",
+        `[ToolPolicy] Ignoring unknown tools.discoveryScope; using "external"`,
+        { received: configScope },
+      );
+    }
+    discoveryAlwaysVisible =
+      normalizeConfigList(
+        instanceConfig?.discoveryAlwaysVisible,
+        "tools.discoveryAlwaysVisible",
+        false,
+      ) ?? [];
   }
 
-  return { enabled, include, includeBound, exclude, discovery, sources };
+  return {
+    enabled,
+    include,
+    includeBound,
+    exclude,
+    discovery,
+    discoveryScope,
+    discoveryAlwaysVisible,
+    sources,
+  };
 }

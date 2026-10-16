@@ -37,8 +37,12 @@ export type ResolvedToolPolicy = {
   includeBound?: string[];
   /** Denylist of tool-name patterns (exact names or `*` globs), applied after include. */
   exclude: string[];
-  /** Defer external MCP tool schemas behind the search_tools meta-tool. */
+  /** Defer tool schemas behind the search_tools meta-tool. */
   discovery: boolean;
+  /** Which tools discovery may defer. Absent means "external". */
+  discoveryScope?: "external" | "all";
+  /** Tool-name patterns (exact names or `*` globs) discovery never defers. Absent means none. */
+  discoveryAlwaysVisible?: string[];
   /** Which option/config sources contributed to this policy (telemetry/debugging). */
   sources: string[];
 };

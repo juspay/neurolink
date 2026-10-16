@@ -62,6 +62,34 @@ Default: false.
 
 ---
 
+### discoveryScope?
+
+> `optional` **discoveryScope?**: `"external"` \| `"all"`
+
+Which tools `discovery` may defer.
+
+- `"external"`: tools of servers attached with `addExternalMCPServer`.
+- `"all"`: every tool in the request's record except the built-in tools,
+  so tools registered with `registerTool`/`registerTools` and in-process
+  MCP tools are deferred as well.
+  Per-call tools, per-call whitelists, forced `toolChoice` tools and
+  already-discovered tools stay hot in both scopes. Ignored unless
+  `discovery` is true.
+  Default: "external".
+
+---
+
+### discoveryAlwaysVisible?
+
+> `optional` **discoveryAlwaysVisible?**: `string`[]
+
+Tool-name patterns (exact names or `*` globs) that `discovery` never
+defers, in either scope. E.g. `["utility-server_*"]` keeps every tool
+whose name starts with `utility-server_` in full on every request.
+Ignored unless `discovery` is true.
+
+---
+
 ### disableBuiltinTools?
 
 > `optional` **disableBuiltinTools?**: `boolean`

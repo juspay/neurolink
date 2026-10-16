@@ -1619,7 +1619,9 @@ export abstract class BaseProvider implements AIProvider {
 
   /**
    * On-demand discovery (`tools.discovery: true`): defer external MCP tool
-   * schemas behind one `search_tools` meta-tool. Built-in tools, per-call
+   * schemas — or, with `tools.discoveryScope: "all"`, every non-built-in
+   * tool — behind one `search_tools` meta-tool, except names matching
+   * `tools.discoveryAlwaysVisible`. Built-in tools, per-call
    * tools, explicitly whitelisted tools, and session-pinned (previously
    * discovered) tools always stay hot. No-op when discovery is off — with a
    * one-time WARN when the catalog is large enough that selection accuracy
@@ -1652,8 +1654,14 @@ export abstract class BaseProvider implements AIProvider {
       return tools;
     }
 
-    const externalTools = this.neurolink?.getExternalMCPTools() ?? [];
-    if (externalTools.length === 0) {
+    // "external" defers only attached MCP servers' tools; "all" defers every
+    // tool in the record except the built-ins.
+    const builtinNames = new Set(Object.keys(this.directTools ?? {}));
+    const candidateNames =
+      policy.discoveryScope === "all"
+        ? Object.keys(tools).filter((name) => !builtinNames.has(name))
+        : (this.neurolink?.getExternalMCPTools() ?? []).map((t) => t.name);
+    if (candidateNames.length === 0) {
       return tools;
     }
 
@@ -1692,17 +1700,21 @@ export abstract class BaseProvider implements AIProvider {
     }
     const explicitMatcher =
       explicitPatterns.length > 0 ? toolNameMatcher(explicitPatterns) : null;
+    const alwaysVisiblePatterns = policy.discoveryAlwaysVisible ?? [];
+    const alwaysVisibleMatcher =
+      alwaysVisiblePatterns.length > 0
+        ? toolNameMatcher(alwaysVisiblePatterns)
+        : null;
 
-    const deferrableNames = externalTools
-      .map((t) => t.name)
-      .filter(
-        (name) =>
-          name in tools &&
-          !perCallNames.has(name) &&
-          !(explicitMatcher ? explicitMatcher(name) : false),
-      );
+    const deferrableNames = candidateNames.filter(
+      (name) =>
+        name in tools &&
+        !perCallNames.has(name) &&
+        !(explicitMatcher ? explicitMatcher(name) : false) &&
+        !(alwaysVisibleMatcher ? alwaysVisibleMatcher(name) : false),
+    );
 
-    return partitionToolsForDiscovery(tools, {
+    const partitioned = partitionToolsForDiscovery(tools, {
       deferrableNames,
       pinnedNames,
       onHydrate: (names) => {
@@ -1711,6 +1723,16 @@ export abstract class BaseProvider implements AIProvider {
         }
       },
     });
+    // The meta-tool is built after the event wrappers ran, so without this
+    // a search_tools call never reaches tool:start / tool:end listeners.
+    const metaTool = partitioned["search_tools"];
+    if (isDiscoveryMetaTool(metaTool)) {
+      partitioned["search_tools"] =
+        this.toolsManager.wrapExternalToolsWithEvents({
+          search_tools: metaTool,
+        })["search_tools"];
+    }
+    return partitioned;
   }
 
   private static warnedLargeCatalog = false;

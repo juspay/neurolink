@@ -2062,7 +2062,13 @@ export type NativeGenerateLoopArgs = {
   /** Tool declarations in the v3 shape doGenerate already knows how to convert. */
   tools?: Array<Record<string, unknown>>;
   /** Registered tools, used to execute a call the model asks for. */
-  toolsRecord: Record<string, unknown>;
+  toolsRecord: Record<string, Tool>;
+  /**
+   * Builds the v3 declaration for one tool. When set, every step declares any
+   * tool that joined `toolsRecord` mid-turn (discovery's search_tools loads
+   * tools into it), so the model can call what it just loaded.
+   */
+  declareTool?: (name: string, tool: Tool) => Record<string, unknown>;
   /** The turn's resolved tool choice, applied per step via `resolveStepToolChoice`. */
   toolChoice?: unknown;
   /** Leading steps a forced `toolChoice` stays in force (default 1). */
