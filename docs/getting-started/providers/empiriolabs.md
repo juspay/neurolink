@@ -14,8 +14,8 @@ model catalog spans text, image, audio, video, transcription, embedding,
 reranking, research and 3D models. API reference and guides are in the
 [EmpirioLabs AI docs](https://docs.empiriolabs.ai).
 
-In NeuroLink, EmpirioLabs AI is a **Tier-2 catalog provider**: OpenAI-wire-compatible with no
-behavioural quirks, so its entire integration is one JSON file
+In NeuroLink, EmpirioLabs AI is a **Tier-2 catalog provider**: it speaks the OpenAI wire
+format, so its entire integration is one JSON file
 (`src/lib/providers/catalog/empiriolabs.json`) rather than hand-written code.
 That file is the source of truth for everything on this page.
 
