@@ -14,6 +14,43 @@ import { getState, setConn, setState, useServer } from "./store";
 import type { Decision, EngineId } from "./types";
 
 // Whether the server has an engine (unknown list = assume yes, the request will say otherwise).
+/**
+ * The server provider an engine uses for this request. Indic-Transcribe has two endpoints: its
+ * Latin one romanizes Indian-language speech (Hinglish, Tanglish …) and keeps English as is, so
+ * Output script = Latin needs no rewrite; the other writes mixed script (English words in Latin).
+ */
+export const nlProviderFor = (eng: EngineId): string =>
+  eng === "indic" && getState().flags.romanize
+    ? `${NL_PROVIDERS.indic}-latin`
+    : NL_PROVIDERS[eng];
+
+/**
+ * The model field for Indic-Transcribe: its endpoint's model with the expected languages after an
+ * "@" ("indic-transcribe-flex-mixed@en,hi"), which the sidecar reads as the identification
+ * candidates. Other engines take their endpoint's default model.
+ */
+export const nlModelFor = (eng: EngineId): string | undefined => {
+  if (eng !== "indic") return undefined;
+  const langs = getState().expectedLangs;
+  if (!langs.length) return undefined;
+  const base = getState().flags.romanize
+    ? "indic-transcribe-flex-latin"
+    : "indic-transcribe-flex-mixed";
+  return `${base}@${langs.join(",")}`;
+};
+
+/**
+ * Indic-Transcribe reads Indian English itself, so Spark is only a fallback for an empty or
+ * failed pass, never a language takeover: no probe, no "unsure" hand-off.
+ */
+export const nlFallbackFor = (eng: EngineId): Record<string, unknown> | null =>
+  eng === "indic"
+    ? {
+        fallback: { provider: NL_PROVIDERS.local, when: ["empty", "error"] },
+        routing: { probe: false },
+      }
+    : null;
+
 export const serverHas = (eng: EngineId) => {
   const list = getState().providers;
   return !list.length || list.includes(NL_PROVIDERS[eng]);
@@ -24,7 +61,11 @@ export const nlHeaders = (): Record<string, string> =>
 
 export const nlEngineOf = (provider?: string): EngineId | null =>
   (Object.keys(NL_PROVIDERS) as EngineId[]).find(
-    (k) => NL_PROVIDERS[k] === String(provider || "").split("/")[0],
+    (k) =>
+      NL_PROVIDERS[k] ===
+      String(provider || "")
+        .split("/")[0]
+        .replace(/-latin$/, ""),
   ) ?? null;
 
 export const nlDictionary = () =>
@@ -46,6 +87,11 @@ export function nlLanguage(eng: EngineId) {
 }
 export const nlTransliterate = () =>
   getState().flags.romanize ? "latin" : "native";
+// The output languages, as the `output` field of a request; undefined when none are chosen.
+export const nlOutput = () =>
+  getState().outputLangs.length
+    ? { languages: getState().outputLangs }
+    : undefined;
 
 export type NlDecision = {
   heard: string;
@@ -129,6 +175,7 @@ export type NlResult = {
   steps?: string[];
   timings?: NlTimings;
   engine?: { provider?: string; fallbackUsed?: boolean };
+  outputs?: Record<string, { text: string; status: string }>;
 };
 
 const toDataUrl = (blob: Blob) =>
@@ -155,8 +202,12 @@ export async function nlTranscribe(
 ): Promise<NlResult> {
   const body: Record<string, unknown> = {
     audio: await toDataUrl(blob),
-    provider: NL_PROVIDERS[o.eng],
-    ...(o.model ? { model: o.model } : {}),
+    provider: nlProviderFor(o.eng),
+    ...(o.model
+      ? { model: o.model }
+      : nlModelFor(o.eng)
+        ? { model: nlModelFor(o.eng) }
+        : {}),
   };
   const lang = nlLanguage(o.eng);
   if (lang) body.language = lang;
@@ -176,8 +227,12 @@ export async function nlTranscribe(
     const p = asrContextPrompt();
     if (p) body.prompt = p;
   }
-  if (o.fallback) body.fallback = { provider: o.fallback };
+  const fb = nlFallbackFor(o.eng);
+  if (fb) Object.assign(body, fb);
+  else if (o.fallback) body.fallback = { provider: o.fallback };
   if (o.chunking) body.chunking = o.chunking;
+  const output = nlOutput();
+  if (output) body.output = output;
   if (o.diarize) body.diarization = true;
   const r = await fetch(nlBase + "/api/agent/transcribe", {
     method: "POST",

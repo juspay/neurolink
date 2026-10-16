@@ -81,3 +81,42 @@ Audio kept before the detected onset. Default 350.
 > `optional` **minSpeechMs?**: `number`
 
 Shortest utterance worth a pass. Default 250.
+
+---
+
+### concurrency?
+
+> `optional` **concurrency?**: `number`
+
+Engine passes allowed in flight at once. Live streaming keeps 1 (the
+default), so a caption never shows a stale pass; the file path
+(`chunking: "utterances"`) raises it so utterances are transcribed and
+corrected in parallel.
+
+---
+
+### finalRetries?
+
+> `optional` **finalRetries?**: `number`
+
+Times a failed final pass is tried again before the utterance is
+reported as silence. Live streaming keeps 0 (a stale retry would delay
+the next utterance); the file path uses 1.
+
+---
+
+### vad?
+
+> `optional` **vad?**: [`STTVadOptions`](STTVadOptions.md)
+
+Which speech detector finds utterances, and its thresholds. Default: Silero when it loads, else the energy gate.
+
+---
+
+### normalize?
+
+> `optional` **normalize?**: `boolean`
+
+Raise quiet utterances to a speech level before an engine hears them
+(gain only goes up, capped at 8×, peaks limited). Far-field and
+low-gain microphones are the usual case. Default true.

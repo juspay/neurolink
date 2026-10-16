@@ -29,6 +29,9 @@ import {
   nlLanguage,
   nlSteps,
   nlTranscribe,
+  nlFallbackFor,
+  nlModelFor,
+  nlProviderFor,
   nlTransliterate,
   serverHas,
 } from "./neurolink";
@@ -589,10 +592,12 @@ class SocketFailure extends Error {
 function socketConfig(kind: "indic" | "whistle") {
   const c: Record<string, unknown> = {
     mode: "file",
-    provider: NL_PROVIDERS[kind],
+    provider: nlProviderFor(kind),
+    ...(nlModelFor(kind) ? { model: nlModelFor(kind) } : {}),
     streaming: { sampleRate: SAMPLE_RATE },
   };
-  if (kind === "indic") c.fallback = { provider: NL_PROVIDERS.local };
+  const fb = nlFallbackFor(kind);
+  if (fb) Object.assign(c, fb);
   const lang = nlLanguage(kind);
   if (lang) c.language = lang;
   const ctx = nlContext();
@@ -1125,7 +1130,7 @@ export function cancelJob() {
 
 const COL_TITLE: Record<FileColumn, string> = {
   local: "Spark · Qwen3-ASR + Nemotron-3 diarization",
-  indic: "IndicConformer-600M",
+  indic: "Indic-Transcribe-Flex",
   whistle: "Whistle",
   cloud: "ElevenLabs Scribe v2",
 };

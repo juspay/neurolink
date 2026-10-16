@@ -79,7 +79,7 @@ export class ExpressServerAdapter extends BaseServerAdapter {
       this.app.use(
         express.raw({
           type: (req) => isRawBodyContentType(req.headers["content-type"]),
-          limit: this.config.bodyParser.maxSize || "10mb",
+          limit: this.config.bodyParser.rawMaxSize || "64mb",
         }),
       );
     }

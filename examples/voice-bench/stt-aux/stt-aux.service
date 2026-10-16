@@ -1,0 +1,16 @@
+[Unit]
+Description=stt-aux: language ID, Qwen3-ASR with its language, forced alignment (:8010)
+After=network.target qwen3-asr.service
+
+[Service]
+WorkingDirectory=%h/stt-aux
+Environment=PORT=8010
+# Reachable from the NeuroLink server on the private network; keep the port off the internet.
+Environment=HOST=0.0.0.0
+Environment=MMS_DEVICE=cuda
+ExecStart=%h/stt-aux/.venv/bin/python server.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

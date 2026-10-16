@@ -301,6 +301,13 @@ function validateSTTEndpoints(
       ...(typeof c.apiKey === "string" ? { apiKey: c.apiKey } : {}),
       ...(typeof c.model === "string" ? { model: c.model } : {}),
       ...(typeof c.timeoutMs === "number" ? { timeoutMs: c.timeoutMs } : {}),
+      ...(typeof c.priorLanguageForm === "string"
+        ? { priorLanguageForm: c.priorLanguageForm }
+        : {}),
+      ...(typeof c.lidModel === "string" ? { lidModel: c.lidModel } : {}),
+      ...(typeof c.vocabularyPrompt === "boolean"
+        ? { vocabularyPrompt: c.vocabularyPrompt }
+        : {}),
     };
   }
   return out;

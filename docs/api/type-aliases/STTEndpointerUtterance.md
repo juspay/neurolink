@@ -44,6 +44,14 @@ RMS of each block, parallel to `blocks`.
 
 ---
 
+### speech?
+
+> `optional` **speech?**: `number`[]
+
+Speech probability of each block, parallel to `blocks`, when a detector is attached.
+
+---
+
 ### length
 
 > **length**: `number`

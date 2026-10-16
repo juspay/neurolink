@@ -134,6 +134,17 @@ OpenAI-compatible servers). Engines without a prompt ignore it;
 
 ---
 
+### languagePrior?
+
+> `optional` **languagePrior?**: `string`
+
+The language a previous utterance was confidently detected as. Engines
+that take a prior (the IndicConformer wrapper, through its
+`priorLanguageForm`) keep it unless the audio clearly says otherwise;
+every other engine ignores it. Only sent when no `language` is pinned.
+
+---
+
 ### timeoutMs?
 
 > `optional` **timeoutMs?**: `number`

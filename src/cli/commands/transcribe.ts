@@ -198,7 +198,8 @@ function buildCorrection(
     correction.transliterate = argv.transliterate;
   }
   if (argv.secondOpinion) {
-    correction.secondOpinion = { provider: argv.secondOpinion };
+    correction.secondOpinion =
+      argv.secondOpinion === "auto" ? "auto" : { provider: argv.secondOpinion };
   }
   if (argv.context) {
     correction.context = argv.context;
@@ -232,7 +233,21 @@ function buildCommonOptions(
     ...(correction ? { correction } : {}),
     ...(argv.fallback ? { fallback: { provider: argv.fallback } } : {}),
     ...(argv.timeout !== undefined ? { timeoutMs: argv.timeout } : {}),
+    ...(outputLanguagesArg(argv.to)
+      ? { output: { languages: outputLanguagesArg(argv.to) ?? [] } }
+      : {}),
   };
+}
+
+/** `--to es,hi-Latn` (or the flag repeated) → the tags, or `undefined` when none. */
+function outputLanguagesArg(
+  value: string | string[] | undefined,
+): string[] | undefined {
+  const tags = (Array.isArray(value) ? value : value ? [value] : [])
+    .flatMap((v) => v.split(","))
+    .map((t) => t.trim())
+    .filter(Boolean);
+  return tags.length ? tags : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -427,6 +442,7 @@ function trailLine(result: TranscribeResult): string {
     ["second opinion", t.secondOpinionMs],
     ["decide", t.decideMs],
     ["rewrite", t.rewriteMs],
+    ["outputs", t.outputMs],
     ["total", t.totalMs],
   ]
     .filter((entry): entry is [string, number] => typeof entry[1] === "number")
@@ -588,6 +604,16 @@ function createCliTranscribeStreamSink(
             );
           }
           break;
+        case "output":
+          clearLive();
+          process.stdout.write(
+            event.text
+              ? `${chalk.magenta(`  ${event.language}:`)} ${event.text}\n`
+              : chalk.gray(
+                  `  ${event.language}: ${event.status}${event.reason ? ` (${event.reason})` : ""}\n`,
+                ),
+          );
+          break;
         case "error":
           clearLive();
           logger.error(
@@ -695,7 +721,12 @@ export const transcribeCommand: CommandModule<object, CliTranscribeArgs> = {
       .option("second-opinion", {
         type: "string",
         describe:
-          "Second STT provider run on the same audio; the rewrite reconciles both",
+          'Second STT provider run on the same audio; the rewrite reconciles both ("auto": the --fallback engine)',
+      })
+      .option("to", {
+        type: "string",
+        describe:
+          "Output languages, comma-separated BCP-47 tags: es, fr-CA, hi-Latn (romanized Hindi), source",
       })
       .option("fallback", {
         type: "string",
@@ -711,6 +742,12 @@ export const transcribeCommand: CommandModule<object, CliTranscribeArgs> = {
         type: "boolean",
         describe:
           "Stream the file through transcribeStream (decoded to 16 kHz PCM16) and print live text",
+      })
+      .option("vad", {
+        type: "string",
+        choices: ["auto", "silero", "energy"] as const,
+        describe:
+          "With --stream: the speech detector that finds utterances (default auto: Silero when it loads, else the energy gate)",
       })
       .option("format", {
         type: "string",
@@ -811,7 +848,10 @@ export const transcribeCommand: CommandModule<object, CliTranscribeArgs> = {
         const events = neurolink.transcribeStream({
           ...options,
           audio: pcmFrames(pcm),
-          streaming: { sampleRate: TARGET_SAMPLE_RATE },
+          streaming: {
+            sampleRate: TARGET_SAMPLE_RATE,
+            ...(argv.vad ? { vad: { engine: argv.vad } } : {}),
+          },
         });
         for await (const event of events) {
           sink.event(event);
@@ -881,6 +921,15 @@ export const transcribeCommand: CommandModule<object, CliTranscribeArgs> = {
       return;
     }
     logger.always(result.text);
+    for (const rendering of Object.values(result.outputs ?? {})) {
+      logger.always(
+        rendering.text
+          ? `${chalk.magenta(`${rendering.language}:`)} ${rendering.text}`
+          : chalk.gray(
+              `${rendering.language}: ${rendering.status}${rendering.reason ? ` (${rendering.reason})` : ""}`,
+            ),
+      );
+    }
     if (!argv.quiet) {
       logger.always(chalk.gray(trailLine(result)));
     }

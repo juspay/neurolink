@@ -306,6 +306,12 @@ export class ServeCommandFactory {
             type: "boolean",
             description: "Enable CORS middleware (default: true)",
           })
+          .option("max-upload", {
+            type: "string",
+            alias: "maxUpload",
+            description:
+              "Largest raw upload the server accepts (multipart / audio bodies), e.g. 64mb (default)",
+          })
           .option("cors-origin", {
             type: "array",
             string: true,
@@ -572,7 +578,12 @@ export class ServeCommandFactory {
             : (fileConfig.rateLimit?.maxRequests ??
               defaultConfig.rateLimit.maxRequests),
       },
-      bodyParser: fileConfig.bodyParser,
+      bodyParser: argv.maxUpload?.trim()
+        ? {
+            ...(fileConfig.bodyParser ?? {}),
+            rawMaxSize: argv.maxUpload.trim(),
+          }
+        : fileConfig.bodyParser,
       logging: fileConfig.logging,
       // Transcription of a long recording through a remote engine can take
       // longer than the 30 s default, so the request timeout is also

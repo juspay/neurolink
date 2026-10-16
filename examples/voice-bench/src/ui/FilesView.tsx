@@ -56,7 +56,7 @@ const OPTIONS: { e: EngineId; title: string; desc: string }[] = [
   },
   {
     e: "indic",
-    title: "IndicConformer",
+    title: "Indic-Transcribe",
     desc: "AI4Bharat 600M · 22 Indian languages, split per utterance, language auto-detected",
   },
 ];
@@ -65,7 +65,7 @@ const COLUMN: Record<FileColumn, { engine: EngineId; label: string }> = {
   local: { engine: "local", label: "Spark · Qwen3-ASR + Nemotron-3" },
   cloud: { engine: "scribe", label: "Cloud · ElevenLabs Scribe v2" },
   whistle: { engine: "whistle", label: "Browser · Whistle" },
-  indic: { engine: "indic", label: "IndicConformer-600M" },
+  indic: { engine: "indic", label: "Indic-Transcribe-Flex" },
 };
 
 function EnginePicker() {

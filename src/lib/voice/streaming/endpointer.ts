@@ -1,31 +1,43 @@
 /**
- * Energy-gated endpointer for client-side streaming of batch STT engines.
+ * Endpointer for client-side streaming of batch STT engines.
  *
  * Pure and synchronous: feed it float samples at any input rate, get back
  * utterance start / end / drop events. It knows nothing about engines; the
  * chunked adapter decides what to transcribe and when.
  *
- * The rules and their constants were measured on live microphones and on a
- * 45 s three-speaker meeting slice, where they recover 155 of the 156 words a
- * batch transcription of the whole file finds (a plain fixed-threshold gate
- * recovered 125):
+ * Two ways to tell speech from not-speech, same utterance rules either way:
+ *
+ * - **A speech detector** (`attachSpeech`): the adapter scores the stream
+ *   with a model (Silero VAD by default) and the endpointer reads the
+ *   probability of each 20 ms block. An utterance opens after `startMs` of
+ *   consecutive blocks at or above `onset` (the pre-roll keeps that audio,
+ *   so nothing is clipped) and a block counts as speech while at or above
+ *   `sustain`. A chair, a keyboard or a far-away TV scores near zero and
+ *   never opens one.
+ * - **The energy gate**, the fallback when no detector is attached. Its
+ *   rules and constants were measured on live microphones and on a 45 s
+ *   three-speaker meeting slice, where they recover 155 of the 156 words a
+ *   batch transcription of the whole file finds (a plain fixed-threshold
+ *   gate recovered 125):
+ *   - The noise floor is a minimum statistic — the quietest block of the
+ *     last 1.5 s — allowed to rise by at most ~2× per second and never below
+ *     0.0005. Because it follows the quietest block, a loud talker can never
+ *     raise it enough to push a quieter second speaker below the gate.
+ *   - Hysteresis: speech starts above `max(onsetRms, floor × 3)` and is
+ *     sustained above `max(onsetRms × 0.58, floor × 1.8)`, so soft word
+ *     endings are kept inside the utterance instead of counting as silence.
+ *
+ * Shared rules:
  *
  * - Work on 20 ms blocks.
- * - The noise floor is a minimum statistic — the quietest block of the last
- *   1.5 s — allowed to rise by at most ~2× per second and never below 0.0005.
- *   Because it follows the quietest block, a loud talker can never raise it
- *   enough to push a quieter second speaker below the gate.
- * - Hysteresis: speech starts above `max(onsetRms, floor × 3)` and is
- *   sustained above `max(onsetRms × 0.58, floor × 1.8)`, so soft word endings
- *   are kept inside the utterance instead of counting as silence.
  * - `prerollMs` of audio before the onset is kept, so the first consonant is
  *   not clipped.
  * - An utterance ends after `endSilenceMs` without sustained speech. One with
  *   less than `minSpeechMs` of speech is a cough and is dropped — unless a
  *   pass already heard words in it, which must never be lost.
  * - A long turn (`softCutSeconds`) ends at the next ≥ 320 ms gap; a turn with
- *   no gap at all is hard-cut at `maxUtteranceSeconds` at the quietest block
- *   of the last 3 s, and the remainder becomes the start of the next
+ *   no gap at all is hard-cut at `maxUtteranceSeconds` at the least speech-like
+ *   block of the last 3 s, and the remainder becomes the start of the next
  *   utterance, so no audio falls between the two.
  *
  * @module voice/streaming/endpointer
@@ -33,6 +45,8 @@
 import type {
   STTEndpointerConfig,
   STTEndpointerEvent,
+  STTEndpointerPreBlock,
+  STTEndpointerSpeechConfig,
   STTEndpointerUtterance,
   STTStreamingOptions,
 } from "../../types/index.js";
@@ -54,7 +68,7 @@ const SUSTAIN_RATIO = 1.8;
 const ABS_SUSTAIN_RATIO = 0.58;
 /** A pause this long ends a turn that is already past `softCutSeconds`. */
 const SOFT_GAP_MS = 320;
-/** The hard cut looks for the quietest block in this many trailing seconds. */
+/** The hard cut looks for the least speech-like block in this many trailing seconds. */
 const HARD_CUT_SEARCH_SECONDS = 3;
 
 /** Defaults of `STTStreamingOptions` that the endpointer reads. */
@@ -123,12 +137,15 @@ export function resampleTo16k(
 
 export class Endpointer {
   readonly config: STTEndpointerConfig;
+  private speech: STTEndpointerSpeechConfig | null = null;
+  /** Milliseconds of consecutive blocks at or above the detector's onset threshold. */
+  private onsetRun = 0;
   private readonly blockLen: number;
   private block: Float32Array;
   private blockFill = 0;
   private noise = NOISE_FLOOR_INITIAL;
   private readonly noiseWin: number[] = [];
-  private pre: Array<{ block: Float32Array; rms: number }> = [];
+  private pre: STTEndpointerPreBlock[] = [];
   private preLen = 0;
   private utt: STTEndpointerUtterance | null = null;
   private seq = 0;
@@ -149,6 +166,23 @@ export class Endpointer {
   /** Seconds of input consumed so far. */
   get audioSeconds(): number {
     return this.consumed / this.config.inputRate;
+  }
+
+  /** Whether a speech detector decides, rather than the energy gate. */
+  get speechAttached(): boolean {
+    return this.speech !== null;
+  }
+
+  /**
+   * Reads a speech detector's verdicts from here on (`null` goes back to the
+   * energy gate, which an open utterance then finishes under).
+   */
+  attachSpeech(speech: STTEndpointerSpeechConfig | null): void {
+    this.speech = speech;
+    this.onsetRun = 0;
+    if (!speech && this.utt) {
+      this.utt.speech = undefined;
+    }
   }
 
   /** Feeds samples at the input rate; returns the events they caused, in order. */
@@ -180,6 +214,7 @@ export class Endpointer {
       const tail = this.block.slice(0, this.blockFill);
       u.blocks.push(tail);
       u.rms.push(rmsOf(tail));
+      u.speech?.push(u.speech[u.speech.length - 1] ?? 0);
       u.length += tail.length;
     }
     this.consumed += this.blockFill;
@@ -197,15 +232,54 @@ export class Endpointer {
     return events;
   }
 
-  /** The utterance's audio at 16 kHz. */
-  pcm16k(u: STTEndpointerUtterance): Float32Array {
-    const out = new Float32Array(u.length);
+  /**
+   * The utterance's audio at 16 kHz. With `trimTailMs` and a detector
+   * attached, silence after the last speech block beyond that margin is left
+   * out, so an engine never decodes the closing pause (where a batch model
+   * invents its endings); the utterance itself keeps its full span. `padMs`
+   * of digital silence is appended after everything else: a chunk cut off
+   * right after speech can send a batch model into a decoding loop until its
+   * timeout (measured on Qwen3-ASR: 200 ms of zeros was enough to stop it).
+   */
+  pcm16k(
+    u: STTEndpointerUtterance,
+    options?: { trimTailMs?: number; padMs?: number },
+  ): Float32Array {
+    let blocks = u.blocks;
+    const sp = this.speech;
+    if (options?.trimTailMs !== undefined && u.speech && sp) {
+      let last = -1;
+      for (let k = u.speech.length - 1; k >= 0; k--) {
+        if (u.speech[k] >= sp.sustain) {
+          last = k;
+          break;
+        }
+      }
+      if (last >= 0) {
+        const keep = Math.min(
+          blocks.length,
+          last + 1 + Math.ceil(options.trimTailMs / BLOCK_MS),
+        );
+        blocks = blocks.slice(0, keep);
+      }
+    }
+    const length = blocks.reduce((a, b) => a + b.length, 0);
+    const out = new Float32Array(length);
     let o = 0;
-    for (const b of u.blocks) {
+    for (const b of blocks) {
       out.set(b, o);
       o += b.length;
     }
-    return resampleTo16k(out, this.config.inputRate);
+    const pcm = resampleTo16k(out, this.config.inputRate);
+    const pad = options?.padMs
+      ? Math.round((options.padMs / 1000) * ENGINE_SAMPLE_RATE)
+      : 0;
+    if (pad <= 0) {
+      return pcm;
+    }
+    const padded = new Float32Array(pcm.length + pad);
+    padded.set(pcm, 0);
+    return padded;
   }
 
   private sustainThreshold(): number {
@@ -215,17 +289,16 @@ export class Endpointer {
     );
   }
 
-  private newUtterance(
-    blocks: Float32Array[],
-    rms: number[],
-  ): STTEndpointerUtterance {
+  private newUtterance(pre: STTEndpointerPreBlock[]): STTEndpointerUtterance {
+    const blocks = pre.map((p) => p.block);
     const length = blocks.reduce((a, b) => a + b.length, 0);
     return {
       id: ++this.seq,
       // Called once the newest block is counted, so the utterance ends at the clock.
       startSeconds: (this.consumed - length) / this.config.inputRate,
       blocks,
-      rms,
+      rms: pre.map((p) => p.rms),
+      ...(this.speech ? { speech: pre.map((p) => p.speech) } : {}),
       length,
       speechMs: 0,
       silenceMs: 0,
@@ -255,24 +328,43 @@ export class Endpointer {
         ? Math.min(winMin, this.noise * NOISE_RISE_PER_BLOCK)
         : winMin,
     );
-    const onset = rms > Math.max(cfg.onsetRms, this.noise * ONSET_RATIO);
-    const sustain = rms > this.sustainThreshold();
+
+    const sp = this.speech;
+    // The detector's verdict for the middle of this block; before the first
+    // scored frame nothing is speech, so a stray block cannot open anything.
+    const p = sp
+      ? (sp.probabilityAt((this.consumed - block.length / 2) / cfg.inputRate) ??
+        0)
+      : 0;
+    let onset: boolean;
+    let sustain: boolean;
+    if (sp) {
+      sustain = p >= sp.sustain;
+      // The confirmation run only matters while nothing is open, and it is
+      // reset at every onset, so a long turn never inflates the next utterance.
+      this.onsetRun = !this.utt && p >= sp.onset ? this.onsetRun + BLOCK_MS : 0;
+      onset = p >= sp.onset && this.onsetRun >= sp.startMs;
+    } else {
+      onset = rms > Math.max(cfg.onsetRms, this.noise * ONSET_RATIO);
+      sustain = rms > this.sustainThreshold();
+    }
 
     const u = this.utt;
     if (!u) {
-      this.pre.push({ block, rms });
+      this.pre.push({ block, rms, speech: p });
       this.preLen += block.length;
-      const maxPre = (cfg.prerollMs / 1000) * cfg.inputRate;
+      // The pre-roll must hold the onset confirmation, or it would be clipped.
+      const maxPre =
+        (Math.max(cfg.prerollMs, sp ? sp.startMs + 2 * BLOCK_MS : 0) / 1000) *
+        cfg.inputRate;
       while (this.preLen > maxPre && this.pre.length > 1) {
         const dropped = this.pre.shift();
         this.preLen -= dropped ? dropped.block.length : 0;
       }
       if (onset) {
-        const started = this.newUtterance(
-          this.pre.map((p) => p.block),
-          this.pre.map((p) => p.rms),
-        );
-        started.speechMs = BLOCK_MS;
+        const started = this.newUtterance(this.pre);
+        started.speechMs = sp ? Math.max(BLOCK_MS, this.onsetRun) : BLOCK_MS;
+        this.onsetRun = 0;
         this.utt = started;
         this.pre = [];
         this.preLen = 0;
@@ -283,6 +375,7 @@ export class Endpointer {
 
     u.blocks.push(block);
     u.rms.push(rms);
+    u.speech?.push(p);
     u.length += block.length;
     if (sustain) {
       u.speechMs += BLOCK_MS;
@@ -318,18 +411,40 @@ export class Endpointer {
       1,
       n - Math.round(HARD_CUT_SEARCH_SECONDS / BLOCK_SECONDS),
     );
+    // The least speech-like block: lowest detector probability (quietest on a tie), else quietest.
+    const lessSpeech = (k: number, best: number): boolean => {
+      const sp = u.speech;
+      if (sp) {
+        return (
+          sp[k] < sp[best] || (sp[k] === sp[best] && u.rms[k] < u.rms[best])
+        );
+      }
+      return u.rms[k] < u.rms[best];
+    };
     let best = from;
     for (let k = from; k < n; k++) {
-      if (u.rms[k] < u.rms[best]) {
+      if (lessSpeech(k, best)) {
         best = k;
       }
     }
-    const restBlocks = u.blocks.splice(best);
-    const restRms = u.rms.splice(best);
+    const rest: STTEndpointerPreBlock[] = u.blocks
+      .splice(best)
+      .map((block, i) => ({
+        block,
+        rms: u.rms[best + i],
+        speech: u.speech?.[best + i] ?? 0,
+      }));
+    u.rms.splice(best);
+    u.speech?.splice(best);
     u.length = u.blocks.reduce((a, b) => a + b.length, 0);
-    const next = this.newUtterance(restBlocks, restRms);
+    const next = this.newUtterance(rest);
+    const sp = this.speech;
     const threshold = this.sustainThreshold();
-    next.speechMs = restRms.filter((r) => r > threshold).length * BLOCK_MS;
+    next.speechMs =
+      rest.filter((r) => (sp ? r.speech >= sp.sustain : r.rms > threshold))
+        .length * BLOCK_MS;
+    // The moved blocks' speech now belongs to the next utterance, not this one.
+    u.speechMs = Math.max(0, u.speechMs - next.speechMs);
     this.utt = next;
     events.push({ type: "end", utterance: u, reason: "hardCut" });
     events.push({ type: "start", utterance: next });

@@ -20,7 +20,7 @@
 
 ##### apiKeyOrCredentials?
 
-`string` \| \{ `apiKey?`: `string`; `baseURL?`: `string`; `timeoutMs?`: `number`; `model?`: `string`; \}
+`string` \| \{ `apiKey?`: `string`; `baseURL?`: `string`; `timeoutMs?`: `number`; `model?`: `string`; `priorLanguageForm?`: `string`; `lidModel?`: `string`; `vocabularyPrompt?`: `boolean`; \}
 
 The `credentials.stt.whisper` slice
 (`apiKey`, `baseURL`, `timeoutMs`), or — the original positional form —
@@ -32,7 +32,7 @@ an API key. Anything left out falls back to the environment.
 
 ###### Type Literal
 
-\{ `apiKey?`: `string`; `baseURL?`: `string`; `timeoutMs?`: `number`; `model?`: `string`; \}
+\{ `apiKey?`: `string`; `baseURL?`: `string`; `timeoutMs?`: `number`; `model?`: `string`; `priorLanguageForm?`: `string`; `lidModel?`: `string`; `vocabularyPrompt?`: `boolean`; \}
 
 The `credentials.stt.whisper` slice
 (`apiKey`, `baseURL`, `timeoutMs`), or — the original positional form —
@@ -55,6 +55,24 @@ an API key. Anything left out falls back to the environment.
 `string`
 
 Default model name sent to the endpoint (`whisper-1` when omitted).
+
+###### priorLanguageForm?
+
+`string`
+
+See `STTEndpointConfig.priorLanguageForm`. Env: `OPENAI_STT_PRIOR_LANGUAGE_FORM`.
+
+###### lidModel?
+
+`string`
+
+See `STTEndpointConfig.lidModel`. Env: `OPENAI_STT_LID_MODEL`.
+
+###### vocabularyPrompt?
+
+`boolean`
+
+See `STTEndpointConfig.vocabularyPrompt`. Env: `OPENAI_STT_VOCABULARY_PROMPT`.
 
 ##### baseUrl?
 
@@ -91,6 +109,25 @@ Whisper does not support streaming
 `STTHandler.supportsStreaming`
 
 ## Methods
+
+### languageProbeModel()
+
+> **languageProbeModel**(): `string` \| `undefined`
+
+The model name that runs this engine in language-identification-only
+mode (no transcript, just the language verdict and scores, in a fraction
+of the time), when the server has one. The batch path probes with it
+before deciding which engine transcribes.
+
+#### Returns
+
+`string` \| `undefined`
+
+#### Implementation of
+
+`STTHandler.languageProbeModel`
+
+---
 
 ### isConfigured()
 

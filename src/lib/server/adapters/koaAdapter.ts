@@ -167,7 +167,7 @@ export class KoaServerAdapter extends BaseServerAdapter {
         }),
       );
       // Uploads (multipart, octet-stream, audio/*) reach the route as bytes.
-      const rawLimit = parseByteLimit(this.config.bodyParser.maxSize);
+      const rawLimit = parseByteLimit(this.config.bodyParser.rawMaxSize);
       this.app.use(async (ctx, next) => {
         if (isRawBodyContentType(ctx.get("content-type"))) {
           try {

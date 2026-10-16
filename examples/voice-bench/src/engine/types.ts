@@ -94,6 +94,8 @@ export type Entry = {
   committed?: string;
   tail?: string;
   silent?: boolean;
+  // renderings in the chosen output languages, by tag (NeuroLink `output` events)
+  outputs?: Record<string, { text: string; status: string }>;
 };
 
 export type BadgeTone = "ok" | "warn" | "busy" | "";

@@ -30,6 +30,12 @@ Required body parser configuration
 
 ---
 
+### rawMaxSize
+
+> **rawMaxSize**: `string`
+
+---
+
 ### urlEncoded
 
 > **urlEncoded**: `boolean`

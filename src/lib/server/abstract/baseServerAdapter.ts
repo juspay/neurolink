@@ -124,6 +124,9 @@ export abstract class BaseServerAdapter extends EventEmitter {
         enabled: config.bodyParser?.enabled ?? true,
         maxSize: config.bodyParser?.maxSize ?? "10mb",
         jsonLimit: config.bodyParser?.jsonLimit ?? "10mb",
+        // An operator's explicit maxSize also caps raw uploads.
+        rawMaxSize:
+          config.bodyParser?.rawMaxSize ?? config.bodyParser?.maxSize ?? "64mb",
         urlEncoded: config.bodyParser?.urlEncoded ?? true,
       },
       logging: {

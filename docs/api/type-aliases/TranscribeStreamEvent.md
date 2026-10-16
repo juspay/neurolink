@@ -6,7 +6,7 @@
 
 # Type Alias: TranscribeStreamEvent
 
-> **TranscribeStreamEvent** = \{ `type`: `"interim"`; `utterance`: `number`; `text`: `string`; `committed`: `string`; `tail`: `string`; `seconds`: `number`; `latencyMs`: `number`; `engine`: `string`; \} \| \{ `type`: `"language"`; `utterance`: `number`; `language`: `string`; `detected`: `boolean`; `scores?`: [`STTLanguageScore`](STTLanguageScore.md)[]; \} \| \{ `type`: `"final"`; `utterance`: `number`; `text`: `string`; `segment`: [`TranscriptionSegment`](TranscriptionSegment.md); `words?`: [`WordTiming`](WordTiming.md)[]; `language?`: `string`; `languageDetected?`: `boolean`; `engine`: `string`; `fallbackUsed?`: `boolean`; `seconds`: `number`; \} \| \{ `type`: `"correcting"`; `utterance`: `number`; `text`: `string`; \} \| \{ `type`: `"corrected"`; `utterance`: `number`; `raw`: `string`; `text`: `string`; `decisions`: [`STTDecisionRecord`](STTDecisionRecord.md)[]; `steps`: `string`[]; `timings`: [`TranscribeTimings`](TranscribeTimings.md); \} \| \{ `type`: `"silence"`; `utterance`: `number`; `seconds`: `number`; \} \| \{ `type`: `"error"`; `utterance?`: `number`; `message`: `string`; `recoverable`: `boolean`; \}
+> **TranscribeStreamEvent** = \{ `type`: `"interim"`; `utterance`: `number`; `text`: `string`; `committed`: `string`; `tail`: `string`; `seconds`: `number`; `latencyMs`: `number`; `engine`: `string`; \} \| \{ `type`: `"language"`; `utterance`: `number`; `language`: `string`; `detected`: `boolean`; `scores?`: [`STTLanguageScore`](STTLanguageScore.md)[]; \} \| \{ `type`: `"final"`; `utterance`: `number`; `text`: `string`; `segment`: [`TranscriptionSegment`](TranscriptionSegment.md); `words?`: [`WordTiming`](WordTiming.md)[]; `language?`: `string`; `languageDetected?`: `boolean`; `engine`: `string`; `fallbackUsed?`: `boolean`; `seconds`: `number`; `vad?`: `string`; `speechSeconds?`: `number`; `alternative?`: \{ `engine`: `string`; `text`: `string`; \}; \} \| \{ `type`: `"correcting"`; `utterance`: `number`; `text`: `string`; \} \| \{ `type`: `"corrected"`; `utterance`: `number`; `raw`: `string`; `text`: `string`; `decisions`: [`STTDecisionRecord`](STTDecisionRecord.md)[]; `steps`: `string`[]; `timings`: [`TranscribeTimings`](TranscribeTimings.md); \} \| \{ `type`: `"output"`; `utterance`: `number`; `language`: `string`; `text`: `string`; `status`: [`STTOutputStatus`](STTOutputStatus.md); `basedOn`: `"final"` \| `"corrected"`; `ms`: `number`; `reason?`: `string`; \} \| \{ `type`: `"silence"`; `utterance`: `number`; `seconds`: `number`; `vad?`: `string`; `speechSeconds?`: `number`; \} \| \{ `type`: `"error"`; `utterance?`: `number`; `message`: `string`; `recoverable`: `boolean`; \}
 
 ## Union Members
 
@@ -62,7 +62,75 @@ The rest, still subject to change.
 
 ### Type Literal
 
-\{ `type`: `"final"`; `utterance`: `number`; `text`: `string`; `segment`: [`TranscriptionSegment`](TranscriptionSegment.md); `words?`: [`WordTiming`](WordTiming.md)[]; `language?`: `string`; `languageDetected?`: `boolean`; `engine`: `string`; `fallbackUsed?`: `boolean`; `seconds`: `number`; \}
+\{ `type`: `"final"`; `utterance`: `number`; `text`: `string`; `segment`: [`TranscriptionSegment`](TranscriptionSegment.md); `words?`: [`WordTiming`](WordTiming.md)[]; `language?`: `string`; `languageDetected?`: `boolean`; `engine`: `string`; `fallbackUsed?`: `boolean`; `seconds`: `number`; `vad?`: `string`; `speechSeconds?`: `number`; `alternative?`: \{ `engine`: `string`; `text`: `string`; \}; \}
+
+#### type
+
+> **type**: `"final"`
+
+#### utterance
+
+> **utterance**: `number`
+
+#### text
+
+> **text**: `string`
+
+#### segment
+
+> **segment**: [`TranscriptionSegment`](TranscriptionSegment.md)
+
+#### words?
+
+> `optional` **words?**: [`WordTiming`](WordTiming.md)[]
+
+#### language?
+
+> `optional` **language?**: `string`
+
+#### languageDetected?
+
+> `optional` **languageDetected?**: `boolean`
+
+#### engine
+
+> **engine**: `string`
+
+#### fallbackUsed?
+
+> `optional` **fallbackUsed?**: `boolean`
+
+#### seconds
+
+> **seconds**: `number`
+
+#### vad?
+
+> `optional` **vad?**: `string`
+
+The detector that found this utterance: `"silero"`, `"energy"`, or a caller's own.
+
+#### speechSeconds?
+
+> `optional` **speechSeconds?**: `number`
+
+Seconds the detector counted as speech inside the utterance.
+
+#### alternative?
+
+> `optional` **alternative?**: `object`
+
+The other engine's reading of the same utterance, when the two
+disagreed on its language and the final ran both: code-mixed speech
+is reconciled from both readings (`secondOpinion: "auto"`).
+
+##### alternative.engine
+
+> **engine**: `string`
+
+##### alternative.text
+
+> **text**: `string`
 
 ---
 
@@ -94,7 +162,48 @@ Partial text of the streamed rewrite, in order.
 
 ### Type Literal
 
-\{ `type`: `"silence"`; `utterance`: `number`; `seconds`: `number`; \}
+\{ `type`: `"output"`; `utterance`: `number`; `language`: `string`; `text`: `string`; `status`: [`STTOutputStatus`](STTOutputStatus.md); `basedOn`: `"final"` \| `"corrected"`; `ms`: `number`; `reason?`: `string`; \}
+
+#### type
+
+> **type**: `"output"`
+
+The utterance in one output language. Follows `corrected` when
+correction runs (`basedOn: "corrected"`), else the `final`.
+
+#### utterance
+
+> **utterance**: `number`
+
+#### language
+
+> **language**: `string`
+
+#### text
+
+> **text**: `string`
+
+#### status
+
+> **status**: [`STTOutputStatus`](STTOutputStatus.md)
+
+#### basedOn
+
+> **basedOn**: `"final"` \| `"corrected"`
+
+#### ms
+
+> **ms**: `number`
+
+#### reason?
+
+> `optional` **reason?**: `string`
+
+---
+
+### Type Literal
+
+\{ `type`: `"silence"`; `utterance`: `number`; `seconds`: `number`; `vad?`: `string`; `speechSeconds?`: `number`; \}
 
 #### type
 
@@ -109,6 +218,14 @@ An utterance no engine could read; its audio length is reported so nothing disap
 #### seconds
 
 > **seconds**: `number`
+
+#### vad?
+
+> `optional` **vad?**: `string`
+
+#### speechSeconds?
+
+> `optional` **speechSeconds?**: `number`
 
 ---
 

@@ -101,6 +101,24 @@ Provider name
 
 Model used
 
+#### hallucination?
+
+> `optional` **hallucination?**: `"prompt-echo"`
+
+Set by the output guards: what the engine produced was not speech.
+
+#### loopShare?
+
+> `optional` **loopShare?**: `number`
+
+Share of the words a collapsed decoding loop had taken (0 when none).
+
+#### routedProvider?
+
+> `optional` **routedProvider?**: `string`
+
+Set by language routing: the provider whose text this is, when not the pass's own engine.
+
 #### confidenceSource?
 
 > `optional` **confidenceSource?**: [`STTConfidenceSource`](STTConfidenceSource.md)

@@ -86,6 +86,34 @@ Server-local path; refused unless it lies under `allowedAudioRoots`.
 
 ---
 
+### routing?
+
+> `optional` **routing?**: [`STTRoutingOptions`](STTRoutingOptions.md)
+
+---
+
+### chunking?
+
+> `optional` **chunking?**: `"engine"` \| `"utterances"`
+
+`"utterances"` runs the recording through the live pipeline (see `TranscribeOptions.chunking`).
+
+---
+
+### output?
+
+> `optional` **output?**: `Omit`\<[`STTOutputOptions`](STTOutputOptions.md), `"languages"`\> & `object`
+
+Renderings in other languages and scripts (see `TranscribeOptions.output`).
+
+#### Type Declaration
+
+##### languages
+
+> **languages**: `string`[]
+
+---
+
 ### diarization?
 
 > `optional` **diarization?**: `boolean`

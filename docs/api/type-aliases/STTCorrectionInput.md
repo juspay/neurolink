@@ -46,6 +46,22 @@ Second-opinion transcript of the same audio, when one exists.
 
 ---
 
+### language?
+
+> `optional` **language?**: `string`
+
+Detected language of the speech; picks the rewrite's rules and script default.
+
+---
+
+### previous?
+
+> `optional` **previous?**: readonly `string`[]
+
+Corrected utterances before this one, oldest first: read-only context for the rewrite.
+
+---
+
 ### onPartial?
 
 > `optional` **onPartial?**: (`text`) => `void`

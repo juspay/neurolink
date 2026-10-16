@@ -120,7 +120,13 @@ function migrateLegacyDictionary(): DictEntry[] | null {
 
 export type Conn = { state: ConnState; detail: string };
 export type CaptureStatus = "idle" | "listening" | "live" | "transcribing";
-export type Flags = { correct: boolean; romanize: boolean; clean: boolean };
+export type Flags = {
+  correct: boolean;
+  romanize: boolean;
+  clean: boolean;
+  // IndicConformer leads and Spark reads the same utterance; the rewrite reconciles both
+  reconcile: boolean;
+};
 
 export type BenchState = {
   view: View;
@@ -130,6 +136,10 @@ export type BenchState = {
   mode: CaptureMode;
   lang: string;
   flags: Flags;
+  // BCP-47 tags every utterance is also rendered in (es, fr, hi-Latn, …); empty: transcript only
+  outputLangs: string[];
+  // Languages the speakers use: Indic-Transcribe identifies only among these (empty: any of its 27)
+  expectedLangs: string[];
   fengines: EngineId[];
   maxSpeakers: string;
   viaServer: boolean;
@@ -161,6 +171,15 @@ export type BenchState = {
 const views: View[] = ["live", "files", "dictionary", "speak", "settings"];
 const savedRoute = storage.get<Route>("voice-bench-route", "auto");
 const ENGINE_IDS: EngineId[] = ["local", "indic", "whistle", "scribe"];
+/** A persisted list of language tags: only strings, deduplicated, at most `max`; anything else falls back. */
+function savedLangs(key: string, fallback: string[], max: number): string[] {
+  const v = storage.get<unknown>(key, null);
+  if (!Array.isArray(v)) return fallback;
+  const list = v.filter(
+    (l): l is string => typeof l === "string" && l.trim() !== "",
+  );
+  return [...new Set(list)].slice(0, max);
+}
 function savedFileEngines(): EngineId[] {
   const v = storage.get<unknown>("voice-bench-fengines", null);
   const list = Array.isArray(v)
@@ -171,7 +190,8 @@ function savedFileEngines(): EngineId[] {
 const route: Route = ["auto", "whistle", "scribe"].includes(savedRoute)
   ? savedRoute
   : "auto";
-// Through the server, Auto is IndicConformer with Spark as fallback; without one (local dev) it is Spark.
+// Through the server, Auto is Indic-Transcribe (the "indic" engine id, provider `bodhan`) with Spark as
+// fallback; without one (local dev) it is Spark.
 export const engineForRoute = (r: Route): EngineId =>
   r === "auto" ? (nlBase ? "indic" : "local") : r;
 const savedView = storage.get<View>("voice-bench-view", "live");
@@ -199,7 +219,10 @@ const initial: BenchState = {
     correct: storage.get("voice-bench-correct", true),
     romanize: storage.get("voice-bench-romanize", true),
     clean: storage.get("voice-bench-clean", false),
+    reconcile: storage.get("voice-bench-reconcile", true),
   },
+  outputLangs: savedLangs("voice-bench-outputs", [], 8),
+  expectedLangs: savedLangs("voice-bench-expected", ["en", "hi"], 12),
   fengines: savedFileEngines(),
   maxSpeakers: "",
   // Everything goes through the NeuroLink server whenever one is configured; there is no direct mode then.

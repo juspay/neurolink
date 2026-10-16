@@ -57,9 +57,25 @@ Context prompt for engines that bias on one (Whisper, Qwen3-ASR …). Dictionary
 
 > `optional` **fallback?**: [`STTFallbackOptions`](STTFallbackOptions.md)
 
+### routing?
+
+> `optional` **routing?**: [`STTRoutingOptions`](STTRoutingOptions.md)
+
 ### streaming?
 
 > `optional` **streaming?**: [`STTStreamingOptions`](STTStreamingOptions.md)
+
+### chunking?
+
+> `optional` **chunking?**: `"engine"` \| `"utterances"`
+
+How a recording is cut. `"engine"` (the default) hands the whole file to
+the engine in one request. `"utterances"` runs the recording through the
+same pipeline as live captions: the endpointer cuts it into utterances,
+each utterance gets the language probe, its own engine choice, the
+dictionary and the per-sentence correction, several utterances at a
+time, and the result carries one segment per utterance with its
+language and engine. Needs WAV, or ffmpeg for other containers.
 
 ### timeoutMs?
 
@@ -72,3 +88,9 @@ Whole-call timeout.
 > `optional` **credentials?**: [`STTCredentialsCarrier`](STTCredentialsCarrier.md)
 
 Per-call credentials; the `stt` slice reaches the handlers.
+
+### output?
+
+> `optional` **output?**: [`STTOutputOptions`](STTOutputOptions.md)
+
+Renderings of the transcript in other languages or scripts (see `STTOutputOptions`).

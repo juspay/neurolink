@@ -20,7 +20,7 @@ What one rewrite call did; `text` is always usable (the input when the rewrite w
 
 ### status
 
-> **status**: `"ok"` \| `"timeout"` \| `"error"` \| `"empty"` \| `"dropped"`
+> **status**: `"ok"` \| `"timeout"` \| `"error"` \| `"empty"` \| `"dropped"` \| `"added"`
 
 ---
 

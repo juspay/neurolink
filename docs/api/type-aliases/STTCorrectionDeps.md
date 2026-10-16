@@ -81,3 +81,48 @@ when the caller wants it.
 #### Returns
 
 `Promise`\<`string`\>
+
+---
+
+### render?
+
+> `optional` **render?**: (`opts`) => `Promise`\<`unknown`\>
+
+A structured text call for output rendering: the parsed object the
+schema describes. Absent, renderings report `"error"`.
+
+#### Parameters
+
+##### opts
+
+###### system
+
+`string`
+
+###### user
+
+`string`
+
+###### schema
+
+[`ZodUnknownSchema`](ZodUnknownSchema.md)
+
+###### provider?
+
+`string`
+
+###### model?
+
+`string`
+
+###### maxTokens
+
+`number`
+
+###### timeoutMs
+
+`number`
+
+#### Returns
+
+`Promise`\<`unknown`\>

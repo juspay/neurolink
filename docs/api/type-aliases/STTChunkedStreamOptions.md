@@ -32,6 +32,19 @@ Language takeover: hand an utterance the primary cannot read to the `fallback` r
 
 > `optional` **when?**: [`STTFallbackOptions`](STTFallbackOptions.md)\[`"when"`\]
 
+### routing?
+
+> `optional` **routing?**: [`STTRoutingOptions`](STTRoutingOptions.md)
+
+Probe, lock and prior behaviour (see `STTRoutingOptions`); the defaults apply when omitted.
+
+### speechDetector?
+
+> `optional` **speechDetector?**: [`STTSpeechDetector`](STTSpeechDetector.md) \| `null`
+
+A speech detector of the caller's own, used instead of what `vad`
+would load; `null` keeps the energy gate. Omitted, `vad` decides.
+
 ### onUtteranceEnd?
 
 > `optional` **onUtteranceEnd?**: (`pcm16k`, `utterance`, `engine`) => `void`

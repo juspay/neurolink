@@ -894,7 +894,7 @@ export class HonoServerAdapter extends BaseServerAdapter {
     // a throw from the middleware path would land in onError, which answers
     // 500. The route answers 413 (or a validation error) from it.
     if (isRawBodyContentType(contentType)) {
-      const limit = parseByteLimit(this.config.bodyParser.maxSize);
+      const limit = parseByteLimit(this.config.bodyParser.rawMaxSize);
       if (Number(c.req.header("Content-Length") ?? 0) > limit) {
         return new RawBodyTooLargeError(limit);
       }

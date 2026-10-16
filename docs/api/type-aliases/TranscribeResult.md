@@ -51,3 +51,9 @@ Present when the correction changed the text; `text` then holds the corrected ve
 > **steps**: `string`[]
 
 Human-readable trail of what happened ("dictionary 2/2", "rewrite timed out · kept text").
+
+### outputs?
+
+> `optional` **outputs?**: `Record`\<`string`, [`STTOutputRendering`](STTOutputRendering.md)\>
+
+One rendering per `output.languages` entry, keyed by the tag as given.

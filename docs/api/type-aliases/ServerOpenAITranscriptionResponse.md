@@ -92,3 +92,11 @@ Present when the correction changed the text.
 ### timings
 
 > **timings**: [`TranscribeTimings`](TranscribeTimings.md)
+
+---
+
+### outputs?
+
+> `optional` **outputs?**: `Record`\<`string`, [`STTOutputRendering`](STTOutputRendering.md)\>
+
+NeuroLink extension: one rendering per requested output language.
