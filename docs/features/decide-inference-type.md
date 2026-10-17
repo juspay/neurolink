@@ -279,8 +279,10 @@ spells out
 [the cases](../getting-started/providers/openai-decisions.md#a-gateways-key-is-never-used-for-the-default).
 
 It reads images but no video; see [Images and video](#images-and-video). **Much
-about the endpoint is not established**, including its question and option
-limits, image formats and rate limits; the guide lists
+about the endpoint is not established**, including its option limits, image
+formats and rate limits. Its question cap is the 200 that OpenAI's Python SDK
+documents, which `tryDecide()` splits at; going over it was not tried against the
+live endpoint. The guide lists
 [what is not established](../getting-started/providers/openai-decisions.md#what-is-not-established).
 
 **The degradation contract.** `resolveDefaultDecisionProvider()` returns
@@ -423,9 +425,11 @@ it throws a `ProviderError` whose `cause` carries a typed `kind`
 (`authentication`, `rate_limit`, `max_tokens_exceeded`, …).
 
 **More questions than a provider takes.** A provider that caps the questions in
-one request (Laya and Cloudflare Clef take 64) refuses a longer map from `decide()` with
-`max_tokens_exceeded`. `tryDecide()`, which every built-in consumer calls,
-splits the map at the cap instead, keeps the questions in the order given, runs
+one request (Laya and Cloudflare Clef take 64, Perplexity 128, OpenAI Decisions 200) refuses a longer map from `decide()` with `max_tokens_exceeded`, except
+OpenAI Decisions, whose row is advisory: its cap is reported and used to split,
+but `decide()` sends a longer map whole and leaves the answer to the server.
+`tryDecide()`, which every built-in consumer calls, splits the map at the cap
+instead, keeps the questions in the order given, runs
 up to four batches at a time and joins the answers into one result: usage is
 summed, the latency is the slowest batch's, and `requestId` lists the batches'
 ids. A batch that fails costs only its own questions, which then have no answer
@@ -433,7 +437,7 @@ ids. A batch that fails costs only its own questions, which then have no answer
 carries on without that decision); `tryDecide()` returns `null` only when every
 batch failed. The state and any media are sent with each batch, so a split
 request costs the state's tokens once for each batch. A provider with no cap
-(TypeSafe, XOR, OpenAI Decisions) always gets one request.
+(TypeSafe, XOR, SubQ) always gets one request.
 
 ### From the CLI
 
@@ -766,7 +770,7 @@ What the funnel guarantees:
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Id collisions           | Host questions travel as `host__0`, `host__1`, … on the wire, so they can never collide with `difficulty`, `model`, `server__N`, `msg__N`, …; `onAnswers` maps them back to your ids.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Malformed questions     | Each is checked at runtime (`isDecisionQuestion`); an invalid one is dropped with a warning, its siblings still go.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| The provider's cap      | Additions are capped at `maxQuestions − NeuroLink's own count`, dropped from the end with a warning. Without this one question too many would refuse the WHOLE request, and NeuroLink's routing would degrade. This is a count cap, and only Laya declares one (64); OpenAI Decisions declares none. TypeSafe and XOR cap a request by tokens, not by count: their `decisionLimits()` reading has **no `maxQuestions` key** (absent, never `Infinity`), and every well-formed addition goes on the wire. For TypeSafe (`enforcedLocally: false`) size your questions with `decisionLimits()` and `estimateDecisionStateTokens()` — an over-long host question can still make the request exceed its state-plus-question or combined-request budget, and that refusal is not caught locally. For XOR the reading also carries `media` (8 images, one video, an 8 MiB body), which is the ceiling the questions share with the state and any media. |
+| The provider's cap      | Additions are capped at `maxQuestions − NeuroLink's own count`, dropped from the end with a warning. Without this one question too many would refuse the WHOLE request, and NeuroLink's routing would degrade. This is a count cap, and Laya, Clef, Perplexity and OpenAI Decisions all declare one. TypeSafe and XOR cap a request by tokens, not by count: their `decisionLimits()` reading has **no `maxQuestions` key** (absent, never `Infinity`), and every well-formed addition goes on the wire. For TypeSafe (`enforcedLocally: false`) size your questions with `decisionLimits()` and `estimateDecisionStateTokens()` — an over-long host question can still make the request exceed its state-plus-question or combined-request budget, and that refusal is not caught locally. For XOR the reading also carries `media` (8 images, one video, an 8 MiB body), which is the ceiling the questions share with the state and any media. |
 | A throwing or slow hook | Logged at `warn`; the decision proceeds with NeuroLink's own questions. Each hook is bounded by `hookTimeoutMs` (default 2000 ms) because both sit on the request path; the bound must be a finite number from 1 to 2^31 − 1 ms — anything else, `Infinity` included, falls back to the default with one warning, because a timer given such a delay fires immediately. Neither hook can change what NeuroLink does with its own answers — `onAnswers` and the events receive copies.                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | An unreadable return    | A return value from `extendQuestions` that cannot be read or copied (a proxy, a throwing getter, a function-valued field) is treated as a hook failure: logged at `warn`, and the decision proceeds with NeuroLink's own questions. Every question that is accepted travels as a copy, so editing your object after the hook returned changes nothing on the wire.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | A throwing listener     | A `decision:before` / `decision:after` listener that throws is logged at `warn` and the call continues; the events are observe-only, and their `state` / `questions` / `answers` are copies — editing them changes neither the request on the wire nor NeuroLink's own question objects.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
@@ -817,11 +821,14 @@ const limits = neurolink.decisionLimits(); // null with no decision provider
 //   media: { maxImages: 8, video: true, maxRequestBytes: 8388608 },
 //   enforcedLocally: true }
 //   (no maxQuestions key either; `media` is absent for the text-only providers)
-// openai-decisions → { maxStateTokens: 922000,
+// openai-decisions → { maxStateTokens: 922000, maxQuestions: 200,
 //   media: { maxImages: 8, video: false, maxRequestBytes: 33554432 },
 //   enforcedLocally: false }
 //   (922,000 is the model page's input figure, reported and never enforced;
-//   the three media numbers are NeuroLink's own allowance, not OpenAI's)
+//   200 is the question cap in OpenAI's Python SDK: tryDecide() splits at it
+//   and host additions stop at it, but decide() does not refuse above it, and
+//   going over was not tried live; the three media numbers are NeuroLink's own
+//   allowance, not OpenAI's)
 
 if (
   limits &&
@@ -832,7 +839,8 @@ if (
 ```
 
 `maxQuestions` is present only for a provider that caps by question count
-(Laya); a reading without the key has no count cap, and a host should test
+(Laya, Cloudflare Clef, Perplexity, OpenAI Decisions); a reading without the
+key has no count cap, and a host should test
 for the key rather than compare against `Infinity`. `media` is present only
 for a provider that reads images or video (XOR, Perplexity, Cloudflare Clef,
 OpenAI Decisions); its absence is what the media refusal for TypeSafe and Laya is

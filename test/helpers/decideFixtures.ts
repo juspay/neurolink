@@ -134,6 +134,7 @@ export const OPENAI_DECISIONS_ENTRY: DecideCatalogJson = {
   timeouts: { decideMs: 10000 },
   decisionLimits: {
     maxStateTokens: 922000,
+    maxQuestions: 200,
     advisory: true,
     media: { maxImages: 8, video: false, maxRequestBytes: 33554432 },
   },

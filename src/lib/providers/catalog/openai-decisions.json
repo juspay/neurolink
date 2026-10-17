@@ -25,6 +25,7 @@
   "timeouts": { "decideMs": 10000 },
   "decisionLimits": {
     "maxStateTokens": 922000,
+    "maxQuestions": 200,
     "advisory": true,
     "media": { "maxImages": 8, "video": false, "maxRequestBytes": 33554432 }
   },
@@ -67,7 +68,7 @@
   "evidence": {
     "rosterVerified": {
       "date": "2026-10-07",
-      "method": "OpenAI's Decisions guide and gpt-6-luna model page saved 2026-10-07: gpt-6-luna is the only model the endpoint supports. Read from documentation; no live call"
+      "method": "OpenAI's Decisions guide and gpt-6-luna model page saved 2026-10-07: gpt-6-luna is the only model the endpoint supports. The 200-question cap was read on 2026-10-17 from the questions docstring (Ask 1–200 questions about the input) in OpenAI's Python SDK, src/openai/types/decision_create_params.py in github.com/openai/openai-python, which is generated from OpenAI's API definition; the Decisions guide itself states no figure. Read from documentation; no live call, and a request over 200 questions was not tried"
     },
     "liveMatrix": null,
     "addedInPR": "https://github.com/juspay/neurolink/pull/1996"
