@@ -3,7 +3,7 @@
  * Continuous Test Suite: Office document processing (OFFICE-003 / OFFICE-005).
  *
  * Every test drives the public surface — `NeuroLink.generate()` / `stream()`
- * with a `.docx` or `.xlsx` attached — and asserts on the body NeuroLink
+ * with a `.docx`, `.xlsx` or `.pptx` attached — and asserts on the body NeuroLink
  * actually sent upstream, captured by a loopback mock chat server. That makes
  * each assertion a statement about what the model receives, which is the only
  * thing a caller can observe, and needs no credentials and no network.
@@ -24,8 +24,12 @@ import * as path from "node:path";
 import { defineSuite, assert, tempDir, Skip } from "./helpers/harness.js";
 import {
   STRUCTURED_DOCX,
+  STRUCTURED_PPTX,
   hasPackage,
   makeEmptyDocx,
+  makePptx,
+  makePptxFromSlideXml,
+  makePptxgenDeck,
   makeStructuredDocx,
   makeXlsx,
 } from "./helpers/officeFixtures.js";
@@ -35,6 +39,18 @@ import {
   type MockChatServer,
 } from "./helpers/mockChatServer.js";
 import { NeuroLink } from "../dist/index.js";
+import { FileReferenceRegistry } from "../dist/files/index.js";
+import { PptxProcessor } from "../dist/processors/document/PptxProcessor.js";
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// The repo's tracked .mcp-config.json declares a `filesystem` server that every
+// NeuroLink instance tries to start, waiting out the 60s MCP client timeout when
+// it cannot. Nothing here goes through tools, and the stalls pushed this suite
+// from under a second to over four minutes (and one case past its own budget).
+process.env.NEUROLINK_SKIP_MCP = "true";
+
+// Every case imports from dist/, so a stale build would test the old code.
+assertDistFresh();
 
 // Loopback mock server only: no upstream exists, so a hang can only be a
 // defect here and must report as a failure rather than a skip.
@@ -556,6 +572,241 @@ await test("DOCX markdown reaches the model through stream() too", async () => {
     await server.close();
   }
 });
+
+// ---------------------------------------------------------------------------
+// PPTX — run text, tables, character references and speaker notes (#427)
+// ---------------------------------------------------------------------------
+
+/**
+ * Markup that must never reach the model. The slide XML is DrawingML, so a
+ * leaked fragment shows up as an `a:` tag; `<draft>` and `<plan>` in the
+ * fixture are real text that decoded from `&lt;`, which is why this looks for
+ * the `a:` namespace rather than any angle bracket.
+ */
+const LEAKED_DRAWINGML = /<\/?a:[A-Za-z]/;
+
+await test("PPTX run text is decoded and no DrawingML markup reaches the model — generate()", async () => {
+  const fixture = writeFixture("markup.pptx", makePptx());
+  const { body, called } = await sendWithFiles([fixture]);
+  assert(called, "the request never reached the server, so nothing was sent");
+  const prompt = promptText(body);
+  // Precondition for every absence check below: the deck was parsed at all.
+  assert(
+    prompt.includes("### Slide 1"),
+    "the presentation was not extracted, so this test cannot judge the markup",
+  );
+  assert(
+    prompt.includes(STRUCTURED_PPTX.title),
+    "an `&amp;` in a title was not decoded to `&`",
+  );
+  assert(
+    prompt.includes(STRUCTURED_PPTX.entityLine),
+    "`&lt;`, `&amp;amp;` and numeric references were not decoded exactly once",
+  );
+  assert(
+    !LEAKED_DRAWINGML.test(prompt),
+    "DrawingML markup (table, tab-stop or arrowhead tags) leaked into the prompt",
+  );
+  assert(
+    !prompt.includes("tailEnd") && !prompt.includes("algn="),
+    "attributes of a tab stop or connector leaked into the prompt",
+  );
+});
+
+await test("a PPTX table reaches the model as one line per row — generate()", async () => {
+  const fixture = writeFixture("table.pptx", makePptx());
+  const { body, called } = await sendWithFiles([fixture]);
+  assert(called, "the request never reached the server, so nothing was sent");
+  const prompt = promptText(body);
+  for (const row of STRUCTURED_PPTX.tableRows) {
+    assert(
+      prompt.split("\n").includes(row),
+      `a table row did not arrive as the single line "${row}"`,
+    );
+  }
+});
+
+await test("PPTX speaker notes follow their own slide — generate()", async () => {
+  const fixture = writeFixture("notes.pptx", makePptx());
+  const { body, called } = await sendWithFiles([fixture]);
+  assert(called, "the request never reached the server, so nothing was sent");
+  const prompt = promptText(body);
+  const slide1Notes = `**Speaker notes:** ${STRUCTURED_PPTX.slide1Notes}`;
+  const slide2Notes = `**Speaker notes:** ${STRUCTURED_PPTX.slide2Notes}`;
+  const slide2Start = prompt.indexOf("### Slide 2");
+  assert(slide2Start >= 0, "the second slide is missing from the prompt");
+  const slide1At = prompt.indexOf(slide1Notes);
+  const slide2At = prompt.indexOf(slide2Notes);
+  assert(
+    slide1At >= 0 && slide1At < slide2Start,
+    "slide 1's notes (with `&amp;` and `&lt;` decoded) are missing or not under slide 1",
+  );
+  assert(
+    slide2At > slide2Start,
+    "slide 2's notes are missing or not under slide 2",
+  );
+});
+
+await test("a PPTX reaches the model through stream() too", async () => {
+  const fixture = writeFixture("stream.pptx", makePptx());
+  const server = await startMockChatServer();
+  try {
+    const result = await new NeuroLink().stream({
+      input: { text: "Summarize the attachment.", files: [fixture] },
+      provider: "openai",
+      credentials: mockOpenAICredentials(server),
+      maxTokens: 64,
+      timeout: 30_000,
+    });
+    for await (const _chunk of result.stream) {
+      void _chunk;
+    }
+    assert(
+      server.wasCalled(),
+      "the streaming request never reached the server, so nothing was sent",
+    );
+    const prompt = promptText(server.getLastRequestBody() ?? "");
+    assert(
+      prompt.includes(STRUCTURED_PPTX.title) &&
+        prompt.includes(STRUCTURED_PPTX.tableRows[1]) &&
+        prompt.includes(STRUCTURED_PPTX.slide1Notes) &&
+        !LEAKED_DRAWINGML.test(prompt),
+      "the presentation did not arrive as clean text on the streaming path",
+    );
+  } finally {
+    await server.close();
+  }
+});
+
+await test("a PPTX written by pptxgenjs reaches the model as clean text — generate()", async () => {
+  await requireExtractor("pptxgenjs");
+  const fixture = writeFixture("pptxgenjs.pptx", await makePptxgenDeck());
+  const { body, called } = await sendWithFiles([fixture]);
+  assert(called, "the request never reached the server, so nothing was sent");
+  const prompt = promptText(body);
+  // The writer, not this suite, decided how the title, tab stop, table and
+  // arrowhead are spelled, so this guards against a fixture that only the
+  // extractor's author could have produced.
+  assert(
+    prompt.split("\n").includes("Revenue & Growth"),
+    "the title written by pptxgenjs did not arrive decoded",
+  );
+  assert(
+    prompt.split("\n").includes("Region | Volume") &&
+      prompt.split("\n").includes("APAC | 44 < 200"),
+    "a table written by pptxgenjs did not arrive as one line per row",
+  );
+  assert(
+    prompt.includes("Mention the RTO improvement & Q3 <plan>."),
+    "speaker notes written by pptxgenjs did not arrive decoded",
+  );
+  assert(
+    !LEAKED_DRAWINGML.test(prompt),
+    "DrawingML markup from a real PPTX writer leaked into the prompt",
+  );
+});
+
+await test("a targeted slide read keeps the slide's speaker notes — FileReferenceRegistry", async () => {
+  // Surface: the package's `./files` export, which backs the
+  // `extract_file_content` tool. generate() cannot reach it: a .pptx is
+  // processed eagerly there, and the registry's slide-range read only runs for
+  // a registered file big enough to be kept on disk (over 10 KB).
+  const registry = new FileReferenceRegistry({
+    tempDir: tempDir("neurolink-pptx-slides-"),
+  });
+  try {
+    const ref = await registry.register(
+      makePptx({ padToBytes: 16 * 1024 }),
+      "buffer",
+      { filename: "deck.pptx" },
+    );
+    assert(
+      ref.detectedType === "pptx",
+      "the registry did not classify the deck as a presentation",
+    );
+    const slide2 = await registry.extractContent({
+      file_id: ref.id,
+      pages: [2],
+    });
+    assert(
+      slide2.success && typeof slide2.text === "string",
+      "the targeted read of slide 2 failed",
+    );
+    assert(
+      slide2.text?.includes(STRUCTURED_PPTX.slide2Text) === true,
+      "slide 2's text is missing from its targeted read",
+    );
+    assert(
+      slide2.text?.includes(
+        `**Speaker notes:** ${STRUCTURED_PPTX.slide2Notes}`,
+      ) === true,
+      "slide 2's speaker notes were dropped from its targeted read",
+    );
+    assert(
+      slide2.text?.includes(STRUCTURED_PPTX.title) === false,
+      "a targeted read of slide 2 also returned slide 1",
+    );
+
+    const slide1 = await registry.extractContent({
+      file_id: ref.id,
+      pages: [1],
+    });
+    assert(
+      slide1.success && typeof slide1.text === "string",
+      "the targeted read of slide 1 failed",
+    );
+    const lines = slide1.text?.split("\n") ?? [];
+    assert(
+      STRUCTURED_PPTX.tableRows.every((row) => lines.includes(row)),
+      "a targeted read of slide 1 did not return the table as one line per row",
+    );
+    assert(
+      slide1.text?.includes(
+        `**Speaker notes:** ${STRUCTURED_PPTX.slide1Notes}`,
+      ) === true,
+      "slide 1's speaker notes (decoded) were dropped from its targeted read",
+    );
+    assert(
+      !LEAKED_DRAWINGML.test(slide1.text ?? ""),
+      "DrawingML markup leaked into a targeted slide read",
+    );
+  } finally {
+    await registry.clear();
+  }
+});
+
+/**
+ * Slide XML made of one start tag repeated and never finished. A tokeniser
+ * whose attribute or text pattern can run past the next `<` rescans the rest of
+ * the slide from every start position, so cost grows with the square of the
+ * input: 200 KB took several seconds with the unbounded patterns and a
+ * millisecond with the bounded ones. The limit below is far above the bounded
+ * cost and far below the quadratic one, so it separates the two without being
+ * sensitive to a slow machine.
+ */
+const HOSTILE_SLIDE_BYTES = 200 * 1024;
+const HOSTILE_SLIDE_LIMIT_MS = 1_000;
+
+for (const unfinished of ["<a:t ", "<a:t>", "<a:p ", "<a:br "]) {
+  await test(`a slide of unfinished ${unfinished.trim()} tags is read in bounded time — PptxProcessor`, async () => {
+    const xml = unfinished.repeat(
+      Math.ceil(HOSTILE_SLIDE_BYTES / unfinished.length),
+    );
+    const deck = makePptxFromSlideXml(xml);
+    const started = performance.now();
+    const text = await PptxProcessor.extractText(deck);
+    const elapsedMs = performance.now() - started;
+    assert(
+      typeof text === "string" && text.startsWith("Presentation: 1 slide"),
+      "the deck was not read at all, so the timing below says nothing",
+    );
+    assert(
+      elapsedMs < HOSTILE_SLIDE_LIMIT_MS,
+      `${xml.length} bytes of unfinished ${unfinished.trim()} took ${Math.round(elapsedMs)} ms, ` +
+        `over the ${HOSTILE_SLIDE_LIMIT_MS} ms limit: the tokeniser is rescanning the slide`,
+    );
+  });
+}
 
 try {
   fs.rmSync(dir, { recursive: true, force: true });

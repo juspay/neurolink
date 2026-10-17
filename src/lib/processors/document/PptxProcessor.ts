@@ -9,15 +9,18 @@
  * - ppt/slideMasters/ — master slide templates
  * - ppt/slideLayouts/ — slide layout definitions
  *
- * Text is extracted from `<a:t>` elements in the slide XML files.
- * Slides are sorted by number and presented in reading order.
+ * Text is extracted from `<a:t>` elements in the slide XML files, with XML
+ * character references decoded (`&amp;` becomes `&`). Text inside a table is
+ * grouped by cell and row, so a table row comes out as one line
+ * (`Region | Owner | Volume`) instead of one line per run. Slides are sorted
+ * by number and presented in reading order, each followed by its speaker notes.
  *
  * Uses `adm-zip` (already a project dependency) for ZIP extraction.
  *
  * **XML-entity attacks are not applicable here.** Unlike `WordProcessor`
  * (mammoth/@xmldom/xmldom) and `ExcelProcessor` (exceljs/saxes), this
  * processor never hands slide XML to a DOM or SAX parser at all — extraction
- * is a single regex (`TEXT_ELEMENT_REGEX`, below) run over the raw decoded
+ * is a single regex (`SLIDE_TOKEN_REGEX`, below) run over the raw decoded
  * bytes. There is no DOCTYPE/ENTITY resolution path for a payload to reach,
  * so there is nothing for a `.pptx`-specific XXE or billion-laughs test to
  * falsify; one is deliberately not written (see
@@ -89,10 +92,91 @@ function createBoundedEntryReader(): (
 }
 
 /**
- * Regex to match text content within PowerPoint XML `<a:t>` elements.
- * These elements contain the actual visible text on slides.
+ * Regex that tokenises the parts of slide XML the extractor reads, in document
+ * order:
+ *
+ * - `text`: an `<a:t>` element, which holds the visible text of one run.
+ * - `closing` and `tag`: the start or end tag of a paragraph (`a:p`), table
+ *   cell (`a:tc`) or table row (`a:tr`), which decide how runs are grouped.
+ * - a `<a:br>` line break (matched with no group).
+ * - `end`: the end of the input, so the last open row or cell is flushed by the
+ *   same code that handles every other boundary.
+ *
+ * Each tag name is followed by whitespace or `>`, never by more name
+ * characters. The old pattern `<a:t[^>]*>` also matched `<a:tbl>`, `<a:tc>`,
+ * `<a:tr>`, `<a:tab>` and `<a:tailEnd>`, so a table cell was read as a run
+ * whose "text" ran from the table markup up to the next `</a:t>`.
+ *
+ * A self-closing tag (`<a:t/>`, `<a:p/>`) is not a start tag, so it is
+ * excluded by the lookbehind.
+ *
+ * Neither run text nor a tag's attributes may contain `<`: well-formed XML
+ * escapes it in text and forbids it in an attribute value. Run text is
+ * `[^<]*` rather than a lazy `[\s\S]*?`, and attributes are `[^<>]*` rather
+ * than `[^>]*`, so a match attempt stops at the next `<` instead of scanning to
+ * the end of the slide. Without that, input made of unclosed `<a:t>` elements
+ * or unterminated start tags (`<a:t `, `<a:p `, `<a:br `) rescans the rest of
+ * the slide from every start position, which is quadratic time.
  */
-const TEXT_ELEMENT_REGEX = /<a:t[^>]*>([\s\S]*?)<\/a:t>/g;
+const SLIDE_TOKEN_REGEX =
+  /<a:t(?:\s[^<>]*)?(?<!\/)>(?<text>[^<]*)<\/a:t>|<(?<closing>\/?)a:(?<tag>tr|tc|p)(?:\s[^<>]*)?(?<!\/)>|<a:br(?:\s[^<>]*|\/)?>|(?<end>$)/g;
+
+/** The XML predefined entities, the only named references XML defines. */
+const XML_NAMED_ENTITIES: Readonly<Record<string, string>> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+};
+
+/** A named, decimal (`&#169;`) or hexadecimal (`&#xA9;`) character reference. */
+const XML_ENTITY_REGEX = /&(?:#(\d+)|#x([0-9a-fA-F]+)|(amp|lt|gt|quot|apos));/g;
+
+/** Whether a code point is a character XML 1.0 allows in a document. */
+function isXmlChar(codePoint: number): boolean {
+  return (
+    codePoint === 0x9 ||
+    codePoint === 0xa ||
+    codePoint === 0xd ||
+    (codePoint >= 0x20 && codePoint <= 0xd7ff) ||
+    (codePoint >= 0xe000 && codePoint <= 0xfffd) ||
+    (codePoint >= 0x10000 && codePoint <= 0x10ffff)
+  );
+}
+
+/**
+ * Decode XML character references in run text.
+ *
+ * One pass over the original string, so `&amp;lt;` becomes the literal text
+ * `&lt;` and never `<`. A reference to a character XML forbids, or one outside
+ * the Unicode range, is left as written rather than turned into a control
+ * character. The slide XML is never handed to a parser, so there are no
+ * user-defined entities to resolve (see the file header).
+ */
+function decodeXmlEntities(text: string): string {
+  if (!text.includes("&")) {
+    return text;
+  }
+  return text.replace(
+    XML_ENTITY_REGEX,
+    (
+      reference: string,
+      decimal: string | undefined,
+      hex: string | undefined,
+      named: string | undefined,
+    ) => {
+      if (named !== undefined) {
+        return XML_NAMED_ENTITIES[named];
+      }
+      const codePoint =
+        decimal !== undefined
+          ? Number.parseInt(decimal, 10)
+          : Number.parseInt(hex ?? "", 16);
+      return isXmlChar(codePoint) ? String.fromCodePoint(codePoint) : reference;
+    },
+  );
+}
 
 /**
  * Regex to match slide filenames and extract slide number.
@@ -233,29 +317,80 @@ export class PptxProcessor {
 
   /**
    * Extract text strings from a slide XML document.
-   * Finds all `<a:t>` elements and returns their text content.
+   *
+   * Finds every `<a:t>` element and returns its decoded text, one string per
+   * run, except inside a table: there the runs of a cell are joined (runs of
+   * one paragraph directly, paragraphs and line breaks with a space) and the
+   * cells of a row come back as one `a | b | c` string. A row with no text in
+   * any cell is dropped. An empty cell keeps its separator, so the number of
+   * cells in a row can be counted from the line (`a |  |`, `| b`), but the
+   * line itself is trimmed and a literal `|` in cell text is not escaped.
    *
    * @param xml - Raw XML string from a slide file
    * @returns Array of text strings found in the slide
    */
   private static extractTextFromXml(xml: string): string[] {
-    const texts: string[] = [];
+    const lines: string[] = [];
+    // DrawingML tables do not nest, so one open row, cell and paragraph is
+    // enough. A start tag implicitly closes whatever the same or a deeper level
+    // left open, which keeps a slide with a missing end tag readable.
+    let row: string[] | null = null;
+    let cell: string[] | null = null;
+    let paragraph = "";
 
-    // Reset regex state for re-entrant usage
-    TEXT_ELEMENT_REGEX.lastIndex = 0;
+    for (const match of xml.matchAll(SLIDE_TOKEN_REGEX)) {
+      const { text, closing, tag, end } = match.groups ?? {};
 
-    for (
-      let match = TEXT_ELEMENT_REGEX.exec(xml);
-      match !== null;
-      match = TEXT_ELEMENT_REGEX.exec(xml)
-    ) {
-      const text = match[1].trim();
-      if (text) {
-        texts.push(text);
+      if (text !== undefined) {
+        const decoded = decodeXmlEntities(text);
+        if (cell) {
+          paragraph += decoded;
+        } else if (decoded.trim()) {
+          lines.push(decoded.trim());
+        }
+        continue;
+      }
+
+      if (tag === undefined && end === undefined) {
+        // `<a:br>`: a line break inside a cell is a space, since the row is
+        // one line. Outside a table each run is already its own line.
+        if (cell) {
+          paragraph += " ";
+        }
+        continue;
+      }
+
+      // 1 = paragraph, 2 = cell, 3 = row (also the end of the input).
+      const level = tag === "p" ? 1 : tag === "tc" ? 2 : 3;
+      if (cell && level >= 1) {
+        if (paragraph.trim()) {
+          cell.push(paragraph.trim());
+        }
+        paragraph = "";
+      }
+      if (cell && level >= 2) {
+        if (!row) {
+          row = [];
+        }
+        row.push(cell.join(" "));
+        cell = null;
+      }
+      if (row && level >= 3) {
+        if (row.some((cellText) => cellText)) {
+          lines.push(row.join(" | ").trim());
+        }
+        row = null;
+      }
+      if (closing === "") {
+        if (tag === "tr") {
+          row = [];
+        } else if (tag === "tc") {
+          cell = [];
+        }
       }
     }
 
-    return texts;
+    return lines;
   }
 
   // ===========================================================================
@@ -265,7 +400,8 @@ export class PptxProcessor {
   /**
    * Extract text from specific slides in a PPTX file.
    *
-   * Called by the `extract_file_content` tool for targeted slide access.
+   * Called by the `extract_file_content` tool for targeted slide access. Each
+   * slide carries its speaker notes, as in {@link PptxProcessor.extractText}.
    *
    * @param content - Raw PPTX file buffer
    * @param slideNumbers - Array of 1-indexed slide numbers to extract
@@ -310,10 +446,19 @@ export class PptxProcessor {
     const parts: string[] = [];
     for (const slide of slides) {
       const texts = PptxProcessor.extractTextFromXml(slide.xml);
+      const notes = PptxProcessor.extractNotesForSlide(
+        zip,
+        slide.slideNumber,
+        readEntry,
+      );
       parts.push(`### Slide ${slide.slideNumber}`);
       if (texts.length > 0) {
         parts.push(texts.join("\n"));
-      } else {
+      }
+      if (notes) {
+        parts.push(`**Speaker notes:** ${notes}`);
+      }
+      if (texts.length === 0 && !notes) {
         parts.push("(No text content on this slide)");
       }
       parts.push("");

@@ -609,6 +609,9 @@ jobs:
       - name: Archive security suite (zip bombs, traversal — no API keys required)
         run: pnpm run test:archive:security
 
+      - name: Office document suite (no API keys required)
+        run: pnpm run test:office
+
       - name: Office document security suite (no API keys required)
         run: pnpm run test:office:security
 

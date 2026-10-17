@@ -1248,7 +1248,9 @@ Based on the gap analysis, here's how to implement each missing feature using th
 
 ### 4. Office Documents - DOCX/PPTX/XLSX (High Priority)
 
-**Gap**: 100% missing - SurfSense uses Docling/Unstructured, NeuroLink has none
+**Status**: Shipped without an ETL service. DOCX (mammoth), XLSX (exceljs) and PPTX (adm-zip) are read in-process and attached through the unified `input.files` array or the CLI `--file` flag, as text, for every provider. There are no `--office*` flags and no `officeFiles` input field; see `docs/features/office-documents.md` for the real behaviour. The proposal below is the original plan and is kept for the ETL options (Unstructured, Docling), which were not built.
+
+**Original gap**: SurfSense uses Docling/Unstructured, NeuroLink had none
 
 **Effort**: ~7-10 days (most complex)
 
@@ -1364,14 +1366,13 @@ Based on the gap analysis, here's how to implement each missing feature using th
    - Extract images → separate image analysis
    - Format: `# Document: {filename}\n\n{markdown content}`
 
-6. **CLI Integration**
+6. **CLI Integration** (as built: no Office-specific flags)
 
    ```bash
-   --office <path>             # Office document (DOCX/PPTX/XLSX)
-   --office-extract-tables     # Extract tables as CSV
-   --office-extract-images     # Extract and analyze images
-   --etl-service <service>     # unstructured | docling | llamacloud
+   --file <path>               # Any supported file, Office documents included (repeatable)
    ```
+
+   The proposed `--office`, `--office-extract-tables`, `--office-extract-images` and `--etl-service` flags were not built.
 
 7. **Environment Configuration**
 

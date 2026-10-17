@@ -136,8 +136,7 @@ type GenerateOptions = {
     images?: Array<string | Buffer>; // Local paths, URLs, or buffers
     csvFiles?: Array<string | Buffer>; // CSV files (converted to text)
     pdfFiles?: Array<string | Buffer>; // PDF files (native binary)
-    officeFiles?: Array<string | Buffer>; // Office documents (DOCX, PPTX, XLSX)
-    files?: Array<string | Buffer>; // Auto-detect file types
+    files?: Array<string | Buffer>; // Auto-detect file types (Office documents, PDF, CSV, images, audio, code, ...)
     content?: Array<TextContent | ImageContent>; // Advanced multimodal payloads
   };
   provider?: AIProviderName | string; // Leave undefined to allow orchestration/fallback
@@ -1021,22 +1020,32 @@ import { NeuroLink } from "@juspay/neurolink";
 
 const neurolink = new NeuroLink();
 
-// Analyze Word document
+// Analyze Word document (converted to Markdown before it reaches the model)
 const result = await neurolink.generate({
   input: {
     text: "Summarize this document",
-    officeFiles: ["report.docx"],
+    files: ["report.docx"],
   },
-  provider: "bedrock",
+  provider: "openai",
 });
 
-// Analyze Excel spreadsheet
+// Analyze one sheet of an Excel workbook, rendered as a markdown table
 const data = await neurolink.generate({
   input: {
     text: "What are the top products by revenue?",
-    officeFiles: ["sales-data.xlsx"],
+    files: ["sales-data.xlsx"],
   },
-  provider: "bedrock",
+  provider: "openai",
+  officeOptions: { sheetName: "Sales", formatStyle: "markdown" },
+});
+
+// Summarize a presentation (slide text, tables, and speaker notes)
+const deck = await neurolink.generate({
+  input: {
+    text: "Summarize each slide",
+    files: ["quarterly-review.pptx"],
+  },
+  provider: "openai",
 });
 
 // Mixed file types with auto-detection
@@ -1045,7 +1054,7 @@ const analysis = await neurolink.generate({
     text: "Compare all documents",
     files: ["report.docx", "data.xlsx", "chart.png", "notes.pdf"],
   },
-  provider: "bedrock",
+  provider: "openai",
 });
 ```
 
@@ -1417,65 +1426,40 @@ type TokenUsage = {
 
 ### Office Document Types
 
-Types for processing Office documents (DOCX, PPTX, XLSX):
+Office documents (DOCX, PPTX, XLSX) have no input field of their own. They travel in `input.files` like any other file, and NeuroLink turns them into text for the prompt, so they work with every provider:
 
 ```typescript
 /**
- * Supported Office document types
+ * File types the detector recognises. Office documents are "docx", "pptx"
+ * and "xlsx".
  */
-type OfficeFileType = "docx" | "pptx" | "xlsx" | "doc" | "xls";
+type FileType =
+  | "csv"
+  | "image"
+  | "pdf"
+  | "audio"
+  | "video"
+  | "archive"
+  | "text"
+  | "svg"
+  | "docx"
+  | "pptx"
+  | "xlsx"
+  | "unknown";
 
 /**
- * Extended file type including Office formats
- */
-type FileType = "csv" | "image" | "pdf" | "office" | "text" | "unknown";
-
-/**
- * Office processor options
+ * Options for Office documents, passed as `officeOptions` on generate()
+ * and stream(). Only `sheetName` and `formatStyle` are read, both for XLSX.
  */
 type OfficeProcessorOptions = {
-  /** Provider to use for document processing */
-  provider?: string;
-
-  /** Maximum file size in MB (default: 5) */
-  maxSizeMB?: number;
-
-  /** Whether to extract embedded images */
-  extractImages?: boolean;
-
-  /** Whether to preserve document structure in output */
-  preserveStructure?: boolean;
-};
-
-/**
- * Office processing result
- */
-type OfficeProcessingResult = {
-  type: "office";
-  content: Buffer;
-  mimeType: string;
-  metadata: {
-    confidence: number;
-    size: number;
-    filename?: string;
-    format: OfficeFileType;
-    provider: string;
-    estimatedPages?: number;
-    hasEmbeddedImages?: boolean;
-    hasCharts?: boolean;
-  };
+  /** Restrict the workbook to this sheet; an unknown name lists the sheets that exist */
+  sheetName?: string;
+  /** How sheets are rendered: tab-separated preview (default), CSV, a markdown table, or row objects */
+  formatStyle?: "raw" | "csv" | "markdown" | "json";
 };
 ```
 
-**Office Document Provider Support:**
-
-| Provider             | DOCX | PPTX | XLSX | DOC  | XLS  | Notes                                |
-| -------------------- | ---- | ---- | ---- | ---- | ---- | ------------------------------------ |
-| **AWS Bedrock**      | Yes  | Yes  | Yes  | Yes  | Yes  | Full native support via Converse API |
-| **Google Vertex AI** | Yes  | Some | Yes  | Some | Some | Best for DOCX and XLSX               |
-| **Anthropic Claude** | Yes  | Some | Yes  | Some | Some | Via document API                     |
-| **OpenAI**           | No   | No   | No   | No   | No   | Not supported                        |
-| **Azure OpenAI**     | No   | No   | No   | No   | No   | Not supported                        |
+The exported type also declares `format`, `extractTextOnly`, `maxSizeMB`, `includeMetadata`, `processAllSheets`, and `includeSlideNotes`; nothing reads them today. See the [Office Documents guide](../features/office-documents.md) for what the model receives for each format, including DOCX metrics, PPTX tables and speaker notes, and the placeholder note that replaces content a reader cannot extract (legacy `.doc`/`.xls`/`.ppt`, corrupt, or password-protected files).
 
 ---
 
@@ -1914,7 +1898,7 @@ type TypedEventEmitter<TEvents> = {
 - [CLI Loop Sessions](../features/cli-loop-sessions.md) - Interactive mode with persistent state
 - [Provider Orchestration](../features/provider-orchestration.md) - Set `enableOrchestration: true`
 - [Regional Streaming](../features/regional-streaming.md) - Use `region` parameter in `generate()`
-- [Office Documents](../features/office-documents.md) - Use `officeFiles` array for DOCX, PPTX, XLSX
+- [Office Documents](../features/office-documents.md) - Use the `files` array (or `--file`) for DOCX, PPTX, XLSX
 - [PDF Support](../features/pdf-support.md) - Use `pdfFiles` array for PDF documents
 - [CSV Support](../features/csv-support.md) - Use `csvFiles` array for spreadsheet data
 - [CLI Commands Reference](../cli/commands.md) - CLI equivalents for all SDK methods
