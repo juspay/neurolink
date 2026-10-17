@@ -284,7 +284,9 @@ async function foldStream(
   errors: LocalUsageScanError[],
 ): Promise<void> {
   // Insertion-ordered, so the delta rule below sees turns in the order Grok
-  // wrote them, with a re-emitted prompt replacing its earlier record.
+  // wrote them. A re-emitted prompt replaces its earlier record and moves to
+  // where the re-emit was written: Map.set on an existing key keeps the old
+  // position, so the key is deleted first.
   const turns = new Map<string, LocalUsageGrokTurn>();
   let unrecognised = 0;
   const rl = createInterface({
@@ -318,7 +320,9 @@ async function foldStream(
         }
         continue;
       }
-      turns.set(turn.promptId ?? `line:${lineNo}`, readTurn(turn.usage));
+      const key = turn.promptId ?? `line:${lineNo}`;
+      turns.delete(key);
+      turns.set(key, readTurn(turn.usage));
     }
   } finally {
     rl.close();
