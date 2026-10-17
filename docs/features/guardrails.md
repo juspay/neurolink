@@ -104,6 +104,7 @@ npx @juspay/neurolink generate "Write a product description" --enable-analytics
 | `enabled`                 | `boolean`  | `true`  | No       | Enable/disable guardrails middleware |
 | `badWords.enabled`        | `boolean`  | `false` | No       | Enable keyword-based filtering       |
 | `badWords.list`           | `string[]` | `[]`    | No       | List of terms to filter/redact       |
+| `badWords.regexPatterns`  | `string[]` | `[]`    | No       | Regular expressions to redact        |
 | `modelFilter.enabled`     | `boolean`  | `false` | No       | Enable AI-based content safety check |
 | `modelFilter.filterModel` | `string`   | -       | No       | Model to use for safety evaluation   |
 
@@ -173,6 +174,41 @@ Simple regex-based replacement:
 - Case-insensitive matching
 - Replaces each match with a fixed string, `[REDACTED]` by default (not length-preserving asterisks) — override it with `badWords.replacementText`
 - Works in both `generate` and `stream` modes
+
+### Regex Patterns
+
+`badWords.regexPatterns` takes regular expressions, each applied with the `gi` flags. When it is set it takes priority over `list`:
+
+```typescript
+badWords: {
+  enabled: true,
+  regexPatterns: [
+    "\\b(password|secret)\\b",
+    "\\d{3}-\\d{2}-\\d{4}", // SSN
+    "\\d{16}", // card number
+  ],
+},
+```
+
+Patterns run synchronously against the whole response, so one that backtracks catastrophically would stall every request in the process. The cost comes from input that can be split between the parts of a pattern in many ways: a variable-length part (`+`, `*`, `?`, `{n,m}`) that can match the same text as whatever follows it. A pattern is refused when it:
+
+- is longer than 1000 characters;
+- repeats a group in which such a part can match the same text as what follows it, including the next iteration of the group: `(a+)+`, `(\w+\s*)*`, `(.*a){10}`, `(a?a?)+`, `(a{1,30}){1,30}`;
+- repeats a group whose alternatives may overlap, such as `(a|aa)+` or `(\w|\d)+`;
+- chains too many overlapping variable-length parts: more than 8 optional parts in a row (`a?a?a?a?a?a?a?a?a?`), or more than 4 open-ended ones (`.*a.*b.*c.*d.*e.*f`);
+- uses a repetition bound above 500, such as `a{1,1000}`.
+
+A repeated group is fine when each variable-length part is followed by something it cannot match. These all run: `(\d{1,3}\.){3}`, `([a-z0-9-]+\.)+[a-z]{2,}`, `(?:\d{4}[- ]?)+`, `\b(?:\d[ -]*?){13,16}\b`, `(?:\w+\s+)+`.
+
+A refused pattern is skipped and logged as an error (`Refusing regex pattern ...`), the same way an invalid regex is. It is never thrown at the caller, and the other patterns in the list still run. Fail-open is the trade: **a skipped pattern filters nothing**, so check the logs after you change a pattern. The same limits apply to `precallEvaluation.sanitizationPatterns` (`Refusing sanitization pattern ...`).
+
+The check reads the pattern; it does not run it, so it is conservative and not a proof:
+
+- It refuses some safe patterns, such as a small fixed count of an ambiguous part (`(a{1,3}){3}`). Flatten it (`a{1,9}`) or split it.
+- It compares character classes on a fixed sample of characters (Latin text plus a few other scripts), so a class that only overlaps outside the sample can look disjoint. A back-reference is assumed to overlap with everything.
+- Exponential shapes built from optional parts are only partly covered: loops and long chains are refused, but the check is a model of the engine, not the engine. Open-ended repeats that cost polynomial time (`.*.*.*x`, up to four in a row) are accepted.
+
+Use `list` for plain terms, and test a pattern on long input before deploying it. A hard guarantee would need a time budget around the match itself (a `node:vm` timeout or a worker), which is a possible follow-up.
 
 ### Model-Based Filtering
 
@@ -309,6 +345,11 @@ config: {
   },
 }
 ```
+
+### Problem: A regex pattern is not filtering anything
+
+**Cause**: The pattern was refused for its length or its shape, or it is not valid regex. Both are skipped, and the log says which
+**Solution**: Look for `Refusing regex pattern` (or `Invalid regex pattern`) in the error log. A refusal names the reason, for example a repeated group whose variable-length part can match the same text as what follows it. Separate the parts with a character they cannot match (`([\w-]+\.)+` instead of `([\w-]+)+`), split a long pattern into several, or move plain terms to `badWords.list`
 
 ### Problem: Model-based filter is slow
 

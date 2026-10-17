@@ -69,6 +69,13 @@ Example patterns:
 - SSN: '\\b\\d{3}-\\d{2}-\\d{4}\\b'
 - Custom words: '\\b(word1|word2|word3)\\b'
 
+A pattern is refused, skipped and logged as an error (never thrown at the
+caller) when it is longer than 1000 characters or has a shape that can
+backtrack catastrophically: a repeated group with a variable-length part
+that can also match what follows it, a repetition bound above 500, or
+overlapping alternatives under a repetition. See
+`BadWordsConfig.regexPatterns`.
+
 ---
 
 ### replacementText?

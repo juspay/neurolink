@@ -1429,6 +1429,7 @@ console.log(result.content);
 - [EvaluationActionResult](type-aliases/EvaluationActionResult.md)
 - [EvaluationIssue](type-aliases/EvaluationIssue.md)
 - [ContentFilteringResult](type-aliases/ContentFilteringResult.md)
+- [RegexPatternVerdict](type-aliases/RegexPatternVerdict.md)
 - [HITLConfig](type-aliases/HITLConfig.md)
 - [HITLRule](type-aliases/HITLRule.md)
 - [ConfirmationRequest](type-aliases/ConfirmationRequest.md)

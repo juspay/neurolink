@@ -152,6 +152,18 @@ Two-tier filtering system:
    list: ["spam", "scam", "phishing"];
    ```
 
+Regex patterns run synchronously on the whole response (and `sanitizationPatterns` on the whole user prompt), so a pattern that can backtrack catastrophically would stall the process. Before a pattern is compiled it is checked, and it is refused when it:
+
+- is longer than 1000 characters;
+- repeats a group in which a variable-length part (`+`, `*`, `?`, `{n,m}`) can match the same text as what follows it, such as `(a+)+`, `(\w+\s*)*`, `(.*a){10}`, `(a?a?)+` or `(a{1,30}){1,30}`;
+- repeats a group whose alternatives may overlap, such as `(a|aa)+`;
+- chains more than 8 optional parts (`a?a?a?...`) or more than 4 open-ended overlapping ones (`.*a.*b.*c.*d.*e`);
+- uses a repetition bound above 500, such as `a{1,1000}`.
+
+Repeated groups whose variable parts are separated by a character they cannot match, such as `(\d{1,3}\.){3}` or `([a-z0-9-]+\.)+`, are accepted.
+
+A refused pattern is skipped and logged with `logger.error` (`Refusing regex pattern ...` for `regexPatterns`, `Refusing sanitization pattern ...` for `sanitizationPatterns`), the same way an invalid regex is. Nothing is thrown at the caller and the remaining patterns still run, but a skipped pattern filters nothing. The check is static and conservative: it refuses some safe patterns, compares classes on a sample of characters, only partly covers exponential shapes built from optional parts, and accepts polynomial ones (`.*.*.*x`), so test patterns on long input.
+
 ### Evaluation Actions
 
 Configurable responses based on evaluation results:
@@ -290,6 +302,7 @@ const config = {
 
 - Evaluation provider unavailable → Fall back to content filtering only
 - Invalid regex patterns → Log error and skip pattern
+- Regex patterns that are too long or can backtrack catastrophically → Log error and skip pattern
 - Network timeouts → Use cached results or allow processing
 
 ## Best Practices
@@ -310,6 +323,8 @@ const config = {
 
 - Prioritize regex patterns over word lists for better performance
 - Test regex patterns thoroughly before deployment
+- Keep regex patterns flat: separate the variable-length parts of a repeated group with a character they cannot match, and use word lists for plain terms
+- Check the error log after changing a pattern; a refused pattern is skipped silently from the caller's point of view
 - Keep word lists updated and relevant
 
 ### 4. Monitoring and Logging
@@ -384,6 +399,7 @@ function applySanitization(
 
 3. **Regex Patterns Not Working**
    - Validate regex syntax
+   - Look for `Refusing regex pattern` in the error log: patterns over 1000 characters or with ambiguous nested repetition are skipped
    - Test patterns with sample content
    - Check for proper escaping
 
