@@ -38,20 +38,44 @@
  * regex over raw bytes (no DOM/SAX parser in its path at all), so it has no
  * entity-expansion surface to attack.
  *
- * ## What used to be here
+ * ## Bound coverage: peak memory, measured in a child process
  *
- * This suite also asserted the *bounds* themselves across Word, Excel,
- * PowerPoint and OpenDocument — that a zip member declaring a vast
- * uncompressed size could not force an unbounded inflate. Each format's bomb
- * ran in a fresh process and the test read `process.resourceUsage().maxRSS`,
- * because a limit checked after the buffer exists is arithmetically correct
- * and useless, and the two cases are indistinguishable from the outcome alone.
+ * A size limit checked against the finished buffer is arithmetically correct
+ * and useless: the allocation it exists to prevent has already happened, and the
+ * outcome looks identical either way. Each case therefore attaches a 400 MB
+ * bomb to `generate()` in a fresh process and reads
+ * `process.resourceUsage().maxRSS` (`helpers/boundedGenerateChild.ts`, which
+ * imports only `dist/`), after an ordinary file of the same shape has gone
+ * through the same child so one-off module loading is not charged to the bomb.
  *
- * They were removed with the unit suites (CLAUDE.md rule 15) — measuring one
- * processor's peak memory requires importing that processor, and the same
- * fixture through `generate()` would measure the whole SDK and need
- * credentials. Nothing replaces them, so a regression that reintroduces an
- * unbounded inflate will not be caught here.
+ * That ordinary file has to reach the request, which is what stops a bound that
+ * refuses everything from passing. It is DEFLATED, like the bomb and like a real
+ * document: the zip reader copies a STORED member out without decoding it, so a
+ * stored warm-up would never touch the bounded inflate and a regression that
+ * refuses every inflate would leave it green.
+ *
+ *   - **pptx and odt**: SDK code bounds these. Both read their parts through
+ *     `readZipEntryWithinLimit`, the archive reader's function, each with its own
+ *     limit (100 MB). The bomb member declares size 0 and has to BE the part the
+ *     processor reads (a slide, or `content.xml`); parked anywhere else it is
+ *     never opened and the case proves nothing. Measured growth with the bound
+ *     in place is 55-90 MB (pptx) and 55-91 MB (odt), against 755-773 MB with it
+ *     removed. Regression cases.
+ *   - **docx and xlsx**: no SDK bound at all. mammoth and exceljs unzip for
+ *     themselves. Measured growth is 0-11 MB (docx) and 0-5 MB (xlsx). These
+ *     cases are characterization of what those libraries cost today, kept so a
+ *     dependency bump that starts allocating the bomb fails here instead of
+ *     being silently inherited. They cannot tell a bomb the library opened and
+ *     refused from one it never read: both end in the same refusal notice and
+ *     low memory, and nothing here records the library failing on the bomb part.
+ *     The xlsx bomb replaces the sheet part of a real workbook, because a bomb
+ *     in a hand-made container is never read.
+ *
+ * The request alone cannot say whether the bound is there: with `maxOutputLength`
+ * removed the pptx and odt bombs are still turned away ("no usable content"), so
+ * the body matches the bounded run. Peak memory is the one observable that
+ * differs; calibration, with the bound removed from a scratch copy of `dist/`, is
+ * in `helpers/boundedGenerateProbe.ts`.
  *
  * ## One case that is not driven through generate()
  *
@@ -68,10 +92,24 @@
 import "dotenv/config";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import AdmZip from "adm-zip";
 import { defineSuite, assert, tempDir, Skip } from "./helpers/harness.js";
-import { docxMembers, writeOfficeZip } from "./helpers/officeBombFixtures.js";
+import { BOMB_MB } from "./helpers/archiveBombFixtures.js";
+import {
+  assertBombRefusedInRequest,
+  assertGrowthBounded,
+  probeGenerate,
+} from "./helpers/boundedGenerateProbe.js";
+import {
+  deflatedMembers,
+  docxMembers,
+  odtMembers,
+  pptxMembers,
+  writeOfficeZip,
+} from "./helpers/officeBombFixtures.js";
 import {
   makeDocxRaw,
+  makeXlsx,
   makeXlsxRaw,
   hasPackage,
 } from "./helpers/officeFixtures.js";
@@ -348,6 +386,97 @@ await test("an xlsx billion-laughs payload does not hang and does not expand int
   } finally {
     await server.close();
   }
+});
+
+/**
+ * Attach `warmup` and then `bomb` to `generate()` in a fresh process and judge
+ * the memory the bomb cost and what reached the request.
+ */
+async function assertBombBounded(warmup: string, bomb: string): Promise<void> {
+  const server = await startMockChatServer();
+  try {
+    const result = await probeGenerate(warmup, bomb, server.baseURL);
+    assertGrowthBounded(result);
+    assertBombRefusedInRequest(result, server.getAllRequestBodies(), TOKEN);
+  } finally {
+    await server.close();
+  }
+}
+
+/** Every member of `members` except the one named `name`. */
+function without<T extends { readonly name: string }>(
+  members: readonly T[],
+  name: string,
+): T[] {
+  return members.filter((m) => m.name !== name);
+}
+
+await test("a PowerPoint slide declaring size 0 is inflated under the reader's bound — generate()", async () => {
+  // Deflated, like a real deck: a stored member never reaches the bounded call.
+  const warmup = await writeOfficeZip(
+    path.join(dir, "warmup.pptx"),
+    deflatedMembers(pptxMembers(TOKEN)),
+  );
+  // The bomb has to BE a slide: the processor reads only ppt/slides/slideN.xml.
+  const bomb = await writeOfficeZip(path.join(dir, "bomb.pptx"), [
+    ...deflatedMembers(without(pptxMembers(TOKEN), "ppt/slides/slide1.xml")),
+    { name: "ppt/slides/slide1.xml", bombMb: BOMB_MB },
+  ]);
+  await assertBombBounded(warmup, bomb);
+});
+
+await test("an OpenDocument content.xml declaring size 0 is inflated under the reader's bound — generate()", async () => {
+  const warmup = await writeOfficeZip(
+    path.join(dir, "warmup.odt"),
+    deflatedMembers(odtMembers(TOKEN)),
+  );
+  // The bomb IS content.xml, the entry the processor actually reads.
+  const bomb = await writeOfficeZip(path.join(dir, "bomb.odt"), [
+    { name: "mimetype", text: "application/vnd.oasis.opendocument.text" },
+    { name: "content.xml", bombMb: BOMB_MB },
+  ]);
+  await assertBombBounded(warmup, bomb);
+});
+
+await test("characterization: a Word bomb stays cheap through mammoth with no bound of ours — generate()", async () => {
+  await requireExtractor("mammoth");
+  const warmup = await writeOfficeZip(
+    path.join(dir, "warmup.docx"),
+    deflatedMembers(docxMembers(TOKEN)),
+  );
+  const bomb = await writeOfficeZip(path.join(dir, "bomb.docx"), [
+    ...deflatedMembers(without(docxMembers(TOKEN), "word/document.xml")),
+    { name: "word/document.xml", bombMb: BOMB_MB },
+  ]);
+  await assertBombBounded(warmup, bomb);
+});
+
+await test("characterization: an Excel bomb stays cheap through exceljs with no bound of ours — generate()", async () => {
+  await requireExtractor("exceljs");
+  const SHEET_PART = "xl/worksheets/sheet1.xml";
+  const workbook = await makeXlsx({ Sheet1: [["access code", TOKEN]] });
+  const warmup = path.join(dir, "warmup.xlsx");
+  fs.writeFileSync(warmup, workbook);
+  const parts = new AdmZip(workbook)
+    .getEntries()
+    .filter((entry) => !entry.isDirectory);
+  assert(
+    parts.some((entry) => entry.entryName === SHEET_PART),
+    "the fixture workbook has no sheet part for the bomb to replace",
+  );
+  const bomb = await writeOfficeZip(
+    path.join(dir, "bomb.xlsx"),
+    parts.map((entry) =>
+      entry.entryName === SHEET_PART
+        ? { name: entry.entryName, bombMb: BOMB_MB }
+        : {
+            name: entry.entryName,
+            text: entry.getData().toString("utf8"),
+            deflate: true,
+          },
+    ),
+  );
+  await assertBombBounded(warmup, bomb);
 });
 
 await test("a failed on-demand PowerPoint extraction names the file in its warning", async () => {
