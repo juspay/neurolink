@@ -1197,6 +1197,16 @@ jobs:
           # Round-robin by list position was the previous scheme. It balances
           # the COUNT of suites, which is the wrong quantity: the measured
           # spread is 1s to 140s, so equal counts gave shards of 90s and 241s.
+          #
+          # test:realtime-voice (the Gemini Live and xAI realtime backends, run
+          # against loopback stand-ins, no key) is listed here and not in the
+          # credential-free step of security-suites: it opens loopback
+          # WebSocket and HTTP servers and spawns child node processes, it has
+          # only ever run on a developer machine, and security-suites is a
+          # required check. Its weight is a local figure (three direct runs of
+          # 17 to 19s), not a CI median; re-measure it from this job's logs as
+          # described above. Once it has a record of green runs here, moving
+          # it into that step turns it into a merge gate.
           SUITES="
             test:tts:unit@140
             test:agent-delegation@78
@@ -1216,6 +1226,7 @@ jobs:
             test:auth@50
             test:vertex-claude-characterization@46
             test:openai-compat-catalog@24
+            test:realtime-voice@20
             test:decide-catalog-schema@20
             test:provider-descriptors@17
             test:openai-compat-streaming-retry@16

@@ -466,29 +466,53 @@ export type LiveKitServerCredentials = {
 };
 
 /**
+ * The realtime speech-to-speech model a call runs on: Gemini Live on Vertex
+ * (the default) or xAI Grok Voice through LiveKit's xAI plugin.
+ */
+export type RealtimeVoiceBackend = "gemini" | "xai";
+
+/**
+ * A LiveKit realtime model as far as callers of the model factory can rely on.
+ * It is declared structurally so the published declarations name no optional
+ * LiveKit plugin; at runtime it is a `RealtimeModel` subclass of the backend's
+ * plugin.
+ */
+export type RealtimeLlm = {
+  readonly model: string;
+  label: () => string;
+  close: () => Promise<void>;
+};
+
+/**
  * Realtime voice configuration resolved from the environment.
  *
- * In speech-to-speech mode one realtime model (Gemini Live on Vertex) does STT,
- * reasoning, TTS, and turn detection — so there is no separate STT/TTS/VAD/EOU
- * config. `resolveRealtimeVoiceConfig` fills every field from `process.env`
- * (with defaults); `RealtimeVoiceAgentConfig` lets a caller override any of them.
+ * In speech-to-speech mode one realtime model (Gemini Live on Vertex, or xAI
+ * Grok Voice) does STT, reasoning, TTS, and turn detection — so there is no
+ * separate STT/TTS/VAD/EOU config. `resolveRealtimeVoiceConfig` fills every
+ * field from `process.env` (with defaults); `RealtimeVoiceAgentConfig` lets a
+ * caller override any of them. The API key of the xai backend is deliberately
+ * not part of the config: the xAI plugin reads `XAI_API_KEY` itself.
  */
 export type RealtimeVoiceConfig = {
-  /** Vertex project id (from VERTEX_PROJECT / GOOGLE_AUTH_* / GOOGLE_CLOUD_PROJECT_ID). */
+  /** Which realtime model family handles the call (VOICE_REALTIME_BACKEND; default "gemini"). */
+  backend: RealtimeVoiceBackend;
+  /** Vertex project id (from VERTEX_PROJECT / GOOGLE_AUTH_* / GOOGLE_CLOUD_PROJECT_ID). Gemini only. */
   project: string | undefined;
-  /** Vertex location; native-audio Live is served on `global`, not regionally. */
+  /** Vertex location; native-audio Live is served on `global`, not regionally. Gemini only. */
   location: string;
-  /** Realtime model id (e.g. "gemini-live-2.5-flash"). */
+  /** Realtime model id (e.g. "gemini-live-2.5-flash" for gemini, "grok-voice-3.0" for xai). */
   model: string;
-  /** Optional Gemini voice name; omit for the plugin default. */
+  /** Optional voice name for either backend; omit for the plugin default. */
   voice: string | undefined;
-  /** Response modality: "AUDIO" (native S2S) or "TEXT" (half-cascade). */
+  /** xai only: WebSocket base URL of the realtime endpoint (XAI_REALTIME_BASE_URL); unset keeps the plugin's own endpoint. */
+  xaiBaseURL: string | undefined;
+  /** Response modality: "AUDIO" (native S2S) or "TEXT" (half-cascade). Gemini only. */
   responseModality: string;
   /** System prompt / instructions for the agent. */
   systemPrompt: string;
   /** Opening line the agent speaks on connect ("" disables). */
   greeting: string;
-  /** Whether to bridge Lighthouse MCP tools as Gemini function tools. */
+  /** Whether to bridge Lighthouse MCP tools as function tools of the realtime model (either backend). */
   toolsEnabled: boolean;
   /** Full URL of the MCP server the tools are bridged from. */
   mcpUrl: string;
@@ -521,10 +545,14 @@ export type RealtimeVoiceLogContext = {
  * everything via env.
  */
 export type RealtimeVoiceAgentConfig = {
+  /** Realtime backend; omitted means the environment's VOICE_REALTIME_BACKEND, and without it "gemini". */
+  backend?: RealtimeVoiceBackend;
   project?: string;
   location?: string;
   model?: string;
   voice?: string;
+  /** xai only: WebSocket base URL of the realtime endpoint. */
+  xaiBaseURL?: string;
   responseModality?: string;
   systemPrompt?: string;
   greeting?: string;
@@ -807,7 +835,7 @@ export type BuildRealtimeMcpToolsParams = {
    * Hard cap per MCP tool call, in milliseconds (default 30000).
    *
    * Without one, a stalled MCP server holds the realtime turn open forever:
-   * Gemini waits on the function result, so the user gets silence rather than
+   * The realtime model waits on the function result, so the user gets silence rather than
    * an error. Bounding the call turns that into a normal tool failure the
    * model can talk about.
    */
