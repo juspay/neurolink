@@ -13,6 +13,8 @@ import type {
   EmbedRequest,
   EmbedResponse,
   RouteGroup,
+  ServerAgentResolvedInput,
+  ServerAgentRouteOptions,
   ServerContext,
 } from "../../types/index.js";
 import { withSpan } from "../../telemetry/withSpan.js";
@@ -49,6 +51,7 @@ async function resolveRequestToolFilter(
   );
   return undefined;
 }
+import { AgentInputError, resolveAgentInput } from "../utils/agentInput.js";
 import { createStreamRedactor } from "../utils/redaction.js";
 import {
   AgentExecuteRequestSchema,
@@ -106,9 +109,47 @@ function resolveMutableSkillsManager(
 }
 
 /**
- * Create agent routes
+ * The request's `input` with its attachments vetted (see `agentInput.ts`), or
+ * the error response for the first one the server refuses.
  */
-export function createAgentRoutes(basePath: string = "/api"): RouteGroup {
+async function resolveRequestInput(
+  ctx: ServerContext,
+  requestInput: AgentExecuteRequest["input"],
+  options: ServerAgentRouteOptions | undefined,
+): Promise<ServerAgentResolvedInput | ReturnType<typeof createErrorResponse>> {
+  if (typeof requestInput === "string") {
+    return { text: requestInput };
+  }
+  try {
+    return await resolveAgentInput(requestInput, options);
+  } catch (error) {
+    if (error instanceof AgentInputError) {
+      return createError(
+        error.code,
+        error.message,
+        undefined,
+        ctx.requestId,
+        error.status,
+      );
+    }
+    throw error;
+  }
+}
+
+/**
+ * Create agent routes
+ *
+ * @param options - Limits for `input.images` / `input.files`:
+ *   `allowedInputRoots` (default: none, every local-path attachment is
+ *   refused), `maxInputBytes` per attachment (default 50 MiB),
+ *   `maxInputAttachments` per request (default 20, images and files together)
+ *   and `maxInputTotalBytes` per request (default 100 MiB, one budget shared by
+ *   images and files).
+ */
+export function createAgentRoutes(
+  basePath: string = "/api",
+  options?: ServerAgentRouteOptions,
+): RouteGroup {
   return {
     prefix: `${basePath}/agent`,
     routes: [
@@ -144,11 +185,14 @@ export function createAgentRoutes(basePath: string = "/api"): RouteGroup {
               },
             },
             async () => {
-              // Normalize input
-              const input =
-                typeof request.input === "string"
-                  ? { text: request.input }
-                  : request.input;
+              const input = await resolveRequestInput(
+                ctx,
+                request.input,
+                options,
+              );
+              if ("error" in input) {
+                return input;
+              }
 
               const requestToolFilter = await resolveRequestToolFilter(
                 ctx,
@@ -219,11 +263,10 @@ export function createAgentRoutes(basePath: string = "/api"): RouteGroup {
 
           const request = validation.data as AgentExecuteRequest;
 
-          // Normalize input
-          const input =
-            typeof request.input === "string"
-              ? { text: request.input }
-              : request.input;
+          const input = await resolveRequestInput(ctx, request.input, options);
+          if ("error" in input) {
+            return input;
+          }
 
           const streamToolFilter = await resolveRequestToolFilter(
             ctx,

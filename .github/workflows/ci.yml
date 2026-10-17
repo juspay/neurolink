@@ -1220,6 +1220,7 @@ jobs:
             test:provider-descriptors@17
             test:openai-compat-streaming-retry@16
             test:servers@16
+            test:agent-input-guard@17
             test:video:unit@12
             test:adjust-body-after-400@10
             test:anthropic-streaming-retry@10

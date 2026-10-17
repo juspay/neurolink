@@ -663,6 +663,13 @@ type CreateRoutesOptions = {
   /** Legacy per-format flags, still honoured. */
   claudeProxy?: boolean;
   openaiProxy?: boolean;
+  /** Attachment handling on /agent/execute and /agent/stream (see below). */
+  agent?: {
+    allowedInputRoots?: string[];
+    maxInputBytes?: number;
+    maxInputAttachments?: number;
+    maxInputTotalBytes?: number;
+  };
 };
 ```
 
@@ -682,7 +689,7 @@ function registerAllRoutes(
 
 | Factory                                      | Prefix    | Endpoints                                                                                                                                                                                                                                                                                   |
 | -------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createAgentRoutes(basePath?)`               | `/agent`  | `POST /agent/execute` -- Execute agent<br />`POST /agent/stream` -- Stream agent response (SSE)<br />`GET /agent/providers` -- List available providers<br />`POST /agent/embed` -- Generate single embedding<br />`POST /agent/embed-many` -- Generate batch embeddings                    |
+| `createAgentRoutes(basePath?, options?)`     | `/agent`  | `POST /agent/execute` -- Execute agent<br />`POST /agent/stream` -- Stream agent response (SSE)<br />`GET /agent/providers` -- List available providers<br />`POST /agent/embed` -- Generate single embedding<br />`POST /agent/embed-many` -- Generate batch embeddings                    |
 | `createToolRoutes(basePath?)`                | `/tools`  | `GET /tools` -- List all tools<br />`GET /tools/search` -- Search tools by query<br />`GET /tools/:name` -- Get tool details<br />`POST /tools/:name/execute` -- Execute tool<br />`POST /tools/execute` -- Execute tool (body-based)                                                       |
 | `createMCPRoutes(basePath?)`                 | `/mcp`    | `GET /mcp/servers` -- List MCP servers<br />`GET /mcp/servers/:name` -- Get server status<br />`GET /mcp/servers/:name/tools` -- List server tools<br />`POST /mcp/servers/:name/tools/:toolName/execute` -- Execute server tool                                                            |
 | `createMemoryRoutes(basePath?)`              | `/memory` | `GET /memory/sessions` -- List sessions<br />`GET /memory/sessions/:id` -- Get session details<br />`GET /memory/sessions/:id/messages` -- Get session messages<br />`DELETE /memory/sessions/:id` -- Delete session<br />`POST /memory/sessions/:sessionId/clear` -- Clear session history |
@@ -690,6 +697,61 @@ function registerAllRoutes(
 | `createOpenApiRoutes(basePath?, getRoutes?)` | `/docs`   | `GET /docs/openapi.json` -- OpenAPI spec (JSON)<br />`GET /docs/openapi.yaml` -- OpenAPI spec (YAML)                                                                                                                                                                                        |
 
 All route factories accept a `basePath` parameter (default: `"/api"`).
+
+#### Attachments on `/agent/execute` and `/agent/stream`
+
+`input.images` and `input.files` are strings that name content. The SDK resolves
+them itself, which is right for a program naming its own files and wrong for a
+network server, so the agent routes check each one before the SDK sees it. An
+`https://` URL or an allowed local path is read by the route and handed to the
+SDK as bytes; a `data:` URI already carries its content and passes through
+unchanged; anything else is refused:
+
+| Entry                          | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data:` URI                    | Passed through unchanged. Its length counts against the size limits below, and over a limit it is `413`.                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `https://` URL                 | Downloaded by the server. A redirect is refused and the size is capped. With no proxy configured the host is resolved, every address is checked against blocked ranges (loopback, private, link-local, cloud metadata) and the connection is pinned to the checked addresses. With `HTTPS_PROXY` or `ALL_PROXY` set, the proxy resolves the host: only the URL is checked (IP literals, single-label and internal host names), and what a public-looking name resolves to is the proxy's egress policy. A refused URL is `400`. |
+| `http://` URL                  | Refused with `400`. Use `https`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Local path                     | Read only from a directory in `allowedInputRoots`, after symlinks are resolved, through a single no-follow file handle. `403` for a path outside every root (the same answer whether or not the file exists, so the route is not an oracle for which files exist) or a file the server cannot read, `404` for a missing file inside a root, `400` for something that is not a regular file, `413` for a file over a size limit.                                                                                                 |
+| Any other scheme (`file:` ...) | Refused with `400`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+
+Local paths are **off by default**: a server does not read its own disk on a
+caller's say-so unless the operator names where.
+
+A request is bounded as a whole as well as per attachment. `input.images` and
+`input.files` are counted together, and share one byte budget:
+
+| Option                | Default | Meaning                                                                                                                                                                        |
+| --------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `allowedInputRoots`   | none    | Directories local paths may be read from. Every local path is refused without one.                                                                                             |
+| `maxInputBytes`       | 50 MiB  | Largest single attachment. If `maxInputTotalBytes` is set lower, the smaller of the two is the cap.                                                                            |
+| `maxInputAttachments` | 20      | Most attachments in one request. A longer list is `413` before anything is read or downloaded.                                                                                 |
+| `maxInputTotalBytes`  | 100 MiB | Sum of all attachments in one request. A `data:` URI is charged its string length. Over the budget is `413`, and a file or download that would overflow it stops mid-transfer. |
+
+A `data:` URI that is over a limit, and a request with too many attachments, are
+refused before any other attachment is read. The remaining attachments are read
+one at a time, each allowed only what the ones before it left of the shared
+budget. An `https://` download that does not fit is refused with `400` like any
+other URL the server cannot fetch.
+
+```typescript
+registerAllRoutes(adapter, "/api", {
+  agent: {
+    allowedInputRoots: ["/srv/uploads"], // default: none, every local path is refused
+    maxInputBytes: 20 * 1024 * 1024, // per attachment, default 50 MiB
+    maxInputAttachments: 10, // per request, images and files together, default 20
+    maxInputTotalBytes: 40 * 1024 * 1024, // per request, one budget, default 100 MiB
+  },
+});
+```
+
+`/agent/stream` reports a refusal as an error frame in its event stream, as it
+does for any other error. Calling `neurolink.generate()` directly is unchanged.
+
+`neurolink serve` and `neurolink server` register the routes with these
+defaults and expose no setting for them, so a CLI-run server refuses every
+local path and uses the limits above. To change them, build the server with
+`createServer` and `registerAllRoutes` as shown.
 
 ### Proxy Route Factories
 
