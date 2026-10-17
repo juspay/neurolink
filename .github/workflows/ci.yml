@@ -684,6 +684,7 @@ jobs:
           pnpm run test:rag-bounds
           pnpm run test:longcat-pilot
           pnpm run test:runinfra-pilot
+          pnpm run test:catalog-output-ceiling
           pnpm run test:package-declarations
 
   # action-smoke-test:

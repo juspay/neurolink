@@ -20,6 +20,13 @@
 
 > `optional` **maxOutputTokens?**: `number`
 
+The model's own output-token limit. Enforced at runtime: for a provider
+with no PROVIDER_MAX_TOKENS row, getSafeMaxTokens clamps a larger
+requested maxTokens to this value. Record only a number the vendor states
+as a hard limit; omit it when the source is a roster field that looks
+derived from the context window, because an omitted value leaves the
+model uncapped while a wrong one silently truncates callers.
+
 ---
 
 ### pricingPerMTok?

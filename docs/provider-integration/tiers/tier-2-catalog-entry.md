@@ -71,7 +71,12 @@ exactly one `extraCredentials` entry.
 **`models`** — `default`, `fallbacks`, `defaultContextWindow`,
 `defaultMaxOutputTokens`, and a `catalog` map of model id → `{contextWindow?,
 maxOutputTokens?, pricingPerMTok?, vision, tools?, status, description, enumMember?}`.
-Omit a number rather than invent one. Optional refinements:
+Omit a number rather than invent one. A per-model `maxOutputTokens` is enforced,
+not just displayed: when the provider has no `PROVIDER_MAX_TOKENS` row,
+`getSafeMaxTokens` clamps a larger requested `maxTokens` to it, so record only a
+limit the vendor states and leave it out when the figure looks derived from the
+context window. `defaultMaxOutputTokens` is not enforced this way. Optional
+refinements:
 
 | Field                  | Use it when                                                                                                                                            |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |

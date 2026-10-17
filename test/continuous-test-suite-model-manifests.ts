@@ -1443,4 +1443,21 @@ await test("a decide catalog provider has a derived manifest and no hand-written
   }
 });
 
+// getSafeMaxTokens has always tolerated a missing provider. A catalog output
+// ceiling lookup keyed on the provider must not turn that into a throw when a
+// model is also given; these ids are catalogued under aihubmix, so a lookup
+// that lowercased the provider first would throw here.
+await test("getSafeMaxTokens stays total on a missing provider when a model is given", async () => {
+  for (const provider of [undefined, null] as unknown as string[]) {
+    assert(
+      getSafeMaxTokens(provider, "gpt-4o-mini", 100_000) === 100_000,
+      `a ${String(provider)} provider altered the requested maxTokens`,
+    );
+    assert(
+      getSafeMaxTokens(provider, "gpt-4o-mini") === undefined,
+      `a ${String(provider)} provider invented a maxTokens default`,
+    );
+  }
+});
+
 await runSuite();
