@@ -38,7 +38,7 @@ const fetchCapture = installFetchCapture();
 
 import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { createServer } from "node:http";
+import { createServer, type IncomingHttpHeaders } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -138,9 +138,9 @@ const REAL_PERPLEXITY_DECIDER_BASE_URL =
 const REAL_PERPLEXITY_DECIDER_MODEL = process.env.PERPLEXITY_DECIDER_MODEL;
 // Cloudflare Clef reads CLOUDFLARE_API_KEY and CLOUDFLARE_ACCOUNT_ID, the same
 // two the `cloudflare` Workers AI text provider reads, so an ambient pair from
-// a developer's .env configures a decision provider here too (last in the
-// order). Both are needed, and every "nothing is configured" test must blank
-// both.
+// a developer's .env configures a decision provider here too (sixth in the
+// order, ahead of OpenAI Decisions and ScaleDown). Both are needed, and every
+// "nothing is configured" test must blank both.
 const REAL_CLOUDFLARE_KEY = process.env.CLOUDFLARE_API_KEY;
 const REAL_CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
 const HAS_CLOUDFLARE_CLEF =
@@ -159,13 +159,21 @@ const REAL_SUBQ_BASE_URL = process.env.SUBQ_BASE_URL;
 const REAL_SUBQ_MODEL = process.env.SUBQ_MODEL;
 // OpenAI Decisions reads OPENAI_API_KEY, the key the `openai` chat provider
 // reads, so an ambient key from a developer's .env configures a decision
-// provider here too (the very last in the order). It has a public endpoint, so
-// the key alone is enough and every "nothing is configured" test must blank it.
+// provider here too (seventh in the order, ahead of only ScaleDown). It has a
+// public endpoint, so the key alone is enough and every "nothing is configured"
+// test must blank it.
 const REAL_OPENAI_KEY = process.env.OPENAI_API_KEY;
 const REAL_OPENAI_BASE_URL = process.env.OPENAI_BASE_URL;
 const REAL_OPENAI_API_BASE = process.env.OPENAI_API_BASE;
 const REAL_OPENAI_DECISIONS_BASE_URL = process.env.OPENAI_DECISIONS_BASE_URL;
 const REAL_OPENAI_DECISIONS_MODEL = process.env.OPENAI_DECISIONS_MODEL;
+// ScaleDown reads SCALEDOWN_API_KEY, a key no other provider shares, and has a
+// built-in endpoint, so an ambient key alone configures a decision provider
+// here too (the very last in the order) and every "nothing is configured" test
+// must blank it.
+const REAL_SCALEDOWN_KEY = process.env.SCALEDOWN_API_KEY;
+const REAL_SCALEDOWN_BASE_URL = process.env.SCALEDOWN_BASE_URL;
+const REAL_SCALEDOWN_MODEL = process.env.SCALEDOWN_MODEL;
 // Section 19 reads LAYA_MODEL as an input to model resolution, so it is
 // saved and restored like the keys rather than deleted outright.
 const REAL_LAYA_MODEL = process.env.LAYA_MODEL;
@@ -285,6 +293,21 @@ function restoreEnv(): void {
   } else {
     delete process.env.OPENAI_DECISIONS_MODEL;
   }
+  if (REAL_SCALEDOWN_KEY !== undefined) {
+    process.env.SCALEDOWN_API_KEY = REAL_SCALEDOWN_KEY;
+  } else {
+    delete process.env.SCALEDOWN_API_KEY;
+  }
+  if (REAL_SCALEDOWN_BASE_URL !== undefined) {
+    process.env.SCALEDOWN_BASE_URL = REAL_SCALEDOWN_BASE_URL;
+  } else {
+    delete process.env.SCALEDOWN_BASE_URL;
+  }
+  if (REAL_SCALEDOWN_MODEL !== undefined) {
+    process.env.SCALEDOWN_MODEL = REAL_SCALEDOWN_MODEL;
+  } else {
+    delete process.env.SCALEDOWN_MODEL;
+  }
   if (REAL_LAYA_MODEL !== undefined) {
     process.env.LAYA_MODEL = REAL_LAYA_MODEL;
   } else {
@@ -299,6 +322,7 @@ function restoreEnv(): void {
  * model overrides go too, so a developer's own endpoint or model never decides
  * what a keyless test sees. OPENAI_API_KEY goes for the same reason as
  * PERPLEXITY_API_KEY: the `openai` chat provider shares it with OpenAI Decisions.
+ * SCALEDOWN_API_KEY goes because it alone configures ScaleDown.
  */
 function clearDecisionKeys(): void {
   delete process.env.TYPESAFE_API_KEY;
@@ -322,6 +346,9 @@ function clearDecisionKeys(): void {
   delete process.env.OPENAI_API_BASE;
   delete process.env.OPENAI_DECISIONS_BASE_URL;
   delete process.env.OPENAI_DECISIONS_MODEL;
+  delete process.env.SCALEDOWN_API_KEY;
+  delete process.env.SCALEDOWN_BASE_URL;
+  delete process.env.SCALEDOWN_MODEL;
   delete process.env.LAYA_MODEL;
 }
 
@@ -2371,6 +2398,9 @@ const NO_PROVIDER_ENV = {
   OPENAI_API_BASE: "",
   OPENAI_DECISIONS_BASE_URL: "",
   OPENAI_DECISIONS_MODEL: "",
+  SCALEDOWN_API_KEY: "",
+  SCALEDOWN_BASE_URL: "",
+  SCALEDOWN_MODEL: "",
 };
 
 await test("15.1 — no decision provider configured ⇒ clean one-line error, no stack trace", async () => {
@@ -2391,7 +2421,7 @@ await test("15.1 — no decision provider configured ⇒ clean one-line error, n
   );
   assert(
     result.stderr.includes(
-      "Error: No decision provider is configured. Set TYPESAFE_API_KEY or AI_GATEWAY_API_KEY for typesafe, or LAYA_API_KEY and LAYA_BASE_URL for laya, or XOR_API_KEY and XOR_BASE_URL for xor, or SUBQ_API_KEY for subq, or PERPLEXITY_API_KEY for perplexity-decider, or CLOUDFLARE_API_KEY and CLOUDFLARE_ACCOUNT_ID for cloudflare-clef, or OPENAI_API_KEY for openai-decisions (ignored while OPENAI_BASE_URL, OPENAI_API_BASE or credentials.openai.baseURL names a host outside https://api.openai.com, unless OPENAI_DECISIONS_BASE_URL is set).",
+      "Error: No decision provider is configured. Set TYPESAFE_API_KEY or AI_GATEWAY_API_KEY for typesafe, or LAYA_API_KEY and LAYA_BASE_URL for laya, or XOR_API_KEY and XOR_BASE_URL for xor, or SUBQ_API_KEY for subq, or PERPLEXITY_API_KEY for perplexity-decider, or CLOUDFLARE_API_KEY and CLOUDFLARE_ACCOUNT_ID for cloudflare-clef, or OPENAI_API_KEY for openai-decisions (ignored while OPENAI_BASE_URL, OPENAI_API_BASE or credentials.openai.baseURL names a host outside https://api.openai.com, unless OPENAI_DECISIONS_BASE_URL is set), or SCALEDOWN_API_KEY for scaledown.",
     ),
     "the no-provider case did not print the expected one-line error",
   );
@@ -2805,6 +2835,9 @@ await test("16.9 — live: decide --provider laya --format json is clean JSON", 
         OPENAI_API_BASE: "",
         OPENAI_DECISIONS_BASE_URL: "",
         OPENAI_DECISIONS_MODEL: "",
+        SCALEDOWN_API_KEY: "",
+        SCALEDOWN_BASE_URL: "",
+        SCALEDOWN_MODEL: "",
       },
       timeoutMs: 60_000,
     },
@@ -2859,6 +2892,9 @@ await test("16.10 — live: a rejected laya credential keeps the reason, drops t
         OPENAI_API_BASE: "",
         OPENAI_DECISIONS_BASE_URL: "",
         OPENAI_DECISIONS_MODEL: "",
+        SCALEDOWN_API_KEY: "",
+        SCALEDOWN_BASE_URL: "",
+        SCALEDOWN_MODEL: "",
       },
       timeoutMs: 30_000,
     },
@@ -2915,6 +2951,9 @@ await test("16.11 — live: decide --provider laya prints readable text by defau
         OPENAI_API_BASE: "",
         OPENAI_DECISIONS_BASE_URL: "",
         OPENAI_DECISIONS_MODEL: "",
+        SCALEDOWN_API_KEY: "",
+        SCALEDOWN_BASE_URL: "",
+        SCALEDOWN_MODEL: "",
       },
       timeoutMs: 60_000,
     },
@@ -3573,7 +3612,7 @@ await test("18.3 — it declares the limits that were measured: a state window, 
   );
 });
 
-await test("18.4 — descriptor order is the precedence: typesafe, laya, xor, subq, perplexity-decider, cloudflare-clef, and openai-decisions last", async () => {
+await test("18.4 — descriptor order is the precedence: typesafe, laya, xor, subq, perplexity-decider, cloudflare-clef, openai-decisions, and scaledown last", async () => {
   const names: string[] = DECISION_PROVIDERS.map((d) => d.name);
   const index = (name: string) => names.indexOf(name);
   assert(
@@ -3583,17 +3622,25 @@ await test("18.4 — descriptor order is the precedence: typesafe, laya, xor, su
       index("xor") < index("subq") &&
       index("subq") < index("perplexity-decider") &&
       index("perplexity-decider") < index("cloudflare-clef") &&
-      index("cloudflare-clef") < index("openai-decisions"),
-    "the derived decision-provider list must read typesafe, laya, xor, subq, perplexity-decider, cloudflare-clef, openai-decisions",
+      index("cloudflare-clef") < index("openai-decisions") &&
+      index("openai-decisions") < index("scaledown"),
+    "the derived decision-provider list must read typesafe, laya, xor, subq, perplexity-decider, cloudflare-clef, openai-decisions, scaledown",
+  );
+  assert(
+    DECISION_PROVIDERS.map((d) => d.decideOrder).join(",") ===
+      "1,2,3,4,5,6,7,8",
+    "the decide orders must run 1 to 8 without a gap",
   );
   // Perplexity, Cloudflare Clef and OpenAI Decisions each share an environment
   // key with a text provider, so they must come after every provider a host
-  // sets up on purpose. A provider added after them would be displaced by an
-  // ambient key, which is a decision to make deliberately. SubQ is ahead of
-  // them because its key, SUBQ_API_KEY, is shared with no other provider.
+  // sets up on purpose. SubQ is ahead of them because its key, SUBQ_API_KEY, is
+  // shared with no other provider. ScaleDown's key is shared with no other
+  // provider either, yet it sits behind all of them by the owner's decision of
+  // 2026-10-15 (order 8), so an ambient shared key outranks a ScaleDown key a
+  // host set on purpose. That is pinned here rather than hidden.
   assert(
-    names[names.length - 1] === "openai-decisions",
-    "openai-decisions must be the last entry in the precedence order",
+    names[names.length - 1] === "scaledown",
+    "scaledown must be the last entry in the precedence order",
   );
 });
 
@@ -5016,7 +5063,7 @@ await test("19.3 — it declares limits chosen from what was measured: a state w
   );
 });
 
-await test("19.4 — it comes after subq and perplexity-decider and before openai-decisions, which is last", async () => {
+await test("19.4 — it comes after subq and perplexity-decider and before openai-decisions and scaledown, which is last", async () => {
   const names: string[] = DECISION_PROVIDERS.map((d) => d.name);
   assert(
     names.indexOf("subq") !== -1 &&
@@ -5026,8 +5073,9 @@ await test("19.4 — it comes after subq and perplexity-decider and before opena
   );
   assert(
     names.indexOf("cloudflare-clef") < names.indexOf("openai-decisions") &&
-      names[names.length - 1] === "openai-decisions",
-    "cloudflare-clef must come before openai-decisions, the last entry",
+      names.indexOf("openai-decisions") < names.indexOf("scaledown") &&
+      names[names.length - 1] === "scaledown",
+    "cloudflare-clef must come before openai-decisions and scaledown, the last entry",
   );
 });
 
@@ -7812,6 +7860,442 @@ await test("22.2 — decide with no --provider: OPENAI_DECISIONS_BASE_URL is int
       assert(
         isRecordLike(parsed) && parsed.provider === "openai-decisions",
         "the default provider must have been chosen without being named",
+      );
+    },
+  );
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+logSection("23. ScaleDown — the CLI against a local server");
+// ───────────────────────────────────────────────────────────────────────────
+// No key, no network: every request goes to a server this file starts on
+// 127.0.0.1, and the replies are fixtures. Nothing here says what ScaleDown's
+// endpoint returned for a real request, and no request is made to it.
+
+const SCALEDOWN_CLI_KEY = "test-fake-scaledown-cli-credential";
+
+type FakeScaleDownRequest = {
+  method: string;
+  path: string;
+  headers: IncomingHttpHeaders;
+  body: unknown;
+};
+
+type FakeScaleDownReply = { status: number; body: unknown };
+
+/** Runs `run` against a local server that records every request and answers as `reply` says. */
+async function withFakeScaleDown<T>(
+  reply: (request: FakeScaleDownRequest) => FakeScaleDownReply,
+  run: (
+    baseURL: string,
+    requests: readonly FakeScaleDownRequest[],
+  ) => Promise<T>,
+): Promise<T> {
+  const requests: FakeScaleDownRequest[] = [];
+  const server = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
+      let body: unknown;
+      try {
+        body = JSON.parse(Buffer.concat(chunks).toString());
+      } catch {
+        body = undefined;
+      }
+      const seen: FakeScaleDownRequest = {
+        method: req.method ?? "",
+        path: req.url ?? "",
+        headers: req.headers,
+        body,
+      };
+      requests.push(seen);
+      const { status, body: answer } = reply(seen);
+      res.writeHead(status, {
+        "content-type": "application/json",
+        connection: "close",
+      });
+      res.end(JSON.stringify(answer));
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const { port } = server.address() as AddressInfo;
+    assert(port > 0, "the local server must listen on a port");
+    return await run(`http://127.0.0.1:${port}`, requests);
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+}
+
+const SCALEDOWN_CLI_REPLY: FakeScaleDownReply = {
+  status: 200,
+  body: {
+    model: "classify-1",
+    answers: { urgent: { type: "noul", noul: 0.92 } },
+    // A cost that is not the table's price, so a Cost line equal to the table's
+    // figure cannot have come from the reply.
+    usage: { input_tokens: 250_000, output_tokens: 0, cost: 0.9 },
+  },
+};
+
+/** The CLI's environment: nothing configured but the key and the local server. */
+const scaledownCliEnv = (baseURL: string): Record<string, string> => ({
+  ...NO_PROVIDER_ENV,
+  SCALEDOWN_API_KEY: SCALEDOWN_CLI_KEY,
+  SCALEDOWN_BASE_URL: baseURL,
+});
+
+/** The one request a CLI run sent, narrowed enough to read its body. */
+function soleScaleDownRequest(requests: readonly FakeScaleDownRequest[]): {
+  request: FakeScaleDownRequest;
+  body: Record<string, unknown>;
+} {
+  const count: number = requests.length;
+  assert(count === 1, "exactly one request must reach the server");
+  const request = requests[0];
+  assert(
+    request !== undefined && isRecordLike(request.body),
+    "the request body must be a JSON object",
+  );
+  return { request, body: request.body };
+}
+
+await test("23.1 — decide --provider scaledown --format json: exit 0, clean JSON, one POST /v1/scaledown with x-api-key, no Authorization, and a string state", async () => {
+  await withFakeScaleDown(
+    () => SCALEDOWN_CLI_REPLY,
+    async (baseURL, requests) => {
+      const result = await runCLI(
+        [
+          "decide",
+          "The state text",
+          "--provider",
+          "scaledown",
+          "--format",
+          "json",
+          "--questions",
+          ONE_QUESTION,
+        ],
+        { env: scaledownCliEnv(baseURL), timeoutMs: 60_000 },
+      );
+      assert(
+        result.exitCode === 0,
+        "the CLI must exit 0 once the server has answered",
+      );
+      const { request, body } = soleScaleDownRequest(requests);
+      assert(
+        request.method === "POST" && request.path === "/v1/scaledown",
+        "the request must be a POST to /v1/scaledown",
+      );
+      assert(
+        request.headers["x-api-key"] === SCALEDOWN_CLI_KEY,
+        "the credential must travel in the header the entry names",
+      );
+      assert(
+        !Object.keys(request.headers).some(
+          (name) => name.toLowerCase() === "authorization",
+        ),
+        "no Authorization header may be sent",
+      );
+      assert(
+        request.headers["content-type"]?.startsWith("application/json") ===
+          true,
+        "the body must be sent as JSON",
+      );
+      assert(
+        Object.keys(body).sort().join(",") === "model,questions,state",
+        "the body must hold the model, the questions and the state, and nothing else",
+      );
+      assert(body.model === "classify-1", "the default model must be sent");
+      assert(
+        body.state === "The state text",
+        "the state must be a string, as given",
+      );
+      const question = isRecordLike(body.questions)
+        ? body.questions.urgent
+        : undefined;
+      assert(
+        isRecordLike(question) &&
+          question.type === "noul" &&
+          question.instructions === "Is this urgent?" &&
+          Object.keys(question).length === 2,
+        "the yes/no question must go out as a noul question carrying its instructions",
+      );
+
+      const parsed: unknown = JSON.parse(result.stdout);
+      assert(
+        isRecordLike(parsed) &&
+          parsed.provider === "scaledown" &&
+          parsed.model === "classify-1",
+        "stdout must be the raw result: provider and model",
+      );
+      const answers = isRecordLike(parsed) ? parsed.answers : undefined;
+      const urgent = isRecordLike(answers) ? answers.urgent : undefined;
+      assert(
+        isRecordLike(urgent) &&
+          urgent.type === "boolean" &&
+          urgent.probability === 0.92,
+        "the answer must be the server's probability, as a boolean answer",
+      );
+      assert(
+        !(result.stdout + result.stderr).includes(SCALEDOWN_CLI_KEY),
+        "the key must not appear in the CLI's output",
+      );
+    },
+  );
+});
+
+await test("23.2 — decide --provider scaledown in text mode prints the answer, the model and the price from the table", async () => {
+  await withFakeScaleDown(
+    () => SCALEDOWN_CLI_REPLY,
+    async (baseURL, requests) => {
+      const result = await runCLI(
+        [
+          "decide",
+          "The state text",
+          "--provider",
+          "scaledown",
+          "--questions",
+          ONE_QUESTION,
+        ],
+        { env: scaledownCliEnv(baseURL), timeoutMs: 60_000 },
+      );
+      assert(result.exitCode === 0, "the CLI must exit 0");
+      soleScaleDownRequest(requests);
+      assert(
+        result.stdout.includes("urgent: probability 0.92"),
+        "the answer line must show the probability",
+      );
+      assert(
+        result.stdout.includes("Model: classify-1"),
+        "the model line must show the model the reply names",
+      );
+      // 250,000 input tokens x $0.05 per million input tokens, input only: from
+      // the pricing table. The stand-in reply reports a different cost.
+      assert(
+        result.stdout.includes("Cost: $0.012500"),
+        "the cost line must be input tokens at the table's rate",
+      );
+      assert(
+        !looksLikeStackTrace(result.stdout + result.stderr),
+        "the run printed a stack trace",
+      );
+    },
+  );
+});
+
+await test("23.3 — a JSON object as the state, and --model, reach the server: the state as one JSON string, the model as named", async () => {
+  await withFakeScaleDown(
+    () => SCALEDOWN_CLI_REPLY,
+    async (baseURL, requests) => {
+      const result = await runCLI(
+        [
+          "decide",
+          '{ "ticket": { "id": 7 }, "tags": ["a", "b"] }',
+          "--provider",
+          "scaledown",
+          "--model",
+          "classify",
+          "--format",
+          "json",
+          "--questions",
+          ONE_QUESTION,
+        ],
+        { env: scaledownCliEnv(baseURL), timeoutMs: 60_000 },
+      );
+      assert(result.exitCode === 0, "the CLI must exit 0");
+      const { body } = soleScaleDownRequest(requests);
+      assert(
+        body.state === '{"ticket":{"id":7},"tags":["a","b"]}',
+        "an object state must go out as its compact JSON text, one string",
+      );
+      assert(body.model === "classify", "--model must name the model sent");
+    },
+  );
+});
+
+await test("23.4 — a state of only whitespace is refused by the provider before any request: non-zero exit, one clean line, nothing reaches the server", async () => {
+  await withFakeScaleDown(
+    () => SCALEDOWN_CLI_REPLY,
+    async (baseURL, requests) => {
+      const result = await runCLI(
+        [
+          "decide",
+          "   ",
+          "--provider",
+          "scaledown",
+          "--questions",
+          ONE_QUESTION,
+        ],
+        { env: scaledownCliEnv(baseURL), timeoutMs: 60_000 },
+      );
+      const output = result.stdout + result.stderr;
+      assert(result.exitCode !== 0, "a blank state must exit non-zero");
+      assert(
+        output.includes("needs non-blank state text"),
+        "the refusal must say what rule it is",
+      );
+      assert(!looksLikeStackTrace(output), "the refusal printed a stack trace");
+      const seen: number = requests.length;
+      assert(seen === 0, "no request may reach the server");
+    },
+  );
+});
+
+await test("23.5 — decide --provider scaledown with a rejected key: one clean line naming the failure, key absent, sent once", async () => {
+  await withFakeScaleDown(
+    () => ({
+      status: 401,
+      body: { detail: `stand-in: bad key ${SCALEDOWN_CLI_KEY}` },
+    }),
+    async (baseURL, requests) => {
+      const result = await runCLI(
+        [
+          "decide",
+          "The state text",
+          "--provider",
+          "scaledown",
+          "--questions",
+          ONE_QUESTION,
+        ],
+        { env: scaledownCliEnv(baseURL), timeoutMs: 60_000 },
+      );
+      const output = result.stdout + result.stderr;
+      assert(result.exitCode !== 0, "a refused key must exit non-zero");
+      soleScaleDownRequest(requests);
+      assert(
+        !output.includes(SCALEDOWN_CLI_KEY),
+        "the key the server repeated must not reach the CLI's output",
+      );
+      assert(
+        output.includes("Authentication failed") &&
+          output.includes("stand-in: bad key"),
+        "the failure kind and the server's own reason must be kept",
+      );
+      assert(!looksLikeStackTrace(output), "the failure printed a stack trace");
+    },
+  );
+});
+
+await test("23.6 — decide --image with scaledown: refused locally, the media refusal on one clean line, nothing reaches the server", async () => {
+  await withFakeScaleDown(
+    () => SCALEDOWN_CLI_REPLY,
+    async (baseURL, requests) => {
+      const result = await runCLI(
+        [
+          "decide",
+          "The state text",
+          "--provider",
+          "scaledown",
+          "--image",
+          `${PERPLEXITY_FIXTURE_DIR}blue.png`,
+          "--questions",
+          ONE_QUESTION,
+        ],
+        { env: scaledownCliEnv(baseURL), timeoutMs: 60_000 },
+      );
+      const output = result.stdout + result.stderr;
+      assert(result.exitCode !== 0, "an image must be refused");
+      assert(
+        output.includes("does not accept images or video"),
+        "the refusal must be the media refusal",
+      );
+      assert(!looksLikeStackTrace(output), "the refusal printed a stack trace");
+      const seen: number = requests.length;
+      assert(seen === 0, "no request may reach the server");
+    },
+  );
+});
+
+await test("23.7 — the --provider choices the CLI builds name scaledown, and decide --help documents --provider", async () => {
+  const generate = await runCLI(["generate", "--help"], { timeoutMs: 60_000 });
+  assert(generate.exitCode === 0, "generate --help must exit 0");
+  assert(
+    generate.stdout.includes('"scaledown"'),
+    "the --provider choices the CLI builds must name scaledown",
+  );
+  const decide = await runCLI(["decide", "--help"], { timeoutMs: 60_000 });
+  assert(decide.exitCode === 0, "decide --help must exit 0");
+  assert(
+    decide.stdout.includes("--provider"),
+    "decide --help must document --provider",
+  );
+});
+
+await test("23.8 — decide with no --provider: SCALEDOWN_API_KEY alone makes ScaleDown the default, at SCALEDOWN_BASE_URL, with the key in x-api-key", async () => {
+  await withFakeScaleDown(
+    () => SCALEDOWN_CLI_REPLY,
+    async (baseURL, requests) => {
+      const result = await runCLI(
+        [
+          "decide",
+          "The state text",
+          "--format",
+          "json",
+          "--questions",
+          ONE_QUESTION,
+        ],
+        { env: scaledownCliEnv(baseURL), timeoutMs: 60_000 },
+      );
+      assert(result.exitCode === 0, "the CLI must exit 0 once answered");
+      const { request } = soleScaleDownRequest(requests);
+      assert(
+        request.headers["x-api-key"] === SCALEDOWN_CLI_KEY,
+        "the environment credential must travel in the header the entry names",
+      );
+      const parsed: unknown = JSON.parse(result.stdout);
+      assert(
+        isRecordLike(parsed) && parsed.provider === "scaledown",
+        "the default provider must have been chosen without being named",
+      );
+    },
+  );
+});
+
+await test("23.9 — SCALEDOWN_MODEL names the model a fresh process sends, and --model beats it", async () => {
+  await withFakeScaleDown(
+    () => SCALEDOWN_CLI_REPLY,
+    async (baseURL, requests) => {
+      const env = { ...scaledownCliEnv(baseURL), SCALEDOWN_MODEL: "classify" };
+      const fromEnv = await runCLI(
+        [
+          "decide",
+          "The state text",
+          "--provider",
+          "scaledown",
+          "--format",
+          "json",
+          "--questions",
+          ONE_QUESTION,
+        ],
+        { env, timeoutMs: 60_000 },
+      );
+      assert(fromEnv.exitCode === 0, "the CLI must exit 0");
+      assert(
+        soleScaleDownRequest(requests).body.model === "classify",
+        "SCALEDOWN_MODEL must name the model sent",
+      );
+      const overridden = await runCLI(
+        [
+          "decide",
+          "The state text",
+          "--provider",
+          "scaledown",
+          "--model",
+          "classify-1",
+          "--format",
+          "json",
+          "--questions",
+          ONE_QUESTION,
+        ],
+        { env, timeoutMs: 60_000 },
+      );
+      assert(overridden.exitCode === 0, "the CLI must exit 0");
+      const total: number = requests.length;
+      assert(total === 2, "the two runs must have sent one request each");
+      assert(
+        soleScaleDownRequest(requests.slice(1)).body.model === "classify-1",
+        "--model must beat SCALEDOWN_MODEL",
       );
     },
   );

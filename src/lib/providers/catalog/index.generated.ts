@@ -69,6 +69,7 @@ import runinfraJson from "./runinfra.json" with { type: "json" };
 import sakanaAiJson from "./sakana-ai.json" with { type: "json" };
 import sambanovaJson from "./sambanova.json" with { type: "json" };
 import sarvamJson from "./sarvam.json" with { type: "json" };
+import scaledownJson from "./scaledown.json" with { type: "json" };
 import scalewayJson from "./scaleway.json" with { type: "json" };
 import siliconflowJson from "./siliconflow.json" with { type: "json" };
 import stackitJson from "./stackit.json" with { type: "json" };
@@ -290,6 +291,7 @@ export const CATALOG_PROVIDER_IDS = [
 export const DECIDE_CATALOG_JSON_ENTRIES: DecideCatalogJson[] = [
   layaJson,
   openaiDecisionsJson,
+  scaledownJson,
   subqJson,
   xorJson,
 ].map(asDecideEntry);
@@ -297,6 +299,7 @@ export const DECIDE_CATALOG_JSON_ENTRIES: DecideCatalogJson[] = [
 export const DECIDE_CATALOG_PROVIDER_IDS = [
   "laya",
   "openai-decisions",
+  "scaledown",
   "subq",
   "xor",
 ] as const;

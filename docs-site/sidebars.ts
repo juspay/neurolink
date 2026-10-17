@@ -29,6 +29,7 @@ const sidebars: SidebarsConfig = {
             "getting-started/providers/cloudflare-clef",
             "getting-started/providers/subq",
             "getting-started/providers/openai-decisions",
+            "getting-started/providers/scaledown",
             "getting-started/providers/openai",
             "getting-started/providers/anthropic",
             "getting-started/providers/google-ai",

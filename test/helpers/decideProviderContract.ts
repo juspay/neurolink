@@ -792,6 +792,18 @@ function wireCases(
   const view = knownView ?? SYSTEM_ONE_VIEW;
   const booleanWire = knownView?.booleanType;
   const bodyOf = (calls: Calls) => asRecord(calls[0]?.bodyJson);
+  // Written here, not imported, like the views: the credential header and the
+  // state text an entry's `authHeader` and `stateEncoding` ask for, judged
+  // without reading the provider's own code. The case keeps its old name, which
+  // other suites pin, although an `x-api-key` entry carries no Bearer token.
+  const keyInHeader = entry.decide.authHeader === "x-api-key";
+  const textState = entry.decide.stateEncoding === "text";
+  const stateSent = (state: DecisionRequest["state"]): unknown =>
+    textState
+      ? typeof state === "string"
+        ? state
+        : JSON.stringify(state)
+      : view.stateSent(state);
   // Any request is answered, so a misrouted one is recorded and judged under
   // a fixed label instead of failing inside the mock, whose error repeats it.
   const served = (ctx: CaseContext): Route[] => [
@@ -837,10 +849,25 @@ function wireCases(
           calls[0].url === ctx.endpoint,
           "endpoint from the template and the base URL",
         );
-        ctx.ok(
-          calls[0].headers.authorization === `Bearer ${ctx.apiKey}`,
-          "bearer credential",
-        );
+        if (keyInHeader) {
+          ctx.ok(
+            calls[0].headers["x-api-key"] === ctx.apiKey,
+            "credential in the x-api-key header",
+          );
+          ctx.ok(
+            calls[0].headers.authorization === undefined,
+            "no Authorization header beside x-api-key",
+          );
+        } else {
+          ctx.ok(
+            calls[0].headers.authorization === `Bearer ${ctx.apiKey}`,
+            "bearer credential",
+          );
+          ctx.ok(
+            calls[0].headers["x-api-key"] === undefined,
+            "no x-api-key header beside the Bearer token",
+          );
+        }
         ctx.ok(
           calls[0].headers["content-type"] === "application/json",
           "content type",
@@ -971,14 +998,14 @@ function wireCases(
         ctx.ok(
           isDeepStrictEqual(
             view.stateOf(bodyOf(calls)),
-            view.stateSent(HOSTILE_TEXT),
+            stateSent(HOSTILE_TEXT),
           ),
           "text state",
         );
         ctx.ok(
           isDeepStrictEqual(
             view.stateOf(asRecord(calls[1].bodyJson)),
-            view.stateSent(HOSTILE_OBJECT),
+            stateSent(HOSTILE_OBJECT),
           ),
           "object state",
         );

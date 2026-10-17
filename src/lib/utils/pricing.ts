@@ -845,6 +845,18 @@ const PRICING: Record<string, Record<string, ModelPricingRates>> = {
     // name, so a `"gpt-6-luna"` key would price that chat model at this rate.
     _default: { input: 0.1 / 1_000_000, output: 0 },
   },
+  scaledown: {
+    // $0.05 per million input tokens, output free: `output: 0` is a price, not
+    // a token count, so do not "correct" it from `usage.output_tokens`. A list
+    // price from ScaleDown's launch post and from `usage.cost` in a response,
+    // both as reported to this project on 2026-10-15; this project has not
+    // priced a call itself. Per ScaleDown's docs each choice option is a
+    // separate internal call, so input tokens grow with options times state
+    // length (not measured here). Only `_default`: LiteLLM, OpenRouter and
+    // openai-compatible search every table by model name, so a `"classify"` key
+    // would price an unrelated model at this rate.
+    _default: { input: 0.05 / 1_000_000, output: 0 },
+  },
   "cloudflare-clef": {
     // Workers AI bills Clef per million INPUT tokens ($0.24 for clef, $0.09 for
     // clef-flash); no output price is listed. `output: 0` is a price, not a token

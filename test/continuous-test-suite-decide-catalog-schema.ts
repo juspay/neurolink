@@ -520,6 +520,138 @@ async function decideFieldRulesSection(): Promise<void> {
   });
 }
 
+const AUTH_HEADER_VALUES = ["bearer", "x-api-key"] as const;
+const AUTH_HEADER_REFUSED: readonly unknown[] = [
+  "basic",
+  "Bearer",
+  "BEARER",
+  "X-Api-Key",
+  "x_api_key",
+  "x-api-key ",
+  " bearer",
+  "authorization",
+  "none",
+  "",
+  0,
+  1,
+  true,
+  false,
+  null,
+  ["bearer"],
+  { style: "x-api-key" },
+];
+const STATE_ENCODING_REFUSED: readonly unknown[] = [
+  "json",
+  "string",
+  "Text",
+  "TEXT",
+  "text ",
+  " text",
+  "raw",
+  "none",
+  "",
+  0,
+  1,
+  true,
+  false,
+  null,
+  ["text"],
+  { encoding: "text" },
+];
+
+// A refusal of the value, not of the key: "Unrecognized key" would also name
+// the field, so a schema that lacked the key would pass a bare needle check.
+function expectValueRefused(
+  key: "authHeader" | "stateEncoding",
+  value: unknown,
+): void {
+  const label = `${key} = ${JSON.stringify(value)}`;
+  const message = failureOf(() =>
+    parseCatalogEntry(entryWith(["decide", key], value)),
+  );
+  if (message === undefined) {
+    throw new Error(`${label}: was accepted`);
+  }
+  assertIncludes(
+    message,
+    key,
+    `${label}: rejected, but not on the field it sets`,
+  );
+  assert(
+    !message.includes("Unrecognized key"),
+    `${label}: rejected because the schema does not know ${key}, not because of the value`,
+  );
+}
+
+async function decideAuthAndStateSection(): Promise<void> {
+  section("decide entries: authHeader and stateEncoding");
+
+  await test("decide.authHeader accepts bearer and x-api-key, keeps the value through parsing, and is never invented when omitted", () => {
+    for (const value of AUTH_HEADER_VALUES) {
+      const entry = entryWith(["decide", "authHeader"], value);
+      deepStrictEqual(parseCatalogEntry(entry, "laya.json"), entry);
+      // The same value on the other dialect: the key does not belong to one wire.
+      const other: Record<string, unknown> = structuredClone(
+        OPENAI_DECISIONS_ENTRY,
+      );
+      setAt(other, ["decide", "authHeader"], value);
+      deepStrictEqual(parseCatalogEntry(other, "openai-decisions.json"), other);
+    }
+    for (const sample of [LAYA_ENTRY, OPENAI_DECISIONS_ENTRY]) {
+      const parsed = parseCatalogEntry(structuredClone(sample), "x.json");
+      assert(
+        isDecideCatalogEntry(parsed) && !("authHeader" in parsed.decide),
+        "parsing gave an entry that omits authHeader a value of its own",
+      );
+    }
+  });
+
+  await test("decide.authHeader refuses every other spelling and type", () => {
+    for (const value of AUTH_HEADER_REFUSED) {
+      expectValueRefused("authHeader", value);
+    }
+  });
+
+  await test("decide.stateEncoding accepts text only, keeps it through parsing, and is never invented when omitted", () => {
+    const entry = entryWith(["decide", "stateEncoding"], "text");
+    deepStrictEqual(parseCatalogEntry(entry, "laya.json"), entry);
+    const other: Record<string, unknown> = structuredClone(
+      OPENAI_DECISIONS_ENTRY,
+    );
+    setAt(other, ["decide", "stateEncoding"], "text");
+    deepStrictEqual(parseCatalogEntry(other, "openai-decisions.json"), other);
+    for (const value of STATE_ENCODING_REFUSED) {
+      expectValueRefused("stateEncoding", value);
+    }
+    for (const sample of [LAYA_ENTRY, OPENAI_DECISIONS_ENTRY]) {
+      const parsed = parseCatalogEntry(structuredClone(sample), "x.json");
+      assert(
+        isDecideCatalogEntry(parsed) && !("stateEncoding" in parsed.decide),
+        "parsing gave an entry that omits stateEncoding a value of its own",
+      );
+    }
+  });
+
+  await test("the two keys are independent: each is accepted alone and together", () => {
+    const both = entryWith(["decide", "authHeader"], "x-api-key");
+    setAt(both, ["decide", "stateEncoding"], "text");
+    deepStrictEqual(parseCatalogEntry(both, "laya.json"), both);
+    const encodingOnly = entryWith(["decide", "stateEncoding"], "text");
+    const parsed = parseCatalogEntry(encodingOnly, "laya.json");
+    assert(
+      isDecideCatalogEntry(parsed) && !("authHeader" in parsed.decide),
+      "setting stateEncoding gave the entry an authHeader",
+    );
+    const headerOnly = entryWith(["decide", "authHeader"], "x-api-key");
+    const parsedHeader = parseCatalogEntry(headerOnly, "laya.json");
+    assert(
+      isDecideCatalogEntry(parsedHeader) &&
+        !("stateEncoding" in parsedHeader.decide),
+      "setting authHeader gave the entry a stateEncoding",
+    );
+  });
+}
+
 const MEDIA_KEYS = { imagesKey: "images", videoKey: "video" };
 const MEDIA_ALLOWANCE = { maxImages: 8, video: true, maxRequestBytes: 8388608 };
 const RESERVED_BODY_KEYS = [
@@ -1965,6 +2097,65 @@ async function mirrorSection(): Promise<void> {
     deepStrictEqual(baseURLShape.enum, ["origin"]);
   });
 
+  await test("declares decide.authHeader and decide.stateEncoding as optional, and the mirror and the schema agree on their values", () => {
+    for (const [key, value] of [
+      ["authHeader", "bearer"],
+      ["authHeader", "x-api-key"],
+      ["stateEncoding", "text"],
+    ]) {
+      deepStrictEqual(
+        undeclaredKeys(entryWith(["decide", key], value), mirror, ""),
+        [],
+        `the mirror does not declare decide.${key}`,
+      );
+    }
+    const decide = (
+      mirror as {
+        properties: {
+          decide: {
+            required: string[];
+            properties: {
+              authHeader?: { enum: string[] };
+              stateEncoding?: { enum: string[] };
+            };
+          };
+        };
+      }
+    ).properties.decide;
+    const { authHeader, stateEncoding } = decide.properties;
+    assertNotNull(authHeader, "the mirror lacks decide.authHeader");
+    assertNotNull(stateEncoding, "the mirror lacks decide.stateEncoding");
+    // Mirror to schema: every value the editor offers parses.
+    for (const value of authHeader.enum) {
+      parseCatalogEntry(entryWith(["decide", "authHeader"], value));
+    }
+    for (const value of stateEncoding.enum) {
+      parseCatalogEntry(entryWith(["decide", "stateEncoding"], value));
+    }
+    // Schema to mirror: the values the schema accepts are all offered, and nothing else is.
+    deepStrictEqual([...authHeader.enum].sort(), ["bearer", "x-api-key"]);
+    deepStrictEqual(stateEncoding.enum, ["text"]);
+    for (const key of ["authHeader", "stateEncoding"]) {
+      assert(
+        !decide.required.includes(key),
+        `the mirror requires decide.${key}, which the schema leaves optional`,
+      );
+    }
+    // A value the editor does not offer is a value the schema refuses.
+    for (const value of AUTH_HEADER_REFUSED) {
+      assert(
+        !authHeader.enum.includes(value as string),
+        "the mirror offers an authHeader the schema refuses",
+      );
+    }
+    for (const value of STATE_ENCODING_REFUSED) {
+      assert(
+        !stateEncoding.enum.includes(value as string),
+        "the mirror offers a stateEncoding the schema refuses",
+      );
+    }
+  });
+
   await test("offers exactly the dialects the schema accepts and the registry serves, and each one parses in the right entry", () => {
     const { dialect } = (
       mirror as {
@@ -2476,6 +2667,7 @@ await runSuite(async () => {
   await layaFixtureSection();
   await decideEntrySection();
   await decideFieldRulesSection();
+  await decideAuthAndStateSection();
   await mediaSection();
   await openaiDecisionsSection();
   await ambientKeyGuardSection();

@@ -10,8 +10,8 @@ keywords: typesafe, jev, decide, decision model, calibrated confidence, routing,
 it returns typed, calibrated judgments and emits no text at all. The others are
 [Laya](laya.md) and [XOR](xor.md), open-weights models served from an endpoint
 you configure, and [SubQ](subq.md), [Perplexity](perplexity-decider.md),
-[Cloudflare Clef](cloudflare-clef.md) and [OpenAI Decisions](openai-decisions.md),
-hosted APIs. When more than one is configured, TypeSafe is tried before the
+[Cloudflare Clef](cloudflare-clef.md), [OpenAI Decisions](openai-decisions.md)
+and [ScaleDown](scaledown.md), hosted APIs. When more than one is configured, TypeSafe is tried before the
 others.
 
 ---
@@ -40,8 +40,9 @@ unreachable in normal use.
 - **Inference kinds**: `decide` only — one of the providers that do (the others
   are [Laya](laya.md), [XOR](xor.md), [SubQ](subq.md),
   [Perplexity](perplexity-decider.md),
-  [Cloudflare Clef](cloudflare-clef.md) and
-  [OpenAI Decisions](openai-decisions.md)); TypeSafe is tried before them when
+  [Cloudflare Clef](cloudflare-clef.md),
+  [OpenAI Decisions](openai-decisions.md) and
+  [ScaleDown](scaledown.md)); TypeSafe is tried before them when
   more than one is configured
 - **Tool calling**: none (`toolSupport: "none"`) — a decision model calls nothing
 - **Health check**: `env-only`; it is never probed with a live generation
@@ -135,8 +136,10 @@ goes for `CLOUDFLARE_API_KEY` with `CLOUDFLARE_ACCOUNT_ID`, which the Workers AI
 text provider reads too: set together they configure Cloudflare Clef, which ranks
 after TypeSafe, Laya, XOR, SubQ and Perplexity; see [One token, two providers](cloudflare-clef.md#one-token-two-providers).
 `OPENAI_API_KEY`, which the OpenAI chat provider reads too, configures OpenAI
-Decisions, the last fallback; see
-[One key, two providers](openai-decisions.md#one-key-two-providers). There is no
+Decisions, which ranks after all of them but ScaleDown; see
+[One key, two providers](openai-decisions.md#one-key-two-providers).
+`SCALEDOWN_API_KEY` is ScaleDown's own and configures only it, as the last of
+the eight; see [ScaleDown](scaledown.md#when-neurolink-uses-it). There is no
 configuration in which a missing, invalid, slow or unreachable decision model
 changes NeuroLink's observable behaviour.
 
@@ -231,4 +234,5 @@ not a substitute for the reported confidence, is in
 - [Cloudflare Clef Provider Guide](cloudflare-clef.md)
 - [SubQ Provider Guide](subq.md)
 - [OpenAI Decisions Provider Guide](openai-decisions.md)
+- [ScaleDown Provider Guide](scaledown.md)
 - [Provider setup overview](/docs/getting-started/provider-setup)

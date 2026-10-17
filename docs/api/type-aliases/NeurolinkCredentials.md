@@ -1266,6 +1266,20 @@ counts as unset.
 
 ---
 
+### scaledown?
+
+> `optional` **scaledown?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### scaleway?
 
 > `optional` **scaleway?**: `object`

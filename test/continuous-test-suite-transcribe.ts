@@ -140,6 +140,9 @@ const BLANKED_ENV = [
   "SUBQ_API_KEY",
   "OPENAI_DECISIONS_BASE_URL",
   "OPENAI_DECISIONS_MODEL",
+  "SCALEDOWN_API_KEY",
+  "SCALEDOWN_BASE_URL",
+  "SCALEDOWN_MODEL",
 ] as const;
 for (const name of BLANKED_ENV) {
   delete process.env[name];

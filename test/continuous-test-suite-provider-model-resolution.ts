@@ -431,6 +431,8 @@ const DECISION_ONLY_NAMES = [
   "laya",
   "xor",
   "openai-decisions",
+  "scaledown",
+  "scaledown-classify",
 ] as const;
 
 /** The factory's own resolution step, called as a method so `this` is the class. */
@@ -449,7 +451,11 @@ function withModelVariables<T>(
   set: Readonly<Record<string, string>>,
   fn: () => T,
 ): T {
-  const names = [...MODEL_VARIABLES, "OPENAI_DECISIONS_MODEL"];
+  const names = [
+    ...MODEL_VARIABLES,
+    "OPENAI_DECISIONS_MODEL",
+    "SCALEDOWN_MODEL",
+  ];
   const before = names.map((name) => process.env[name]);
   try {
     for (const name of names) {
@@ -553,10 +559,9 @@ await test("an explicit model is returned as given, for every name, whatever the
 
 await test("a decision-only provider is reached by no chat model variable, and its own variable is not read here", () => {
   const all = Object.fromEntries(
-    [...MODEL_VARIABLES, "OPENAI_DECISIONS_MODEL"].map((variable) => [
-      variable,
-      `stand-in:${variable}`,
-    ]),
+    [...MODEL_VARIABLES, "OPENAI_DECISIONS_MODEL", "SCALEDOWN_MODEL"].map(
+      (variable) => [variable, `stand-in:${variable}`],
+    ),
   );
   withModelVariables(all, () => {
     for (const name of DECISION_ONLY_NAMES) {

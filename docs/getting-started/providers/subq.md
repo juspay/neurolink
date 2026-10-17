@@ -37,7 +37,7 @@ URL to set.
 | State window          | 376,000 estimated tokens, advisory: reported by `decisionLimits()`, never enforced. SubQ's own 400 response states a maximum model length of 393,216 tokens; see [Limits](#limits) |
 | Media                 | none. Images attached to a `decide()` call are refused before any request; see [Images](#images)                                                                                   |
 | Default timeout       | 5 seconds; `timeoutMs` or `--timeout` replaces it                                                                                                                                  |
-| Precedence            | used automatically unless TypeSafe, Laya or XOR is configured; it comes ahead of Perplexity and Cloudflare Clef                                                                    |
+| Precedence            | used automatically unless TypeSafe, Laya or XOR is configured; it comes ahead of Perplexity, Cloudflare Clef, OpenAI Decisions and ScaleDown                                       |
 
 ---
 
@@ -114,16 +114,20 @@ Every built-in consumer of `decide` — model routing, relevance-driven
 compaction, tool routing and RAG planning — asks for the default decision
 provider. That is the first one that is configured, in the environment or in
 the `credentials` passed to the SDK, in the order TypeSafe, [Laya](laya.md),
-[XOR](xor.md), SubQ, [Perplexity](perplexity-decider.md), then
-[Cloudflare Clef](cloudflare-clef.md). SubQ counts with its key alone. It sits
-ahead of Perplexity and Clef because its key belongs to no other provider, so
-setting it can only be meant for SubQ, whereas Perplexity's and Clef's are shared
-with text providers and must not displace it. So:
+[XOR](xor.md), SubQ, [Perplexity](perplexity-decider.md),
+[Cloudflare Clef](cloudflare-clef.md), [OpenAI Decisions](openai-decisions.md),
+then [ScaleDown](scaledown.md). SubQ counts with its key alone. It sits
+ahead of Perplexity, Clef and OpenAI Decisions because its key belongs to no other
+provider, so setting it can only be meant for SubQ, whereas theirs are shared
+with text providers and must not displace it. ScaleDown, whose key is also its
+own, was placed last on purpose. So:
 
 - **Only a SubQ key:** built-in features use SubQ.
-- **A SubQ key, plus a Perplexity key or the Cloudflare pair:** built-in
-  features use SubQ; Perplexity and Cloudflare Clef run only where a caller asks
-  for `provider: "perplexity-decider"` or `provider: "cloudflare-clef"`.
+- **A SubQ key, plus a Perplexity key, the Cloudflare pair, `OPENAI_API_KEY` or
+  `SCALEDOWN_API_KEY`:** built-in features use SubQ; Perplexity, Cloudflare Clef,
+  OpenAI Decisions and ScaleDown run only where a caller asks for
+  `provider: "perplexity-decider"`, `provider: "cloudflare-clef"`,
+  `provider: "openai-decisions"` or `provider: "scaledown"`.
 - **A SubQ key, plus TypeSafe's key, or Laya's or XOR's key and base URL:**
   built-in features use TypeSafe, Laya or XOR, in that order, whichever is
   configured; SubQ runs only where a caller asks for `provider: "subq"`.
@@ -262,4 +266,6 @@ current terms.
 - [XOR Provider Guide](xor.md)
 - [Perplexity Decisions Provider Guide](perplexity-decider.md)
 - [Cloudflare Clef Provider Guide](cloudflare-clef.md)
+- [OpenAI Decisions Provider Guide](openai-decisions.md)
+- [ScaleDown Provider Guide](scaledown.md)
 - [SubQ's Decisions API](https://docs.subq.ai/endpoints/decisions-api/)

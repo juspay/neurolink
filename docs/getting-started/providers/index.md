@@ -456,8 +456,8 @@ Access multiple providers through unified interfaces:
 
 The providers that serve `decide` rather than `generate`/`stream`:
 [TypeSafe](typesafe.md), [Laya](laya.md), [XOR](xor.md),
-[SubQ](subq.md), [Perplexity](perplexity-decider.md), [Cloudflare Clef](cloudflare-clef.md) and
-[OpenAI Decisions](openai-decisions.md). Each returns typed `boolean`/`choice`/`score`
+[SubQ](subq.md), [Perplexity](perplexity-decider.md), [Cloudflare Clef](cloudflare-clef.md),
+[OpenAI Decisions](openai-decisions.md) and [ScaleDown](scaledown.md). Each returns typed `boolean`/`choice`/`score`
 answers and emits no text, so none appears in generation fallback chains or the
 health sweep.
 
@@ -529,7 +529,7 @@ health sweep.
 **Hosted decision provider on Workers AI** — the same typed `boolean`/`choice`/`score` answers as Jev, from Cloudflare's `clef` (27B) and `clef-flash` (9B), at `https://api.cloudflare.com/client/v4`
 
 - 🧭 Serves `decide` only (provider id `cloudflare-clef`, not the Workers AI text provider `cloudflare`); built-in features use it only when it is configured and none of TypeSafe, Laya, XOR, SubQ or Perplexity is — it comes after those five
-- 🔑 `CLOUDFLARE_API_KEY` (Workers AI permission) and `CLOUDFLARE_ACCOUNT_ID` configure it, and they are the same two variables the Cloudflare text provider reads, so a pair set for that provider also lets built-in features use it when no other decision provider is configured
+- 🔑 `CLOUDFLARE_API_KEY` (Workers AI permission) and `CLOUDFLARE_ACCOUNT_ID` configure it, and they are the same two variables the Cloudflare text provider reads, so a pair set for that provider also lets built-in features use it when none of TypeSafe, Laya, XOR, SubQ or Perplexity is configured
 - 🖼️ Takes up to 4 PNG, JPEG or WebP images with a decision; no video
 - 💰 $0.24 per million input tokens for `clef`, $0.09 for `clef-flash`; no output price is listed on Cloudflare's pricing page
 - 📏 **The state window changed in October 2026** (hosted service or model: unknown): until 2026-10-04 the endpoint ignored text past about 2,048 tokens without an error, and on 2026-10-07 it read states of at least 190,153 tokens (`clef-flash`) and 52,154 (`clef`); NeuroLink refuses more than 16,000 estimated tokens (digits count a token each, punctuation 0.75, emoji 3), more than 64 questions in a `decide()` call (`tryDecide()` splits them) and a request over 256,000 bytes, base64 image data included, before any network call. The state cut and the request ceiling were measured on a real account in October 2026, with the follow-up text cuts and API limits checked on both models; see the guide for the tested shapes and dates
@@ -541,14 +541,27 @@ health sweep.
 
 **Hosted decision provider (public beta)** — the same typed `boolean`/`choice`/`score` answers as Jev, from OpenAI's Decisions API (`gpt-6-luna`), at `https://api.openai.com/v1/decisions`
 
-- 🧭 Serves `decide` only (provider id `openai-decisions`, not the OpenAI chat provider `openai`); built-in features use it only when it is configured and none of TypeSafe, Laya, XOR, SubQ, Perplexity or Cloudflare Clef is — it comes last
-- 🔑 `OPENAI_API_KEY` alone configures it, and it is the same key the OpenAI chat provider reads, so a key set for chat also lets built-in features (and a transcription dictionary's correction check) use it, and make paid decision calls, when no other decision provider is configured, unless `OPENAI_BASE_URL`, `OPENAI_API_BASE` or `credentials.openai.baseURL` names a host other than `https://api.openai.com` (the key is then taken to be a gateway's and is not used by default; a call that names the provider still uses it and sends it to `api.openai.com`); the guide lists what each consumer then sends
+- 🧭 Serves `decide` only (provider id `openai-decisions`, not the OpenAI chat provider `openai`); built-in features use it only when it is configured and none of TypeSafe, Laya, XOR, SubQ, Perplexity or Cloudflare Clef is — it comes seventh, ahead of only ScaleDown
+- 🔑 `OPENAI_API_KEY` alone configures it, and it is the same key the OpenAI chat provider reads, so a key set for chat also lets built-in features (and a transcription dictionary's correction check) use it, and make paid decision calls, when none of the six providers ahead of it is configured, unless `OPENAI_BASE_URL`, `OPENAI_API_BASE` or `credentials.openai.baseURL` names a host other than `https://api.openai.com` (the key is then taken to be a gateway's and is not used by default; a call that names the provider still uses it and sends it to `api.openai.com`); the guide lists what each consumer then sends
 - 🖼️ Takes up to 8 images as inline data URLs with a decision (NeuroLink's own allowance, not OpenAI's); no video
 - 💰 $0.10 per million input tokens, input only, per [OpenAI's Decisions guide](https://developers.openai.com/api/docs/guides/decisions) as read on 2026-10-07; regional and long-context multipliers are not modelled
 - 📏 Question and option limits, image formats, rate limits and latency are not established (none measured); NeuroLink reports 922,000 state tokens as an advisory figure and never refuses on it
 - 🔌 Hosted endpoint, so no base URL is needed; `OPENAI_DECISIONS_BASE_URL` (or `credentials.openaiDecisions.baseURL`) can name another origin
 
 [Setup Guide →](openai-decisions.md)
+
+### [ScaleDown](scaledown.md)
+
+**Hosted decision provider** — the same typed `boolean`/`choice`/`score` answers as Jev, from ScaleDown's Classify models (`classify-1` by default), at `https://api.scaledown.xyz/v1/scaledown`
+
+- 🧭 Serves `decide` only (provider id `scaledown`; the alias `scaledown-classify` works too); built-in features use it only when it is configured and none of TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef or OpenAI Decisions is — it comes last, by choice and not because its key is shared
+- 🔑 `SCALEDOWN_API_KEY` alone configures it, and no other provider reads that variable; the key is sent in an `x-api-key` header, never as a Bearer token
+- 🖼️ Text only: images and video are refused before any request, and the state is always sent as a string (a string unchanged, anything else as its JSON text; a blank string is refused locally)
+- 💰 USD 0.05 per million input tokens, output not charged: a list price reported by the marketing session on 2026-10-15, not measured here. A `choice` question is scored once per option, so input tokens grow with options times state length
+- 📏 Context size, latency, rate limits and the option, question and level maximums are not measured; no state window is declared and nothing is refused on size
+- 🔌 Hosted endpoint, so no base URL is needed; `SCALEDOWN_BASE_URL` (or `credentials.scaledown.baseURL`) can name an origin or an origin with a path prefix
+
+[Setup Guide →](scaledown.md)
 
 ## 🧩 Additional Catalog Providers
 

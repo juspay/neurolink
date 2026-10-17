@@ -453,10 +453,15 @@ Cloudflare Clef a request takes at most 64 questions, which `tryDecide()` splits
 into batches of 64 (see [its guide](../getting-started/providers/cloudflare-clef.md#limits));
 OpenAI Decisions declares no question cap, so the request goes whole and what the
 endpoint accepts is not established
-(see [its guide](../getting-started/providers/openai-decisions.md#what-is-not-established)).
-NeuroLink also refuses a state it estimates at more than 16,000 tokens (about
-60,000 characters of prose), so a longer set of eligible messages gets a refusal
-and the stage is skipped, as on any failure.
+(see [its guide](../getting-started/providers/openai-decisions.md#what-is-not-established));
+ScaleDown declares none either, and its maximum is not measured
+(see [its guide](../getting-started/providers/scaledown.md#not-measured)).
+The 16,000-token refusal is Cloudflare Clef's own: NeuroLink refuses a state it
+estimates at more than 16,000 tokens (about 60,000 characters of prose) there, so
+a longer set of eligible messages gets a refusal and the stage is skipped, as on
+any failure. A provider that declares no state limit, ScaleDown included, is sent
+the whole state, which this stage bounds only at 300 messages of at most 1,200
+characters each.
 
 It is **strictly additive**. With no decision provider configured the stage
 does not run, `stagesUsed` omits `relevance`, and the pipeline behaves exactly
