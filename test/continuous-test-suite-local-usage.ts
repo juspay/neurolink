@@ -2724,6 +2724,55 @@ async function testGrokReader(): Promise<void> {
     );
   });
 
+  await test("Grok Build reader applies the delta rule to a re-emitted prompt at the re-emit's position", async () => {
+    // p1 is written, then p2, then p1 again with the run's later ledger. The
+    // re-emit replaces p1's record and belongs after p2, where it continues
+    // the same cumulative run: p2 counts whole and p1 adds only its delta.
+    // Left at p1's first position, the two look like separate runs and both
+    // count whole (550 input, 5 calls).
+    const home = writeGrokFixtureHome([
+      {
+        id: A,
+        lines: [
+          grokCompletedTurn(
+            A,
+            "p1",
+            { input: 100, output: 10, calls: 1, turns: 1, model: "grok-4.6" },
+            1,
+          ),
+          grokCompletedTurn(
+            A,
+            "p2",
+            { input: 250, output: 25, calls: 2, turns: 2, model: "grok-4.6" },
+            2,
+          ),
+          grokCompletedTurn(
+            A,
+            "p1",
+            { input: 300, output: 30, calls: 3, turns: 3, model: "grok-4.6" },
+            3,
+          ),
+        ],
+      },
+    ]);
+    const result = await withHome(home, async () => {
+      const reader = await createLocalUsageReader("grok");
+      return reader.scan({ sinceDays: Infinity });
+    });
+    assert(
+      result.totals.inputTokens === 300,
+      `Grok reader kept a re-emitted prompt at its first position (input ${result.totals.inputTokens}, expected 300)`,
+    );
+    assert(
+      result.totals.outputTokens === 30,
+      `Grok reader mis-summed output around a re-emitted prompt (output ${result.totals.outputTokens}, expected 30)`,
+    );
+    assert(
+      result.totals.requests === 3,
+      `Grok reader miscounted calls around a re-emitted prompt (requests ${result.totals.requests}, expected 3)`,
+    );
+  });
+
   await test("Grok Build reader rejects a usage record that is not the ledger's shape, and reports it", async () => {
     // A completed turn whose `usage` is present but is not the ledger — empty,
     // an array, or the same counters under renamed keys — is what a changed
