@@ -49,6 +49,69 @@ const CATALOG_CONTEXT_WINDOWS: Record<
   ]),
 );
 
+/**
+ * Per-model output-token ceilings for the JSON-catalog providers, derived
+ * from models.catalog[*].maxOutputTokens and keyed by lowercased provider id
+ * and alias. Each provider's map holds every model id as written plus its
+ * lowercased form, so a lookup tries the exact spelling first.
+ *
+ * Deliberately NOT models.defaultMaxOutputTokens: for about 28 catalog
+ * providers (groq, xai, together-ai, fireworks, perplexity, cloudflare,
+ * mistral ...) that is a generic 4096 placeholder (see manifestRegistry.ts),
+ * far below the real ceilings of their models. A model with no recorded
+ * maxOutputTokens has no entry here, so it is never capped by a guess.
+ */
+const CATALOG_OUTPUT_CEILINGS: ReadonlyMap<
+  string,
+  ReadonlyMap<string, number>
+> = new Map(
+  getCatalogJsonEntries().flatMap((entry) => {
+    const ceilings = Object.entries(entry.models.catalog).flatMap(
+      ([modelId, spec]) =>
+        spec.maxOutputTokens !== undefined &&
+        Number.isFinite(spec.maxOutputTokens) &&
+        spec.maxOutputTokens > 0
+          ? [[modelId, spec.maxOutputTokens] as const]
+          : [],
+    );
+    if (ceilings.length === 0) {
+      return [];
+    }
+    // Lowercased spellings go in first so an exact id always overrides a
+    // case-folded one; two ids differing only by case keep the smaller cap.
+    const byModel = new Map<string, number>();
+    for (const [modelId, ceiling] of ceilings) {
+      const folded = modelId.toLowerCase();
+      byModel.set(folded, Math.min(byModel.get(folded) ?? ceiling, ceiling));
+    }
+    for (const [modelId, ceiling] of ceilings) {
+      byModel.set(modelId, ceiling);
+    }
+    return [entry.id, ...entry.aliases].map(
+      (name) => [name.toLowerCase(), byModel] as const,
+    );
+  }),
+);
+
+/**
+ * The output-token ceiling a JSON-catalog provider declares for one model, or
+ * undefined when the provider is not a catalog provider, the model is not
+ * listed, or the listing records no maxOutputTokens for it. Never falls back
+ * to the provider-wide default (see {@link CATALOG_OUTPUT_CEILINGS}).
+ */
+export function getCatalogOutputCeiling(
+  provider: string,
+  model?: string,
+): number | undefined {
+  // getSafeMaxTokens has always tolerated a missing provider, so this lookup
+  // must too (callers outside the typed option normalisers can pass one).
+  if (!model || typeof provider !== "string") {
+    return undefined;
+  }
+  const ceilings = CATALOG_OUTPUT_CEILINGS.get(provider.toLowerCase());
+  return ceilings?.get(model) ?? ceilings?.get(model.toLowerCase());
+}
+
 /** Default context window when provider/model is unknown */
 export const DEFAULT_CONTEXT_WINDOW = 128_000;
 

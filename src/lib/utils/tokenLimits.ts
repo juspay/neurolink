@@ -3,7 +3,10 @@
  * Provides safe maxTokens values based on provider and model capabilities
  */
 
-import { getRuntimeOutputCeiling } from "../constants/contextWindows.js";
+import {
+  getCatalogOutputCeiling,
+  getRuntimeOutputCeiling,
+} from "../constants/contextWindows.js";
 import {
   bedrockModelIdForLookup,
   stripBedrockGeoPrefix,
@@ -93,6 +96,27 @@ export function getSafeMaxTokens(
     PROVIDER_MAX_TOKENS[canonicalProvider as keyof typeof PROVIDER_MAX_TOKENS];
 
   if (!providerLimits) {
+    // A JSON-catalog provider has no PROVIDER_MAX_TOKENS row, but its catalog
+    // entry can declare the model's own output ceiling. Only that per-model
+    // value counts: the provider-wide default is a 4096 placeholder for many
+    // providers. An over-large request is clamped. Unlike the runtime ceiling
+    // above, this ceiling is not injected as a default: an unset request stays
+    // unset, because a ceiling-sized default would shrink usable input on
+    // total-context backends.
+    const catalogCeiling = getCatalogOutputCeiling(provider, model);
+    if (catalogCeiling !== undefined) {
+      if (requestedMaxTokens === undefined || requestedMaxTokens === null) {
+        return undefined;
+      }
+      if (requestedMaxTokens > catalogCeiling) {
+        logger.warn(
+          `Requested maxTokens ${requestedMaxTokens} exceeds the catalog output ceiling ` +
+            `of ${catalogCeiling} for ${provider}/${model}. Using ${catalogCeiling} instead.`,
+        );
+        return catalogCeiling;
+      }
+      return requestedMaxTokens;
+    }
     logger.warn(`Unknown provider ${provider}, no token limits enforced`);
     // Explicit undefined/null check so a caller-supplied 0 is preserved
     // (truthy guard would silently drop 0 here as it does in the restricted branch).
