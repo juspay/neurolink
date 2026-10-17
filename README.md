@@ -909,7 +909,7 @@ const batcher = new RequestBatcher({ maxBatchSize: 10, maxWaitMs: 50 });
 | **Config**    | `.env`, `.ini`, `.toml`, `.cfg`                                                        | Secure parsing                                                      |
 | **Media**     | Images (PNG, JPEG, WebP, GIF), PDFs, CSV                                               | Provider-specific formatting                                        |
 | **Audio**     | `.mp3`, `.wav`, `.m4a`, `.ogg`, `.flac`, `.webm`                                       | Automatic transcription + duration metadata                         |
-| **Video**     | `.mp4`, `.webm`, `.mov`, `.mkv`, `.avi`                                                | Keyframe extraction, metadata, embedded subtitles                   |
+| **Video**     | `.mp4`, `.webm`, `.mov`, `.mkv`, `.avi`                                                | Native to Gemini (up to 14 MB); else keyframes, metadata, subtitles |
 | **Archive**   | `.zip`, `.tar`, `.gz`, `.tgz`, `.bz2`, `.tbz2`, `.jar`, `.xz`, `.txz`, `.zst`, `.tzst` | Entry listing, nested text extraction                               |
 
 ```typescript
@@ -931,8 +931,20 @@ const result = await neurolink.generate({
 ```
 
 Audio and video attach the same way. Audio is transcribed automatically before
-the model sees it; video is reduced to keyframes plus metadata and any embedded
-subtitle track:
+the model sees it. Video takes one of two routes, depending on the provider:
+
+- **Gemini (Google AI Studio and Vertex AI):** the clip itself goes into the
+  request, audio track included, so the model sees the motion and hears the
+  speech. The ceiling is 14 MB of source bytes for the whole request, shared
+  with every other inline image, PDF and audio part. A clip over that, in a
+  container Gemini does not read inline (MKV, for one), or longer than an hour
+  falls back to the keyframe route; `--debug` shows the reason. The clip has to
+  be a local path or a `Buffer`: a URL is fetched for keyframes only, without a
+  warning.
+- **Every other provider:** the video is reduced to timestamped keyframes plus
+  metadata and any embedded subtitle track. Add `--transcribe-audio`
+  (`videoOptions.transcribeAudio`) to include a transcript of the speech. Leave
+  it off for Gemini, which hears the clip itself.
 
 ```typescript
 const result = await neurolink.generate({
@@ -940,9 +952,15 @@ const result = await neurolink.generate({
     text: "What was decided in this meeting, and who owns each action item?",
     files: [
       "./standup.mp3", // transcribed, then folded into the prompt
-      "./demo.mp4", // keyframes + duration/codec metadata + subtitles
+      "./demo.mp4", // whole clip on Gemini; keyframes + metadata + subtitles elsewhere
       "./deck.pptx", // slides and speaker notes
     ],
+  },
+  // Keyframe knobs; the clip itself is sent unchanged on Gemini.
+  videoOptions: {
+    frames: 16,
+    quality: 90,
+    format: "jpeg",
   },
 });
 ```
@@ -950,12 +968,19 @@ const result = await neurolink.generate({
 ```bash
 # Same thing from the CLI
 neurolink generate "Summarize this recording" --file ./standup.mp3
-neurolink generate "Describe what happens" --file ./demo.mp4
+neurolink generate "Describe what happens" --file ./demo.mp4 --provider google-ai
+
+# --video is the explicit flag; the others tune keyframes and the transcript
+neurolink generate "What is said, and what is shown?" --video ./demo.mp4 \
+  --provider openai --video-frames 16 --video-quality 90 --transcribe-audio
 ```
 
-> Audio transcription needs a provider with a speech model configured (OpenAI
-> Whisper by default). Video keyframe extraction requires `ffmpeg` — install it
-> separately or rely on the bundled `ffmpeg-static`.
+> Transcription runs on whichever speech-to-text engine is configured: OpenAI
+> Whisper when `OPENAI_API_KEY` is set, another hosted engine, or the built-in
+> local one (see the [transcribe guide](docs/features/transcribe.md)).
+> Keyframe extraction and `--transcribe-audio` need `ffmpeg`, from the optional
+> `ffmpeg-static` dependency or your `PATH`. Native Gemini delivery does not.
+> Full reference: **[Video Analysis guide](docs/features/video-analysis.md)**.
 
 **Key Features:**
 

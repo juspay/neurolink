@@ -1,17 +1,33 @@
 /**
- * Critical Video Logic Audit with Gemini 2.0 Flash
+ * Video Logic Audit with Gemini
  *
- * This example demonstrates how to use NeuroLink to perform deep logical audits
- * of video sequences. It focuses on the "Action-Reaction Chain" and identifying
- * silent failures or logical inconsistencies.
+ * This example attaches a screen recording and asks Gemini for a logical audit
+ * of it: the "Action-Reaction Chain" and any silent failures or logical
+ * inconsistencies. The audit framing comes from the prompts below; the SDK
+ * does not add one of its own.
  *
- * The SDK automatically:
- * 1. Extracts high-quality keyframes at calculated intervals.
- * 2. Applies a specialized "Critical Logic Auditor" persona to the model.
- * 3. Returns a detailed text-based report in result.content.
+ * What the SDK does with the video:
+ * 1. Reads its metadata (duration, resolution, codecs) and any embedded
+ *    subtitle track, and puts them in the prompt.
+ * 2. Extracts timestamped keyframes with ffmpeg and attaches them as images.
+ *    ffmpeg is optional; without it there are no frames.
+ * 3. Sends the clip itself, audio track included, to Gemini as inline data.
+ *    That needs no ffmpeg, but the clip must be in a container Gemini reads
+ *    inline (MP4 and MOV are), run 3600 s or less, and fit the 14 MB budget
+ *    that the whole request shares with its other inline images, PDFs and
+ *    audio. Otherwise the model gets the keyframes alone, and --debug (or
+ *    NEUROLINK_DEBUG=true) shows why.
+ * 4. Returns the model's answer as text in result.content.
+ *
+ * Tuning the keyframes and adding a speech transcript, for providers that
+ * cannot take a clip, is done with videoOptions { frames, quality, format,
+ * transcribeAudio } (CLI: --video-frames, --video-quality, --video-format,
+ * --transcribe-audio). None of the calls below set it. See
+ * docs/features/video-analysis.md.
  *
  * Setup:
- *   export GOOGLE_VERTEX_PROJECT="your-project-id"
+ *   export GOOGLE_VERTEX_PROJECT="your-project-id"   # provider: "vertex"
+ *   export GOOGLE_AI_API_KEY="your-api-key"          # provider: "google-ai"
  *
  * Usage:
  *   npx tsx examples/video-analysis.ts
@@ -23,7 +39,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 async function main() {
-  console.log("🎥 NeuroLink: Critical Video Logic Audit\n");
+  console.log("🎥 NeuroLink: Video Logic Audit with Gemini\n");
 
   // Check for video file
   const VIDEO_PATH = path.resolve(
@@ -53,7 +69,7 @@ async function main() {
         files: [VIDEO_PATH],
       },
       provider: "vertex",
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       maxTokens: 4000,
       disableTools: true,
     });
@@ -73,7 +89,7 @@ async function main() {
         files: [fs.readFileSync(VIDEO_PATH)], // Passing as Buffer
       },
       provider: "google-ai", // Demonstration of Google AI Studio provider
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       disableTools: true,
     });
 
@@ -92,7 +108,7 @@ async function main() {
         files: [VIDEO_PATH],
       },
       provider: "vertex",
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       temperature: 0.2, // Lower temperature for consistent analysis
       disableTools: true,
     });
@@ -112,7 +128,7 @@ async function main() {
         files: [VIDEO_PATH],
       },
       provider: "google-ai",
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       maxTokens: 3500,
       disableTools: true,
     });
@@ -132,7 +148,7 @@ async function main() {
         files: [VIDEO_PATH],
       },
       provider: "google-ai",
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       disableTools: true,
     });
 
@@ -151,7 +167,7 @@ async function main() {
         files: [VIDEO_PATH],
       },
       provider: "vertex",
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       disableTools: true,
     });
 

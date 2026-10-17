@@ -468,7 +468,7 @@ const result = await neurolink.generate({
 
 ### Frame-extraction options
 
-These control the keyframes and are ignored by a provider on the native path.
+`frames`, `quality` and `format` control the keyframes and do not change a clip sent natively. `transcribeAudio` does not look at the provider: on Gemini it still adds a transcript next to the audio the model hears, so set it for frame-path providers only.
 
 ```typescript
 const result = await neurolink.generate({
@@ -478,15 +478,15 @@ const result = await neurolink.generate({
     frames: 16, // Keyframe budget. Clamped to the processor ceiling of 100.
     quality: 90, // Encoder quality 1-100. Default 80.
     format: "jpeg", // "jpeg" | "png". Default jpeg.
-    // Transcribe the clip's speech with OpenAI Whisper and include it as
-    // text. Needs ffmpeg and OPENAI_API_KEY; see below.
+    // Transcribe the clip's speech and include it as text. Needs ffmpeg
+    // and a speech-to-text engine; see below.
     transcribeAudio: true,
   },
 });
 ```
 
 Without an explicit `frames`, the interval is chosen from the clip's duration
-— roughly every second for clips under 10s, widening to every three minutes
+— roughly every second for clips under 10s, widening to one frame a minute
 for recordings over half an hour, always capped at 100 frames.
 
 ### CLI usage
@@ -505,16 +505,17 @@ neurolink generate "Describe each scene" --file demo.mp4 \
 
 `--transcribe-audio` (or `videoOptions.transcribeAudio`) gives a frame-path
 provider the clip's speech, which keyframes cannot carry. The audio track is
-extracted with ffmpeg, transcribed by OpenAI Whisper (`whisper-1`, using
-`OPENAI_API_KEY`, and `OPENAI_BASE_URL` when set), and sent alongside the
-keyframes under a `Spoken Audio (transcribed)` heading. Transcription is
-additive: when it cannot run — the clip has no audio track, `OPENAI_API_KEY` is
-unset, the extracted audio is over Whisper's 25 MB limit, or extraction or the
-upload fails — the request still succeeds with the keyframes and metadata, and a
-`No transcript for <file>: <reason>` warning says which. A Gemini provider does
-not need it while the clip is delivered natively, since that includes the audio
-track; a clip that falls back to keyframes (over the inline ceiling) loses its
-speech unless `--transcribe-audio` is set.
+extracted with ffmpeg, transcribed by the configured speech-to-text engine
+(the same selection as `neurolink.transcribe()`; see the
+[transcribe guide](../features/transcribe.md)), and sent alongside the keyframes under a
+`Spoken Audio (transcribed)` heading. Transcription is additive: when it cannot
+run — the clip has no audio track, the speech-to-text backend is not
+configured, the extracted audio is over the 25 MB limit, or extraction or the
+transcription request fails — the request still succeeds with the keyframes and
+metadata, and a `No transcript for <file>: <reason>` warning says which. A
+Gemini provider does not need it while the clip is delivered natively, since
+that includes the audio track; a clip that falls back to keyframes (over the
+inline ceiling) loses its speech unless `--transcribe-audio` is set.
 
 Embedded **subtitle tracks** are extracted separately and included whenever
 they exist, with or without `transcribeAudio`.
@@ -555,13 +556,13 @@ estimateVideoTokens({ provider: "openai", durationSec: 60, frameCount: 8 }); // 
 
 ### Troubleshooting
 
-| Symptom                                             | Cause                                                                                                                         | Fix                                                                    |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Model describes the file but not its content        | No keyframes extracted — ffmpeg missing — and the provider takes frames                                                       | Install ffmpeg, or use a Gemini provider, which needs none             |
-| `Sending keyframes instead of the clip` in the logs | The clip failed the inline gate; the reason is on the same line                                                               | Shorten or re-encode it, or accept the frames                          |
-| Model cannot hear speech on a Gemini provider       | The clip exceeded the inline ceiling and fell back to frames                                                                  | Get the source under 14 MB, or pass `--transcribe-audio`               |
-| `--transcribe-audio` produced no transcript         | The `No transcript for` warning names the reason: no audio track, `OPENAI_API_KEY` unset, or audio over Whisper's 25 MB limit | Set `OPENAI_API_KEY`, or split the recording                           |
-| Only the first seconds of a long clip are described | The frame budget was hit before the end                                                                                       | Raise `frames`; the interval then spreads evenly across the whole clip |
+| Symptom                                             | Cause                                                                                                                       | Fix                                                                    |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Model describes the file but not its content        | No keyframes extracted — ffmpeg missing — and the provider takes frames                                                     | Install ffmpeg, or use a Gemini provider, which needs none             |
+| `Sending keyframes instead of the clip` in the logs | The clip failed the inline gate; the reason is on the same line                                                             | Shorten or re-encode it, or accept the frames                          |
+| Model cannot hear speech on a Gemini provider       | The clip exceeded the inline ceiling and fell back to frames                                                                | Get the source under 14 MB, or pass `--transcribe-audio`               |
+| `--transcribe-audio` produced no transcript         | The `No transcript for` warning names the reason: no audio track, no speech-to-text backend configured, or audio over 25 MB | Configure an engine (see the transcribe guide), or split the recording |
+| Only the first seconds of a long clip are described | The frame budget was hit before the end                                                                                     | Raise `frames`; the interval then spreads evenly across the whole clip |
 
 ---
 

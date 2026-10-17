@@ -119,7 +119,7 @@ console.log(result.content);
 | **Video** | `.mp4`, `.mkv`, `.webm`, `.avi`, `.mov`, `.m4v`         | `VideoProcessor` | Duration, resolution, codec, frame rate, bitrate extraction via `music-metadata` |
 | **Audio** | `.mp3`, `.wav`, `.ogg`, `.flac`, `.aac`, `.m4a`, `.wma` | `AudioProcessor` | Codec, bitrate, sample rate, channels, duration extraction via `music-metadata`  |
 
-Video and audio files are **not** sent as binary to the AI provider. Instead, the processors extract structured metadata and return it as formatted text, keeping token usage minimal (~50-200 tokens per file).
+For most providers, audio and video files are not sent as binary. Instead, the processor extracts structured metadata and returns it as formatted text, keeping token usage minimal (~50-200 tokens per file). Video files produce that same metadata text and also bring timestamped keyframes and any embedded subtitles. The Gemini providers additionally receive the audio file itself and the video clip itself (a clip qualifies up to 14 MB of source bytes for the whole request); see the [Video Analysis guide](../features/video-analysis.md).
 
 **Example video output:**
 
