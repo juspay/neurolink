@@ -12,9 +12,10 @@ That file is the source of truth for everything on this page.
 
 > **Verification status:** this entry is **docs-verified only, not yet
 > live-verified.** Reka's `GET https://api.reka.ai/v1/models` needs a key (it
-> answers HTTP 401 without one), so the three model ids come from Reka's public
+> answers HTTP 401 without one), so the four model ids come from Reka's public
 > docs ([Models page](https://docs.reka.ai/chat/models.md), retrieved
-> 2026-09-29) and the roster has not been checked. No account was created, no
+> 2026-09-29 for the first three and 2026-10-17 for `reka-flash-3`) and the
+> roster has not been checked. No account was created, no
 > API key was used and no POST request was sent to build it.
 > `evidence.liveMatrix` is `null` until someone runs the live capability matrix
 > with a real key (see [Verification status](#verification-status) below).
@@ -29,15 +30,24 @@ That file is the source of truth for everything on this page.
   OpenAI-compatible"
 - **Base URL**: `https://api.reka.ai/v1`
 - **Default model**: `reka-flash`
-- **Models in catalog**: 3 — the ids on the Models page (`reka-flash`,
-  `reka-edge`, `reka-edge-2603`)
+- **Models in catalog**: 4 — `reka-flash`, `reka-edge` and `reka-edge-2603`
+  from the Models page as first read, plus `reka-flash-3` from the Models page
+  as read on 2026-10-17
 - **Streaming**: supported — the
   [Chat overview](https://docs.reka.ai/chat/overview.md) says "The Chat API
   supports streaming"
-- **Tool calling**: `model-dependent` — the
-  [Function Calling page](https://docs.reka.ai/chat/function-calling.md)
-  documents the `tools` parameter and `tool_calls`, and says "Currently, only
-  Reka Flash supports function calling."
+- **Tool calling**: `model-dependent` — the table on the
+  [Models page](https://docs.reka.ai/chat/models.md) (retrieved 2026-10-17) has a
+  "Tools" column that is Yes for `reka-edge-2603` and No for `reka-flash-3`,
+  and the Tools section of the
+  [Chat overview](https://docs.reka.ai/chat/overview.md) (the Function Calling
+  page now redirects there) says "Models that list `tools` in their
+  `supported_features` accept OpenAI-format `tools` and `tool_choice`." So
+  `reka-edge-2603` and its alias `reka-edge` are marked `tools: true` and
+  `reka-flash-3` is `tools: false`. `reka-flash` keeps `tools: true` from the
+  sentence "Currently, only Reka Flash supports function calling." (retrieved
+  2026-09-29), which the current pages no longer carry, so that entry is
+  unconfirmed
 - **Tools while streaming**: not declared (`false`) — no request combining them
   was sent
 - **Structured output**: not declared (`false`) — the ChatRequest on the
@@ -50,7 +60,9 @@ That file is the source of truth for everything on this page.
 - **Embeddings**: not declared
 - **Thinking**: not declared
 - **Vision**: `reka-flash`, `reka-edge` and `reka-edge-2603` are marked
-  `vision: true` from the vendor's image examples (see [Models](#models))
+  `vision: true` from the vendor's image examples and Models table;
+  `reka-flash-3` is `vision: false` because the Models table lists its input as
+  text only (see [Models](#models))
 - **Billing**: `billingPolicy` holds `free-tier`, one of the three values the
   catalog schema allows — the vendor wording is quoted in
   [Billing](#billing) below
@@ -131,18 +143,23 @@ allows (`free-tier`, `free-with-card`, `no-free-tier`).
 
 ## Models
 
-| Model            | Context | Vision | $/M in · out  | Notes                                                                                                                                                                                                         |
-| ---------------- | ------- | ------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `reka-flash` ⭐  | —       | yes    | $0.80 / $2.00 | NeuroLink default. Named in the code examples of the Chat overview, Function Calling and Chat API reference pages; the pricing page describes "Reka Flash" as "Fast and cost-efficient model for most tasks". |
-| `reka-edge`      | —       | yes    | $0.10 / $0.10 | Listed as "reka-edge (or reka-edge-2603)" on the Models page and the Quickstart; the pricing page describes "Reka Edge" as "Compact model ideal for on-device execution". Fallback.                           |
-| `reka-edge-2603` | —       | yes    | $0.10 / $0.10 | Named in the same table row as `reka-edge`; the Models page shows it in the example output of `GET /v1/models`. Vision and prices are those of the `reka-edge` row.                                           |
+| Model            | Context | Vision | $/M in · out  | Notes                                                                                                                                                                                                           |
+| ---------------- | ------- | ------ | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reka-flash` ⭐  | —       | yes    | $0.80 / $2.00 | NeuroLink default. Named in the code examples of the Chat overview, Function Calling and Chat API reference pages; the pricing page describes "Reka Flash" as "Fast and cost-efficient model for most tasks".   |
+| `reka-edge`      | —       | yes    | $0.10 / $0.10 | Listed as "reka-edge (or reka-edge-2603)" on the Models page and the Quickstart (2026-09-29); the pricing page describes "Reka Edge" as "Compact model ideal for on-device execution". Fallback.                |
+| `reka-edge-2603` | —       | yes    | $0.10 / $0.10 | Named in the same table row as `reka-edge`; the Models page (2026-10-17) lists it with Tools = Yes, and shows it in the example output of `GET /v1/models`. Vision and prices are those of the `reka-edge` row. |
+| `reka-flash-3`   | —       | no     | $0.10 / $0.20 | On the Models page (2026-10-17) with input "Text" and Tools = No, so NeuroLink never sends it a `tools` array. Prices are from its card at https://developer.reka.ai/models.                                    |
 
-Model ids come from https://docs.reka.ai/chat/models.md, which says "Our baseline
-models always available for public access are:" and lists `reka-flash` and
-`reka-edge (or reka-edge-2603)`. Prices come from https://docs.reka.ai/pricing.md
-("Input Tokens (per 1M)" and "Output Tokens (per 1M)" columns, rows named "Reka
-Flash" and "Reka Edge"); the Models page says "For full listing of models and
-pricing, see the Reka API Pricing page".
+Model ids come from https://docs.reka.ai/chat/models.md. As read on 2026-09-29
+it said "Our baseline models always available for public access are:" and
+listed `reka-flash` and `reka-edge (or reka-edge-2603)`; prices for those came
+from https://docs.reka.ai/pricing.md ("Input Tokens (per 1M)" and "Output
+Tokens (per 1M)" columns, rows named "Reka Flash" and "Reka Edge"). As read on
+2026-10-17 the table lists `reka-edge-2603` and `reka-flash-3` (among other
+models) and no longer names `reka-flash` or `reka-edge`, and it says
+"`GET /v1/models` is the authoritative list". Whether the API still serves the
+two bare ids is not confirmed; it needs a key. The prices of `reka-flash-3`
+are those shown on its card at https://developer.reka.ai/models.
 
 **Vision:** the first curl example on https://docs.reka.ai/overview.md sends an
 `image_url` content part to `reka-flash`, and the Quickstart's "First request"
@@ -185,7 +202,7 @@ currently records for Reka AI — **docs-verified only, not live-verified**:
 | Billing                   | https://docs.reka.ai/pricing.md says "Get started with no upfront costs."; the FAQ answers "Do I need to pre-pay?" with "Yes. Add credits to your account before making requests."; https://platform.reka.ai/pricing has a "Start for free" link and the text "Free credits used"; no signup was performed                     |
 | Sign-up page              | on 2026-09-29 an unauthenticated GET of https://platform.reka.ai/ answered HTTP 404, while GET https://platform.reka.ai/sign-up and https://platform.reka.ai/pricing answered HTTP 200; `setup.url` is the sign-up page                                                                                                        |
 | Auth header               | the vendor's REST examples and OpenAPI file use `X-Api-Key`; the OpenAI Python SDK examples pass `api_key=` to the client. NeuroLink's Tier-2 client uses Bearer authentication, and no authenticated request could be made to exercise it                                                                                     |
-| Tools / structured output | function calling is documented on https://docs.reka.ai/chat/function-calling.md; neither tools nor structured output was exercised live, and no combined tools+schema request was sent — `structuredOutputWithTools` stays `false`                                                                                             |
+| Tools / structured output | tool support per model comes from https://docs.reka.ai/chat/models.md and https://docs.reka.ai/chat/overview.md (retrieved 2026-10-17); neither tools nor structured output was exercised live, and no combined tools+schema request was sent — `structuredOutputWithTools` stays `false`                                      |
 | Live capability sweep     | **not run.** `evidence.liveMatrix` is `null`. The command is `npx tsx test/continuous-test-suite-provider-matrix.ts --provider=reka`, which needs a real key.                                                                                                                                                                  |
 
 Do not treat this entry as equivalent to a live-verified Tier-2 provider

@@ -82,7 +82,7 @@ Omit a number rather than invent one. Optional refinements:
 | `topModels`            | The CLI picker should show a curated ordered subset                                                                                                    |
 | `visionModel`          | Vision tests need a specific model (the default is text-only)                                                                                          |
 | `testModel`            | The catalog default is retired/gated on the testing account                                                                                            |
-| `tools` (per model)    | `capabilities.tools` is `"model-dependent"` and the vendor's own docs say which served models actually accept tool definitions (Reka: only reka-flash) |
+| `tools` (per model)    | `capabilities.tools` is `"model-dependent"` and the vendor's own docs say which served models actually accept tool definitions (Reka: flash-3 doesn't) |
 
 `testModel` is matrix-only — it never changes the runtime default. Reach
 for it when a vendor retires the model your catalog documents (Groq purged
