@@ -627,8 +627,9 @@ pnpm run test:mcp         # MCP infrastructure (no-API; mcp-infra.ts)
 pnpm run test:mcp:http    # HTTP-transport suite (mcp-http.ts) — live
 pnpm run test:mcp:sdk     # Live SDK MCP enhancements (mcp-sdk.ts)
 pnpm run test:mcp:cli     # Live CLI MCP suite (mcp-cli.ts)
+pnpm run test:mcp:registry # MCPRegistryClient remote lookup vs a local mock registry (mcp-registry.ts) — no API
 pnpm run test:mcp:spans   # Issue#5 span attributes (mcp-spans.ts) — no API
-pnpm run test:mcp:full    # All five mcp-* suites in dependency order
+pnpm run test:mcp:full    # All mcp-* suites in dependency order
 pnpm run test:rag         # RAG suite
 pnpm run test:skills      # Native skills suite (mostly no-API; live test skips without keys)
 pnpm run test:providers   # Provider-specific feature tests

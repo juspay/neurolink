@@ -1832,7 +1832,9 @@ import type {
 
 ## MCP Registry Client
 
-Discover MCP servers from registries, including a built-in catalog of well-known servers. Search by category, tags, transport type, and verification status.
+Discover MCP servers from a built-in catalog of well-known servers and, when you opt in, from the official MCP Registry or a registry of your own. Search by category, tags, transport type, and verification status.
+
+By default the client reads only the built-in catalog and the custom entries you add, and it never makes a network request. [Remote lookup](#remote-lookup-opt-in) is off until you turn it on.
 
 ### Usage
 
@@ -1896,26 +1898,76 @@ client.addCustomEntry({
 });
 ```
 
+### Remote lookup (opt-in)
+
+Set `remoteLookup: true` to let the client consult the registries in `registries`. The default list is the official MCP Registry at `https://registry.modelcontextprotocol.io`; add your own with `{ type: "custom", url }` or `addRegistry()`. A custom registry must serve the same `/v0.1` API as the official one (`GET /v0.1/servers` and `GET /v0.1/servers/{name}/versions/latest`, see the [registry API reference](https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/openapi.yaml)); `url` is its base URL.
+
+```typescript
+import { MCPRegistryClient } from "@juspay/neurolink";
+
+const client = new MCPRegistryClient({
+  remoteLookup: true,
+  timeout: 5000, // per request, in ms (default 10000)
+  userAgent: "my-app/1.0", // sent on every registry request
+  registries: [
+    { type: "official" },
+    {
+      type: "custom",
+      url: "https://registry.example.com",
+      authToken: process.env.REGISTRY_TOKEN, // sent as a Bearer token to this registry only
+      timeout: 2000, // overrides the client-wide timeout
+      cacheTTL: 600000, // overrides defaultCacheTTL
+    },
+  ],
+});
+
+// Local catalog and custom entries are checked first, then each registry
+const entry = await client.getEntry("io.github.example/my-server");
+if (entry) {
+  console.log(entry.verified); // always false for a remote entry
+  console.log(client.getInstallCommand(entry)); // npx -y <package>@<version>
+}
+
+// search() and getAllEntries() list local entries first, then remote ones
+const results = await client.search({ query: "io.github.example" });
+```
+
+What to expect:
+
+- **Opt-in.** With `remoteLookup` unset or `false`, no registry is contacted, whatever `registries` contains. A client you did not construct, such as the one from `neurolink.getMCPRegistryClient()`, can be switched with `client.setRemoteLookup(true)`.
+- **When a registry is queried.** `getEntry(id)` asks the registries only after the custom entries and the built-in catalog miss. `search()` and `getAllEntries()` merge each registry's servers after the local ones; an id that exists locally is never replaced by a remote entry. `search({ query })` passes the query to the registry, which matches it against the server _name_ (a substring match), so a word that appears only in a remote server's description is not found.
+- **Remote entries are unverified.** They carry `verified: false`, so `verifiedOnly` never returns them. The registry publishes whatever its authors submit; review a server before running its `command` and `args`.
+- **Ids differ from the built-in slugs.** The official registry names servers in reverse-DNS form, such as `io.github.example/my-server`. Built-in slugs like `filesystem` are not aliased to them.
+- **What is mapped.** An `npm` package becomes `npmPackage`, `command: "npx"` and `args: ["-y", "<package>@<version>"]`, with its required environment variables in `requiredEnvVars`. Other package types (for example `pypi` or `oci`) and remote URLs are listed under `entry.metadata.packages` and `entry.metadata.remotes`; no `command` is set for them.
+- **Package names are validated, not just typed.** A registry is untrusted input, so the client sets `command`, `args`, `npmPackage` and `installCommand` only when the npm `identifier` is a valid package name (optional `@scope/`, lowercase letters, digits and `._~-`, never a leading dash) and the `version` starts with a letter or digit and contains only `0-9A-Za-z.+_~-`. A package that fails either check (for example `--call=...` or a name containing a space or `;`) is listed under `entry.metadata.packages` only, and the entry has no `command`. Review any server before running it, whichever registry it came from.
+- **Failure never throws.** A timeout, a refused connection, a non-2xx status (other than 404, which is a normal miss), a body that is not JSON or not shaped like a registry response all fall back to the local result. The client emits a `registryError` event (`{ registry, operation, message }`, never the token) and does not cache the failure, so the next call tries again.
+- **Limits.** Each request is bounded by `timeout`, and a response larger than 8 MiB is rejected as a failure. A list is read up to `maxPages` pages of 100 servers per registry (default 5), so a very large registry is merged partially. Responses are cached per registry for `cacheTTL` (or `defaultCacheTTL`). `enableCache: false` on the client turns caching off for every registry; on a registry it turns it off for that registry only. A 404 is not cached.
+- **Ids.** `getEntry("")`, `getEntry(".")` and `getEntry("..")` are a miss without a request, because URL normalisation would turn them into a different registry endpoint.
+- **Registry types.** Only `official` and `custom` registries are queried. `npm` and `github` entries are accepted in `registries` for compatibility but skipped, as are `custom` entries without a URL, and URLs that are not `http(s)` or that embed credentials.
+- **Bearer tokens need https.** A registry with an `authToken` is queried only over `https:` or on a loopback host (`localhost`, `127.0.0.0/8`, `[::1]`). A plain `http:` URL to any other host is skipped, so the token never crosses the network in clear.
+- **Network stack.** Requests use Node's global `fetch` directly, not NeuroLink's proxy-aware provider fetch, so `HTTP_PROXY`/`HTTPS_PROXY` apply only if your Node runtime is set up to apply them to `fetch`.
+
 ### Methods
 
-| Method                        | Description                         |
-| ----------------------------- | ----------------------------------- |
-| `search(options)`             | Search for servers with filters     |
-| `getByCategory(category)`     | Browse servers by category          |
-| `getByTag(tag)`               | Filter entries by tag               |
-| `getCategories()`             | Get all available categories        |
-| `getTags()`                   | Get all available tags              |
-| `getEntry(id)`                | Get a specific registry entry       |
-| `getAllEntries()`             | Get all entries from all registries |
-| `addCustomEntry(entry)`       | Add a custom registry entry         |
-| `removeCustomEntry(id)`       | Remove a custom entry               |
-| `addRegistry(config)`         | Add a custom registry source        |
-| `getPopularServers(limit?)`   | Get popular servers                 |
-| `getVerifiedServers()`        | Get verified servers                |
-| `getStatistics()`             | Get registry statistics             |
-| `toServerInfo(entry)`         | Convert entry to `MCPServerInfo`    |
-| `getInstallCommand(entry)`    | Get install command for an entry    |
-| `checkRequiredEnvVars(entry)` | Check if required env vars are set  |
+| Method                        | Description                                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------------------------- |
+| `search(options)`             | Search for servers with filters; includes remote servers when remote lookup is on           |
+| `getByCategory(category)`     | Browse servers by category                                                                  |
+| `getByTag(tag)`               | Filter entries by tag                                                                       |
+| `getCategories()`             | Get all available categories                                                                |
+| `getTags()`                   | Get all available tags                                                                      |
+| `getEntry(id)`                | Get a specific registry entry; asks the registries on a local miss when remote lookup is on |
+| `getAllEntries()`             | Get local entries, plus every configured registry's servers when remote lookup is on        |
+| `addCustomEntry(entry)`       | Add a custom registry entry                                                                 |
+| `removeCustomEntry(id)`       | Remove a custom entry                                                                       |
+| `addRegistry(config)`         | Add a registry source (queried only when remote lookup is on)                               |
+| `setRemoteLookup(enabled)`    | Turn remote lookup on or off at runtime                                                     |
+| `getPopularServers(limit?)`   | Get popular servers                                                                         |
+| `getVerifiedServers()`        | Get verified servers                                                                        |
+| `getStatistics()`             | Get registry statistics                                                                     |
+| `toServerInfo(entry)`         | Convert entry to `MCPServerInfo`                                                            |
+| `getInstallCommand(entry)`    | Get install command for an entry                                                            |
+| `checkRequiredEnvVars(entry)` | Check if required env vars are set                                                          |
 
 ### Well-Known Servers
 

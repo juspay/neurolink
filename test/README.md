@@ -45,11 +45,11 @@ pnpm exec tsx test/continuous-test-suite-<name>.ts [--provider=vertex] [--model=
 
 ## 2. Tiers
 
-| Tier               | Frequency         | Suites                                                                                                                                                                                                                                   | Cost                  |
-| ------------------ | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
-| **`test:unit`**    | local only        | `bugfixes`, `mcp:infra`, `mcp:spans`, `tool-routing`, `tool-routing-cli`, `tool-dedup`, `model-pool`, `tool-routing-semantic`, `mcp-result-cache`, `archive:security`, `office:security`, the three `vector-*` stores, `provider-wiring` | $0                    |
-| **`test:live`**    | when keys present | `providers`, `mcp:http`, `mcp:sdk`, `mcp:cli`, `observability`, `context`, `memory`, `tool-reliability`, `evaluation`, `autoresearch`, `model-not-found-retryable`                                                                       | small per-call        |
-| **`test:product`** | release gate      | `media` (image+video), `tts`, `ppt`, `proxy`                                                                                                                                                                                             | metered (image/video) |
+| Tier               | Frequency         | Suites                                                                                                                                                                                                                                                   | Cost                  |
+| ------------------ | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **`test:unit`**    | local only        | `bugfixes`, `mcp:infra`, `mcp:registry`, `mcp:spans`, `tool-routing`, `tool-routing-cli`, `tool-dedup`, `model-pool`, `tool-routing-semantic`, `mcp-result-cache`, `archive:security`, `office:security`, the three `vector-*` stores, `provider-wiring` | $0                    |
+| **`test:live`**    | when keys present | `providers`, `mcp:http`, `mcp:sdk`, `mcp:cli`, `observability`, `context`, `memory`, `tool-reliability`, `evaluation`, `autoresearch`, `model-not-found-retryable`                                                                                       | small per-call        |
+| **`test:product`** | release gate      | `media` (image+video), `tts`, `ppt`, `proxy`                                                                                                                                                                                                             | metered (image/video) |
 
 **What CI actually runs.** Not `test:unit`. Two required jobs in
 `.github/workflows/ci.yml` cover this directory, and both are sharded behind an
@@ -76,10 +76,12 @@ push latency, and `provider-safety-net` already gates it on every PR.
 Everything else in this directory runs when someone runs it, so a suite you
 add here is not automatically a gate.
 
-The MCP family (`mcp:*`) is split across five files: `mcp:infra` (no-API
-classes), `mcp:spans` (tracing-attribute regression), `mcp:sdk` (live SDK
-calls), `mcp:cli` (live CLI subprocess), `mcp:http` (HTTP transport). The
-`test:mcp:full` chain runs all five in dependency order.
+The MCP family (`mcp:*`) is split across several files: `mcp:infra` (no-API
+classes), `mcp:registry` (registry client remote lookup against a local mock
+registry), `mcp:spans` (tracing-attribute regression), `mcp:sdk` (live SDK
+calls), `mcp:cli` (live CLI subprocess), `mcp:http` (HTTP transport), plus
+`mcp:stdio-lifecycle` and `mcp:min-tools-readiness`. The `test:mcp:full`
+chain runs them in dependency order.
 
 `autoresearch` is bundled with `test:live` because its live half hits
 real providers; the e2e half checks `HAS_PROVIDER` and skips cleanly
@@ -89,7 +91,7 @@ without provider keys, but it is not invoked from `test:unit`. The separate
 ## 3. Suite map
 
 ```
-unit     bugfixes, mcp:infra, mcp:spans, tool-routing, tool-routing-cli,
+unit     bugfixes, mcp:infra, mcp:registry, mcp:spans, tool-routing, tool-routing-cli,
          tool-dedup, model-pool, tool-routing-semantic, mcp-result-cache,
          archive:security, office:security,
          vector-chroma / vector-pgvector / vector-pinecone, provider-wiring
@@ -128,6 +130,7 @@ continuous-test-suite-hitl.ts                (human-in-the-loop workflow)
 continuous-test-suite-mcp-cli.ts             (Part 4/4b — CLI live)
 continuous-test-suite-mcp-http.ts            (HTTP transport)
 continuous-test-suite-mcp-infra.ts           (Part 1/1b/1c — infrastructure, no API)
+continuous-test-suite-mcp-registry.ts        (registry client remote lookup, local mock registry, no API)
 continuous-test-suite-mcp-sdk.ts             (Part 2/3/3b/3c — SDK live)
 continuous-test-suite-mcp-spans.ts           (Part 6 — issue-05 spans)
 continuous-test-suite-media-gen.ts
