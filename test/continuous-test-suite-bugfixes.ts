@@ -70,6 +70,11 @@ import {
   dedupeColumnNames,
 } from "../src/lib/utils/csvProcessor.js";
 import { htmlToMarkdown } from "../src/lib/utils/htmlToMarkdown.js";
+import {
+  sanitizeSvgContent,
+  sanitizeSvgContentDetailed,
+  isSvgContentSafe,
+} from "../src/lib/utils/sanitizers/svg.js";
 import { getProviderSetupMessage } from "../src/lib/utils/providerSetupMessages.js";
 import { formatMediaDuration } from "../src/lib/utils/mediaDuration.js";
 import { decodeBuffer } from "../src/lib/utils/textEncoding.js";
@@ -12324,6 +12329,104 @@ exit 127
         message.includes(
           `ANTHROPIC_MODEL="${AnthropicModels.CLAUDE_SONNET_4_6}"`,
         ) && !message.includes(AnthropicModels.CLAUDE_3_5_SONNET)
+      );
+    },
+  },
+
+  {
+    name: "svg.sanitize: reject case-insensitive DOCTYPE declarations (XXE)",
+    category: "svg-sanitization",
+    fn: async () => {
+      const doctypes = [
+        "<!DOCTYPE svg>",
+        "<!doctype svg>",
+        "<!DocType svg>",
+        "<!  DOCTYPE svg>",
+        "<!\nDOCTYPE svg>",
+      ];
+      for (const dt of doctypes) {
+        const payload = `<svg>${dt}<rect fill="red"/></svg>`;
+        if (isSvgContentSafe(payload)) {
+          return false;
+        }
+        let threwDetailed = false;
+        try {
+          sanitizeSvgContentDetailed(payload);
+        } catch (e) {
+          threwDetailed =
+            e instanceof Error &&
+            e.message.includes("SVG contains DOCTYPE or ENTITY declarations");
+        }
+        let threwSanitize = false;
+        try {
+          sanitizeSvgContent(payload);
+        } catch (e) {
+          threwSanitize =
+            e instanceof Error &&
+            e.message.includes("SVG contains DOCTYPE or ENTITY declarations");
+        }
+        if (!threwDetailed || !threwSanitize) {
+          return false;
+        }
+      }
+      return true;
+    },
+  },
+
+  {
+    name: "svg.sanitize: reject case-insensitive ENTITY declarations (XXE)",
+    category: "svg-sanitization",
+    fn: async () => {
+      const entities = [
+        '<!ENTITY xxe SYSTEM "file:///etc/passwd">',
+        '<!entity xxe SYSTEM "file:///etc/passwd">',
+        '<!Entity xxe SYSTEM "file:///etc/passwd">',
+        '<!  ENTITY xxe SYSTEM "file:///etc/passwd">',
+        '<!\nentity xxe SYSTEM "file:///etc/passwd">',
+      ];
+      for (const ent of entities) {
+        const payload = `<svg>${ent}<rect fill="red"/></svg>`;
+        if (isSvgContentSafe(payload)) {
+          return false;
+        }
+        let threwDetailed = false;
+        try {
+          sanitizeSvgContentDetailed(payload);
+        } catch (e) {
+          threwDetailed =
+            e instanceof Error &&
+            e.message.includes("SVG contains DOCTYPE or ENTITY declarations");
+        }
+        let threwSanitize = false;
+        try {
+          sanitizeSvgContent(payload);
+        } catch (e) {
+          threwSanitize =
+            e instanceof Error &&
+            e.message.includes("SVG contains DOCTYPE or ENTITY declarations");
+        }
+        if (!threwDetailed || !threwSanitize) {
+          return false;
+        }
+      }
+      return true;
+    },
+  },
+
+  {
+    name: "svg.sanitize: preserves valid safe SVG elements and attributes",
+    category: "svg-sanitization",
+    fn: async () => {
+      const safe =
+        '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="10" width="80" height="80" fill="red"/><text x="20" y="50">Safe</text></svg>';
+      if (!isSvgContentSafe(safe)) {
+        return false;
+      }
+      const sanitized = sanitizeSvgContent(safe);
+      return (
+        sanitized.includes("<rect") &&
+        sanitized.includes("<text") &&
+        sanitized.includes("fill=")
       );
     },
   },
