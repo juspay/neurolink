@@ -83,6 +83,22 @@ export function redactCredentials(message: string, apiKey: string): string {
 }
 
 /**
+ * Whether a failed `fetch` was one that refused a redirect. undici words every
+ * transport failure as `TypeError: fetch failed` and puts the reason on
+ * `cause`, so the chain is walked for its "unexpected redirect" text.
+ */
+function isRedirectRefusal(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current instanceof Error; depth++) {
+    if (current.message === "unexpected redirect") {
+      return true;
+    }
+    current = current.cause;
+  }
+  return false;
+}
+
+/**
  * Rejects with the signal's reason when it aborts, so a caller tearing a turn
  * down is not held, nor its process kept alive, for the length of a vendor's
  * Retry-After wait. The half-second backoff after a transport error is waited
@@ -381,6 +397,9 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
             headers: this.decisionHeaders(),
             body,
             signal,
+            // A 307 or 308 would replay the decision body at whatever address
+            // the server names.
+            redirect: "error",
           },
         );
 
@@ -496,17 +515,23 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
         const aborted = request.signal?.aborted === true;
         const isTimeout =
           error instanceof Error && error.name === "TimeoutError";
+        const redirected = isRedirectRefusal(error);
         lastError = {
           kind: aborted ? "network" : isTimeout ? "timeout" : "network",
-          message: redactCredentials(
-            redactUrlsInText(
-              error instanceof Error ? error.message : String(error),
-            ),
-            this.decisionApiKey(),
-          ),
-          retryable: !aborted,
+          // `fetch` words a refused redirect as "fetch failed", which says
+          // nothing about why, and asking again meets the same answer. The
+          // address it points at is the server's to choose, so it is not quoted.
+          message: redirected
+            ? `${label} answered with a redirect, which is refused so the decision is not sent anywhere else. Point the base URL at the final address.`
+            : redactCredentials(
+                redactUrlsInText(
+                  error instanceof Error ? error.message : String(error),
+                ),
+                this.decisionApiKey(),
+              ),
+          retryable: !aborted && !redirected,
         };
-        if (aborted || attempt === this.maxRetries) {
+        if (!lastError.retryable || attempt === this.maxRetries) {
           throw this.decisionError(lastError);
         }
         await sleep(2 ** attempt * 250 + Math.random() * 250);

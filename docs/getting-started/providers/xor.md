@@ -45,7 +45,10 @@ Run a deployment of XOR (see
 [huggingface.co/juspay/xor](https://huggingface.co/juspay/xor)), or use a
 LiteLLM proxy with a route to one. NeuroLink posts to `<base URL>/v1/systemone`.
 The base URL is the origin of the deployment or of the proxy route, and a
-trailing `/v1` is accepted. On a LiteLLM proxy the key's team must be allowed
+trailing `/v1` is accepted. It must be `https://`; `http://` is accepted only for
+`localhost`, `127.0.0.1` and `[::1]`, because every request carries the key and the
+state. A deployment reachable only over plain http inside a network needs an
+`https://` front, or a port-forward to `localhost`. On a LiteLLM proxy the key's team must be allowed
 the model you ask for (`xor-1.1` by default); otherwise the proxy answers 403
 `team_model_access_denied`. A proxy may serve XOR under a name of its own: set
 `XOR_MODEL` to that name.
@@ -316,7 +319,15 @@ key, long hex runs and embedded `data:` URLs.
   `XOR_API_KEY` or `credentials.xor.apiKey`.
 - **`The XOR base URL must start with https:// or http://`** — the value has no
   scheme (for example `xor.internal:8080`) or uses another scheme. Add
-  `https://` or `http://`.
+  `https://`, or `http://` for a server on this machine.
+- **`The XOR base URL must use https:// unless it points at this machine`** — the
+  value is an `http://` URL whose host is not `localhost`, `127.0.0.1` or `[::1]`.
+  A plain-http request would send the key and the state unencrypted. Put an
+  `https://` front on the deployment, or reach it through a port-forward to
+  `localhost`.
+- **`XOR answered with a redirect`** — the endpoint replied 301, 302, 307 or 308.
+  The provider does not follow it and does not retry. Set the base URL to the
+  address the redirect leads to.
 - **`The XOR base URL is not a valid absolute URL`** — the value cannot be
   parsed as a URL. Set it to an absolute origin.
 - **`XOR requires an API key`** — set `XOR_API_KEY`, or pass

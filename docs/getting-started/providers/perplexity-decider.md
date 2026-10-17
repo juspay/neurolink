@@ -106,7 +106,8 @@ await neurolink.decide({
 `credentials.perplexity` belongs to the text provider and does not configure
 this one. `PERPLEXITY_BASE_URL`, which moves the text provider, is not read here;
 the override for this provider is `PERPLEXITY_DECIDER_BASE_URL`, and a trailing
-`/v1` on it is accepted.
+`/v1` on it is accepted. It must be `https://`; `http://` is accepted only for
+`localhost`, `127.0.0.1` and `[::1]`, because every request carries the key.
 
 ### 3. Use it
 
@@ -715,14 +716,21 @@ to its scheme, host and path.
 - **`The Perplexity base URL must start with https:// or http://`** — the value
   parses as a URL with another scheme: an explicit one such as `ftp://`, or a host
   name and port with no scheme, such as `localhost:8080`, which reads as the
-  scheme `localhost:`. Put `https://` or `http://` in front.
+  scheme `localhost:`. Put `https://` in front, or `http://` for a server on this
+  machine.
+- **`The Perplexity base URL must use https:// unless it points at this machine`** —
+  the override is an `http://` URL whose host is not `localhost`, `127.0.0.1` or
+  `[::1]`. A plain-http request would send the key unencrypted. Use `https://`, or
+  reach the server through a port-forward to `localhost`.
+- **`Perplexity answered with a redirect`** — the endpoint replied 301, 302, 307 or 308. The provider does not follow it and does not retry. Set the base URL to the
+  address the redirect leads to.
 - **`The Perplexity base URL is not a valid absolute URL`** — the value does not
   parse as a URL at all: a bare host name such as `api.perplexity.ai` (the likely
   mistake), an IP address and port such as `127.0.0.1:8080`, a path, or a scheme
   with no host. Write the origin with its scheme.
 - **A refused base URL in the debug log** — it is not there. A base URL that
   NeuroLink refuses (credentials, a query string, a fragment, a scheme other than
-  http or https, or not a URL at all) is never written to the debug log: the line
+  http or https, http to a host other than this machine, or not a URL at all) is never written to the debug log: the line
   shows `(invalid)` in its place, because such a value can carry a secret.
 - **`Image N is not a PNG, JPEG or WebP image`** — Perplexity reads only those
   three. Convert the image first.

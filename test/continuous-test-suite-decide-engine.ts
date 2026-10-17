@@ -286,6 +286,7 @@ async function baseUrlSection(): Promise<void> {
 const XOR_FIX =
   "Set XOR_BASE_URL or pass credentials.xor.baseURL to the origin, and give the key through XOR_API_KEY or credentials.xor.apiKey.";
 const SCHEME_PROBLEM = `The XOR base URL must start with https:// or http://. ${XOR_FIX}`;
+const CLEARTEXT_PROBLEM = `The XOR base URL must use https:// unless it points at this machine (localhost, 127.0.0.1 or [::1]). ${XOR_FIX}`;
 const PARTS_PROBLEM = `The XOR base URL must not carry credentials, a query string or a fragment. ${XOR_FIX}`;
 const INVALID_PROBLEM = `The XOR base URL is not a valid absolute URL. ${XOR_FIX}`;
 
@@ -299,7 +300,7 @@ async function baseUrlShapeSection(): Promise<void> {
   await test("accepts an origin, with or without a port or a path", async () => {
     for (const ok of [
       "https://xor.internal",
-      "http://h:8080",
+      "https://h:8080",
       "https://h/proxy/route",
       "HTTPS://XOR.INTERNAL",
       // Only a literal "?" or "#" starts a query or fragment.
@@ -308,6 +309,73 @@ async function baseUrlShapeSection(): Promise<void> {
     ]) {
       assertEqual(problem(ok), undefined, "a valid origin was refused");
     }
+  });
+
+  await test("accepts http only for this machine: localhost, 127.0.0.1 and [::1]", async () => {
+    for (const ok of [
+      "http://127.0.0.1:8080",
+      "http://127.0.0.1",
+      "http://localhost:11434",
+      "http://[::1]:8080",
+      "http://[::1]",
+      "http://localhost/proxy/route",
+      // The host is lowercased, and the dotted-quad spellings of 127.0.0.1 are
+      // folded into it, before the check sees it.
+      "HTTP://LOCALHOST",
+      "http://LocalHost:9",
+      "http://0x7f.1:8080",
+      "http://2130706433:8080",
+      "http://127.1:8080",
+      // https is accepted whatever the host is.
+      "https://10.0.0.5",
+      "https://0.0.0.0",
+    ]) {
+      assertEqual(problem(ok), undefined, "a loopback http origin was refused");
+    }
+  });
+
+  await test("refuses http to any other host with the cleartext message", async () => {
+    for (const bad of [
+      "http://h:8080",
+      "http://xor.internal:8080",
+      "http://10.0.0.5",
+      "http://192.168.1.10:8080",
+      "http://0.0.0.0",
+      "http://[::2]",
+      "http://[::ffff:127.0.0.1]",
+      // The rest of 127/8 is not loopback here, as elsewhere in the SDK.
+      "http://127.0.0.2",
+      "http://127.255.255.254",
+      // A host that only starts or ends like a loopback name.
+      "http://127.0.0.1.evil.test",
+      "http://localhost.evil.test",
+      "http://evil.test.localhost",
+      "http://notlocalhost",
+      // userinfo cannot make a remote host look local.
+      "http://localhost@evil.test",
+      "http://127.0.0.1:80@evil.test",
+      "http://localhost:80@10.0.0.5",
+      "HTTP://EVIL.TEST",
+    ]) {
+      assertEqual(
+        problem(bad),
+        CLEARTEXT_PROBLEM,
+        "the cleartext message was not given",
+      );
+    }
+  });
+
+  await test("a cleartext origin is refused before the credentials message, and a loopback one still gets that message", async () => {
+    assertEqual(
+      problem("http://h:8080/base?x=1"),
+      CLEARTEXT_PROBLEM,
+      "the cleartext message did not come first",
+    );
+    assertEqual(
+      problem("http://127.0.0.1:8080/base?x=1"),
+      PARTS_PROBLEM,
+      "a loopback origin skipped the credentials check",
+    );
   });
 
   await test("a scheme other than https: or http: gets the scheme message, a host:port with no scheme included", async () => {
@@ -378,6 +446,9 @@ async function baseUrlShapeSection(): Promise<void> {
       "SECRETHOST.internal:8080",
       "ftp://SECRETUSER:SECRETPW@SECRETHOST/",
       "SECRETHOST not a url",
+      "http://SECRETHOST.internal:8080",
+      "http://SECRETUSER:SECRETPW@SECRETHOST/",
+      "http://SECRETHOST/base?token=SECRETTOKEN#SECRETFRAG",
     ];
     for (const baseURL of hostile) {
       const message = problem(baseURL);
@@ -391,11 +462,15 @@ async function baseUrlShapeSection(): Promise<void> {
     }
   });
 
-  await test("the label and the fix text come from the caller, in all three messages", async () => {
+  await test("the label and the fix text come from the caller, in all four messages", async () => {
     const cases = [
       [
         "xor.internal:8080",
         "The Acme base URL must start with https:// or http://. Do the thing.",
+      ],
+      [
+        "http://h:8080",
+        "The Acme base URL must use https:// unless it points at this machine (localhost, 127.0.0.1 or [::1]). Do the thing.",
       ],
       [
         "https://u:p@h",

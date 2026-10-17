@@ -107,9 +107,11 @@ export XOR_MODEL=xor-1.1                            # optional
 
 XOR, Juspay's open-weights decision model, has no built-in endpoint either.
 NeuroLink calls `<base URL>/v1/systemone`, and a trailing `/v1` on the base URL
-is accepted. The base URL and key can equally come from the config passed to the
-SDK, `new NeuroLink({ credentials: { xor: { baseURL, apiKey } } })`, or per
-call; config set there counts when NeuroLink picks the default decision
+is accepted. The base URL must be `https://`; `http://` is accepted only for
+`localhost`, `127.0.0.1` and `[::1]`, because every request carries the key and
+the state. A redirect from the endpoint is refused, not followed. The base URL
+and key can equally come from the config passed to the SDK,
+`new NeuroLink({ credentials: { xor: { baseURL, apiKey } } })`, or per call; config set there counts when NeuroLink picks the default decision
 provider, exactly as the environment does. On a LiteLLM proxy the key's team
 must allow `xor-1.1`, otherwise the proxy answers 403 `team_model_access_denied`.
 

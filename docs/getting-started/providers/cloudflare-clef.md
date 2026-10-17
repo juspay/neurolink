@@ -73,6 +73,9 @@ export CLOUDFLARE_CLEF_MODEL=clef-flash                          # default: clef
 export CLOUDFLARE_CLEF_BASE_URL=https://api.cloudflare.com/client/v4   # default
 ```
 
+The base URL must be `https://`; `http://` is accepted only for `localhost`,
+`127.0.0.1` and `[::1]`, because every request carries the token.
+
 Or pass them in code, which wins over the environment:
 
 ```typescript
@@ -525,6 +528,12 @@ means one retry, after about 250 to 500 ms; the base class retries once.
   cut the rest without telling you.
 - **"No route for that URI"** — the model name or the base URL is wrong. Clef is
   served as `clef` and `clef-flash`, and the base URL must end in `/client/v4`.
+- **"The Cloudflare base URL must use https:// unless it points at this machine"** —
+  the override is an `http://` URL whose host is not `localhost`, `127.0.0.1` or
+  `[::1]`. A plain-http request would send the token unencrypted. Use `https://`,
+  or reach the server through a port-forward to `localhost`.
+- **"Cloudflare answered with a redirect"** — the endpoint replied 301, 302, 307 or 308. The provider does not follow it and does not retry. Set the base URL to the
+  address the redirect leads to.
 - **A 429 "Capacity temporarily exceeded"** — retried for you; if it keeps
   happening, send fewer requests at once.
 - **A 429 "you have used up your daily free allocation of 10,000 neurons"** — the
