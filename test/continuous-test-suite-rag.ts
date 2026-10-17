@@ -2408,7 +2408,7 @@ Computer vision processes visual information.
       cliAvailable = true;
       log("CLI build found at: " + cliPath, "green");
     } else {
-      log("CLI not built, attempting to use npx tsx...", "yellow");
+      log("CLI not built, attempting to use tsx on the source...", "yellow");
       // Try using tsx directly on the source
       const srcCliPath = path.join(projectRoot, "src", "cli", "index.ts");
       if (fs.existsSync(srcCliPath)) {
@@ -2426,7 +2426,9 @@ Computer vision processes visual information.
     args: readonly string[],
     expectSuccess = true,
   ): { success: boolean; output: string; error: string } => {
-    // Try the compiled CLI first, fall back to npx tsx on the source entry
+    // Try the compiled CLI first, fall back to the local tsx on the source
+    // entry. tsx is started through process.execPath, never `npx`, which on
+    // Windows is a `.cmd` shim that execFile cannot start without a shell.
     const runOptions = {
       cwd: projectRoot,
       env: { ...process.env, NO_COLOR: "1" },
@@ -2435,7 +2437,18 @@ Computer vision processes visual information.
       return execFileResult("node", [cliPath, ...args], runOptions);
     }
     const srcCliPath = path.join(projectRoot, "src", "cli", "index.ts");
-    return execFileResult("npx", ["tsx", srcCliPath, ...args], runOptions);
+    const tsxCliPath = path.join(
+      projectRoot,
+      "node_modules",
+      "tsx",
+      "dist",
+      "cli.mjs",
+    );
+    return execFileResult(
+      process.execPath,
+      [tsxCliPath, srcCliPath, ...args],
+      runOptions,
+    );
   };
 
   // ============================================================================
