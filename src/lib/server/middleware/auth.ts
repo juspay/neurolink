@@ -23,12 +23,16 @@ import {
  * Check if request is from development playground.
  * Detects playground requests via special headers for development mode.
  *
+ * This only inspects the headers. `createAuthMiddleware` honours the result
+ * solely when `process.env.NODE_ENV` is exactly `"development"`, so a caller
+ * that acts on this on its own must apply that gate itself.
+ *
  * @param headers - Request headers to check
  * @returns True if request is from dev playground
  *
  * @example
  * ```typescript
- * if (isDevPlayground(ctx.headers)) {
+ * if (process.env.NODE_ENV === "development" && isDevPlayground(ctx.headers)) {
  *   // Skip authentication for playground
  * }
  * ```
@@ -94,10 +98,13 @@ export function createAuthMiddleware(
     order: 10, // Run early but after request ID
     excludePaths: skipPaths,
     handler: async (ctx, next) => {
-      // Skip auth for dev playground in non-production
+      // The playground header is a development convenience, so it is honoured
+      // only when NODE_ENV is exactly "development". An unset NODE_ENV (the
+      // default for most deployments), "test", "staging" or a misspelling must
+      // not let an unauthenticated caller claim the developer identity.
       if (
         skipDevPlayground &&
-        process.env.NODE_ENV !== "production" &&
+        process.env.NODE_ENV === "development" &&
         isDevPlayground(ctx.headers)
       ) {
         ctx.user = {

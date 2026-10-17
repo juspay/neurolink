@@ -90,12 +90,16 @@ Only used when type is "custom"
 
 > `optional` **skipDevPlayground?**: `boolean`
 
-Skip authentication for dev playground requests in non-production.
-When true (default), requests with x-neurolink-dev-playground or
-x-neurolink-playground header set to "true" will bypass authentication
-and receive a default developer user context.
+Skip authentication for dev playground requests during development.
+When true (default), a request with an x-neurolink-dev-playground or
+x-neurolink-playground header set to "true" bypasses authentication and
+receives a default developer user context (`id: "playground"`,
+`roles: ["developer"]`).
 
-Only applies when NODE_ENV is not "production".
+Only applies when `process.env.NODE_ENV` is exactly `"development"`,
+read on every request. With NODE_ENV unset, `"production"`, `"test"` or
+any other value the header is ignored and the request must authenticate
+as usual. Set this to `false` to refuse the header even in development.
 
 #### Default
 

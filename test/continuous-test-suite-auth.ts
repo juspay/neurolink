@@ -8,6 +8,7 @@
  *   Section 2: Server Auth — RBAC (5 tests)
  *   Section 3: Per-Call Auth — Pre-validated Context (5 tests)
  *   Section 4: Per-Call Auth — Token Validation (4 tests)
+ *   Section 5: Dev Playground Header — NODE_ENV=development only (7 tests)
  *
  * STANDALONE TEST RUNNER - NO VITEST, NO TSX DEPENDENCIES
  * Imports from compiled dist/ to work with plain Node.js
@@ -18,6 +19,12 @@
 // =============================================================================
 // TEST RUNNER INFRASTRUCTURE
 // =============================================================================
+
+// See test:hitl and test:multimodal:sdk: the tracked .mcp-config.json makes
+// every NeuroLink instance wait on the MCP client when the filesystem server
+// cannot start. Section 5 constructs NeuroLink through createServer(), and
+// none of this suite's assertions involve an MCP tool.
+process.env.NEUROLINK_SKIP_MCP = "true";
 
 import {
   defineSuite,
@@ -78,7 +85,11 @@ const TEST_PROVIDER = process.env.TEST_PROVIDER || "vertex";
 // IMPORTS
 // =============================================================================
 
-import { NeuroLink } from "../dist/index.js";
+import {
+  NeuroLink,
+  createAuthMiddleware,
+  createServer,
+} from "../dist/index.js";
 
 import { Hono } from "hono";
 
@@ -931,6 +942,215 @@ async function testPerCallTokenAuth(): Promise<void> {
 }
 
 // =============================================================================
+// SECTION 5: Dev Playground Header — honoured only when NODE_ENV=development
+// =============================================================================
+
+type WhoAmI = {
+  status: number;
+  userId: string | undefined;
+  roles: string[] | undefined;
+};
+
+let requestSequence = 0;
+
+type PlaygroundApp = {
+  /** Send GET /api/whoami with NODE_ENV set to `env` (undefined deletes it). */
+  whoami: (
+    env: string | undefined,
+    headers?: Record<string, string>,
+  ) => Promise<WhoAmI>;
+  stop: () => Promise<void>;
+};
+
+/**
+ * Build a real Hono server through createServer() with createAuthMiddleware()
+ * registered, and a route that echoes the identity the middleware attached.
+ * The requests go through app.request(), so nothing is stubbed between the
+ * header and the 401 / 200 the caller would see.
+ */
+async function buildPlaygroundApp(options: {
+  skipDevPlayground?: boolean;
+}): Promise<PlaygroundApp> {
+  const adapter = await createServer(new NeuroLink(), {
+    framework: "hono",
+    config: { port: 0, host: "127.0.0.1" },
+  });
+  adapter.registerMiddleware(
+    createAuthMiddleware({
+      type: "bearer",
+      validate: async (token: string) =>
+        token === "valid-token"
+          ? { id: "token-user", roles: ["member"] }
+          : null,
+      ...(options.skipDevPlayground === undefined
+        ? {}
+        : { skipDevPlayground: options.skipDevPlayground }),
+    }),
+  );
+  adapter.registerRoute({
+    method: "GET",
+    path: "/api/whoami",
+    handler: async (ctx) => ({
+      userId: ctx.user?.id,
+      roles: ctx.user?.roles,
+    }),
+  });
+  await adapter.initialize();
+  const hono = adapter.getFrameworkInstance() as {
+    request: (path: string, init?: RequestInit) => Promise<Response>;
+  };
+
+  return {
+    whoami: async (env, headers = {}) => {
+      const saved = process.env.NODE_ENV;
+      try {
+        if (env === undefined) {
+          delete process.env.NODE_ENV;
+        } else {
+          process.env.NODE_ENV = env;
+        }
+        // Hono shares one context between the middleware and the route only
+        // for requests that carry an X-Request-ID, so every request sends a
+        // distinct one; without it the route would never see ctx.user.
+        requestSequence += 1;
+        const res = await hono.request("/api/whoami", {
+          headers: {
+            "x-request-id": `auth-playground-${requestSequence}`,
+            ...headers,
+          },
+        });
+        const text = await res.text();
+        const parsed: unknown = text.length > 0 ? JSON.parse(text) : {};
+        const data =
+          typeof parsed === "object" &&
+          parsed !== null &&
+          "data" in parsed &&
+          typeof parsed.data === "object" &&
+          parsed.data !== null
+            ? (parsed.data as { userId?: string; roles?: string[] })
+            : {};
+        return { status: res.status, userId: data.userId, roles: data.roles };
+      } finally {
+        if (saved === undefined) {
+          delete process.env.NODE_ENV;
+        } else {
+          process.env.NODE_ENV = saved;
+        }
+      }
+    },
+    stop: () => adapter.stop(),
+  };
+}
+
+const PLAYGROUND_HEADERS = [
+  { "x-neurolink-dev-playground": "true" },
+  { "x-neurolink-playground": "true" },
+] as const;
+
+const VALID_TOKEN = { authorization: "Bearer valid-token" } as const;
+
+/**
+ * The refusal checks assert that something does NOT happen, so each one first
+ * proves the header is honoured by this very app in development. Without that,
+ * a 401 could just as well mean the route or middleware never ran.
+ */
+async function assertHeaderHonouredInDevelopment(
+  app: PlaygroundApp,
+): Promise<void> {
+  for (const header of PLAYGROUND_HEADERS) {
+    const control = await app.whoami("development", header);
+    assertEqual(control.status, 200, "precondition: development did not admit");
+    assertEqual(control.userId, "playground", "precondition: wrong identity");
+  }
+}
+
+async function testDevPlaygroundHeader(): Promise<void> {
+  logSection("SECTION 5: Dev Playground Header -- NODE_ENV=development only");
+
+  const app = await buildPlaygroundApp({});
+  try {
+    await test("5.1 NODE_ENV=development + playground header, no token -> admitted as the playground identity", async () => {
+      for (const header of PLAYGROUND_HEADERS) {
+        const res = await app.whoami("development", header);
+        assertEqual(res.status, 200, "development should admit the header");
+        assertEqual(res.userId, "playground", "wrong identity attached");
+        assertEqual(
+          JSON.stringify(res.roles),
+          JSON.stringify(["developer"]),
+          "wrong roles attached",
+        );
+      }
+    });
+
+    await test("5.2 NODE_ENV unset + playground header, no token -> 401", async () => {
+      await assertHeaderHonouredInDevelopment(app);
+      for (const header of PLAYGROUND_HEADERS) {
+        const res = await app.whoami(undefined, header);
+        assertEqual(res.status, 401, "unset NODE_ENV must not admit");
+        assertEqual(res.userId, undefined, "an identity leaked through");
+      }
+    });
+
+    await test("5.3 NODE_ENV=production + playground header, no token -> 401", async () => {
+      await assertHeaderHonouredInDevelopment(app);
+      for (const header of PLAYGROUND_HEADERS) {
+        const res = await app.whoami("production", header);
+        assertEqual(res.status, 401, "production must not admit");
+        assertEqual(res.userId, undefined, "an identity leaked through");
+      }
+    });
+
+    await test("5.4 NODE_ENV=test, staging or Development + playground header -> 401 (exact match only)", async () => {
+      await assertHeaderHonouredInDevelopment(app);
+      for (const env of ["test", "staging", "Development", " development"]) {
+        const res = await app.whoami(env, PLAYGROUND_HEADERS[0]);
+        assertEqual(res.status, 401, "only exact development may admit");
+        assertEqual(res.userId, undefined, "an identity leaked through");
+      }
+    });
+
+    await test("5.5 A valid token is admitted as its own user when NODE_ENV is unset, production and development", async () => {
+      for (const env of [undefined, "production", "development"]) {
+        const res = await app.whoami(env, VALID_TOKEN);
+        assertEqual(res.status, 200, "a valid token must be admitted");
+        assertEqual(res.userId, "token-user", "token identity not attached");
+      }
+    });
+
+    await test("5.6 A valid token with the playground header still resolves to the token user when the header is ignored", async () => {
+      await assertHeaderHonouredInDevelopment(app);
+      for (const env of [undefined, "production"]) {
+        const res = await app.whoami(env, {
+          ...VALID_TOKEN,
+          ...PLAYGROUND_HEADERS[0],
+        });
+        assertEqual(res.status, 200, "a valid token must be admitted");
+        assertEqual(res.userId, "token-user", "header shadowed the token");
+      }
+    });
+
+    await test("5.7 skipDevPlayground: false refuses the header even when NODE_ENV=development", async () => {
+      await assertHeaderHonouredInDevelopment(app);
+      const strict = await buildPlaygroundApp({ skipDevPlayground: false });
+      try {
+        for (const header of PLAYGROUND_HEADERS) {
+          const res = await strict.whoami("development", header);
+          assertEqual(res.status, 401, "opt-out must refuse the header");
+          assertEqual(res.userId, undefined, "an identity leaked through");
+        }
+        const withToken = await strict.whoami("development", VALID_TOKEN);
+        assertEqual(withToken.status, 200, "a valid token must be admitted");
+        assertEqual(withToken.userId, "token-user", "wrong identity attached");
+      } finally {
+        await strict.stop();
+      }
+    });
+  } finally {
+    await app.stop();
+  }
+}
+
+// =============================================================================
 // MAIN
 // =============================================================================
 
@@ -939,6 +1159,7 @@ async function main(): Promise<void> {
   await testServerRBAC();
   await testPerCallPrevalidated();
   await testPerCallTokenAuth();
+  await testDevPlaygroundHeader();
 }
 
 await runSuite(main);
