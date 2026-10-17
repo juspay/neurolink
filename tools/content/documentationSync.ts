@@ -17,10 +17,33 @@ import {
 import { join, dirname, relative } from "path";
 import { fileURLToPath } from "url";
 import { execFileSync } from "child_process";
+import { createRequire } from "module";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT_DIR = join(__dirname, "../..");
+
+/**
+ * The typedoc entry script, found the way Node finds the package from the
+ * checkout root. It is started through process.execPath, never `npx`: on
+ * Windows `npx` is a `.cmd` shim, which execFile cannot start without a shell,
+ * and a shell is exactly what this tool avoids for paths that hold spaces,
+ * quotes or `;`.
+ */
+const resolveTypedocBin = (): string => {
+  const manifestPath = createRequire(join(ROOT_DIR, "package.json")).resolve(
+    "typedoc/package.json",
+  );
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+    bin?: string | Record<string, string>;
+  };
+  const bin =
+    typeof manifest.bin === "string" ? manifest.bin : manifest.bin?.typedoc;
+  if (!bin) {
+    throw new Error("typedoc declares no bin entry");
+  }
+  return join(dirname(manifestPath), bin);
+};
 
 /** One heading-delimited section parsed out of a markdown file. */
 type MarkdownSection = {
@@ -464,7 +487,10 @@ This project is licensed under the ${packageData.license} License.
 
     try {
       // Check if TypeDoc is available
-      execFileSync("npx", ["typedoc", "--version"], { stdio: "ignore" });
+      const typedocBin = resolveTypedocBin();
+      execFileSync(process.execPath, [typedocBin, "--version"], {
+        stdio: "ignore",
+      });
 
       // Generate API docs with TypeDoc
       const apiDir = join(this.docsDir, "api");
@@ -474,7 +500,7 @@ This project is licensed under the ${packageData.license} License.
 
       // Argument vector, not a shell string: apiDir sits under the checkout,
       // whose path may hold spaces, quotes or `;`.
-      execFileSync("npx", ["typedoc", "--out", apiDir, "src/"], {
+      execFileSync(process.execPath, [typedocBin, "--out", apiDir, "src/"], {
         cwd: ROOT_DIR,
         stdio: "inherit",
       });

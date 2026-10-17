@@ -10,7 +10,7 @@ import "dotenv/config";
  * `&`. Each case proves the path travels as ONE argument and is never re-parsed
  * as shell syntax.
  *
- *   tools/content/documentationSync.ts                       typedoc --out <dir>
+ *   tools/content/documentationSync.ts                       node <typedoc bin> --out <dir>
  *   tools/converted-scripts/scriptsCreateFinalWorkingRecordings.ts
  *                                                            node <cli> ..., asciinema rec ...
  *   tools/automation/shellConverter.ts                       the JavaScript it generates
@@ -33,6 +33,15 @@ import "dotenv/config";
  * file behind.
  *
  * Nothing here touches the network or a credential.
+ *
+ * ## POSIX only
+ *
+ * The fixture tree is a directory named with `"`, which Windows forbids in a
+ * file name, and the stubs rely on a shebang, a mode bit, `/usr/bin/env` and
+ * `sh`. On win32 the suite records one skip and passes. The documentationSync
+ * case still asserts, on POSIX, that typedoc is started as
+ * `process.execPath <bin>` and that no `npx` is started, because `npx` is a
+ * `.cmd` shim that Windows cannot execFile.
  *
  * Run: npx tsx test/continuous-test-suite-tooling-shell-safety.ts
  *      pnpm run test:tooling-shell-safety
@@ -57,6 +66,7 @@ import {
   defineSuite,
   logSection,
   runCommand,
+  Skip,
   tempDir,
   type ProcessResult,
 } from "./helpers/harness.js";
@@ -79,10 +89,11 @@ const MARKERS = ["PWNED", "PWNED2", "PWNED3"];
 type StubCall = { tool: string; entry: string; argv: string[] };
 
 // A program that does nothing but record how it was started. Written as a Node
-// script with a shebang so the same file serves as `npx`, `asciinema` and a CLI
-// entry; the log sits next to it, so it needs no environment. It uses
-// getBuiltinModule rather than require/import so it runs the same whether the
-// directory it sits in is CommonJS or (as the copied tools' roots are) ESM.
+// script with a shebang so the same file serves as `npx`, `asciinema`, the
+// typedoc entry and a CLI entry; the log sits next to it, so it needs no
+// environment. It uses getBuiltinModule rather than require/import so it runs
+// the same whether the directory it sits in is CommonJS or (as the copied
+// tools' roots are) ESM.
 const STUB_SOURCE = (tool: string): string =>
   [
     "#!/usr/bin/env node",
@@ -159,6 +170,15 @@ const runTsx = (
   });
 
 await runSuite(async () => {
+  if (process.platform === "win32") {
+    await test("tooling shell safety (POSIX-only fixture tree)", () => {
+      throw new Skip(
+        "the hostile checkout name, shebang stubs and sh are POSIX-only",
+      );
+    });
+    return;
+  }
+
   // -------------------------------------------------------------------------
   logSection("documentationSync: typedoc output directory");
   // -------------------------------------------------------------------------
@@ -166,8 +186,23 @@ await runSuite(async () => {
   await test("the typedoc output directory is one argument, whatever the checkout path holds", async () => {
     const root = hostileRoot("shell-safety-docsync-");
     const tool = copyTool(root, "tools/content/documentationSync.ts");
+    // The package the tool resolves from the checkout root, as installed:
+    // a manifest naming a bin script. The script is the stub that logs argv.
+    const typedocDir = join(root, "node_modules", "typedoc");
+    const typedocBin = join(typedocDir, "bin", "typedoc");
+    writeStub(typedocBin, "typedoc");
+    // Not executable: only `node <bin>` can run it, so a launch that execs the
+    // script directly (which Windows cannot do either) fails this case.
+    chmodSync(typedocBin, 0o644);
+    writeFileSync(
+      join(typedocDir, "package.json"),
+      '{"name":"typedoc","version":"0.0.0-stub","bin":{"typedoc":"bin/typedoc"}}\n',
+    );
+    // A tripwire, not a dependency: the tool must start node on the bin script
+    // and never reach for `npx`, which Windows cannot execFile without a shell.
     const binDir = join(tempDir("shell-safety-docsync-bin-"), "bin");
-    writeStub(join(binDir, "npx"), "npx");
+    const npx = join(binDir, "npx");
+    writeStub(npx, "npx");
 
     const driver = join(tempDir("shell-safety-docsync-driver-"), "drive.mjs");
     writeFileSync(
@@ -185,26 +220,28 @@ await runSuite(async () => {
     );
 
     const result = await runTsx([driver, tool], root, binDir);
-    const calls = readCalls(join(binDir, "npx"));
+    const calls = readCalls(typedocBin);
+    const npxCalls = readCalls(npx);
     const apiDir = join(root, "docs", "api");
     const ok =
       result.exitCode === 0 &&
       injected(root).length === 0 &&
+      npxCalls.length === 0 &&
       calls.length === 2 &&
-      JSON.stringify(calls[0].argv) ===
-        JSON.stringify(["typedoc", "--version"]) &&
+      calls.every((call) => call.entry === typedocBin) &&
+      JSON.stringify(calls[0].argv) === JSON.stringify(["--version"]) &&
       JSON.stringify(calls[1].argv) ===
-        JSON.stringify(["typedoc", "--out", apiDir, "src/"]) &&
+        JSON.stringify(["--out", apiDir, "src/"]) &&
       result.stdout.includes('"status":"success"');
     if (!ok) {
       showOutput("documentationSync", result);
       console.error(
-        `    calls=${calls.length} injected=${injected(root).join(",")}`,
+        `    calls=${calls.length} npxCalls=${npxCalls.length} injected=${injected(root).join(",")}`,
       );
     }
     assert(
       ok,
-      "typedoc was not started with the exact output directory as one argument",
+      "typedoc was not started through node with the exact output directory as one argument",
     );
   });
 
