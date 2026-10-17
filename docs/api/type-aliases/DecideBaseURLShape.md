@@ -8,4 +8,4 @@
 
 > **DecideBaseURLShape** = `"origin"`
 
-A check a base URL must pass once normalised; `origin` allows only an http(s) URL with no userinfo, query string or fragment.
+A check a base URL must pass once normalised; `origin` allows only an https URL (http only for localhost, 127.0.0.1 or [::1]) with no userinfo, query string or fragment.

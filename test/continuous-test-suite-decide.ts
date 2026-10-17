@@ -7817,6 +7817,379 @@ await test("22.2 — decide with no --provider: OPENAI_DECISIONS_BASE_URL is int
   );
 });
 
+// ───────────────────────────────────────────────────────────────────────────
+logSection(
+  "23. Cleartext base URLs and redirects — the key and the state stay off the wire",
+);
+// ───────────────────────────────────────────────────────────────────────────
+// A plain-http base URL to another machine would send the Bearer key and the
+// decision in the clear, and a redirect would replay the decision wherever the
+// server pointed. Every case runs against a host under the reserved .invalid
+// TLD or against servers this file starts on 127.0.0.1.
+
+const CLEARTEXT_HOST = "decide-cleartext.invalid";
+const CLEARTEXT_SECRET = "SECRETPW-cleartext";
+const CLEARTEXT_KEY = "sk-placeholder-cleartext";
+const CLEARTEXT_QUESTIONS = {
+  urgent: { type: "boolean" as const, instructions: "Is this urgent?" },
+};
+
+type KeyedDecider = {
+  provider: NonNullable<DecideOptions["provider"]>;
+  variable: string;
+  client: (baseURL: string) => NeuroLink;
+};
+
+const KEYED_DECIDERS: readonly KeyedDecider[] = [
+  {
+    provider: "xor",
+    variable: "XOR_BASE_URL",
+    client: (baseURL) =>
+      new NeuroLink({
+        credentials: { xor: { apiKey: CLEARTEXT_KEY, baseURL } },
+      }),
+  },
+  {
+    provider: "openai-decisions",
+    variable: "OPENAI_DECISIONS_BASE_URL",
+    client: (baseURL) =>
+      new NeuroLink({
+        credentials: { openaiDecisions: { apiKey: CLEARTEXT_KEY, baseURL } },
+      }),
+  },
+  {
+    provider: "perplexity-decider",
+    variable: "PERPLEXITY_DECIDER_BASE_URL",
+    client: (baseURL) =>
+      new NeuroLink({
+        credentials: { perplexityDecider: { apiKey: CLEARTEXT_KEY, baseURL } },
+      }),
+  },
+  {
+    provider: "cloudflare-clef",
+    variable: "CLOUDFLARE_CLEF_BASE_URL",
+    client: (baseURL) =>
+      new NeuroLink({
+        credentials: {
+          cloudflareClef: {
+            apiKey: CLEARTEXT_KEY,
+            accountId: "account-placeholder",
+            baseURL,
+          },
+        },
+      }),
+  },
+];
+
+/** Requests the fetch capture recorded for the reserved cleartext host since its last reset. */
+function cleartextRequests(): number {
+  return fetchCapture.list().filter((c) => c.url.includes(CLEARTEXT_HOST))
+    .length;
+}
+
+await test("23.1 — positive control: a request to the cleartext host is recorded by the capture", async () => {
+  // Without this, every zero-request assertion below could pass because the
+  // capture sees nothing at all.
+  fetchCapture.reset();
+  await fetch(`http://${CLEARTEXT_HOST}/`, {
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => undefined);
+  assert(
+    cleartextRequests() === 1,
+    "a request to the cleartext host must be recorded",
+  );
+});
+
+await test("23.2 — every keyed decision provider refuses http:// to another host before any request, naming the setting and never the URL", async () => {
+  try {
+    clearDecisionKeys();
+    for (const decider of KEYED_DECIDERS) {
+      for (const baseURL of [
+        `http://${CLEARTEXT_HOST}:8080`,
+        `http://${CLEARTEXT_HOST}/base`,
+        `HTTP://${CLEARTEXT_HOST.toUpperCase()}`,
+        // Credentials and a query in the value do not change the verdict, and
+        // none of them may come back in the message.
+        `http://ops:${CLEARTEXT_SECRET}@${CLEARTEXT_HOST}/base?token=${CLEARTEXT_SECRET}`,
+        // A name that only starts or ends like a loopback one.
+        "http://localhost.decide-cleartext.invalid",
+        "http://127.0.0.1.decide-cleartext.invalid",
+        // Userinfo cannot make a remote host look local.
+        `http://localhost@${CLEARTEXT_HOST}`,
+        // The rest of 127/8 is not this machine's name here.
+        "http://127.0.0.2:9",
+      ]) {
+        fetchCapture.reset();
+        const failure = await failureOf(() =>
+          decider.client(baseURL).decide({
+            provider: decider.provider,
+            state: "x",
+            questions: CLEARTEXT_QUESTIONS,
+          }),
+        );
+        const label = `${decider.provider} with ${baseURL.replace(CLEARTEXT_SECRET, "…")}`;
+        assert(failure !== undefined, `${label}: the request must be refused`);
+        assert(
+          failure.kind === "invalid_request" && failure.retryable === false,
+          `${label}: the refusal must be a non-retryable invalid_request`,
+        );
+        assert(
+          failure.message.includes(decider.variable) &&
+            failure.message.includes("must use https://"),
+          `${label}: the refusal must say why and name ${decider.variable}`,
+        );
+        assert(
+          !failure.message.toLowerCase().includes("decide-cleartext") &&
+            !failure.message.includes(CLEARTEXT_SECRET) &&
+            !failure.message.includes("127.0.0.2"),
+          `${label}: the refusal must not repeat any part of the URL`,
+        );
+        assert(
+          fetchCapture.list().length === 0,
+          `${label}: a refused base URL must never reach the transport`,
+        );
+      }
+    }
+  } finally {
+    restoreEnv();
+  }
+});
+
+await test("23.3 — the environment variable is refused the same way, so a configured key never leaves the machine", async () => {
+  try {
+    for (const decider of KEYED_DECIDERS) {
+      clearDecisionKeys();
+      process.env[decider.variable] = `http://${CLEARTEXT_HOST}:8080`;
+      fetchCapture.reset();
+      const failure = await failureOf(() =>
+        new NeuroLink({
+          credentials: {
+            xor: { apiKey: CLEARTEXT_KEY },
+            openaiDecisions: { apiKey: CLEARTEXT_KEY },
+            perplexityDecider: { apiKey: CLEARTEXT_KEY },
+            cloudflareClef: {
+              apiKey: CLEARTEXT_KEY,
+              accountId: "account-placeholder",
+            },
+          },
+        }).decide({
+          provider: decider.provider,
+          state: "x",
+          questions: CLEARTEXT_QUESTIONS,
+        }),
+      );
+      assert(
+        failure?.kind === "invalid_request" &&
+          failure.message.includes(decider.variable) &&
+          !failure.message.includes(CLEARTEXT_HOST),
+        `${decider.provider}: ${decider.variable} must be refused without repeating it`,
+      );
+      assert(
+        fetchCapture.list().length === 0,
+        `${decider.provider}: a refused environment base URL must never reach the transport`,
+      );
+    }
+  } finally {
+    restoreEnv();
+  }
+});
+
+await test("23.4 — decide --provider xor with an http:// XOR_BASE_URL to another host: exits non-zero, names the variable, never repeats the host, sends nothing", async () => {
+  const result = await runCLI(
+    [
+      "decide",
+      "The state text",
+      "--provider",
+      "xor",
+      "--questions",
+      ONE_QUESTION,
+    ],
+    {
+      env: {
+        ...NO_PROVIDER_ENV,
+        XOR_API_KEY: CLEARTEXT_KEY,
+        XOR_BASE_URL: `http://ops:${CLEARTEXT_SECRET}@${CLEARTEXT_HOST}:8080`,
+      },
+      timeoutMs: 30_000,
+    },
+  );
+  const output = result.stdout + result.stderr;
+  assert(result.exitCode !== 0, "a cleartext base URL must be refused");
+  assert(
+    result.stderr.includes("XOR_BASE_URL") &&
+      result.stderr.includes("must use https://"),
+    "the refusal must say why and which variable to fix",
+  );
+  assert(
+    !output.includes(CLEARTEXT_HOST) && !output.includes(CLEARTEXT_SECRET),
+    "nothing from the base URL may be echoed",
+  );
+  assert(
+    !/ENOTFOUND|ECONNREFUSED|network/i.test(output),
+    "the refusal must happen before any request",
+  );
+  assert(!looksLikeStackTrace(output), "the refusal printed a stack trace");
+});
+
+await test("23.5 — positive control: http:// to 127.0.0.1 still reaches the server, with the Bearer key", async () => {
+  const fake = await startFakeXor();
+  try {
+    clearDecisionKeys();
+    const result = await KEYED_DECIDERS[0].client(fake.baseURL).decide({
+      provider: "xor",
+      state: "x",
+      questions: CLEARTEXT_QUESTIONS,
+    });
+    assert(result.provider === "xor", "the loopback server must have answered");
+    assert(
+      fake.requests.length === 1 &&
+        fake.requests[0]?.authorization === `Bearer ${CLEARTEXT_KEY}`,
+      "exactly one request, carrying the key, must reach the loopback server",
+    );
+  } finally {
+    await fake.close();
+    restoreEnv();
+  }
+  await withFakeOpenAI(
+    () => OPENAI_CLI_REPLY,
+    async (baseURL, requests) => {
+      const result = await KEYED_DECIDERS[1].client(baseURL).decide({
+        provider: "openai-decisions",
+        state: "x",
+        questions: CLEARTEXT_QUESTIONS,
+      });
+      assert(
+        result.provider === "openai-decisions",
+        "the loopback server must have answered",
+      );
+      const { request } = soleOpenAIRequest(requests);
+      assert(
+        request.authorization === `Bearer ${CLEARTEXT_KEY}`,
+        "the key must reach the loopback server",
+      );
+    },
+  );
+});
+
+type Landing = {
+  method: string;
+  authorization: string | null;
+  bytes: number;
+};
+
+/**
+ * A loopback server that answers every request with `status` and a Location
+ * naming a second loopback server, which records whatever lands on it.
+ */
+async function withRedirector<T>(
+  status: number,
+  run: (
+    baseURL: string,
+    arrivals: { first: number; landed: readonly Landing[]; landingURL: string },
+  ) => Promise<T>,
+): Promise<T> {
+  const landed: Landing[] = [];
+  const target = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
+      landed.push({
+        method: req.method ?? "",
+        authorization: req.headers.authorization ?? null,
+        bytes: Buffer.concat(chunks).length,
+      });
+      res.writeHead(200, {
+        "content-type": "application/json",
+        connection: "close",
+      });
+      res.end("{}");
+    });
+  });
+  await new Promise<void>((resolve) => target.listen(0, "127.0.0.1", resolve));
+  const landingURL = `http://127.0.0.1:${(target.address() as AddressInfo).port}/landed`;
+  const arrivals = { first: 0, landed, landingURL };
+  const first = createServer((req, res) => {
+    req.resume();
+    req.on("end", () => {
+      arrivals.first += 1;
+      res.writeHead(status, { location: landingURL, connection: "close" });
+      res.end();
+    });
+  });
+  await new Promise<void>((resolve) => first.listen(0, "127.0.0.1", resolve));
+  try {
+    const { port } = first.address() as AddressInfo;
+    return await run(`http://127.0.0.1:${port}`, arrivals);
+  } finally {
+    first.closeAllConnections();
+    target.closeAllConnections();
+    await new Promise<void>((resolve) => first.close(() => resolve()));
+    await new Promise<void>((resolve) => target.close(() => resolve()));
+  }
+}
+
+await test("23.6 — positive control: a plain fetch follows a 307 and replays the body at the new address", async () => {
+  // This is the behaviour the next test shuts off. If it did not happen here,
+  // "nothing landed" below would prove nothing.
+  await withRedirector(307, async (baseURL, arrivals) => {
+    const response = await fetch(`${baseURL}/v1/systemone`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${CLEARTEXT_KEY}` },
+      body: JSON.stringify({ state: "the state" }),
+    });
+    assert(response.ok, "the redirected request must have been answered");
+    assert(
+      arrivals.landed.length === 1 && arrivals.landed[0]?.bytes > 0,
+      "the redirect must have replayed the body at the second server",
+    );
+  });
+});
+
+await test("23.7 — a redirect from the endpoint is refused, not followed: no body lands anywhere else, one request, not retried, the address not repeated", async () => {
+  try {
+    clearDecisionKeys();
+    for (const status of [301, 302, 303, 307, 308]) {
+      for (const decider of KEYED_DECIDERS.slice(0, 2)) {
+        await withRedirector(status, async (baseURL, arrivals) => {
+          const failure = await failureOf(() =>
+            decider.client(baseURL).decide({
+              provider: decider.provider,
+              state: "the state",
+              questions: CLEARTEXT_QUESTIONS,
+            }),
+          );
+          const label = `${decider.provider} after a ${status}`;
+          assert(
+            arrivals.landed.length === 0,
+            `${label}: nothing may land at the address the redirect named`,
+          );
+          assert(failure !== undefined, `${label}: must not be answered`);
+          assert(
+            failure.kind === "network" && failure.retryable === false,
+            `${label}: must be a non-retryable failure of kind "network"`,
+          );
+          assert(
+            /redirect/i.test(failure.message),
+            `${label}: the message must say a redirect was refused`,
+          );
+          assert(
+            !failure.message.includes(arrivals.landingURL) &&
+              !failure.message.includes("/landed") &&
+              !failure.message.includes(CLEARTEXT_KEY),
+            `${label}: the message must not repeat the address or the key`,
+          );
+          assert(
+            arrivals.first === 1,
+            `${label}: the endpoint must be asked once, not retried`,
+          );
+        });
+      }
+    }
+  } finally {
+    restoreEnv();
+  }
+});
+
 restoreEnv();
 
 await runSuite();

@@ -738,9 +738,15 @@ cut to its scheme, host and path.
 
 - trailing slashes and one trailing `/v1` are stripped, so
   `https://api.openai.com/v1/` and `https://api.openai.com` are the same;
+- `http://` is accepted only for `localhost`, `127.0.0.1` and `[::1]`, because the
+  request carries the key and the state. Any other host needs `https://`; `0.0.0.0`
+  and the rest of `127.0.0.0/8` do not count as this machine;
 - a user name or password, a query string, a fragment, a scheme other than
-  `http` or `https`, or a value that is not an absolute URL is refused before any
-  request, with a message that never repeats the value;
+  `http` or `https`, `http://` to a host other than those three, or a value that
+  is not an absolute URL is refused before any request, with a message that never
+  repeats the value;
+- a redirect from the endpoint is refused rather than followed, so the decision is
+  never replayed at an address the server chooses;
 - the request goes to `<origin>/v1/decisions`.
 
 ---
@@ -770,7 +776,14 @@ cut to its scheme, host and path.
 - **`The OpenAI Decisions base URL must start with https:// or http://`** — the
   value parses as a URL with another scheme, or is a host name and port with no
   scheme, such as `localhost:8080`, which reads as the scheme `localhost:`. Put
-  `https://` or `http://` in front.
+  `https://` in front, or `http://` for a server on this machine.
+- **`The OpenAI Decisions base URL must use https:// unless it points at this machine`** —
+  the override is an `http://` URL whose host is not `localhost`, `127.0.0.1` or
+  `[::1]`. A plain-http request would send the key and the state unencrypted. Use
+  `https://`, or reach the server through a port-forward to `localhost`.
+- **`OpenAI Decisions answered with a redirect`** — the endpoint replied 301, 302,
+  307 or 308. The provider does not follow it and does not retry. Set the base URL to
+  the address the redirect leads to.
 - **`The OpenAI Decisions base URL is not a valid absolute URL`** — the value does
   not parse as a URL at all, for example a bare host name. Write the origin with
   its scheme.

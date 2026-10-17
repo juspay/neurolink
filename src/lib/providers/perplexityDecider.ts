@@ -12,6 +12,7 @@ import { sniffImageMimeType } from "../utils/imageDetection.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlForError } from "../utils/logSanitize.js";
 import { getProviderModel } from "../utils/providerConfig.js";
+import { cleartextBaseURLProblem } from "./decide/baseUrl.js";
 import {
   isRecord,
   redactCredentials,
@@ -67,6 +68,10 @@ function baseURLProblem(baseURL: string): string | undefined {
     // one and would reach `fetch` as a network error instead of this message.
     if (url.protocol !== "https:" && url.protocol !== "http:") {
       return `The Perplexity base URL must start with https:// or http://. ${fix}`;
+    }
+    const cleartext = cleartextBaseURLProblem(url, "Perplexity", fix);
+    if (cleartext) {
+      return cleartext;
     }
     return url.username || url.password || url.search || url.hash
       ? `The Perplexity base URL must not carry credentials, a query string or a fragment. ${fix}`

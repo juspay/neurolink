@@ -122,7 +122,7 @@
         },
         "baseURLShape": {
           "enum": ["origin"],
-          "description": "Refuses a normalised base URL that is not an http(s) URL without userinfo, a query string or a fragment. Omitted means no check."
+          "description": "Refuses a normalised base URL that is not an https URL (http is allowed only for localhost, 127.0.0.1 and [::1]) without userinfo, a query string or a fragment. Omitted means no check."
         },
         "endpoint": {
           "type": "string",

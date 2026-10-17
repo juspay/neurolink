@@ -10,6 +10,7 @@ import type {
 import { logger } from "../utils/logger.js";
 import { redactUrlForError } from "../utils/logSanitize.js";
 import { getProviderModel } from "../utils/providerConfig.js";
+import { cleartextBaseURLProblem } from "./decide/baseUrl.js";
 import {
   isRecord,
   redactCredentials,
@@ -83,6 +84,10 @@ function baseURLProblem(baseURL: string): string | undefined {
     const url = new URL(baseURL);
     if (url.protocol !== "https:" && url.protocol !== "http:") {
       return `The Cloudflare base URL must start with https:// or http://. ${fix}`;
+    }
+    const cleartext = cleartextBaseURLProblem(url, "Cloudflare", fix);
+    if (cleartext) {
+      return cleartext;
     }
     // `url.search` and `url.hash` are empty for a bare trailing `?` or `#`, which
     // would still put the route into the query or the fragment, so the text is
