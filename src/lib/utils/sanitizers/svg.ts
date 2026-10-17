@@ -271,7 +271,13 @@ export function sanitizeSvgContentDetailed(
   const originalContent = svgContent;
 
   // 1. Block DOCTYPE and ENTITY declarations (XXE prevention)
-  if (content.includes("<!DOCTYPE") || content.includes("<!ENTITY")) {
+  // Case-insensitive check to prevent XXE bypass via mixed/lowercase declarations (<!doctype, <!entity)
+  const upperContent = content.toUpperCase();
+  if (
+    upperContent.includes("<!DOCTYPE") ||
+    upperContent.includes("<!ENTITY") ||
+    /<!\s*(?:doctype|entity)/i.test(content)
+  ) {
     throw new Error(
       "SVG contains DOCTYPE or ENTITY declarations which are not allowed for security reasons",
     );
@@ -523,7 +529,11 @@ export function isSvgContentSafe(svgContent: string): boolean {
   const lowerContent = svgContent.toLowerCase();
 
   // Check for XXE
-  if (lowerContent.includes("<!doctype") || lowerContent.includes("<!entity")) {
+  if (
+    lowerContent.includes("<!doctype") ||
+    lowerContent.includes("<!entity") ||
+    /<!\s*(?:doctype|entity)/i.test(svgContent)
+  ) {
     return false;
   }
 
