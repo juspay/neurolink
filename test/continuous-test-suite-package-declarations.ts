@@ -27,10 +27,23 @@
  * so a consumer who installed the optional dependencies (npm's default) type-checks.
  * The list is a ratchet: a new name fails, and so does an entry that no longer leaks.
  *
+ * "Optional" covers `optionalDependencies` and the optional peers, the names under
+ * `peerDependenciesMeta` marked `optional: true` (react, react-dom, @juspay/hippocampus).
+ * An optional peer is the stricter case: npm does not install it, so a declaration
+ * that names `react` fails every consumer without React with TS2307. `NeuroLinkProvider`
+ * did exactly that through `ReactNode`; its public signature now uses the structural
+ * `ClientReactElement`, and no optional peer is baselined.
+ *
  * What this does NOT do: it does not type-check a consumer. It scans module
  * specifiers in the published `.d.ts` files (comments are ignored) and checks
  * the packed file list. The consumer-level check is a clean `npm install` of the
  * tarball plus `tsc` with `strict` and `skipLibCheck: false`.
+ *
+ * The one consumer-side property that is committed is the React one: that
+ * `NeuroLinkProvider` is a valid JSX component and its return is a `ReactElement`
+ * and a `ReactNode`. `test/fixtures/react-consumer-provider.ts` states it as
+ * assignments against `@types/react`, and `pnpm run check:tools-tests` (CI's
+ * `types` shard) type-checks it. This suite only proves react is not imported.
  */
 import "./helpers/credentialFreeEnv.js";
 import { readFileSync } from "node:fs";
@@ -153,24 +166,36 @@ const packedFiles = async (): Promise<PackedFiles> => {
   return packed;
 };
 
-const optionalDependencies = (): ReadonlySet<string> => {
-  const manifest: unknown = JSON.parse(
-    readFileSync(join(REPO_ROOT, "package.json"), "utf8"),
-  );
-  const section =
-    typeof manifest === "object" &&
-    manifest !== null &&
-    "optionalDependencies" in manifest
-      ? manifest.optionalDependencies
-      : undefined;
-  return new Set(
-    typeof section === "object" && section !== null ? Object.keys(section) : [],
-  );
-};
+const entriesOf = (value: unknown): readonly (readonly [string, unknown])[] =>
+  typeof value === "object" && value !== null ? Object.entries(value) : [];
+
+const sectionOf = (
+  manifest: unknown,
+  key: string,
+): readonly (readonly [string, unknown])[] =>
+  entriesOf(entriesOf(manifest).find(([name]) => name === key)?.[1]);
+
+/** Names a consumer may not have installed: optionalDependencies plus the optional peers. */
+const optionalPackagesOf = (manifest: unknown): ReadonlySet<string> =>
+  new Set([
+    ...sectionOf(manifest, "optionalDependencies").map(([name]) => name),
+    ...sectionOf(manifest, "peerDependenciesMeta")
+      .filter(([, meta]) =>
+        entriesOf(meta).some(
+          ([key, flag]) => key === "optional" && flag === true,
+        ),
+      )
+      .map(([name]) => name),
+  ]);
+
+const readManifest = (): unknown =>
+  JSON.parse(readFileSync(join(REPO_ROOT, "package.json"), "utf8"));
 
 // Every package here bundles its own declarations; the fix for a name is a
-// structural type in src/lib/types (as for fluent-ffmpeg), after which its entry
-// must be removed. Never add to this list.
+// structural type in src/lib/types (as for fluent-ffmpeg and react), after which
+// its entry must be removed. Never add to this list. No optional peer
+// (react, react-dom, @juspay/hippocampus) is recorded: none ships types a
+// consumer is guaranteed to have, so a declaration naming one fails TS2307.
 const KNOWN_OPTIONAL_IMPORTS: ReadonlySet<string> = new Set([
   "dist/providers/amazonBedrock/client.d.ts -> @aws-sdk/client-bedrock-runtime",
   "dist/providers/amazonBedrock/loopAdapter.d.ts -> @aws-sdk/client-bedrock-runtime",
@@ -252,6 +277,46 @@ await test("control: the scanner handles subpaths, require, scoped names, refere
   assert(relative.length === 0, "a relative path was read as a package");
 });
 
+await test("control: optional peers count as optional packages, required peers do not", () => {
+  const manifest = {
+    optionalDependencies: { exceljs: "^4.0.0" },
+    peerDependencies: {
+      react: ">=18.0.0",
+      "react-dom": ">=18.0.0",
+      "@opentelemetry/api": "^1.9.0",
+      "@juspay/hippocampus": ">=0.2.1",
+    },
+    peerDependenciesMeta: {
+      react: { optional: true },
+      "react-dom": { optional: true },
+      "@juspay/hippocampus": { optional: true },
+      "@opentelemetry/api": { optional: false },
+    },
+  };
+  const names = [...optionalPackagesOf(manifest)].sort().join();
+  assert(
+    names === "@juspay/hippocampus,exceljs,react,react-dom",
+    "optional peers were not merged with optionalDependencies, or a required peer was counted",
+  );
+  assert(
+    optionalPackagesOf({}).size === 0 &&
+      optionalPackagesOf({ peerDependenciesMeta: null }).size === 0,
+    "a manifest without those sections did not yield an empty set",
+  );
+  const flagged = packagesImportedFrom(
+    [
+      'import type { ReactNode } from "react";',
+      'export type T = import("react-dom/client").Root;',
+      'export type U = import("@opentelemetry/api").Span;',
+    ].join("\n"),
+    optionalPackagesOf(manifest),
+  );
+  assert(
+    flagged.join() === "react,react-dom",
+    "the scanner missed a react import or flagged a required peer",
+  );
+});
+
 await test("control: only .tsx is treated as JSX source", () => {
   assert(isJsxSource("dist/client/reactHooks.tsx"), ".tsx was not detected");
   assert(!isJsxSource("dist/client/reactHooks.d.ts"), ".d.ts was flagged");
@@ -292,9 +357,13 @@ await test("the react hooks runtime and declarations still ship", async () => {
   );
 });
 
-await test("no published declaration imports an optional dependency beyond the recorded baseline (a consumer without types fails TS7016)", async () => {
-  const optional = optionalDependencies();
-  assert(optional.size > 0, "package.json lists no optionalDependencies");
+await test("no published declaration imports an optional dependency or optional peer beyond the recorded baseline (a consumer without it fails TS7016 or TS2307)", async () => {
+  const optional = optionalPackagesOf(readManifest());
+  assert(optional.size > 0, "package.json lists no optional packages");
+  assert(
+    optional.has("react"),
+    "react is no longer an optional peer in package.json; this guard was written for it",
+  );
   const { dist } = await packedFiles();
   const declarations = dist.filter(isDeclarationFile);
   const offenders = declarations.flatMap((path) => {

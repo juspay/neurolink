@@ -514,15 +514,37 @@ export type ClientMiddlewareContext = {
 // =============================================================================
 
 /**
+ * What `NeuroLinkProvider` returns, spelled without importing React.
+ *
+ * The published declaration of the hooks module cannot name a React type: `react`
+ * is an optional peer, and a consumer without it fails to compile the whole
+ * `@juspay/neurolink/client` entry point (TS2307). This is the shape of React's
+ * element, so a value of this type is still a valid JSX component return and
+ * assignable to `ReactNode` and `ReactElement`.
+ *
+ * `type` is declared `string` only so the value stays assignable to React's
+ * element type. At runtime the provider's element carries the context
+ * provider's descriptor there, as every `JSX.Element` does; do not read it.
+ */
+export type ClientReactElement = {
+  type: string;
+  props: unknown;
+  key: string | null;
+};
+
+/**
  * Props for the NeuroLinkProvider React component.
  *
- * `children` is typed as `unknown` so this module stays React-agnostic;
- * the provider component in reactHooks.tsx narrows it to `ReactNode`.
+ * `children` is typed as `unknown` so the declaration needs no React types.
+ * Anything React accepts as a child is accepted, and so is anything else: the
+ * type does not check it. The component renders it as a React node, so a value
+ * React cannot render (a function, a plain object) compiles and then fails in
+ * React at render time.
  */
 export type NeuroLinkProviderProps = {
   /** Client configuration */
   config: ClientConfig;
-  /** Child components (ReactNode at runtime) */
+  /** Child components. Typed `unknown` and rendered as a React node without a type check. */
   children: unknown;
 };
 

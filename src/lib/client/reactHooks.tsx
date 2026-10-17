@@ -28,6 +28,7 @@ import type { ReactNode } from "react";
 
 import type {
   ClientApiError,
+  ClientReactElement,
   NeuroLinkProviderProps,
   UseChatOptions,
   UseChatReturn,
@@ -91,12 +92,12 @@ const NeuroLinkContext = createContext<NeuroLinkClient | null>(null);
 export function NeuroLinkProvider({
   config,
   children,
-}: NeuroLinkProviderProps & { children: ReactNode }): ReactNode {
+}: NeuroLinkProviderProps): ClientReactElement {
   const client = useMemo(() => createClient(config), [config]);
 
   return (
     <NeuroLinkContext.Provider value={client}>
-      {children}
+      {children as ReactNode}
     </NeuroLinkContext.Provider>
   );
 }
