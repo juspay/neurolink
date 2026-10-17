@@ -113,7 +113,12 @@ await neurolink.generate({
 All 23 entries come from the public, unauthenticated `GET
 https://hyper.charm.land/v1/models` response (2026-09-28) — context window,
 max output tokens, vision and pricing are the vendor's own served metadata,
-not estimates.
+not estimates. The one exception is the max output of four models
+(`kimi-k2-thinking`, `gpt-oss-120b`, `gemma-4-26b-a4b-it`, `minimax-m2.7`),
+shown as n/a: the roster's figure is a fixed fraction of the context window
+(a tenth for three of them) and reads like a gateway default, so the catalog
+records no max output for them and the SDK does not cap `maxTokens` for those
+models.
 
 | Model                    | Context   | Max out | Vision | $/M in · out (cached in)          | Notes                                                                                                                                                                                               |
 | ------------------------ | --------- | ------- | ------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -123,13 +128,13 @@ not estimates.
 | `deepseek-v4-pro-0813`   | 1M        | 262,144 | no     | $1.437216 / $4.311648 ($0.047907) | Dated pin of the Pro line.                                                                                                                                                                          |
 | `deepseek-v4-flash-0731` | 1M        | 384K    | no     | $0.44 / $1.32 ($0.044)            | Dated pin of the Flash line.                                                                                                                                                                        |
 | `kimi-k3`                | 1,048,576 | 16,000  | yes    | $3.2664 / $16.332 ($0.32664)      | Moonshot Kimi K3.                                                                                                                                                                                   |
-| `kimi-k2-thinking`       | 262,144   | 26,214  | no     | $0.60 / $2.50 ($0.30)             | Reasoning-first Kimi variant.                                                                                                                                                                       |
+| `kimi-k2-thinking`       | 262,144   | n/a     | no     | $0.60 / $2.50 ($0.30)             | Reasoning-first Kimi variant.                                                                                                                                                                       |
 | `kimi-k2.7-code`         | 256,000   | 16,000  | yes    | $1.03436 / $4.3552 ($0.206872)    | Code-focused Kimi variant.                                                                                                                                                                          |
 | `glm-5.3`                | 1M        | 128,000 | no     | $1.52432 / $4.79072 ($0.283088)   | Zhipu GLM 5.3.                                                                                                                                                                                      |
 | `glm-5.3-flash`          | 1,048,576 | 131,072 | yes    | $0.16332 / $0.5444 ($0.031575)    | Zhipu GLM 5.3 Flash.                                                                                                                                                                                |
 | `glm-5.2`                | 1M        | 32,768  | no     | $1.52432 / $4.79072 ($0.152432)   | Prior GLM generation.                                                                                                                                                                               |
 | `minimax-m3`             | 512,000   | 512,000 | yes    | $0.32664 / $1.30656 ($0.064239)   | MiniMax M3 — max output equals its context window.                                                                                                                                                  |
-| `minimax-m2.7`           | 262,100   | 6,553   | no     | $0.484 / $1.852 ($0.242)          | Prior MiniMax generation.                                                                                                                                                                           |
+| `minimax-m2.7`           | 262,100   | n/a     | no     | $0.484 / $1.852 ($0.242)          | Prior MiniMax generation.                                                                                                                                                                           |
 | `inkling`                | 1,048,576 | 65,536  | yes    | $1.0888 / $4.40964 ($0.185096)    | Lineage not stated in the docs read for this entry.                                                                                                                                                 |
 | `qwen3.8-max`            | 1M        | 65,536  | yes    | $2.00 / $6.00 ($0.25)             | Alibaba Qwen3.8 Max.                                                                                                                                                                                |
 | `qwen3.8-flash`          | 1M        | 128,000 | yes    | $0.15 / $0.47 ($0.016)            | Alibaba Qwen3.8 Flash.                                                                                                                                                                              |
@@ -138,8 +143,8 @@ not estimates.
 | `qwen3.7-max`            | 1M        | 64,000  | no     | $2.50 / $7.50 ($0.50)             | Prior Qwen generation.                                                                                                                                                                              |
 | `qwen3.7-plus`           | 1M        | 64,000  | yes    | $1.20 / $4.80 ($0.24)             | Prior Qwen generation.                                                                                                                                                                              |
 | `qwen3.7-flash`          | 1M        | 64,000  | yes    | $0.20 / $0.80 ($0.04)             | Prior Qwen generation.                                                                                                                                                                              |
-| `gpt-oss-120b`           | 131,072   | 13,107  | no     | $0.178 / $0.68 ($0.089)           | OpenAI's open-weight gpt-oss-120b.                                                                                                                                                                  |
-| `gemma-4-26b-a4b-it`     | 256,000   | 25,600  | no     | $0.098 / $0.334 ($0.049)          | Google Gemma 4 26B A4B, instruction-tuned.                                                                                                                                                          |
+| `gpt-oss-120b`           | 131,072   | n/a     | no     | $0.178 / $0.68 ($0.089)           | OpenAI's open-weight gpt-oss-120b.                                                                                                                                                                  |
+| `gemma-4-26b-a4b-it`     | 256,000   | n/a     | no     | $0.098 / $0.334 ($0.049)          | Google Gemma 4 26B A4B, instruction-tuned.                                                                                                                                                          |
 
 **Fallback order** when the default is unavailable: `deepseek-v4-flash` →
 `deepseek-v4.1-flash` → `kimi-k2-thinking` → `glm-5.3` → `qwen3.8-max`.

@@ -93,7 +93,6 @@
       },
       "kimi-k2-thinking": {
         "contextWindow": 262144,
-        "maxOutputTokens": 26214,
         "pricingPerMTok": {
           "input": 0.6,
           "output": 2.5,
@@ -101,7 +100,7 @@
         },
         "vision": false,
         "status": "production",
-        "description": "Moonshot Kimi K2 Thinking — reasoning-first Kimi variant; reasoning effort levels low/high/xhigh (default high). Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+        "description": "Moonshot Kimi K2 Thinking — reasoning-first Kimi variant; reasoning effort levels low/high/xhigh (default high). Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28). No maxOutputTokens is recorded: the roster reports 26214, which is a fixed fraction of the 262144-token context window and reads like a gateway default rather than a model limit."
       },
       "kimi-k2.7-code": {
         "contextWindow": 256000,
@@ -165,7 +164,6 @@
       },
       "minimax-m2.7": {
         "contextWindow": 262100,
-        "maxOutputTokens": 6553,
         "pricingPerMTok": {
           "input": 0.484,
           "output": 1.852,
@@ -173,7 +171,7 @@
         },
         "vision": false,
         "status": "production",
-        "description": "MiniMax M2.7 — prior MiniMax generation. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+        "description": "MiniMax M2.7 — prior MiniMax generation. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28). No maxOutputTokens is recorded: the roster reports 6553, which is a fixed fraction of the 262100-token context window and reads like a gateway default rather than a model limit."
       },
       "inkling": {
         "contextWindow": 1048576,
@@ -273,7 +271,6 @@
       },
       "gpt-oss-120b": {
         "contextWindow": 131072,
-        "maxOutputTokens": 13107,
         "pricingPerMTok": {
           "input": 0.178,
           "output": 0.68,
@@ -281,11 +278,10 @@
         },
         "vision": false,
         "status": "production",
-        "description": "OpenAI's open-weight gpt-oss-120b. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+        "description": "OpenAI's open-weight gpt-oss-120b. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28). No maxOutputTokens is recorded: the roster reports 13107, which is a fixed fraction of the 131072-token context window and reads like a gateway default rather than a model limit."
       },
       "gemma-4-26b-a4b-it": {
         "contextWindow": 256000,
-        "maxOutputTokens": 25600,
         "pricingPerMTok": {
           "input": 0.098,
           "output": 0.334,
@@ -293,7 +289,7 @@
         },
         "vision": false,
         "status": "production",
-        "description": "Google Gemma 4 26B A4B, instruction-tuned. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28)."
+        "description": "Google Gemma 4 26B A4B, instruction-tuned. Context window, max output tokens, vision and pricing per GET https://hyper.charm.land/v1/models (unauthenticated, 2026-09-28). No maxOutputTokens is recorded: the roster reports 25600, which is a fixed fraction of the 256000-token context window and reads like a gateway default rather than a model limit."
       }
     },
     "topModels": [
