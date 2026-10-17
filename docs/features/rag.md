@@ -284,13 +284,16 @@ Listen for tool events during RAG operations to monitor and debug:
 ```typescript
 const neurolink = new NeuroLink();
 
+// NeuroLink does not extend EventEmitter; events come from getEventEmitter()
+const emitter = neurolink.getEventEmitter();
+
 // Listen for tool execution events
-neurolink.on("tool:start", (event) => {
+emitter.on("tool:start", (event) => {
   console.log(`Tool started: ${event.toolName}`);
   console.log(`Parameters:`, event.parameters);
 });
 
-neurolink.on("tool:end", (event) => {
+emitter.on("tool:end", (event) => {
   console.log(`Tool completed: ${event.toolName}`);
   console.log(`Success: ${event.success}`);
   console.log(`Response time: ${event.responseTime}ms`);
@@ -303,11 +306,11 @@ neurolink.on("tool:end", (event) => {
 });
 
 // Listen for generation events
-neurolink.on("generation:start", (event) => {
+emitter.on("generation:start", (event) => {
   console.log(`Generation started with provider: ${event.provider}`);
 });
 
-neurolink.on("generation:end", (event) => {
+emitter.on("generation:end", (event) => {
   console.log(`Generation completed in ${event.responseTime}ms`);
   console.log(`Tools used: ${event.toolsUsed?.join(", ") || "none"}`);
 });

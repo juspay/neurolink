@@ -157,18 +157,18 @@ Gemini 3.1 Pro, Gemini 3 Flash, and Gemini 3.1 Flash Lite carry the `-preview` s
 Configure the embedding model via the `GOOGLE_AI_EMBEDDING_MODEL` environment variable or pass it directly:
 
 ```typescript
+import { ProviderFactory } from "@juspay/neurolink";
+
+const provider = await ProviderFactory.createProvider("google-ai");
+
 // Use default embedding model (gemini-embedding-001)
-const embedding = await ai.embed({
-  input: "Hello world",
-  provider: "google-ai",
-});
+const embedding = await provider.embed("Hello world");
 
 // Use the new multimodal embedding model
-const embedding = await ai.embed({
-  input: "Hello world",
-  provider: "google-ai",
-  model: "gemini-embedding-2-preview",
-});
+const previewEmbedding = await provider.embed(
+  "Hello world",
+  "gemini-embedding-2-preview",
+);
 ```
 
 ### Model Selection by Use Case
@@ -811,11 +811,11 @@ GOOGLE_AI_API_KEY= AIza-your-key # ❌ Extra space
 ```typescript
 // Implement backoff strategy (see Rate Limiting section above)
 // Or reduce request frequency
-// Monitor quota usage
+// Monitor quota usage in the Google AI Studio console
 
-// Check current quota status
-const status = await ai.checkStatus("google-ai");
-console.log("Rate limit status:", status);
+// Check that the provider is configured and reachable
+const health = await ai.checkProviderHealth("google-ai");
+console.log("Provider healthy:", health.isHealthy, health.error);
 ```
 
 #### 3. "Resource Exhausted" (Quota)

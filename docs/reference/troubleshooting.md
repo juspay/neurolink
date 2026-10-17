@@ -364,7 +364,7 @@ const neurolink = new NeuroLink({
 });
 
 // List available tools
-const tools = await neurolink.discoverTools();
+const tools = await neurolink.getAllAvailableTools();
 console.log("Available tools:", tools);
 ```
 
@@ -423,7 +423,7 @@ const result = await neurolink.generate({
 ```typescript
 // Tools may fail with invalid arguments
 // Check schema first:
-const tools = await neurolink.discoverTools();
+const tools = await neurolink.getAllAvailableTools();
 const tool = tools.find((t) => t.name === "my_tool");
 console.log("Tool schema:", tool.inputSchema);
 ```
@@ -1345,7 +1345,7 @@ node --max-old-space-size=4096 your-app.js
 
 ```typescript
 // Clear periodically
-await neurolink.clearConversationMemory();
+await neurolink.clearAllConversations();
 
 // Or limit history
 const neurolink = new NeuroLink({

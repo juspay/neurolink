@@ -67,13 +67,12 @@ VOYAGE_MODEL=voyage-3-large
 ### 3. Generate Your First Embedding
 
 ```typescript
-import { NeuroLink } from "@juspay/neurolink";
+import { ProviderFactory } from "@juspay/neurolink";
 
-const ai = new NeuroLink();
-
-const vector = await ai.embed("The quick brown fox jumps over the lazy dog", {
-  provider: "voyage",
-});
+const provider = await ProviderFactory.createProvider("voyage");
+const vector = await provider.embed(
+  "The quick brown fox jumps over the lazy dog",
+);
 
 console.log(`Vector length: ${vector.length}`); // 1024 for voyage-3.5
 ```
@@ -85,19 +84,18 @@ console.log(`Vector length: ${vector.length}`); // 1024 for voyage-3.5
 ### Single Embedding
 
 ```typescript
-const vector = await ai.embed("Why is the sky blue?", {
-  provider: "voyage",
-  model: "voyage-3.5",
-});
+const provider = await ProviderFactory.createProvider("voyage");
+const vector = await provider.embed("Why is the sky blue?", "voyage-3.5");
 // vector: number[]
 ```
 
 ### Batch Embeddings
 
 ```typescript
-const vectors = await ai.embedMany(
+const provider = await ProviderFactory.createProvider("voyage");
+const vectors = await provider.embedMany(
   ["Document 1 content...", "Document 2 content...", "Document 3 content..."],
-  { provider: "voyage", model: "voyage-3-large" },
+  "voyage-3-large",
 );
 // vectors: number[][]
 ```
@@ -105,19 +103,25 @@ const vectors = await ai.embedMany(
 ### Code Embeddings
 
 ```typescript
-const codeVector = await ai.embed(
+const provider = await ProviderFactory.createProvider("voyage");
+const codeVector = await provider.embed(
   `function fibonacci(n) { return n < 2 ? n : fibonacci(n-1) + fibonacci(n-2); }`,
-  { provider: "voyage", model: "voyage-code-3" },
+  "voyage-code-3",
 );
 ```
 
 ### Per-Call Credentials
 
 ```typescript
-const vector = await ai.embed("text", {
-  provider: "voyage",
-  credentials: { voyage: { apiKey: "user-specific-key" } },
-});
+// createProvider(name, model, sdk, region, credentials)
+const provider = await ProviderFactory.createProvider(
+  "voyage",
+  undefined,
+  undefined,
+  undefined,
+  { voyage: { apiKey: "user-specific-key" } },
+);
+const vector = await provider.embed("text");
 ```
 
 ### Use with NeuroLink RAG
@@ -126,6 +130,10 @@ Voyage embeddings plug into NeuroLink's RAG pipeline. Configure the RAG
 embedder to use Voyage:
 
 ```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const ai = new NeuroLink();
+
 const result = await ai.generate({
   provider: "openai", // any chat-capable provider for the LLM half
   prompt: "What are the key features?",

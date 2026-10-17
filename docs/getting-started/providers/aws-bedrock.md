@@ -427,26 +427,27 @@ const qwen = await ai.generate({
 ### Embedding and Reranking Models
 
 ```typescript
+import { ProviderFactory } from "@juspay/neurolink";
+
+const provider = await ProviderFactory.createProvider("bedrock");
+
 // Nova 2 Multimodal Embeddings (text + image)
-const novaEmbed = await ai.embed({
-  texts: ["Document 1", "Document 2"],
-  provider: "bedrock",
-  model: "amazon.nova-2-multimodal-embeddings-v1:0",
-});
+const novaEmbed = await provider.embedMany(
+  ["Document 1", "Document 2"],
+  "amazon.nova-2-multimodal-embeddings-v1:0",
+);
 
 // Cohere Embed v4 - Latest embeddings
-const cohereEmbed = await ai.embed({
-  texts: ["Query text"],
-  provider: "bedrock",
-  model: "cohere.embed-v4:0",
-});
+const cohereEmbed = await provider.embedMany(
+  ["Query text"],
+  "cohere.embed-v4:0",
+);
 
 // Titan Embeddings v2 (legacy)
-const titanEmbed = await ai.embed({
-  texts: ["Document"],
-  provider: "bedrock",
-  model: "amazon.titan-embed-text-v2:0",
-});
+const titanEmbed = await provider.embedMany(
+  ["Document"],
+  "amazon.titan-embed-text-v2:0",
+);
 ```
 
 **Embedding & Reranking Model IDs:**

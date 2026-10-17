@@ -401,7 +401,9 @@ server.registerRoute({
       try {
         await streamResponse.writeTextStart(textId);
 
-        for await (const chunk of neurolink.generateStream({ prompt })) {
+        const result = await neurolink.stream({ input: { text: prompt } });
+
+        for await (const chunk of result.stream) {
           if (chunk.content) {
             await streamResponse.writeTextDelta(textId, chunk.content);
           }
@@ -434,7 +436,9 @@ await server.start();
 
 ### Tool Call Streaming
 
-```typescript
+Planned: `streamWithTools()` and its `text-delta` / `tool-call` / `tool-result` event stream are not in the current release. Today, call `stream()` for the text and listen for `tool:start` and `tool:end` on `neurolink.getEventEmitter()` to report tool activity.
+
+```typescript planned
 import {
   DataStreamResponse,
   pipeAsyncIterableToDataStream,
@@ -520,7 +524,9 @@ async function handleStreamWithErrors(
     try {
       await streamResponse.writeTextStart(textId);
 
-      for await (const chunk of neurolink.generateStream({ prompt })) {
+      const result = await neurolink.stream({ input: { text: prompt } });
+
+      for await (const chunk of result.stream) {
         // Check if stream was closed by client
         if (streamResponse.isClosed()) {
           console.log("Client disconnected, stopping generation");
@@ -587,15 +593,13 @@ server.registerRoute({
     const streamResponse = new DataStreamResponse();
 
     // Pipe the async iterable directly to the stream
-    pipeAsyncIterableToDataStream(
-      neurolink.generateStream({ prompt }),
-      streamResponse,
-      {
-        textId: `text-${Date.now()}`,
-        onChunk: (chunk) => console.log("Chunk received:", chunk),
-        onError: (error) => console.error("Stream error:", error),
-      },
-    ).catch(console.error);
+    const result = await neurolink.stream({ input: { text: prompt } });
+
+    pipeAsyncIterableToDataStream(result.stream, streamResponse, {
+      textId: `text-${Date.now()}`,
+      onChunk: (chunk) => console.log("Chunk received:", chunk),
+      onError: (error) => console.error("Stream error:", error),
+    }).catch(console.error);
 
     return new Response(streamResponse.stream, {
       headers: streamResponse.headers,

@@ -59,6 +59,11 @@ import {
   isExpectedProviderError,
 } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import {
+  compareCodepoints,
+  extractFences,
+  listDocFiles,
+} from "./helpers/docsMarkdown.js";
 
 assertDistFresh();
 
@@ -100,11 +105,6 @@ const SCANNED_FENCES: ReadonlyMap<string, ts.ScriptKind> = new Map<
   ["tsx", ts.ScriptKind.TSX],
   ["javascript", ts.ScriptKind.JS],
   ["js", ts.ScriptKind.JS],
-]);
-
-const EXCLUDED_DIRECTORIES: ReadonlySet<string> = new Set([
-  "docs/api",
-  "docs/plans",
 ]);
 
 // Real values are 518 files, 4090 blocks and 460 literals at the time of
@@ -178,21 +178,6 @@ type DocScan = {
   readonly literals: readonly DocLiteral[];
 };
 
-type Fence = {
-  readonly language: string;
-  readonly firstLine: number;
-  readonly code: string;
-};
-
-type OpenFence = {
-  readonly marker: string;
-  readonly length: number;
-  readonly language: string;
-  readonly firstLine: number;
-  readonly quoted: boolean;
-  readonly body: string[];
-};
-
 type LedgerCounts = ReadonlyMap<string, ReadonlyMap<string, number>>;
 
 type LedgerDelta = {
@@ -220,9 +205,6 @@ const state: SuiteState = {
 function fail(message: string): never {
   throw new Error(message);
 }
-
-const compareCodepoints = (a: string, b: string): number =>
-  a < b ? -1 : a > b ? 1 : 0;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -289,81 +271,6 @@ function readDeclaredOptions(entry: string): DeclaredOptions {
     openEnded = openEnded || checker.getIndexInfosOfType(config).length > 0;
   }
   return { keys, constructors: signatures.length, openEnded };
-}
-
-function listDocFiles(root: string): string[] {
-  const found: string[] = [];
-  if (fs.existsSync(path.join(root, "README.md"))) {
-    found.push("README.md");
-  }
-  const walk = (directory: string): void => {
-    for (const entry of fs.readdirSync(path.join(root, directory), {
-      withFileTypes: true,
-    })) {
-      const relative = `${directory}/${entry.name}`;
-      if (entry.isDirectory()) {
-        if (!EXCLUDED_DIRECTORIES.has(relative)) {
-          walk(relative);
-        }
-      } else if (entry.isFile() && entry.name.endsWith(".md")) {
-        found.push(relative);
-      }
-    }
-  };
-  if (fs.existsSync(path.join(root, "docs"))) {
-    walk("docs");
-  }
-  return found.sort(compareCodepoints);
-}
-
-const FENCE_LINE = /^(\s*(?:>\s?)*)(`{3,}|~{3,})(.*)$/;
-const QUOTE_PREFIX = /^\s*(?:>\s?)+/;
-
-function extractFences(markdown: string): Fence[] {
-  const fences: Fence[] = [];
-  const close = (open: OpenFence): void => {
-    fences.push({
-      language: open.language,
-      firstLine: open.firstLine,
-      code: open.body.join("\n"),
-    });
-  };
-  let open: OpenFence | undefined;
-  for (const [index, line] of markdown.split(/\r?\n/).entries()) {
-    const match = FENCE_LINE.exec(line);
-    if (open !== undefined) {
-      const closes =
-        match !== null &&
-        match[2][0] === open.marker &&
-        match[2].length >= open.length &&
-        match[3].trim() === "";
-      if (closes) {
-        close(open);
-        open = undefined;
-      } else {
-        open.body.push(open.quoted ? line.replace(QUOTE_PREFIX, "") : line);
-      }
-      continue;
-    }
-    if (match === null || (match[2][0] === "`" && match[3].includes("`"))) {
-      continue;
-    }
-    open = {
-      marker: match[2][0],
-      length: match[2].length,
-      language: match[3]
-        .trim()
-        .split(/[\s{:,]/)[0]
-        .toLowerCase(),
-      firstLine: index + 2,
-      quoted: match[1].includes(">"),
-      body: [],
-    };
-  }
-  if (open !== undefined) {
-    close(open);
-  }
-  return fences;
 }
 
 const isNeuroLinkReference = (expression: ts.Expression): boolean =>

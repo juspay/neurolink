@@ -321,6 +321,7 @@
     "test:docs-search-index": "pnpm exec tsx test/continuous-test-suite-docs-search-index.ts",
     "test:docs-snippets": "pnpm exec tsx test/continuous-test-suite-docs-snippets.ts",
     "test:docs-snippets:update": "pnpm exec tsx test/continuous-test-suite-docs-snippets.ts --update-ledger",
+    "test:docs-methods": "pnpm exec tsx test/continuous-test-suite-docs-methods.ts",
     "test:import-cost": "pnpm exec tsx test/continuous-test-suite-import-cost.ts",
     "test:vertex-claude-characterization": "tsx test/continuous-test-suite-vertex-claude-characterization.ts",
     "test:toolfree-guard-overhead": "pnpm exec tsx test/continuous-test-suite-toolfree-guard-overhead.ts",

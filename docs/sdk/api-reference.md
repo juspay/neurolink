@@ -517,19 +517,6 @@ for await (const chunk of result.stream) {
 
 ---
 
-### `gen(options)`
-
-Short alias for `generate()`. Identical signature and behavior.
-
-```typescript
-const result = await neurolink.gen({
-  input: { text: "Hello" },
-  provider: "openai",
-});
-```
-
----
-
 ### Embeddings
 
 Generate embeddings directly via the provider's `embed()` and `embedMany()` methods.
@@ -1833,20 +1820,21 @@ try {
 
 ## Event System
 
-`NeuroLink` is a `TypedEventEmitter` that emits events throughout the generation and streaming lifecycle. Subscribe to events with `on()`, unsubscribe with `off()`.
+`NeuroLink` emits events throughout the generation and streaming lifecycle through a `TypedEventEmitter`. `NeuroLink` does not extend `EventEmitter` itself, so there is no `neurolink.on()`: get the emitter with `getEventEmitter()`, subscribe with `on()` and unsubscribe with `off()`.
 
 ```typescript
 const neurolink = new NeuroLink();
+const emitter = neurolink.getEventEmitter();
 
-neurolink.on("generation:start", (data) => {
+emitter.on("generation:start", (data) => {
   console.log("Generation started");
 });
 
-neurolink.on("tool:end", (data) => {
+emitter.on("tool:end", (data) => {
   console.log("Tool execution finished");
 });
 
-neurolink.on("stream:chunk", (data) => {
+emitter.on("stream:chunk", (data) => {
   // Received a streaming chunk
 });
 ```

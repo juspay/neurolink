@@ -477,8 +477,16 @@ async function generateWithMonitoring(prompt: string) {
 ### 1. Dynamic Model Discovery
 
 ```typescript
+import { ProviderFactory } from "@juspay/neurolink";
+
+// getAvailableModels() is on the concrete provider class, not on the
+// AIProvider type that createProvider() returns, so narrow it for TypeScript.
+type ModelLister = { getAvailableModels(): Promise<string[]> };
+
 // Get all available models at runtime
-const provider = await ai.getProvider("openrouter");
+const provider = (await ProviderFactory.createProvider(
+  "openrouter",
+)) as unknown as ModelLister;
 const models = await provider.getAvailableModels();
 
 console.log(`${models.length} models available`);

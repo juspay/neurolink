@@ -140,19 +140,26 @@ npx @juspay/neurolink models --provider openai-compatible
 ### SDK Auto-Discovery
 
 ```typescript
-import { NeuroLink } from "@juspay/neurolink";
+import { NeuroLink, ProviderFactory } from "@juspay/neurolink";
+
+// getAvailableModels() is on the concrete provider class, not on the
+// AIProvider type that createProvider() returns, so narrow it for TypeScript.
+type ModelLister = { getAvailableModels(): Promise<string[]> };
 
 const ai = new NeuroLink();
 
-// Discover models programmatically
-const models = await ai.listModels("openai-compatible");
+// Discover models programmatically (returns the model ids as strings)
+const provider = (await ProviderFactory.createProvider(
+  "openai-compatible",
+)) as unknown as ModelLister;
+const models = await provider.getAvailableModels();
 console.log("Available models:", models);
 
 // Use discovered model
 const result = await ai.generate({
   input: { text: "Hello!" },
   provider: "openai-compatible",
-  model: models[0].id, // Use first available model
+  model: models[0], // Use first available model
 });
 ```
 
@@ -334,12 +341,16 @@ const result = await ai.generate({
   model: "anthropic/claude-3.5-sonnet",
 });
 
-// Or use auto-discovered model
-const models = await ai.listModels("openai-compatible");
+// Or use auto-discovered model (ProviderFactory and ModelLister as in
+// "SDK Auto-Discovery" above)
+const provider = (await ProviderFactory.createProvider(
+  "openai-compatible",
+)) as unknown as ModelLister;
+const models = await provider.getAvailableModels();
 const result = await ai.generate({
   input: { text: "Your prompt" },
   provider: "openai-compatible",
-  model: models[0].id,
+  model: models[0],
 });
 ```
 
@@ -374,6 +385,12 @@ const result = await ai.generate({
 ### Error Handling
 
 ```typescript
+import { ProviderFactory } from "@juspay/neurolink";
+
+// getAvailableModels() is on the concrete provider class, not on the
+// AIProvider type that createProvider() returns, so narrow it for TypeScript.
+type ModelLister = { getAvailableModels(): Promise<string[]> };
+
 try {
   const result = await ai.generate({
     input: { text: "Your prompt" },
@@ -383,11 +400,11 @@ try {
 } catch (error) {
   if (error.message.includes("model not found")) {
     // List available models
-    const models = await ai.listModels("openai-compatible");
-    console.log(
-      "Available models:",
-      models.map((m) => m.id),
-    );
+    const provider = (await ProviderFactory.createProvider(
+      "openai-compatible",
+    )) as unknown as ModelLister;
+    const models = await provider.getAvailableModels();
+    console.log("Available models:", models);
   } else if (error.message.includes("connection")) {
     console.error("Cannot connect to endpoint");
   } else {
@@ -621,12 +638,18 @@ OPENAI_COMPATIBLE_API_KEY=none  # ✅ For vLLM
 ### 1. Model Discovery
 
 ```typescript
+import { ProviderFactory } from "@juspay/neurolink";
+
+// getAvailableModels() is on the concrete provider class, not on the
+// AIProvider type that createProvider() returns, so narrow it for TypeScript.
+type ModelLister = { getAvailableModels(): Promise<string[]> };
+
 // ✅ Good: Auto-discover models on startup
-const models = await ai.listModels("openai-compatible");
-console.log(
-  "Available models:",
-  models.map((m) => m.id),
-);
+const provider = (await ProviderFactory.createProvider(
+  "openai-compatible",
+)) as unknown as ModelLister;
+const models = await provider.getAvailableModels();
+console.log("Available models:", models);
 
 // Cache model list
 const modelCache = new Map();
@@ -636,10 +659,19 @@ modelCache.set("openai-compatible", models);
 ### 2. Endpoint Health Checks
 
 ```typescript
+import { ProviderFactory } from "@juspay/neurolink";
+
+// getAvailableModels() is on the concrete provider class, not on the
+// AIProvider type that createProvider() returns, so narrow it for TypeScript.
+type ModelLister = { getAvailableModels(): Promise<string[]> };
+
 // ✅ Good: Verify endpoint before use
 async function healthCheck() {
   try {
-    const models = await ai.listModels("openai-compatible");
+    const provider = (await ProviderFactory.createProvider(
+      "openai-compatible",
+    )) as unknown as ModelLister;
+    const models = await provider.getAvailableModels();
     return models.length > 0;
   } catch (error) {
     return false;

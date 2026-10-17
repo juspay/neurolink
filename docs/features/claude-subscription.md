@@ -990,10 +990,24 @@ validateModelAccess("claude-opus-4-20250514", "pro");
 Access subscription features on the Anthropic provider instance:
 
 ```typescript
-import { NeuroLink } from "@juspay/neurolink";
+import { ProviderFactory } from "@juspay/neurolink";
 
-const neurolink = new NeuroLink();
-const provider = await neurolink.getProvider("anthropic");
+// These methods are on the concrete Anthropic provider class, not on the
+// AIProvider type that createProvider() returns, so narrow it for TypeScript.
+type ClaudeSubscriptionProvider = {
+  getSubscriptionTier(): string;
+  getAuthMethod(): "oauth" | "api_key";
+  areBetaFeaturesEnabled(): boolean;
+  validateModelAccess(model: string): boolean;
+  refreshAuthIfNeeded(): Promise<void>;
+  getUsageInfo(): unknown;
+  getLastResponseMetadata(): unknown;
+  getAuthHeaders(): Record<string, string>;
+};
+
+const provider = (await ProviderFactory.createProvider(
+  "anthropic",
+)) as unknown as ClaudeSubscriptionProvider;
 
 // Check subscription state
 provider.getSubscriptionTier(); // "pro" | "max" | "api" | ...

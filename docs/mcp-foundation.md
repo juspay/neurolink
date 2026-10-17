@@ -65,7 +65,7 @@ import { NeuroLink } from "@juspay/neurolink";
 const neurolink = new NeuroLink();
 
 // Enterprise integration example
-await neurolink.addMCPServer("bitbucket", {
+await neurolink.addExternalMCPServer("bitbucket", {
   command: "npx",
   args: ["-y", "@nexus2520/bitbucket-mcp-server"],
   env: {
@@ -75,7 +75,7 @@ await neurolink.addMCPServer("bitbucket", {
 });
 
 // Custom tool registration
-await neurolink.addMCPServer("custom-analytics", {
+await neurolink.addExternalMCPServer("custom-analytics", {
   command: "node",
   args: ["./analytics-mcp-server.js"],
   env: { DATABASE_URL: process.env.ANALYTICS_DB },
@@ -288,7 +288,9 @@ const context = {
 
 **BREAKTHROUGH**: Instead of migrating 30+ tools (8-10 weeks), we now **directly import** Lighthouse's 60+ production-ready tools into NeuroLink.
 
-```typescript
+Planned: `registerLighthouseServer()` is not in the current release. Today a server is added with `addExternalMCPServer()` or `addInMemoryMCPServer()`.
+
+```typescript planned
 // Import Lighthouse tools directly
 import { juspayAnalyticsServer } from "lighthouse/src/lib/mcp/servers/juspay/analytics-server";
 

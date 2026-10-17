@@ -88,20 +88,22 @@ const result = await neurolink.generate({
 
 ## Embeddings
 
-Generate vector embeddings for text:
+Generate vector embeddings for text. `NeuroLink` has no `embed()` of its own: the embedding methods live on the provider instance (see the [embeddings guide](../features/embeddings.md)):
 
 ```typescript
+import { ProviderFactory } from "@juspay/neurolink";
+
+const provider = await ProviderFactory.createProvider("openai");
+
 // Single text
-const embedding = await neurolink.embed({
-  input: "Hello world",
-  provider: "openai",
-});
+const embedding = await provider.embed("Hello world");
 
 // Multiple texts
-const embeddings = await neurolink.embedMany({
-  input: ["First text", "Second text", "Third text"],
-  provider: "openai",
-});
+const embeddings = await provider.embedMany([
+  "First text",
+  "Second text",
+  "Third text",
+]);
 ```
 
 ## RAG Integration

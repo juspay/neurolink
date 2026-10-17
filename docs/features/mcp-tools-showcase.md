@@ -1236,14 +1236,15 @@ Total: 70 tools available
 const neurolink = new NeuroLink();
 
 // Discover all tools
-const tools = await neurolink.discoverTools();
+const tools = await neurolink.getAllAvailableTools();
 
 console.log(`Total tools: ${tools.length}`);
 
 // Group by server
 const byServer = tools.reduce((acc, tool) => {
-  if (!acc[tool.server]) acc[tool.server] = [];
-  acc[tool.server].push(tool.name);
+  const server = tool.serverId ?? "unknown";
+  if (!acc[server]) acc[server] = [];
+  acc[server].push(tool.name);
   return acc;
 }, {});
 

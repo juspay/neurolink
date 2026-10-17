@@ -844,16 +844,18 @@ const neurolink = new NeuroLink({
 
 ## Events
 
-TaskManager emits events via NeuroLink's existing `TypedEventEmitter`:
+TaskManager emits events via NeuroLink's existing `TypedEventEmitter`, which you reach with `getEventEmitter()` (`NeuroLink` itself has no `on()`):
 
 ```typescript
-neurolink.on("task:created", (task: Task) => { ... });
-neurolink.on("task:started", (task: Task, runId: string) => { ... });
-neurolink.on("task:completed", (result: TaskRunResult) => { ... });
-neurolink.on("task:failed", (error: TaskRunError) => { ... });
-neurolink.on("task:paused", (task: Task) => { ... });
-neurolink.on("task:resumed", (task: Task) => { ... });
-neurolink.on("task:deleted", (taskId: string) => { ... });
+const emitter = neurolink.getEventEmitter();
+
+emitter.on("task:created", (task: Task) => { ... });
+emitter.on("task:started", (task: Task) => { ... });
+emitter.on("task:completed", (result: TaskRunResult) => { ... });
+emitter.on("task:failed", (result: TaskRunResult) => { ... });
+emitter.on("task:paused", (task: Task) => { ... });
+emitter.on("task:resumed", (task: Task) => { ... });
+emitter.on("task:deleted", (taskId: string) => { ... });
 ```
 
 ---

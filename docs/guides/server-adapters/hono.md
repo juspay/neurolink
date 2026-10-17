@@ -360,9 +360,11 @@ const app = server.getFrameworkInstance();
 
 app.get("/api/custom-stream", async (c) => {
   return c.streamText(async (stream) => {
-    for await (const chunk of neurolink.generateStream({
-      prompt: "Tell me a joke",
-    })) {
+    const result = await neurolink.stream({
+      input: { text: "Tell me a joke" },
+    });
+
+    for await (const chunk of result.stream) {
       await stream.write(chunk.content);
     }
   });

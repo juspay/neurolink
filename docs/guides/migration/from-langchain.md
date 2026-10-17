@@ -335,21 +335,23 @@ import { NeuroLink } from "@juspay/neurolink";
 
 const neurolink = new NeuroLink({ provider: "openai" });
 
-// Use middleware for callbacks
-neurolink.useMiddleware({
-  name: "logging",
-  requestHook: async (options) => {
-    console.log("Request:", options);
-    return options;
-  },
-  responseHook: async (result) => {
+// Use middleware for callbacks: pass it per call and enable it by id
+const loggingMiddleware = {
+  metadata: { id: "logging", name: "Request logging" },
+  wrapGenerate: async ({ doGenerate, params }) => {
+    console.log("Request:", params);
+    const result = await doGenerate();
     console.log("Response:", result);
     return result;
   },
-});
+};
 
 await neurolink.generate({
   input: { text: "Hello" },
+  middleware: {
+    middleware: [loggingMiddleware],
+    enabledMiddleware: ["logging"],
+  },
 });
 ```
 
@@ -504,7 +506,7 @@ while (true) {
 }
 
 // Export conversation history
-const history = await neurolink.exportConversation({
+const history = await neurolink.exportAllSessions(undefined, {
   format: "json",
 });
 ```

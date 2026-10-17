@@ -36,6 +36,7 @@ neurolink autoresearch results /path/to/repo
 
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
+import { ResearchWorker } from "@juspay/neurolink/autoresearch";
 
 async function runOneExperiment() {
   const neurolink = new NeuroLink({
@@ -43,7 +44,7 @@ async function runOneExperiment() {
     model: "gemini-2.5-flash",
   });
 
-  const worker = neurolink.createResearchWorker({
+  const worker = new ResearchWorker({
     repoPath: "/path/to/repo",
     mutablePaths: ["train.py"],
     immutablePaths: ["program.md"],
@@ -55,14 +56,16 @@ async function runOneExperiment() {
     },
     timeoutMs: 120_000,
   });
+  await worker.initialize("run1");
 
   // Listen for events
   const emitter = neurolink.getEventEmitter();
-  emitter.on("autoresearch:cycle:start", (e) => {
-    console.log(`Cycle ${e.cycle} starting`);
+  worker.setEmitter(emitter);
+  emitter.on("autoresearch:experiment-started", (e) => {
+    console.log(`Experiment ${e.runCount} starting`);
   });
-  emitter.on("autoresearch:cycle:end", (e) => {
-    console.log(`Cycle ${e.cycle}: ${e.status}, metric=${e.metricValue}`);
+  emitter.on("autoresearch:experiment-completed", (e) => {
+    console.log(`Experiment ${e.runCount}: ${e.status}, metric=${e.metric}`);
   });
 
   // Run one cycle
@@ -71,8 +74,8 @@ async function runOneExperiment() {
   );
 
   console.log("Status:", result.status);
-  console.log("Metric:", result.metricValue);
-  console.log("Commit:", result.commitHash);
+  console.log("Metric:", result.metric);
+  console.log("Commit:", result.commit);
 }
 
 runOneExperiment();
@@ -89,10 +92,12 @@ async function scheduleResearch() {
     model: "gemini-2.5-flash",
   });
 
-  // Save as a managed task
-  await neurolink.saveTask({
-    id: "research-lr-schedule",
+  // Create a scheduled autoresearch task
+  const task = await neurolink.tasks.create({
+    name: "research-lr-schedule",
+    prompt: "Run autoresearch experiment cycle",
     type: "autoresearch",
+    schedule: { type: "interval", every: 5 * 60 * 1000 }, // Every 5 minutes
     autoresearch: {
       repoPath: "/path/to/repo",
       mutablePaths: ["train.py"],
@@ -105,20 +110,21 @@ async function scheduleResearch() {
     },
   });
 
-  // Start the task worker to begin execution
-  await neurolink.startTaskWorker();
+  // Pause, resume or delete it later
+  await neurolink.tasks.pause(task.id);
+  await neurolink.tasks.resume(task.id);
 }
 
 scheduleResearch();
 ```
 
-> **Note:** `saveTask()` only persists the task definition. You must call `startTaskWorker()` (SDK) or run `neurolink task start` (CLI) to begin execution.
+> **Note:** `neurolink.tasks.create()` registers the task with the configured TaskManager backend, and the schedule runs there. With the default in-process backend the timers live only as long as your process, so keep it running. From the CLI, `neurolink autoresearch start` only saves the task and `neurolink task start` runs the worker.
 
 ## Explanation
 
 ### 1. Initialization
 
-`autoresearch init` (CLI) or `createResearchWorker()` (SDK) sets up the config:
+`autoresearch init` (CLI) or `new ResearchWorker(config)` (SDK) sets up the config:
 
 - **`mutablePaths`** — Files the AI is allowed to edit (your training script)
 - **`immutablePaths`** — Files the AI can read but not modify (research program, dataset configs)
@@ -155,20 +161,20 @@ After running, check `.autoresearch/` in your repo:
 
 ### 4. Events
 
-The SDK emits 10 typed events via `neurolink.getEventEmitter()`:
+The SDK emits 10 typed events via `neurolink.getEventEmitter()`. A `ResearchWorker` created directly emits them once you pass it that emitter with `worker.setEmitter()`; tasks created through `neurolink.tasks` are wired for you:
 
-| Event                          | Fired when                          |
-| ------------------------------ | ----------------------------------- |
-| `autoresearch:cycle:start`     | A cycle begins                      |
-| `autoresearch:cycle:end`       | A cycle completes (success or fail) |
-| `autoresearch:phase:enter`     | Worker enters a new phase           |
-| `autoresearch:phase:exit`      | Worker exits a phase                |
-| `autoresearch:metric:recorded` | A metric value is parsed            |
-| `autoresearch:commit:created`  | A candidate commit is made          |
-| `autoresearch:commit:reverted` | A candidate commit is reverted      |
-| `autoresearch:error`           | An error occurs                     |
-| `autoresearch:timeout`         | Experiment exceeds time limit       |
-| `autoresearch:stopped`         | Worker stops (manual or max-runs)   |
+| Event                               | Fired when                                      |
+| ----------------------------------- | ----------------------------------------------- |
+| `autoresearch:initialized`          | A research session is created                   |
+| `autoresearch:resumed`              | An existing research session is resumed         |
+| `autoresearch:phase-changed`        | The worker moves to a new phase                 |
+| `autoresearch:experiment-started`   | An experiment cycle begins                      |
+| `autoresearch:experiment-completed` | An experiment cycle completes (success or fail) |
+| `autoresearch:metric-improved`      | The best metric value improves                  |
+| `autoresearch:revert`               | A candidate commit is reverted                  |
+| `autoresearch:revert-failed`        | Reverting a candidate commit fails              |
+| `autoresearch:state-updated`        | The persisted state is updated                  |
+| `autoresearch:error`                | An error occurs                                 |
 
 ## Variations
 
@@ -177,7 +183,7 @@ The SDK emits 10 typed events via `neurolink.getEventEmitter()`:
 Replace the provider/model in the config. AutoResearch works with any NeuroLink-supported provider:
 
 ```typescript
-const worker = neurolink.createResearchWorker({
+const worker = new ResearchWorker({
   // ... same config ...
   provider: "anthropic",
   model: "claude-sonnet-4-20250514",

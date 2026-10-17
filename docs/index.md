@@ -71,32 +71,30 @@ Extracted from production systems at Juspay, NeuroLink provides a practical, Typ
 
 ```typescript
 // Multi-Model Workflow Engine (v8.42.0)
-import { NeuroLink } from "@juspay/neurolink";
+import {
+  NeuroLink,
+  runWorkflow,
+  CONSENSUS_3_WORKFLOW,
+} from "@juspay/neurolink";
 
 const neurolink = new NeuroLink();
 
 // Run a consensus workflow with multiple models
-const result = await neurolink.runConsensusWorkflow({
+const result = await runWorkflow(CONSENSUS_3_WORKFLOW, {
   prompt: "Explain quantum computing",
-  models: [
-    { provider: "anthropic", modelId: "claude-sonnet-4-6" },
-    { provider: "openai", modelId: "gpt-4o" },
-    { provider: "google-ai", modelId: "gemini-3-flash-preview" },
-  ],
-  judgeModel: { provider: "anthropic", modelId: "claude-opus-4-7" },
-  options: { temperature: 0.7 },
 });
 
-console.log(result.response); // Best response selected by judge
+console.log(result.content); // Best response selected by judge
 console.log(result.score); // Quality score (0-100)
-console.log(result.metrics); // Detailed performance metrics
+console.log(result.totalTime); // Total workflow time in ms
 
 // Image Generation with Gemini (v8.31.0)
-const image = await neurolink.generateImage({
-  prompt: "A futuristic cityscape",
+const image = await neurolink.generate({
+  input: { text: "A futuristic cityscape" },
   provider: "google-ai",
-  model: "imagen-3.0-generate-002",
+  model: "gemini-2.5-flash-image",
 });
+console.log(image.imageOutput?.base64); // Base64-encoded PNG
 
 // HTTP Transport for Remote MCP (v8.29.0)
 await neurolink.addExternalMCPServer("remote-tools", {
@@ -387,7 +385,9 @@ const neurolinkExplicit = new NeuroLink({
 });
 
 // Export conversation for analytics
-const history = await neurolink.exportConversation({ format: "json" });
+const history = await neurolink.exportAllSessions(undefined, {
+  format: "json",
+});
 await saveToDataWarehouse(history);
 ```
 

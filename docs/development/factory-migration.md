@@ -180,16 +180,14 @@ class LegacyService {
 
 ```typescript
 // ✅ Modern factory-based approach
-import { NeuroLink, ProviderFactory } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
 class ModernService {
   private neurolink: NeuroLink;
-  private factory: ProviderFactory;
 
   constructor() {
     // Factory-managed instantiation
     this.neurolink = new NeuroLink();
-    this.factory = this.neurolink.getProviderFactory();
   }
 
   async generateText(prompt: string, providerType?: string) {
@@ -329,7 +327,9 @@ async function handleRequest(prompt: string) {
 
 ### Unit Tests for Factory Pattern
 
-```typescript
+Planned: this example uses a factory instance (`neurolink.getProviderFactory()`) that the current release does not have. `ProviderFactory` exposes static methods such as `ProviderFactory.createProvider(name)`.
+
+```typescript planned
 // test/factory-migration.test.ts
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NeuroLink, ProviderFactory } from "@juspay/neurolink";
@@ -428,8 +428,8 @@ describe("End-to-End Migration", () => {
       input: { text: "test prompt" },
     });
 
-    const analytics = await neurolink.getAnalytics();
-    expect(analytics.totalRequests).toBeGreaterThan(0);
+    const analytics = await neurolink.getProviderMetrics();
+    expect(analytics.requestCount).toBeGreaterThan(0);
     expect(analytics.providers).toBeDefined();
   });
 });

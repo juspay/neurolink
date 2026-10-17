@@ -360,9 +360,11 @@ app.post("/api/custom-stream", async (req, res) => {
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
-  for await (const chunk of neurolink.generateStream({
-    prompt: req.body.input,
-  })) {
+  const result = await neurolink.stream({
+    input: { text: req.body.input },
+  });
+
+  for await (const chunk of result.stream) {
     res.write(`data: ${JSON.stringify(chunk)}\n\n`);
   }
 

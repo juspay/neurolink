@@ -498,7 +498,9 @@ router.route("stream", async (connection, payload) => {
   // Start streaming
   const socket = connection.socket as { send: (data: string) => void };
 
-  for await (const chunk of neurolink.generateStream({ prompt })) {
+  const result = await neurolink.stream({ input: { text: prompt } });
+
+  for await (const chunk of result.stream) {
     socket.send(JSON.stringify({ type: "chunk", content: chunk.content }));
   }
 

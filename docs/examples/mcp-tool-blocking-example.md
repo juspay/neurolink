@@ -48,10 +48,9 @@ Create or update your `.mcp-config.json` file:
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
 
+// The .mcp-config.json in the working directory is loaded automatically
+// the first time MCP is used (getMCPStatus(), generate(), stream(), ...)
 const neurolink = new NeuroLink();
-
-// Load external servers from configuration
-await neurolink.loadExternalMCPServers("./.mcp-config.json");
 ```
 
 ### 2. List Available Tools
@@ -62,7 +61,7 @@ const status = await neurolink.getMCPStatus();
 console.log(`Loaded ${status.totalServers} servers`);
 
 // List all available tools (blocked tools won't appear here)
-const tools = await neurolink.listMCPTools();
+const tools = await neurolink.getAllAvailableTools();
 console.log(
   "Available tools:",
   tools.map((t) => t.name),
@@ -74,7 +73,7 @@ console.log(
 ```typescript
 try {
   // This will fail because 'delete_file' is blocked
-  await neurolink.executeMCPTool("filesystem.delete_file", {
+  await neurolink.executeExternalMCPTool("filesystem", "delete_file", {
     path: "/some/file.txt",
   });
 } catch (error) {
@@ -87,9 +86,13 @@ try {
 
 ```typescript
 // This will succeed because 'read_file' is not blocked
-const content = await neurolink.executeMCPTool("filesystem.read_file", {
-  path: "/some/file.txt",
-});
+const content = await neurolink.executeExternalMCPTool(
+  "filesystem",
+  "read_file",
+  {
+    path: "/some/file.txt",
+  },
+);
 console.log("File content:", content);
 ```
 

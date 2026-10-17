@@ -554,12 +554,20 @@ const highQualityContent = results.filter(
 ### Cost Monitoring Dashboard
 
 ```typescript
+import type { GenerateResult } from "@juspay/neurolink";
+
 function createCostDashboard() {
   const dailyCosts = [];
   const qualityMetrics = [];
 
   // Track all AI requests
-  sdk.onResponse((result) => {
+  sdk.getEventEmitter().on("generation:end", (event) => {
+    // A failed generation emits generation:end without a result
+    const result = (event as { result?: GenerateResult }).result;
+    if (!result) {
+      return;
+    }
+
     if (result.analytics) {
       dailyCosts.push({
         date: new Date(result.analytics.timestamp),

@@ -443,9 +443,11 @@ fastify.post("/api/custom-stream", async (request, reply) => {
     Connection: "keep-alive",
   });
 
-  for await (const chunk of neurolink.generateStream({
-    prompt: request.body.input,
-  })) {
+  const result = await neurolink.stream({
+    input: { text: request.body.input },
+  });
+
+  for await (const chunk of result.stream) {
     reply.raw.write(`data: ${JSON.stringify(chunk)}\n\n`);
   }
 

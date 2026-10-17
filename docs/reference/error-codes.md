@@ -65,19 +65,18 @@ Errors related to tool registration, discovery, and execution.
 
 ```typescript
 // Check available tools before calling
-const tools = await neurolink.listTools();
+const tools = await neurolink.getAllAvailableTools();
 console.log(
   "Available tools:",
   tools.map((t) => t.name),
 );
 
 // Verify tool registration
-await neurolink.addTool({
-  name: "myTool",
+neurolink.registerTool("myTool", {
   description: "My custom tool",
-  parameters: {
+  parameters: z.object({
     /* schema */
-  },
+  }),
   execute: async (params) => {
     /* implementation */
   },
@@ -123,8 +122,11 @@ const neurolink = new NeuroLink({
   fallbackProviders: ["anthropic", "google-ai"],
 });
 
-// Or manually switch providers
-await neurolink.setProvider("anthropic");
+// Or name the provider on the call itself
+await neurolink.generate({
+  input: { text: "Hello" },
+  provider: "anthropic",
+});
 ```
 
 **PROVIDER_AUTH_FAILED**

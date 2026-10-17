@@ -97,7 +97,7 @@ const response2 = await ai.generate({ input: "Compare to last week" });
 
 **Continuous Streaming (NeuroLink's Vision):**
 
-```typescript
+```typescript planned
 // Future API (planned)
 const stream = await neurolink.connectStream({
   mode: "continuous", // Stream stays alive

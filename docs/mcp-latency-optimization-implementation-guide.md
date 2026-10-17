@@ -421,9 +421,9 @@ pnpm cli generate "prompt" --parallel-loading  # Enhanced: parallel loading
 
 **File: `src/cli/index.ts`**
 
-Add CLI performance options:
+Add CLI performance options. Planned: `initializeMCP()` does not exist as a public method in the current release. MCP initialises on first use by `generate()`, `stream()`, `getMCPStatus()` and similar calls.
 
-```typescript
+```typescript planned
 yargs.command(
   "generate <prompt>",
   "Generate AI content",

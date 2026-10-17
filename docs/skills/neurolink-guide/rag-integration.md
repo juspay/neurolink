@@ -251,12 +251,14 @@ import {
   InMemoryVectorStore,
   MDocument,
   loadDocument,
+  ProviderFactory,
 } from "@juspay/neurolink";
 
-// Helper: generate embedding using your preferred provider
+// Helper: generate embedding using your preferred embedding provider
+const embeddingProvider = await ProviderFactory.createProvider("openai");
+
 async function getEmbedding(text: string): Promise<number[]> {
-  const embeddingResult = await neurolink.embed({ input: { text } });
-  return embeddingResult.embedding;
+  return embeddingProvider.embed(text);
 }
 
 async function ragPipeline(filePaths: string[], query: string) {

@@ -455,9 +455,11 @@ app.use(async (ctx, next) => {
     ctx.status = 200;
 
     // Manual streaming
-    for await (const chunk of neurolink.generateStream({
-      prompt: ctx.request.body.prompt,
-    })) {
+    const result = await neurolink.stream({
+      input: { text: ctx.request.body.prompt },
+    });
+
+    for await (const chunk of result.stream) {
       ctx.res.write(`data: ${JSON.stringify(chunk)}\n\n`);
     }
 

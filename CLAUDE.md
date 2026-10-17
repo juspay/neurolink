@@ -645,6 +645,7 @@ pnpm run test:evaluation  # Includes evaluation-scoring sub-suite
 pnpm run test:middleware
 pnpm run test:autoresearch       # E2E + live (live half skips without keys)
 pnpm run test:docs-snippets      # Docs' new NeuroLink({...}) options vs the built d.ts (no-API; needs a build; CI does NOT run it); :update regenerates its ledger
+pnpm run test:docs-methods       # Docs' neurolink.<method>() calls vs the built NeuroLink class (no-API; needs a build; CI runs it in the `types` shard); a block can be marked `planned` on its fence line
 pnpm run test:provider-model-resolution  # Which model each registered provider name resolves from the environment (no-API; needs a build; CI does NOT run it)
 
 # What CI actually gates — NOT test:unit.
@@ -657,7 +658,7 @@ pnpm run test:provider-model-resolution  # Which model each registered provider 
 #     verify:provider-onboarding).
 #   test → `lint` (format-check, eslint), `validate` (validate:all, docs:api
 #     currency, check:deps), `types` (check:ci-scripts, check:test-parse,
-#     check:tools-tests, both builds).
+#     check:tools-tests, check:dts, test:docs-methods, both builds).
 # The pre-push hook is a DIFFERENT set, not a subset: check:deps,
 # check:docs-api, build, test:provider-structure, test:model-manifests.
 # test:providers-mocked is deliberately not in it — 259s, and

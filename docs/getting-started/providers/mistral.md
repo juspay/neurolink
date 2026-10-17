@@ -139,14 +139,9 @@ const code = await ai.generate({
   provider: "mistral",
   model: "codestral-latest",
 });
-
-// Embeddings for RAG
-const embeddings = await ai.generateEmbeddings({
-  texts: ["Document 1", "Document 2"],
-  provider: "mistral",
-  model: "mistral-embed",
-});
 ```
+
+NeuroLink does not serve embeddings through Mistral. For RAG, pair Mistral for generation with a [provider that supports embeddings](../../features/embeddings.md).
 
 ---
 

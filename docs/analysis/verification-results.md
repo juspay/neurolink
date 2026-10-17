@@ -424,7 +424,7 @@ type GenerateResult = {
 
 ```typescript
 // NEW! Programmatic server addition
-await neurolink.addMCPServer("bitbucket", {
+await neurolink.addExternalMCPServer("bitbucket", {
   command: "npx",
   args: ["-y", "@nexus2520/bitbucket-mcp-server"],
   env: { BITBUCKET_USERNAME: "your-username" },

@@ -337,14 +337,14 @@ const ai = new NeuroLink({
 });
 
 // Get provider health status
-const health = await ai.getProviderHealth();
+const health = await ai.checkAllProvidersHealth();
 console.log(health);
 /*
-{
-  openai: { status: 'healthy', latency: 120, lastCheck: '2025-01-15T10:00:00Z' },
-  anthropic: { status: 'unhealthy', latency: null, lastCheck: '2025-01-15T10:00:00Z' },
-  'google-ai': { status: 'healthy', latency: 95, lastCheck: '2025-01-15T10:00:00Z' }
-}
+[
+  { provider: 'openai', isHealthy: true, responseTime: 120, lastChecked: 2025-01-15T10:00:00.000Z, ... },
+  { provider: 'anthropic', isHealthy: false, error: '...', lastChecked: 2025-01-15T10:00:00.000Z, ... },
+  { provider: 'google-ai', isHealthy: true, responseTime: 95, lastChecked: 2025-01-15T10:00:00.000Z, ... }
+]
 */
 
 // Only use healthy providers
@@ -356,7 +356,9 @@ const result = await ai.generate({
 
 ### Circuit Breaker Pattern
 
-```typescript
+Planned: provider-level circuit breakers, `getCircuitState()` and `resetCircuit()` are not in the current release. The only circuit-breaker accessors today are per tool: `getToolCircuitBreakerStatus()` and `resetToolCircuitBreaker(toolName)`.
+
+```typescript planned
 const ai = new NeuroLink({
   providers: [
     { name: "openai", priority: 1 },
@@ -806,7 +808,9 @@ failoverConfig: {
 
 **Solution**:
 
-```typescript
+Planned: provider-level circuit breakers and `resetCircuit()` are not in the current release.
+
+```typescript planned
 // Adjust circuit breaker settings
 circuitBreaker: {
   enabled: true,

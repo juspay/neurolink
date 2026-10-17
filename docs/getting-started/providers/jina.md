@@ -45,11 +45,9 @@ JINA_MODEL=jina-embeddings-v3
 ### 3. Generate Embeddings
 
 ```typescript
-import { NeuroLink } from "@juspay/neurolink";
+import { ProviderFactory } from "@juspay/neurolink";
 
-const ai = new NeuroLink();
-
-const provider = await ai.getProvider("jina");
+const provider = await ProviderFactory.createProvider("jina");
 const vector = await provider.embed("How does CRISPR-Cas9 work?");
 console.log(vector.length); // 1024
 ```

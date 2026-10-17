@@ -314,6 +314,13 @@ jobs:
         if: matrix.group == 'types'
         run: pnpm run check:dts
 
+      # Every neurolink.<method>() the README and docs/ show must exist on the
+      # built NeuroLink class. Reads dist/index.js and the same shipped
+      # declarations as check:dts, so it belongs in this shard, after the build.
+      - name: 🔎 Check documented NeuroLink methods exist
+        if: matrix.group == 'types'
+        run: pnpm run test:docs-methods
+
       - name: Test CLI build
         if: matrix.group == 'types'
         run: |

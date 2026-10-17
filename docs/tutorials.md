@@ -390,13 +390,17 @@ NeuroLink can maintain a stateful conversation history, making it easy to build 
 
 ### Step 1: Enable Context Summarization
 
-To enable this feature, simply call the `enableContextSummarization()` method on your `NeuroLink` instance.
+To enable this feature, turn on conversation memory with summarization when you create your `NeuroLink` instance.
 
 ```javascript
 const { NeuroLink } = require("@juspay/neurolink");
 
-const neurolink = new NeuroLink();
-neurolink.enableContextSummarization();
+const neurolink = new NeuroLink({
+  conversationMemory: {
+    enabled: true,
+    enableSummarization: true,
+  },
+});
 
 console.log("Conversational agent ready. I will remember our conversation.");
 ```

@@ -1985,7 +1985,9 @@ async streamWorkflow(
 
 ### Phase 3: Workflow Chaining
 
-```typescript
+Planned: `createWorkflowPipeline()` is not in the current release.
+
+```typescript planned
 const pipeline = neuro.createWorkflowPipeline([
   "quality-check", // First workflow
   "fact-verification", // Second workflow

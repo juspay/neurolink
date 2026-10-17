@@ -57,7 +57,9 @@ console.log(result.content);
 ### 4. Generate Embeddings
 
 ```typescript
-const provider = await ai.getProvider("cohere");
+import { ProviderFactory } from "@juspay/neurolink";
+
+const provider = await ProviderFactory.createProvider("cohere");
 const vec = await provider.embed("How does CRISPR work?");
 console.log(vec.length); // 1024 for embed-english-v3.0
 ```
