@@ -206,12 +206,15 @@ resolves from `OPENAI_DECISIONS_MODEL`, never from the chat provider's
 whose `inferenceKinds` is exactly `["decide"]`, because it picks its variable group
 by substring and `"openai-decisions"` contains `"openai"`. Its `decisionLimits` row
 is `advisory: true` (922,000 state tokens from the model page, reported and never
-enforced) with `media` of up to 8 images, no video and a 32 MiB body; those last
-three are NeuroLink's own allowance, not OpenAI's. What the public-beta endpoint
-accepts beyond that (question and option counts, image formats, rate limits, how it
-rounds probabilities) is not established: no live request has been made, so docs
-and comments say "not measured" and never state a result about its accuracy, speed
-or cost.
+enforced) with `maxQuestions: 200` (the figure in OpenAI's Python SDK, "Ask 1–200
+questions about the input", read from documentation: `tryDecide()` splits at it and
+host additions stop at it, but `decide()` does not refuse above it) and `media` of
+up to 8 images, no video and a 32 MiB body; those last three are NeuroLink's own
+allowance, not OpenAI's. What the public-beta endpoint accepts beyond that (what
+it does with more than 200 questions, option counts, image formats, rate limits,
+how it rounds probabilities) is not established: no live request has been made, so
+docs and comments say "not measured" and never state a result about its accuracy,
+speed or cost.
 
 **Clef's token and account id are shared with the `cloudflare` text provider, and
 the Workers AI endpoint ignored state text past about 2,048 tokens until
@@ -250,8 +253,9 @@ never borrows `CLOUDFLARE_API_KEY`.
 `decisionLimits: { maxStateTokens, maxQuestions?, models, media? }`; the base refuses an
 over-limit request with `max_tokens_exceeded` before any network call, and every
 internal consumer then fails open as usual. The exception is the question cap:
-`decide()` refuses a longer map, but `tryDecide()` (the door every consumer
-uses) splits it at the cap, runs up to four batches at a time and joins the
+`decide()` refuses a longer map (except for an `advisory` row such as OpenAI
+Decisions, whose server is left to answer it), but `tryDecide()` (the door every
+consumer uses) splits it at the cap, runs up to four batches at a time and joins the
 answers, so a consumer that asks 300 questions of a 64-question provider still
 gets its decision. A failed batch loses only its own answers. Laya declares 768 state tokens on
 `typed-decisions` and `multilingual`, 320 on `english`, `auto` and any unlisted
@@ -332,7 +336,8 @@ where `outer` carries the surrounding request's per-call `credentials`,
 a host-wired `RAGPipeline` or `ClassifierRouter` gets the same treatment. That
 one path runs the host's `decisionHooks` (namespacing host questions as
 `host__N`, capping them at the provider's `maxQuestions` when it declares one
-— Laya does; TypeSafe and XOR do not, and take every well-formed addition —
+— Laya, Cloudflare Clef, Perplexity and OpenAI Decisions do; TypeSafe and XOR do
+not, and take every well-formed addition —
 splitting answers back), emits `decision:before` / `decision:after`, and adds `decision.site` +
 `decision.host_question_count` to the `MODEL_DECISION` span. Without hooks or
 listeners the decision payload (state and questions) is unchanged; per-call
