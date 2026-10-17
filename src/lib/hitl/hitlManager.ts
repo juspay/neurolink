@@ -65,7 +65,7 @@ export class HITLManager extends EventEmitter {
       timeout: config.timeout ?? DEFAULT_TIMEOUT, // Default: 30 seconds
       confirmationMethod: config.confirmationMethod ?? "event", // Default: "event"
       allowArgumentModification:
-        config.allowArgumentModification ?? DEFAULT_ALLOW_MODIFICATION, // Default: true
+        config.allowArgumentModification ?? DEFAULT_ALLOW_MODIFICATION, // Default: false
       autoApproveOnTimeout: config.autoApproveOnTimeout ?? false, // Default: false (safe)
       autoApproveExclusions: Array.isArray(config.autoApproveExclusions)
         ? [...config.autoApproveExclusions]

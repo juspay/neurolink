@@ -1,5 +1,8 @@
 import { NeuroLink } from "@juspay/neurolink";
-import { neurolinkConfig } from "../config/neurolink.config.js";
+import {
+  attachApprovalHandler,
+  neurolinkConfig,
+} from "../config/neurolink.config.js";
 
 /**
  * Message format for conversation context
@@ -79,6 +82,7 @@ export class AIService {
       model: this.defaultModel,
       ...neurolinkConfig,
     });
+    attachApprovalHandler(this.neurolink);
   }
 
   /**

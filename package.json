@@ -220,6 +220,7 @@
     "test:workflow-deadlines": "pnpm exec tsx test/continuous-test-suite-workflow-deadlines.ts",
     "test:hitl": "pnpm exec tsx test/continuous-test-suite-hitl.ts",
     "test:hitl:timeout-exclusions": "pnpm exec tsx test/continuous-test-suite-hitl-timeout-exclusions.ts",
+    "test:hitl:documented-config": "pnpm exec tsx test/continuous-test-suite-hitl-documented-config.ts",
     "test:tasks": "pnpm exec tsx test/continuous-test-suite-tasks.ts",
     "test:auth": "pnpm exec tsx test/continuous-test-suite-auth.ts",
     "test:autoresearch": "pnpm exec tsx test/continuous-test-suite-autoresearch.ts",

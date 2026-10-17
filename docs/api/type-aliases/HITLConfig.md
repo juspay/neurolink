@@ -49,7 +49,7 @@ Communication method - currently only "event" is supported (default: "event")
 
 > `optional` **allowArgumentModification?**: `boolean`
 
-Whether users can modify tool arguments during approval (default: true)
+Advertised to the approval UI as allowModification (default: false); not enforced, a response's modifiedArguments is applied either way
 
 ---
 

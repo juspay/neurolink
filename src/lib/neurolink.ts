@@ -651,12 +651,25 @@ const MEMORY_WRITE_TIMEOUT_MS = 30_000;
  *
  * @example With HITL security
  * ```typescript
+ * import type { ConfirmationRequestEvent } from '@juspay/neurolink';
+ *
  * const neurolink = new NeuroLink({
  *   hitl: {
  *     enabled: true,
- *     requireApproval: ['writeFile', 'executeCode'],
- *     confidenceThreshold: 0.85
+ *     dangerousActions: ['writeFile', 'executeCode'],
+ *     timeout: 30000
  *   }
+ * });
+ *
+ * // Approval is event-based; answer each request with the matching id
+ * const emitter = neurolink.getEventEmitter();
+ * emitter.on('hitl:confirmation-request', async (event) => {
+ *   const { payload } = event as ConfirmationRequestEvent; // listeners are typed unknown
+ *   const approved = await askUser(payload); // your approval UI
+ *   emitter.emit('hitl:confirmation-response', {
+ *     type: 'hitl:confirmation-response',
+ *     payload: { confirmationId: payload.confirmationId, approved }
+ *   });
  * });
  * ```
  *
@@ -1812,9 +1825,9 @@ export class NeuroLink {
    * @param config.enableOrchestration - Whether to enable smart model orchestration (default: false)
    * @param config.hitl - Configuration for Human-in-the-Loop safety features
    * @param config.hitl.enabled - Whether to enable HITL tool confirmation (default: false)
-   * @param config.hitl.dangerousActions - Keywords that trigger confirmation (default: ['delete', 'remove', 'drop'])
+   * @param config.hitl.dangerousActions - Keywords that trigger confirmation; required when HITL is enabled
    * @param config.hitl.timeout - Confirmation timeout in milliseconds (default: 30000)
-   * @param config.hitl.allowArgumentModification - Allow users to modify tool parameters (default: true)
+   * @param config.hitl.allowArgumentModification - Advertised to the approval UI as `allowModification` (default: false); not enforced, a response's `modifiedArguments` is applied either way
    * @param config.toolRegistry - Optional tool registry instance for advanced use cases (default: new MCPToolRegistry())
    *
    * @example

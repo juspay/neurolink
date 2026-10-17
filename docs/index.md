@@ -124,35 +124,53 @@ await neurolink.addExternalMCPServer("remote-tools", {
 
 ## Enterprise Security: Human-in-the-Loop (HITL)
 
-NeuroLink includes a **HITL (Human-in-the-Loop) system** for regulated industries and high-stakes AI operations:
+NeuroLink includes a **HITL (Human-in-the-Loop) system** that pauses a tool call until your application approves or rejects it, for high-stakes AI operations:
 
-| Capability                  | Description                                                             | Use Case                                   |
-| --------------------------- | ----------------------------------------------------------------------- | ------------------------------------------ |
-| **Tool Approval Workflows** | Require human approval before AI executes sensitive tools               | Financial transactions, data modifications |
-| **Output Validation**       | Route AI outputs through human review pipelines                         | Medical diagnosis, legal documents         |
-| **Confidence Thresholds**   | Automatically trigger human review below confidence level               | Critical business decisions                |
-| **Complete Audit Trail**    | Audit logging to support your compliance program (HIPAA / SOC 2 / GDPR) | Regulated industries                       |
+| Capability                  | Description                                                                                                                                                               | Use Case                                   |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| **Tool Approval Workflows** | Pause tools whose name matches `dangerousActions`, or that a `customRules` condition selects, until your app answers                                                      | Financial transactions, data modifications |
+| **Argument Review**         | A response can carry `modifiedArguments` and the tool runs with them. `allowArgumentModification` only tells your UI (`allowModification`); NeuroLink does not enforce it | Correcting a path or amount before it runs |
+| **Timeout Policy**          | Reject when nobody answers (default) or auto-approve, with `autoApproveExclusions` for tools that always need an answer                                                   | Unattended and background runs             |
+| **Audit Logging**           | `auditLogging: true` writes each request and decision, with the full tool arguments, to the NeuroLink logger; it is a log, not a compliance control                       | Debugging and your own review records      |
 
 ```typescript
-import { NeuroLink } from "@juspay/neurolink";
+import { NeuroLink, type ConfirmationRequestEvent } from "@juspay/neurolink";
 
 const neurolink = new NeuroLink({
   hitl: {
     enabled: true,
-    requireApproval: ["writeFile", "executeCode", "sendEmail"],
-    confidenceThreshold: 0.85,
-    reviewCallback: async (action, context) => {
-      // Custom review logic - integrate with your approval system
-      return await yourApprovalSystem.requestReview(action);
-    },
+    // Case-insensitive substring match against the tool name
+    dangerousActions: ["writeFile", "executeCode", "sendEmail"],
+    timeout: 30000, // Rejects if nobody answers within 30 seconds
   },
 });
 
-// AI pauses for human approval before executing sensitive tools
+// Approval is event-based: NeuroLink emits a request, your app answers it
+const emitter = neurolink.getEventEmitter();
+emitter.on("hitl:confirmation-request", async (event) => {
+  // The emitter types listener arguments as unknown, so narrow the event
+  const { payload } = event as ConfirmationRequestEvent;
+  const { confirmationId, toolName, arguments: args } = payload;
+  // Integrate with your approval system (UI prompt, Slack, ticketing)
+  const approved = await yourApprovalSystem.requestReview({ toolName, args });
+
+  emitter.emit("hitl:confirmation-response", {
+    type: "hitl:confirmation-response",
+    payload: {
+      confirmationId,
+      approved,
+      reason: approved ? undefined : "Rejected by reviewer",
+    },
+  });
+});
+
+// A tool call to a matching tool pauses until your handler answers
 const result = await neurolink.generate({
   input: { text: "Send quarterly report to stakeholders" },
 });
 ```
+
+The [Enterprise HITL Guide](features/enterprise-hitl.md) also sketches a larger target API (`requireApproval`, `reviewCallback`, `confidenceThreshold`, asynchronous review, escalation policies). None of it is implemented yet, and NeuroLink drops unknown `hitl` keys without an error. See [#752](https://github.com/juspay/neurolink/issues/752).
 
 **[Enterprise HITL Guide](features/enterprise-hitl.md)** | **[Quick Start](features/hitl.md)**
 

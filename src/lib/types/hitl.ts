@@ -23,7 +23,7 @@ export type HITLConfig = {
   /** Communication method - currently only "event" is supported (default: "event") */
   confirmationMethod?: "event";
 
-  /** Whether users can modify tool arguments during approval (default: true) */
+  /** Advertised to the approval UI as allowModification (default: false); not enforced, a response's modifiedArguments is applied either way */
   allowArgumentModification?: boolean;
 
   /** Auto-approve requests when they timeout (default: false - rejects on timeout) */
@@ -95,7 +95,7 @@ export type ConfirmationResult = {
   /** Optional reason for rejection (if approved is false) */
   reason?: string;
 
-  /** User-modified arguments (if allowArgumentModification is enabled) */
+  /** User-modified arguments; applied whether or not allowArgumentModification is enabled */
   modifiedArguments?: unknown;
 
   /** Time taken for user to respond in milliseconds */
@@ -142,7 +142,7 @@ export type ConfirmationRequestEvent = {
     /** Confirmation timeout in milliseconds */
     timeoutMs: number;
 
-    /** Whether user can modify arguments */
+    /** Hint for the approval UI, copied from allowArgumentModification; not enforced */
     allowModification: boolean;
   };
 };

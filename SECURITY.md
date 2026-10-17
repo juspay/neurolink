@@ -72,7 +72,7 @@ When using NeuroLink in production, follow these security best practices:
 NeuroLink includes a production-ready HITL system for high-stakes operations:
 
 ```typescript
-import { NeuroLink } from "@juspay/neurolink";
+import { NeuroLink, type ConfirmationRequestEvent } from "@juspay/neurolink";
 
 const neurolink = new NeuroLink({
   hitl: {
@@ -88,15 +88,17 @@ const neurolink = new NeuroLink({
     ],
     timeout: 60000, // 60 seconds for user response
     autoApproveOnTimeout: false, // Reject on timeout for safety
-    allowArgumentModification: true, // Allow users to modify tool arguments
-    auditLogging: true, // Enable audit logs for compliance
+    allowArgumentModification: true, // Hint for the approval UI; not enforced
+    auditLogging: true, // Log each approval request and decision
   },
 });
 
 // Listen for confirmation requests using events
 const emitter = neurolink.getEventEmitter();
 emitter.on("hitl:confirmation-request", async (event) => {
-  const { confirmationId, toolName, arguments: args } = event.payload;
+  // The emitter types listener arguments as unknown, so narrow the event
+  const { payload } = event as ConfirmationRequestEvent;
+  const { confirmationId, toolName, arguments: args } = payload;
 
   // Integrate with your approval system
   const approved = await yourApprovalSystem.requestReview({
@@ -171,14 +173,15 @@ NeuroLink includes enterprise-grade security features:
 
 ### Audit Trail
 
-Full audit logging for compliance (HIPAA, SOC2, GDPR):
+Request and decision logging for HITL approvals. It is a log, not a compliance control:
 
 ```typescript
 const neurolink = new NeuroLink({
   enableAnalytics: true, // Captures full request/response data
   hitl: {
     enabled: true,
-    auditLogging: true, // Logs all approval decisions
+    dangerousActions: ["delete", "remove", "drop"], // Required when enabled
+    auditLogging: true, // Logs each approval request and decision
   },
 });
 ```

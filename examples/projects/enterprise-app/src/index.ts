@@ -1,7 +1,10 @@
 import "dotenv/config";
 import express from "express";
 import { NeuroLink } from "@juspay/neurolink";
-import { neurolinkConfig } from "./config/neurolink.config.js";
+import {
+  attachApprovalHandler,
+  neurolinkConfig,
+} from "./config/neurolink.config.js";
 import { hitlMiddleware } from "./middleware/hitl.middleware.js";
 import { auditMiddleware } from "./middleware/audit.middleware.js";
 import { RedisService } from "./services/redis.service.js";
@@ -23,6 +26,7 @@ async function main() {
     model: "gpt-4o",
     ...neurolinkConfig,
   });
+  attachApprovalHandler(neurolink);
 
   // Apply enterprise middleware
   app.use(auditMiddleware);

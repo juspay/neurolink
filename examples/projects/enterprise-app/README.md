@@ -34,7 +34,7 @@ Persistent conversation memory across sessions
 
 ### Audit Logging
 
-Complete audit trail for compliance (HIPAA, SOC2, GDPR)
+Log of each HITL approval request and decision (`auditLogging`); a log, not a compliance control
 
 ### Rate Limiting
 

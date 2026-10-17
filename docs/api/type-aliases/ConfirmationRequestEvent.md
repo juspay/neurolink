@@ -93,4 +93,4 @@ Confirmation timeout in milliseconds
 
 > **allowModification**: `boolean`
 
-Whether user can modify arguments
+Hint for the approval UI, copied from allowArgumentModification; not enforced

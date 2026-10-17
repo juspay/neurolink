@@ -99,7 +99,7 @@ const neurolinkComplete = new NeuroLink({
     enableSummarization: true,
   },
   enableOrchestration: true,
-  hitl: { enabled: true },
+  hitl: { enabled: true, dangerousActions: ["delete", "remove", "drop"] },
   observability: {
     langfuse: {
       publicKey: process.env.LANGFUSE_PUBLIC_KEY,

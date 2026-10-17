@@ -33,7 +33,7 @@ Optional reason for rejection (if approved is false)
 
 > `optional` **modifiedArguments?**: `unknown`
 
-User-modified arguments (if allowArgumentModification is enabled)
+User-modified arguments; applied whether or not allowArgumentModification is enabled
 
 ---
 

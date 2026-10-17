@@ -1,20 +1,19 @@
 ---
 title: Enterprise Human-in-the-Loop System
-description: Production-ready HITL system for regulated industries with approval workflows, audit trails, and compliance support
+description: Design guide for an enterprise HITL system. Event-based tool approval and a request and decision log work today; the rest of the page is planned and not implemented
 keywords: hitl, human in the loop, enterprise, compliance, approval workflow, audit trail, HIPAA, SOC2, GDPR
 ---
 
 # Enterprise Human-in-the-Loop System
 
-> **Since**: v7.39.0 | **Availability**: SDK & CLI
+> **Since**: v7.39.0 | **Availability**: SDK
 
 :::danger[Most of this page is a design sketch, not a reference]
 **Treat every code sample below as the target API unless it appears in
-"Currently available" immediately after this box.** The `(Planned)` markers on
-three headings are _not_ a complete index — most of the code samples on this
-page, spread across most of its headings, use configuration keys that
-`HITLConfig` does not have, and only a small minority of those actually sit
-under a marked heading.
+"Currently available" immediately after this box.** A heading marked
+`(Planned)` has examples that use configuration keys or behaviour that do not
+exist, and `(Planned)` is not a promise of a date. The sections under "Quick
+Start (5 Minutes)" are covered by that heading's own label.
 
 None of `requireApproval`, `reviewCallback`, `statusCallback`, `mode`,
 `confidenceThreshold`, `contentPatterns`, `escalationPolicy` or the object form
@@ -34,23 +33,38 @@ Tracking: [#752](https://github.com/juspay/neurolink/issues/752).
 
 ## Currently available
 
-`HITLConfig` has exactly these eight keys. Anything else on this page is not
-implemented.
+`HITLConfig` has exactly these nine keys (see `src/lib/types/hitl.ts`).
+Anything else on this page is not implemented.
 
 ```typescript
+import { NeuroLink, type ConfirmationRequestEvent } from "@juspay/neurolink";
+
 const neurolink = new NeuroLink({
   hitl: {
     enabled: true,
-    dangerousActions: ["delete", "remove", "drop"], // Trigger keywords
-    timeout: 30000, // Confirmation timeout (ms)
+    dangerousActions: ["delete", "remove", "drop"], // Required. Case-insensitive substring match on the tool name
+    timeout: 30000, // Confirmation timeout in ms (default 30000)
     confirmationMethod: "event", // The only supported value
-    autoApproveOnTimeout: false, // Auto-approve if timeout
-    allowArgumentModification: false, // Allow arg changes
-    auditLogging: true, // Enable audit logs
-    customRules: [], // Advanced per-tool conditions
+    autoApproveOnTimeout: false, // Default false: reject when nobody answers
+    autoApproveExclusions: [], // Exact tool names never auto-approved on timeout
+    allowArgumentModification: false, // Default false. Only advertised to your UI as allowModification; not enforced
+    auditLogging: true, // Log each request and decision
+    customRules: [], // { name, condition(toolName, args), requiresConfirmation, customMessage? }
   },
 });
 ```
+
+`dangerousActions` is required whenever `enabled` is `true`; omitting it throws
+`HITLConfigurationError` from the `NeuroLink` constructor. `auditLogging` writes
+each request and decision to the NeuroLink logger at info level. Entries include
+the full tool arguments, so redact secrets and personal data at the logger sink.
+`allowArgumentModification` is copied into the request event as
+`allowModification` for your approval UI; NeuroLink does not enforce it, and a
+`hitl:confirmation-response` that carries `modifiedArguments` is applied
+either way, so forward only the arguments you accept. The
+`hitl:audit` event is emitted on the internal `HITLManager`, and `NeuroLink`
+forwards only `hitl:confirmation-request` and `hitl:timeout` to
+`getEventEmitter()`.
 
 Approval is **event-based**, through the SDK emitter — there is no
 `reviewCallback`. The emitter is reached with `getEventEmitter()`; `NeuroLink`
@@ -61,7 +75,9 @@ do not exist:
 const emitter = neurolink.getEventEmitter();
 
 emitter.on("hitl:confirmation-request", (event) => {
-  const { confirmationId, toolName, arguments: args } = event.payload;
+  // Listener arguments are typed unknown, so narrow the event
+  const { payload } = event as ConfirmationRequestEvent;
+  const { confirmationId, toolName, arguments: args } = payload;
 
   // Your approval UI / Slack / email integration decides here.
   emitter.emit("hitl:confirmation-response", {
@@ -78,23 +94,14 @@ production use today, refer to the [Basic HITL Guide](./hitl.md).
 
 ## Executive Summary
 
-NeuroLink's Human-in-the-Loop (HITL) system provides enterprise-grade controls for AI operations requiring human oversight. Purpose-built for regulated industries and high-stakes applications, it combines real-time approval workflows with comprehensive audit trails to meet compliance requirements while maintaining operational efficiency.
+This section describes the system the rest of this page is a design for. Today NeuroLink ships event-based tool approval and a log of each request and decision (see "Currently available"). It does not ship escalation, asynchronous review or an audit store, and it holds no HIPAA, SOC2 or GDPR certification or control.
 
 ### Strategic Value Proposition
 
 - **Risk Mitigation**: Prevent costly AI mistakes through mandatory human checkpoints
-- **Regulatory Compliance**: Meet HIPAA, SOC2, GDPR, and industry-specific requirements
+- **Regulatory Compliance (target)**: Produce the review records regulated industries ask for. Today `auditLogging` only writes a log line; compliance is the deployer's responsibility
 - **Trust & Transparency**: Build stakeholder confidence with auditable AI decisions
 - **Continuous Improvement**: Capture human expertise to improve AI accuracy over time
-
-### Key Metrics
-
-| Metric                   | Impact               | Evidence                                        |
-| ------------------------ | -------------------- | ----------------------------------------------- |
-| **Accuracy Improvement** | 95% increase         | Human validation catches edge cases AI misses   |
-| **Compliance Coverage**  | 100% auditability    | Complete decision trail for regulatory review   |
-| **Model Learning Rate**  | 60% faster           | Structured feedback accelerates training cycles |
-| **Enterprise Adoption**  | 90% confidence boost | Security teams approve HITL-enabled deployments |
 
 ### When to Use HITL
 
@@ -133,7 +140,7 @@ npm install @juspay/neurolink@latest
 pnpm add @juspay/neurolink@latest
 ```
 
-### Basic Configuration
+### Basic Configuration (Planned)
 
 Minimal setup for tool-based approval workflow:
 
@@ -209,9 +216,9 @@ try {
 
 ### 1. Approval Workflows
 
-HITL supports both synchronous (blocking) and asynchronous (non-blocking) approval patterns:
+The target design supports both synchronous (blocking) and asynchronous (non-blocking) approval patterns. Today only the blocking, event-based flow under "Currently available" exists:
 
-#### Synchronous Approval (Blocking)
+#### Synchronous Approval (Blocking) (Planned)
 
 AI operation pauses until human approves or rejects:
 
@@ -235,7 +242,7 @@ const neurolink = new NeuroLink({
 - Interactive applications with user present
 - High-risk actions requiring instant validation
 
-#### Asynchronous Approval (Non-blocking)
+#### Asynchronous Approval (Non-blocking) (Planned)
 
 AI operation returns pending status, continues when approved:
 
@@ -291,7 +298,11 @@ const neurolink = new NeuroLink({
 });
 ```
 
-#### Tool-Specific Rules
+#### Tool-Specific Rules (Planned)
+
+Today, list the names in `dangerousActions`. It matches case-insensitive
+substrings of the tool name, not exact names; use a `customRules` condition when
+you need an exact match. `requireApproval` below does not exist.
 
 Require approval for specific tools only:
 
@@ -337,7 +348,10 @@ const neurolink = new NeuroLink({
 });
 ```
 
-#### Time-Based Restrictions
+#### Time-Based Restrictions (Planned)
+
+Today, a `customRules` entry whose `condition` checks the time can require
+confirmation; the `reviewCallback` below does not exist.
 
 Require approval outside business hours:
 
@@ -408,7 +422,7 @@ const neurolink = new NeuroLink({
 
 ## SDK Integration
 
-### TypeScript Configuration
+### TypeScript Configuration (Planned)
 
 Complete configuration interface:
 
@@ -471,7 +485,7 @@ type HITLReviewResult = {
 
 ### Approval Callback Patterns
 
-#### Slack Integration
+#### Slack Integration (Planned)
 
 ```typescript
 import { WebClient } from "@slack/web-api";
@@ -524,7 +538,7 @@ const neurolink = new NeuroLink({
 });
 ```
 
-#### Email Integration
+#### Email Integration (Planned)
 
 ```typescript
 import nodemailer from "nodemailer";
@@ -575,7 +589,7 @@ const neurolink = new NeuroLink({
 
 ### Integration with External Systems
 
-#### ServiceNow Integration
+#### ServiceNow Integration (Planned)
 
 ```typescript
 import axios from "axios";
@@ -625,9 +639,12 @@ const neurolink = new NeuroLink({
 
 ---
 
-## CLI Integration
+## CLI Integration (Planned)
 
-### HITL in Loop Mode
+The CLI has no HITL support today: `loop --enable-hitl` and the `/hitl` commands
+below do not exist in `src/cli`. HITL is available through the SDK only.
+
+### HITL in Loop Mode (Planned)
 
 Interactive CLI provides built-in HITL commands:
 
@@ -658,7 +675,7 @@ neurolink > /hitl reject 2 --reason "Email template needs review"
    Reason logged: Email template needs review
 ```
 
-### CLI HITL Commands
+### CLI HITL Commands (Planned)
 
 | Command              | Description                 | Example                                      |
 | -------------------- | --------------------------- | -------------------------------------------- |
@@ -672,7 +689,7 @@ neurolink > /hitl reject 2 --reason "Email template needs review"
 
 ## Enterprise Patterns
 
-### Pattern 1: Medical AI Validation
+### Pattern 1: Medical AI Validation (Planned)
 
 Physician oversight for AI-generated diagnostic recommendations:
 
@@ -749,7 +766,7 @@ const diagnosis = await medicalAI.generate({
 });
 ```
 
-### Pattern 2: Financial Compliance
+### Pattern 2: Financial Compliance (Planned)
 
 Transaction approval above risk thresholds:
 
@@ -831,7 +848,7 @@ const transaction = await financialAI.generate({
 });
 ```
 
-### Pattern 3: Legal Document Review
+### Pattern 3: Legal Document Review (Planned)
 
 Attorney validation of AI-generated contracts:
 
@@ -914,7 +931,7 @@ const contract = await legalAI.generate({
 });
 ```
 
-### Pattern 4: Code Execution Safety
+### Pattern 4: Code Execution Safety (Planned)
 
 Sandbox approval before executing AI-generated code:
 
@@ -983,7 +1000,7 @@ const result = await codeAI.generate({
 
 ## Configuration Reference
 
-### Full Configuration Object
+### Full Configuration Object (Planned)
 
 Complete TypeScript interface with all available options:
 
@@ -1037,7 +1054,7 @@ type HITLConfiguration = {
 };
 ```
 
-### Environment Variables
+### Environment Variables (Planned)
 
 Configure HITL through environment variables:
 
@@ -1065,9 +1082,17 @@ NEUROLINK_HITL_SLACK_CHANNEL=#ai-approvals
 
 ## Security & Audit
 
-### Audit Trail Format
+### Audit Trail Format (Planned)
 
-Every HITL action is logged in structured format:
+Today, with `auditLogging: true`, each
+entry carries `timestamp`, `eventType` (`confirmation-requested`,
+`confirmation-approved`, `confirmation-rejected`, `confirmation-timeout` or
+`confirmation-auto-approved`, among a few internal ones such as
+`configuration-updated`), `toolName`, `userId`, `sessionId`, `arguments`,
+`reason` and `responseTime`. There is no `aiConfidence`, `reviewer`,
+`escalationLevel` or `outcome` field.
+
+The target format is:
 
 ```json
 {
@@ -1103,7 +1128,7 @@ Every HITL action is logged in structured format:
 
 ### Compliance Documentation
 
-#### HIPAA Compliance
+#### HIPAA Compliance (Planned)
 
 HITL audit logs support HIPAA requirements:
 
@@ -1134,7 +1159,7 @@ const hipaaCompliantAI = new NeuroLink({
 });
 ```
 
-#### SOC2 Compliance
+#### SOC2 Compliance (Planned)
 
 Meet SOC2 Type II requirements:
 
@@ -1166,7 +1191,7 @@ const soc2CompliantAI = new NeuroLink({
 });
 ```
 
-#### GDPR Compliance
+#### GDPR Compliance (Planned)
 
 Support GDPR data protection requirements:
 
@@ -1214,7 +1239,7 @@ const gdprCompliantAI = new NeuroLink({
 
 ### Security Best Practices
 
-#### 1. Secure Approval Callbacks
+#### 1. Secure Approval Callbacks (Planned)
 
 ```typescript
 // ❌ BAD: Exposing sensitive data in logs
@@ -1231,7 +1256,7 @@ reviewCallback: async (action, context) => {
 };
 ```
 
-#### 2. Secret Management
+#### 2. Secret Management (Planned)
 
 ```typescript
 // ❌ BAD: Hardcoded credentials
@@ -1259,7 +1284,7 @@ const neurolink = new NeuroLink({
 });
 ```
 
-#### 3. Input Validation
+#### 3. Input Validation (Planned)
 
 ```typescript
 reviewCallback: async (action, context) => {
@@ -1290,7 +1315,7 @@ reviewCallback: async (action, context) => {
 
 ### Common Issues
 
-#### Issue: Timeout Exceeded
+#### Issue: Timeout Exceeded (Planned)
 
 **Symptom**: Review requests timing out before approval
 
@@ -1313,7 +1338,7 @@ const neurolink = new NeuroLink({
 });
 ```
 
-#### Issue: Approval Callback Not Called
+#### Issue: Approval Callback Not Called (Planned)
 
 **Symptom**: HITL enabled but callback never executes
 
@@ -1331,7 +1356,7 @@ tools: [
 ];
 ```
 
-#### Issue: Rejected Approvals Not Handled
+#### Issue: Rejected Approvals Not Handled (Planned)
 
 **Symptom**: Application crashes when approval rejected
 
@@ -1348,7 +1373,7 @@ try {
 }
 ```
 
-### Debug Mode
+### Debug Mode (Planned)
 
 Enable detailed HITL logging:
 
@@ -1384,4 +1409,4 @@ Debug output example:
 - [Guardrails Middleware](guardrails.md) - Complementary content filtering
 - [Middleware Architecture](../advanced/middleware-architecture.md) - How HITL integrates with middleware
 - [Custom Tools](../sdk/custom-tools.md) - Building tools with HITL support
-- [CLI Loop Sessions](cli-loop-sessions.md) - Using HITL in interactive CLI
+- [CLI Loop Sessions](cli-loop-sessions.md) - Using HITL in interactive CLI (planned; the CLI has no HITL commands yet)

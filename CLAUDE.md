@@ -510,7 +510,7 @@ src/
 │   ├── rag/                  # Chunkers, hybrid search, rerankers, pipeline
 │   ├── evaluation/           # RAGAS-based evaluator (no unit tests yet)
 │   ├── telemetry/            # OpenTelemetry + Langfuse observability
-│   ├── workflow/             # Workflow engine with HITL and checkpointing
+│   ├── workflow/             # Workflow engine (ensemble, judge, fallback, adaptive)
 │   ├── server/               # Hono/Express/Fastify/Koa adapters
 │   ├── config/               # Configuration management
 │   └── models/               # Model definitions per provider

@@ -181,7 +181,7 @@ emitter.on("hitl:confirmation-request", (event) => {
     arguments: unknown;          // Tool parameters for review
     actionType: string;          // Human-readable description
     timeoutMs: number;           // Milliseconds until timeout
-    allowModification: boolean;  // Can user edit arguments?
+    allowModification: boolean;  // Hint for your UI; NeuroLink applies modifiedArguments either way
     metadata: { ... }            // Session/user context
   }
 });

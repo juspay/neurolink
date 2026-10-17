@@ -1,12 +1,12 @@
+import type { ConfirmationRequestEvent, NeuroLink } from "@juspay/neurolink";
+
 export const neurolinkConfig = {
   hitl: {
     enabled: true,
-    requireApproval: ["writeFile", "executeCode", "sendEmail"],
-    confidenceThreshold: 0.85,
-    reviewCallback: async (action: any, context: any) => {
-      // Integration with approval system
-      return await requestHumanApproval(action);
-    },
+    // Tools whose name contains one of these (case-insensitive) wait for approval
+    dangerousActions: ["writeFile", "executeCode", "sendEmail"],
+    timeout: 30000,
+    auditLogging: true,
   },
   memory: {
     type: "redis",
@@ -14,10 +14,23 @@ export const neurolinkConfig = {
   },
 };
 
-async function requestHumanApproval(action: any): Promise<boolean> {
+// Approval is event-based: NeuroLink emits a request and waits for a response
+export function attachApprovalHandler(neurolink: NeuroLink): void {
+  const emitter = neurolink.getEventEmitter();
+  emitter.on("hitl:confirmation-request", async (event) => {
+    const { payload } = event as ConfirmationRequestEvent;
+    const approved = await requestHumanApproval(payload.toolName);
+    emitter.emit("hitl:confirmation-response", {
+      type: "hitl:confirmation-response",
+      payload: { confirmationId: payload.confirmationId, approved },
+    });
+  });
+}
+
+async function requestHumanApproval(toolName: string): Promise<boolean> {
   // In production, this would integrate with your approval system
   // (Slack, email, dashboard, etc.)
-  console.log("HITL: Requesting approval for action:", action.name);
+  console.log("HITL: Requesting approval for tool:", toolName);
 
   // Simulate approval workflow
   // In real implementation, this would wait for human response

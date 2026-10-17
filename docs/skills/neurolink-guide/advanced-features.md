@@ -27,6 +27,7 @@ const neurolink = new NeuroLink({
 const neurolink = new NeuroLink({
   hitl: {
     enabled: true,
+    dangerousActions: [], // Required; may be empty when customRules decide
     customRules: [
       {
         name: "payment-approval",
@@ -51,24 +52,26 @@ const neurolink = new NeuroLink({
 ### Handling Confirmations
 
 ```typescript
+import type { ConfirmationRequestEvent } from "@juspay/neurolink";
+
 const emitter = neurolink.getEventEmitter();
 
 emitter.on("hitl:confirmation-request", async (event) => {
-  console.log(`Approval needed: ${event.payload.toolName}`);
-  console.log(`Arguments: ${JSON.stringify(event.payload.arguments)}`);
-  console.log(
-    `Dangerous keywords: ${event.payload.metadata.dangerousKeywords}`,
-  );
+  // The emitter types listener arguments as unknown, so narrow the event
+  const { payload } = event as ConfirmationRequestEvent;
+  console.log(`Approval needed: ${payload.toolName}`);
+  console.log(`Arguments: ${JSON.stringify(payload.arguments)}`);
+  console.log(`Dangerous keywords: ${payload.metadata.dangerousKeywords}`);
 
   // Your approval logic (UI prompt, Slack notification, etc.)
-  const approved = await promptUserForApproval(event.payload);
+  const approved = await promptUserForApproval(payload);
 
   if (approved) {
     // Continue execution
     emitter.emit("hitl:confirmation-response", {
       type: "hitl:confirmation-response",
       payload: {
-        confirmationId: event.payload.confirmationId,
+        confirmationId: payload.confirmationId,
         approved: true,
         metadata: { timestamp: new Date().toISOString(), responseTime: 0 },
       },
@@ -77,7 +80,7 @@ emitter.on("hitl:confirmation-request", async (event) => {
     emitter.emit("hitl:confirmation-response", {
       type: "hitl:confirmation-response",
       payload: {
-        confirmationId: event.payload.confirmationId,
+        confirmationId: payload.confirmationId,
         approved: false,
         reason: "User rejected",
         metadata: { timestamp: new Date().toISOString(), responseTime: 0 },

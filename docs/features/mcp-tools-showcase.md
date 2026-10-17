@@ -181,15 +181,34 @@ const result = await neurolink.generate({
 **Example**:
 
 ```typescript
-const result = await neurolink.generate({
-  input: { text: "Generate a README and save it to README.md" },
+import { NeuroLink, type ConfirmationRequestEvent } from "@juspay/neurolink";
+
+// HITL is configured on the NeuroLink instance; generate() has no per-call hitl option
+const neurolink = new NeuroLink({
   hitl: {
     enabled: true,
-    requireApproval: ["writeFile"],
+    dangerousActions: ["writeFile"], // Matches tool names containing "writeFile"
   },
 });
-// AI generates content and requests approval to save
+
+// Your app answers the request (see the HITL guide for the full handler)
+const emitter = neurolink.getEventEmitter();
+emitter.on("hitl:confirmation-request", async (event) => {
+  const { payload } = event as ConfirmationRequestEvent; // Listener arguments are typed unknown
+  const approved = await askUser(payload); // Your approval UI
+  emitter.emit("hitl:confirmation-response", {
+    type: "hitl:confirmation-response",
+    payload: { confirmationId: payload.confirmationId, approved },
+  });
+});
+
+const result = await neurolink.generate({
+  input: { text: "Generate a README and save it to README.md" },
+});
+// AI generates content, then pauses for approval before writeFile runs
 ```
+
+See the [HITL guide](hitl.md) for the approval flow.
 
 **Tool Schema**:
 
@@ -1393,7 +1412,8 @@ await neurolink.addExternalMCPServer("filesystem", {
 const neurolink = new NeuroLink({
   hitl: {
     enabled: true,
-    requireApproval: ["writeFile", "deleteFile", "executeCode", "shell_exec"],
+    // Case-insensitive substring match against tool names
+    dangerousActions: ["writeFile", "deleteFile", "executeCode", "shell_exec"],
   },
 });
 ```

@@ -65,7 +65,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 | Feature                                                  | Description                                                                                           |
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | **[Image Generation](../image-generation-streaming.md)** | Generate images from text prompts using Gemini models via Vertex AI or Google AI Studio.              |
-| **[Enterprise HITL](enterprise-hitl.md)**                | Production-ready HITL with approval workflows, confidence thresholds, and enterprise patterns.        |
+| **[Enterprise HITL](enterprise-hitl.md)**                | HITL design guide. Event-based tool approval works today; the rest is planned.                        |
 | **[Interactive CLI](interactive-cli.md)**                | AI development environment with loop mode, session variables, and conversation memory.                |
 | **[MCP Tools Showcase](mcp-tools-showcase.md)**          | Complete guide to 6 built-in tools and connecting external MCP servers across 6 categories.           |
 | **[Human-in-the-Loop (HITL)](hitl.md)**                  | Pause AI tool execution for user approval before risky operations like file deletion or API calls.    |
@@ -419,27 +419,32 @@ neurolink » exit
 
 ### Advanced Security Features
 
-#### Human-in-the-Loop (HITL) Policy Engine
+#### Human-in-the-Loop (HITL)
 
-Enterprise-grade approval system for sensitive operations:
+Event-based approval for sensitive tool calls. The shipped configuration is `HITLConfig`:
 
 ```typescript
-// HITL Policy Configuration
-type HITLPolicy = {
-  requireApprovalFor: string[]; // Tool-specific policies
-  autoApprove: string[]; // Safe operation whitelist
-  alwaysDeny: string[]; // Blacklist operations
-  timeoutBehavior: "deny" | "approve"; // Timeout handling
-};
+const neurolink = new NeuroLink({
+  hitl: {
+    enabled: true,
+    dangerousActions: ["delete", "remove", "drop"], // Required; substring match on the tool name
+    timeout: 30000, // Rejects if nobody answers (default)
+    autoApproveOnTimeout: false,
+    autoApproveExclusions: [], // Exact tool names never auto-approved on timeout
+    auditLogging: true, // Logs each request and decision
+    customRules: [], // { name, condition(toolName, args), requiresConfirmation, customMessage? }
+  },
+});
 ```
 
-**HITL Capabilities:**
+**What ships today:**
 
-- User consent for dangerous operations
-- Configurable policy engine
-- Comprehensive audit trail logging
-- Timeout handling
-- Bulk approval for batch operations
+- Pause a tool call until your app answers over the SDK event emitter
+- Reject on timeout, or auto-approve with exclusions
+- `customRules` for conditional approval
+- A log entry for each request and decision (a log, not a compliance control)
+
+**Planned, not implemented:** an allow-list or deny-list policy, bulk approval, confidence thresholds, escalation and asynchronous review. See the [Enterprise HITL guide](enterprise-hitl.md) for the target design and [#752](https://github.com/juspay/neurolink/issues/752).
 
 #### Advanced Proxy Support
 

@@ -483,6 +483,10 @@ jobs:
         if: matrix.group == 'rest'
         run: pnpm run test:hitl:timeout-exclusions
 
+      - name: HITL documented configuration (README examples against the built SDK, no credentials)
+        if: matrix.group == 'rest'
+        run: pnpm run test:hitl:documented-config
+
       - name: Proxy telemetry accuracy (isolated storage faults and HTTP fixtures)
         if: matrix.group == 'rest'
         run: pnpm run test:proxy-telemetry
