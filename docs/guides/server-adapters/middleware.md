@@ -712,7 +712,7 @@ type AuthConfig = {
   errorMessage?: string;
   /** Token extractor for custom auth schemes */
   extractToken?: (ctx: ServerContext) => string | null;
-  /** Skip auth for dev playground requests (default: true) */
+  /** Honour the dev playground header when NODE_ENV is "development" (default: true) */
   skipDevPlayground?: boolean;
 };
 
@@ -779,7 +779,9 @@ server.registerMiddleware(
 
 ### Dev Playground Support
 
-In non-production environments, requests with `X-NeuroLink-Dev-Playground: true` header bypass authentication and receive a default developer user context.
+Requests with an `X-NeuroLink-Dev-Playground: true` (or `X-NeuroLink-Playground: true`) header bypass authentication and receive a default developer user context (`id: "playground"`, `roles: ["developer"]`), but only when **`NODE_ENV` is exactly `development`**. The variable is read on every request.
+
+With `NODE_ENV` unset, `production`, `test`, `staging` or any other value, the header is ignored and the request must carry a valid credential. The bypass is therefore off by default in a deployment that never sets `NODE_ENV`. Pass `skipDevPlayground: false` to refuse the header even in development.
 
 ### When to Use
 

@@ -190,7 +190,7 @@ type AuthConfig = {
   skipPaths?: string[];
   errorMessage?: string; // default: "Authentication required"
   extractToken?: (ctx: ServerContext) => string | null; // for "custom" type
-  skipDevPlayground?: boolean; // default: true (skips auth for dev playground headers)
+  skipDevPlayground?: boolean; // default: true (honours the dev playground header only when NODE_ENV is "development")
 };
 
 type AuthResult = {
