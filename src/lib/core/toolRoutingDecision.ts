@@ -43,9 +43,11 @@ const DEFAULT_MIN_DROP_CONFIDENCE = 0.6;
 
 /**
  * Upper bound on the query text sent as state. The query is untrusted and may
- * attempt injection; the blast radius is bounded (the worst outcome is keeping
- * MORE already-registered tools, since ids are never read back off the wire —
- * answers are matched by position), but an unbounded state would still be
+ * attempt injection. Ids are never read back off the wire — answers are matched
+ * by position — so an injected query cannot name a tool that was not already
+ * registered, and the result is only a denylist appended to `excludeTools`. It
+ * can still steer a verdict: a confident `false` drops that server's tools for
+ * the turn. The reach is bounded, not zero. An unbounded state would also be
  * billed and could push the request past the model's input ceiling.
  */
 const MAX_STATE_CHARS = 10000;

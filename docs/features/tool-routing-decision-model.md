@@ -106,11 +106,14 @@ first version produced.
   described in
   [what `decide` is bad at](/docs/features/decide-inference-type#what-it-is-bad-at).
 - **The query is untrusted input sent as state**, and this module does not
-  sanitize it. The blast radius is deliberately bounded instead: server ids
-  are never read back off the wire (answers are matched by position, not by
-  name), so the worst a crafted query can do is keep more already-registered
-  servers than necessary — it cannot register a server that wasn't already
-  configured.
+  sanitize it. The reach is deliberately bounded, not zero. Server ids are
+  never read back off the wire (answers are matched by position, not by name),
+  so a crafted query cannot name a tool that was not already registered, and
+  the result is only a denylist appended to `excludeTools`. It can still steer
+  a verdict: a confident `false` (0.6 by default) withholds that server's
+  tools for the turn. Do not rely on this router as a security control; see
+  the Untrusted input bullet under
+  [what `decide` is bad at](/docs/features/decide-inference-type#what-it-is-bad-at).
 
 ## See also
 

@@ -418,6 +418,10 @@ if (team && team.confidence >= 0.7) {
 runtime and return `undefined` for a missing id **or** a mismatched type, so no
 call site needs a type assertion.
 
+`ticketText` is attacker-controlled, so the verdict is a hint: keep `assignTo`
+reversible or put a deterministic check in front of it (see the Untrusted input
+bullet under [What it is bad at](#what-it-is-bad-at)).
+
 Use `decide()` instead of `tryDecide()` when you want the failure to surface;
 it throws a `ProviderError` whose `cause` carries a typed `kind`
 (`authentication`, `rate_limit`, `max_tokens_exceeded`, …).
@@ -1027,6 +1031,28 @@ decisions that are **gated and reversible**, and wrong for final answers.
 - **Option order can matter.** Test with reordered `criteria` if a call is close.
 - **Don't invert criteria.** A `boolean` whose `true` description means "no"
   performs measurably worse.
+- **Untrusted input.** Any text in `state` can steer a verdict: a user prompt,
+  a ticket, an earlier message, a retrieved document, tool output, a
+  transcript, a third-party server's description. A decision model can only
+  return an option you offered, but text written to push it can still pick the
+  option the author wants. The built-in consumers are advisory and fail-open,
+  and none of them feeds human-in-the-loop approval or a guardrail. Their reach
+  is bounded, not zero. For example, a steered verdict can withhold a declared
+  server's tools for the turn, drop earlier messages (up to half of the
+  eligible ones by default), change the model tier or pick any configured
+  model, set a retrieval plan (`topK`, hybrid, graph, rerank), lower the
+  compaction threshold for one request, or decide whether a transcript
+  substitution is applied. Each stays inside what the host configured: a model
+  pick must be a configured candidate, a retrieval plan cannot switch on a
+  capability the pipeline lacks, and the compaction threshold can only stay at
+  or go below its 0.8 default. Tools and messages go only on a confident "no" (0.6 by
+  default). A tier verdict at or above neutral clears a 0.3 bar (default) and
+  one below it a 0.6 bar (default), and a risk reading above 0.7 raises the
+  tier to "hard" or above with no bar. Confidence does not defend against this:
+  it says how decided the model is, not whether the text was written to steer
+  it. Do not make a `decide` verdict the only check before an irreversible or
+  security-sensitive action; keep a deterministic check or a human approval in
+  front of it.
 
 Tune thresholds on your own labelled data if the decision matters, and once you
 have, pin `TYPESAFE_MODEL` to a version id such as `jev-1.13.0` — `jev-latest`

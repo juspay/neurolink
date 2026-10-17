@@ -63,12 +63,15 @@ const DEFAULT_EMBEDDING_TOP_K = 20;
 
 /**
  * Upper bound on the user-query text interpolated into the router prompt.
- * The query is untrusted and can attempt prompt injection — the blast radius
- * is already bounded (the worst a successful injection achieves is making the
- * router keep MORE already-registered tools; out-of-catalog ids are filtered),
- * but without a cap an arbitrarily large query is sent to the router LLM every
- * turn. 10K chars is far more than enough to classify routing intent while
- * leaving room for a window of recent conversation turns.
+ * The query is untrusted and can attempt prompt injection. The reach is
+ * bounded, not zero: out-of-catalog ids are filtered, so an injected query
+ * cannot name a tool that was not already registered, and an empty pick fails
+ * open. But the router returns the servers to KEEP and every unselected
+ * routable server is excluded for the turn with no confidence bar, so a
+ * steered pick can withhold tools. Without a cap an arbitrarily large query is
+ * sent to the router LLM every turn. 10K chars is far more than enough to
+ * classify routing intent while leaving room for a window of recent
+ * conversation turns.
  */
 const MAX_ROUTER_QUERY_CHARS = 10000;
 
