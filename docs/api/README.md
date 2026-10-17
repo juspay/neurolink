@@ -3840,6 +3840,8 @@ console.log(result.content);
 - [getAnalyticsMetrics](functions/getAnalyticsMetrics.md)
 - [clearAnalyticsMetrics](functions/clearAnalyticsMetrics.md)
 - [createLifecycleMiddleware](functions/createLifecycleMiddleware.md)
+- [configureGlobalMiddleware](functions/configureGlobalMiddleware.md)
+- [clearGlobalMiddleware](functions/clearGlobalMiddleware.md)
 - [registerDefaultMusicHandlers](functions/registerDefaultMusicHandlers.md)
 - [createExporterSpanProcessor](functions/createExporterSpanProcessor.md)
 - [getMetricsAggregator](functions/getMetricsAggregator.md)

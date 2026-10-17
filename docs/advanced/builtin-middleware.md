@@ -22,6 +22,19 @@ const factory = new MiddlewareFactory({
 });
 ```
 
+### Defaults for every call
+
+Instead of repeating `middleware` on each `generate()` or `stream()` call, set it once. From lowest to highest precedence:
+
+| Layer       | How                                                  |
+| ----------- | ---------------------------------------------------- |
+| Environment | `NEUROLINK_MIDDLEWARE_PRESET=default\|all\|security` |
+| Global      | `configureGlobalMiddleware({ preset: "all" })`       |
+| Instance    | `new NeuroLink({ middleware: { preset: "all" } })`   |
+| Per call    | `generate({ middleware: { preset: "all" } })`        |
+
+`middlewareConfig` merges per middleware id; lists and other keys set by a higher layer replace the lower layer's value. With no default set, calls are unchanged. See [Guardrails: Defaults and precedence](../features/guardrails.md#defaults-and-precedence) for the full rules.
+
 ---
 
 ## Analytics Middleware

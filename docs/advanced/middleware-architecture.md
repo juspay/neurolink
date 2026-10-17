@@ -234,6 +234,8 @@ const factory = new MiddlewareFactory({
 | `security` | Guardrails only        | Security-focused       |
 | Custom     | Your choice            | Define your own        |
 
+`security` switches guardrails on and nothing more: it ships no word list and no model filter, so it redacts nothing until `badWords`, `modelFilter` or `precallEvaluation` is configured. A preset, and any other `MiddlewareFactoryOptions`, can also be set as a default for every call: `NEUROLINK_MIDDLEWARE_PRESET` (a preset name only), `configureGlobalMiddleware()` and `new NeuroLink({ middleware })`, each overridden by the next and finally by the call's own `middleware`. See [Guardrails: Defaults and precedence](../features/guardrails.md#defaults-and-precedence).
+
 ## Factory Pattern
 
 ### MiddlewareFactory Class

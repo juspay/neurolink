@@ -1337,6 +1337,9 @@ await test("guardrail bad-word filtering catches a term split across adjacent te
       {
         ANTHROPIC_BASE_URL: server.baseURL,
         ANTHROPIC_API_KEY: "sk-ant-mock-local-server",
+        // A stored ~/.neurolink OAuth credential outranks the API key and
+        // would trigger a live token refresh instead of reaching the stand-in.
+        ANTHROPIC_AUTH_METHOD: "api_key",
       },
       async () => {
         const sdk = new NeuroLink();

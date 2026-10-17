@@ -1657,7 +1657,7 @@ For advanced workflows (batching, tooling, configuration management) see the rel
 
 - [CLI Loop Sessions](../features/cli-loop-sessions.md) – Persistent interactive mode with session management
 - [Redis Conversation Export](../features/conversation-history.md) – Export session history via `memory export`
-- [Guardrails Middleware](../features/guardrails.md) – Content filtering (use `--middleware-preset security`)
+- [Guardrails Middleware](../features/guardrails.md) – Content filtering (the CLI reads `NEUROLINK_MIDDLEWARE_PRESET`; it has no word-list option)
 
 **Q3 2025:**
 

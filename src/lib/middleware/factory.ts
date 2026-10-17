@@ -9,6 +9,7 @@ import type {
   MiddlewareRegistrationOptions,
 } from "../types/index.js";
 import { MiddlewareRegistry } from "./registry.js";
+import { createBuiltInMiddlewarePresets } from "./presets.js";
 import { createAnalyticsMiddleware } from "./builtin/analytics.js";
 import { createGuardrailsMiddleware } from "./builtin/guardrails.js";
 import { createAutoEvaluationMiddleware } from "./builtin/autoEvaluation.js";
@@ -49,21 +50,9 @@ export class MiddlewareFactory {
     };
 
     // Register built-in presets
-    this.registerPreset({
-      name: "default",
-      description: "Default preset with analytics enabled.",
-      config: { analytics: { enabled: true } },
-    });
-    this.registerPreset({
-      name: "all",
-      description: "Enables all available middleware.",
-      config: { analytics: { enabled: true }, guardrails: { enabled: true } },
-    });
-    this.registerPreset({
-      name: "security",
-      description: "Focuses on security with guardrails.",
-      config: { guardrails: { enabled: true } },
-    });
+    for (const preset of createBuiltInMiddlewarePresets()) {
+      this.registerPreset(preset);
+    }
 
     // Register custom middleware if provided
     logger.debug("Initializing MiddlewareFactory", { options });
