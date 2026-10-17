@@ -11,10 +11,11 @@ about 65 ms, up to 128 in a request; see
 Cloudflare Clef a request takes up to 64 questions, and `tryDecide()` splits a
 larger set into batches of 64; see
 [its guide](../getting-started/providers/cloudflare-clef.md#limits); OpenAI Decisions
-declares no question cap, so a set goes whole and what the endpoint accepts is
-not established, see
-[its guide](../getting-started/providers/openai-decisions.md#what-is-not-established);
-ScaleDown declares none either, and its maximum is not measured, see
+takes up to 200 questions (the figure in OpenAI's Python SDK, not tried against
+the live endpoint), and `tryDecide()` splits a larger set into batches of 200;
+see
+[its guide](../getting-started/providers/openai-decisions.md#what-is-sent-to-openai);
+ScaleDown declares no question cap, and its maximum is not measured, see
 [its guide](../getting-started/providers/scaledown.md#not-measured)), and each
 answer comes back with a real probability rather than a name that either did or
 didn't make a list.

@@ -545,7 +545,7 @@ health sweep.
 - 🔑 `OPENAI_API_KEY` alone configures it, and it is the same key the OpenAI chat provider reads, so a key set for chat also lets built-in features (and a transcription dictionary's correction check) use it, and make paid decision calls, when none of the six providers ahead of it is configured, unless `OPENAI_BASE_URL`, `OPENAI_API_BASE` or `credentials.openai.baseURL` names a host other than `https://api.openai.com` (the key is then taken to be a gateway's and is not used by default; a call that names the provider still uses it and sends it to `api.openai.com`); the guide lists what each consumer then sends
 - 🖼️ Takes up to 8 images as inline data URLs with a decision (NeuroLink's own allowance, not OpenAI's); no video
 - 💰 $0.10 per million input tokens, input only, per [OpenAI's Decisions guide](https://developers.openai.com/api/docs/guides/decisions) as read on 2026-10-07; regional and long-context multipliers are not modelled
-- 📏 Question and option limits, image formats, rate limits and latency are not established (none measured); NeuroLink reports 922,000 state tokens as an advisory figure and never refuses on it
+- 📏 Questions per request are capped at 200, the figure in OpenAI's Python SDK, and `tryDecide()` splits a longer set at it; going over 200 was not tried against the live endpoint, and option limits, image formats, rate limits and latency are not established (none measured). NeuroLink reports 922,000 state tokens as an advisory figure and never refuses on it
 - 🔌 Hosted endpoint, so no base URL is needed; `OPENAI_DECISIONS_BASE_URL` (or `credentials.openaiDecisions.baseURL`) can name another origin
 
 [Setup Guide →](openai-decisions.md)

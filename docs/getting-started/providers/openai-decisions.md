@@ -46,7 +46,7 @@ it: there is no base URL to set.
 | Media                 | images as inline data URLs, up to 8 per request (NeuroLink's own allowance, not OpenAI's); the endpoint has no video part                                                                                                                                                                                                                                                                                                               |
 | Request body cap      | 32 MiB on the encoded request, NeuroLink's own allowance, not OpenAI's                                                                                                                                                                                                                                                                                                                                                                  |
 | State window          | 922,000 tokens is reported as an advisory figure (the model page's input figure); NeuroLink never refuses on it                                                                                                                                                                                                                                                                                                                         |
-| Questions per request | no cap declared by NeuroLink; whether OpenAI has one is not established                                                                                                                                                                                                                                                                                                                                                                 |
+| Questions per request | 200, the figure in OpenAI's Python SDK, read from documentation on 2026-10-17 and not tried against the live endpoint; `tryDecide()` splits a longer set into requests of at most 200, and a direct `decide()` is not refused locally                                                                                                                                                                                                   |
 | Default timeout       | 10 seconds for any number of questions; `timeoutMs` or `--timeout` replaces it. A starting point, not a measurement                                                                                                                                                                                                                                                                                                                     |
 | Cost                  | priced per input token, input only; see [Cost](#cost) for the rate, its source and its date                                                                                                                                                                                                                                                                                                                                             |
 | Precedence            | used automatically only when none of TypeSafe, Laya, XOR, SubQ, Perplexity or Cloudflare Clef is configured: the seventh of eight, ahead of only [ScaleDown](scaledown.md). Its environment key is skipped for this while `OPENAI_BASE_URL`, `OPENAI_API_BASE` or `credentials.openai.baseURL` names a host other than `https://api.openai.com` (a gateway's key); see [A gateway's key](#a-gateways-key-is-never-used-for-the-default) |
@@ -507,11 +507,27 @@ none. A call you make yourself to `neurolink.decide()` sends the `state`,
 `questions` and `images` you pass, to the provider you name or to the default
 one.
 
-NeuroLink declares no question cap for this provider, so a request with many
-questions is sent whole rather than split: relevance compaction can ask about up
-to 300 messages and tool routing about up to 200 servers in one request. Whether
-the endpoint accepts that many is not established. If it refuses, the consumer
-carries on without that decision.
+NeuroLink declares a cap of 200 questions per request for this provider. The
+figure is from OpenAI's Python SDK, whose type for the `questions` field reads
+"Ask 1–200 questions about the input" (`src/openai/types/decision_create_params.py`
+in `openai/openai-python`, read on 2026-10-17); OpenAI's Decisions guide states
+no number. `tryDecide()`, which every built-in consumer calls, therefore splits a
+longer set into requests of at most 200 questions, keeps the questions in the
+order given, runs up to four requests at a time and joins the answers. The state
+(and any images) travels with every request, so a split set pays for the state's
+input tokens once for each request. Relevance compaction can ask about up to 300
+messages, which goes out as one request of 200 questions and one of the rest;
+tool routing asks about up to 200 servers, which fits in one. A request the
+endpoint refuses loses only its own questions, and the consumer carries on
+without that decision. Questions a host adds through `decisionHooks` are capped at
+200 minus NeuroLink's own count, dropped from the end with a warning.
+
+The row is advisory (see [Key Facts](#key-facts)), so the cap is reported by
+`decisionLimits()` and used to split in `tryDecide()`, but a direct
+`neurolink.decide()` with more than 200 questions is not refused locally: it is
+sent whole and the server answers it. **Going over 200 was not tried against the
+live endpoint**, so what the endpoint does with 201 is not established; the 200
+rests on the SDK's wording alone.
 
 Treat each request like any hosted provider call for data handling and
 retention: it is a request to `api.openai.com` made with your key. Besides the
@@ -666,9 +682,12 @@ OpenAI's behalf, and to drop a bad answer rather than guess.
 1. Whether `/v1/decisions` uses OpenAI's general error envelope, and the status
    and text of a refusal for an over-length input. NeuroLink reads an error's
    `error.message` when there is one, and classifies by HTTP status.
-2. The maximum number of questions per request, of choices per question (the
-   benchmarks NeuroLink has in mind need 77 and 151), and of levels per score,
-   and what a question `name` may contain.
+2. The maximum number of choices per question (the benchmarks NeuroLink has in
+   mind need 77 and 151; OpenAI's Python SDK documents 2 to 255, which NeuroLink
+   does not enforce) and of levels per score, and what a question `name` may
+   contain. The question maximum is documented (200, see
+   [What is sent to OpenAI](#what-is-sent-to-openai)), but what the endpoint
+   does with more than 200 was not tried live.
 3. The endpoint's input ceiling (the model page gives 922,000 input tokens for the
    model in general), the number of images per request, the request body cap and
    the accepted image formats.

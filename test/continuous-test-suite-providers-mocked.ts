@@ -12916,6 +12916,62 @@ const odOptions = (count: number): string[] =>
     (_, i) => `option-${String(i).padStart(3, "0")}`,
   );
 
+/** `count` yes/no questions, named so insertion order is kept. */
+const odManyQuestions = (count: number): DecisionQuestionMap =>
+  Object.fromEntries(
+    Array.from(
+      { length: count },
+      (_, i): [string, DecisionQuestionMap[string]] => [
+        `q-${String(i).padStart(3, "0")}`,
+        { type: "boolean", instructions: `Is item ${i} urgent?` },
+      ],
+    ),
+  );
+
+/** The ids a sent request names, in the order it carries them. */
+const odSentNames = (call: { bodyJson: unknown } | undefined): string[] =>
+  (odBodyOf(call).questions ?? []).map((question) => String(question.name));
+
+/**
+ * Answers every question the request carries, so each batch of a split request
+ * is judged by what it was sent. A request for which `refuse` is true gets a
+ * 400 in the shape of the stand-in errors above.
+ */
+function odAnswerWhatIsAsked(refuse?: (names: string[]) => boolean) {
+  return {
+    method: "POST",
+    url: OPENAI_DECISIONS_SPEC.endpoint,
+    respond: (call: { bodyJson: unknown }) => {
+      const names = odSentNames(call);
+      if (refuse?.(names)) {
+        return {
+          status: 400,
+          json: {
+            error: {
+              message: "stand-in: too many questions",
+              type: "invalid_request_error",
+              code: null,
+            },
+          },
+        };
+      }
+      return {
+        status: 200,
+        headers: { "x-request-id": `req-${names[0]}` },
+        json: {
+          model: "gpt-6-luna",
+          answers: names.map((name) => ({
+            type: "predicate",
+            name,
+            probability: 0.8,
+          })),
+          usage: { input_tokens: 10, output_tokens: 0, total_tokens: 10 },
+        },
+      };
+    },
+  };
+}
+
 async function runOpenAIDecisionsSurface(): Promise<void> {
   const { provider, key, endpoint } = OPENAI_DECISIONS_SPEC;
   const { NeuroLink, AIProviderFactory, calculateCost, logger } =
@@ -13808,6 +13864,135 @@ async function runOpenAIDecisionsSurface(): Promise<void> {
             );
           },
         );
+      },
+    );
+
+    // ── The 200-question cap: split by tryDecide, left to the server by decide ──
+    // 200 is the figure in OpenAI's Python SDK (Ask 1–200 questions about the
+    // input), read from documentation. Nothing here, and no live request, shows
+    // what the endpoint does with 201: the stand-in answers whatever it is sent.
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: the question cap is reported as 200, and advisory",
+      async () => {
+        resetOpenAIDecisionsEnv();
+        const reading = fresh().decisionLimits({ provider });
+        expectEq(reading?.maxQuestions, 200, "the documented question cap");
+        expectEq(reading?.enforcedLocally, false, "advisory, not enforced");
+        expectEq(
+          reading?.maxStateTokens,
+          922000,
+          "the state window is as it was",
+        );
+      },
+    );
+
+    for (const [count, sizes] of [
+      [200, [200]],
+      [201, [200, 1]],
+      [250, [200, 50]],
+      [450, [200, 200, 50]],
+    ] as const) {
+      await openaiDecisionsCase(
+        `DECIDE openai-decisions: tryDecide with ${count} questions sends ${sizes.length} request(s) of ${sizes.join(" + ")}, in order, and joins the answers`,
+        async () => {
+          resetOpenAIDecisionsEnv();
+          const questions = odManyQuestions(count);
+          const names = Object.keys(questions);
+          await withMocks([odAnswerWhatIsAsked()], async ({ calls }) => {
+            const result = await fresh().tryDecide({
+              provider,
+              state: "A long conversation.",
+              questions,
+            });
+            const sent = calls.filter((c) => c.method === "POST");
+            expectEq(sent.length, sizes.length, "requests sent");
+            // Batches run side by side, so judge each by its first question
+            // and not by the order the calls reached the wire.
+            const ordered = [...sent].sort((a, b) =>
+              odSentNames(a)[0].localeCompare(odSentNames(b)[0]),
+            );
+            expect(
+              sameJson(
+                ordered.map((c) => odSentNames(c).length),
+                sizes,
+              ),
+              `the batch sizes are ${sizes.join(", ")}`,
+            );
+            expect(
+              sameJson(ordered.flatMap(odSentNames), names),
+              "every question is sent once, in the order given",
+            );
+            for (const call of ordered) {
+              expectEq(
+                odBodyOf(call).input,
+                "A long conversation.",
+                "the state travels with every batch",
+              );
+            }
+            expect(result !== null, "the joined result is not null");
+            expect(
+              sameJson(Object.keys(result?.answers ?? {}), names),
+              "every question has an answer, in the order given",
+            );
+            expectEq(
+              result?.usage.inputTokens,
+              10 * sizes.length,
+              "usage is summed over the batches",
+            );
+            expectEq(
+              result?.requestId,
+              ordered.map((c) => `req-${odSentNames(c)[0]}`).join(","),
+              "the request ids of the batches are listed",
+            );
+          });
+        },
+      );
+    }
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: a batch the endpoint refuses loses only its own questions",
+      async () => {
+        resetOpenAIDecisionsEnv();
+        const questions = odManyQuestions(250);
+        const names = Object.keys(questions);
+        await withMocks(
+          [odAnswerWhatIsAsked((asked) => asked.length < 200)],
+          async ({ calls }) => {
+            const result = await fresh().tryDecide({
+              provider,
+              state: "A long conversation.",
+              questions,
+            });
+            expectEq(
+              calls.filter((c) => c.method === "POST").length,
+              2,
+              "both batches were sent, the refused one once",
+            );
+            expect(
+              sameJson(Object.keys(result?.answers ?? {}), names.slice(0, 200)),
+              "the first 200 answers survive; the last 50 have none",
+            );
+          },
+        );
+      },
+    );
+
+    await openaiDecisionsCase(
+      "DECIDE openai-decisions: a direct decide() with 201 questions is not refused locally, the server is left to answer it",
+      async () => {
+        resetOpenAIDecisionsEnv();
+        const questions = odManyQuestions(201);
+        await withMocks([odAnswerWhatIsAsked()], async ({ calls }) => {
+          const result = await fresh().decide({
+            provider,
+            state: "A long conversation.",
+            questions,
+          });
+          const sent = calls.filter((c) => c.method === "POST");
+          expectEq(sent.length, 1, "one request, not split");
+          expectEq(odSentNames(sent[0]).length, 201, "all 201 questions sent");
+          expectEq(Object.keys(result.answers).length, 201, "all 201 answered");
+        });
       },
     );
   } finally {
