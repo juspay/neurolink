@@ -1,12 +1,14 @@
 /**
  * MCP Registry Client
  *
- * Client for discovering MCP servers from centralized registries.
- * Supports multiple registry sources including:
- * - Official MCP Registry
- * - NPM packages
- * - GitHub repositories
- * - Custom registries
+ * Client for discovering MCP servers. It always knows a built-in catalog of
+ * well-known servers plus any custom entries. When remote lookup is enabled
+ * (`remoteLookup: true`, off by default) it also consults:
+ * - the official MCP Registry (https://registry.modelcontextprotocol.io)
+ * - custom registries that serve the same `/v0.1` API
+ *
+ * `npm` and `github` registry sources are accepted in configuration but not
+ * queried.
  *
  * @module mcp/mcpRegistryClient
  * @since 8.39.0
@@ -20,7 +22,23 @@ import type {
   RegistrySearchOptions,
   RegistrySearchResult,
   McpRegistryEntry,
+  RemoteRegistryTarget,
 } from "../types/index.js";
+import { mcpLogger } from "../utils/logger.js";
+import {
+  mapRemoteRecord,
+  parseRemotePage,
+  parseRemoteRecord,
+  resolveRemoteTarget,
+} from "./mcpRegistryRemote.js";
+
+const REMOTE_PAGE_SIZE = 100;
+const REMOTE_DEFAULT_MAX_PAGES = 5;
+// A list page of 100 servers is well under 2 MiB; the cap only stops a hostile
+// or broken registry from filling memory within the timeout.
+const REMOTE_MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
+const CACHE_MAX_ENTRIES = 500;
+
 /**
  * Well-known MCP servers catalog
  */
@@ -194,6 +212,10 @@ const WELL_KNOWN_SERVERS: McpRegistryEntry[] = [
  *
  * // Convert to MCPServerInfo
  * const serverInfo = client.toServerInfo(entry);
+ *
+ * // Opt in to the official MCP Registry (remote entries are never `verified`)
+ * const remote = new MCPRegistryClient({ remoteLookup: true });
+ * const found = await remote.getEntry("io.github.example/my-server");
  * ```
  */
 export class MCPRegistryClient extends EventEmitter {
@@ -205,9 +227,10 @@ export class MCPRegistryClient extends EventEmitter {
     super();
 
     this.config = {
-      registries: config.registries ?? [
-        { type: "official", enableCache: true },
+      registries: [
+        ...(config.registries ?? [{ type: "official", enableCache: true }]),
       ],
+      remoteLookup: config.remoteLookup ?? false,
       enableCache: config.enableCache ?? true,
       defaultCacheTTL: config.defaultCacheTTL ?? 3600000, // 1 hour
       timeout: config.timeout ?? 10000,
@@ -236,8 +259,12 @@ export class MCPRegistryClient extends EventEmitter {
     const limit = Math.max(1, rawLimit);
     const offset = Math.max(0, rawOffset);
 
-    // Get all entries (from cache or fetch)
-    let entries = await this.getAllEntries();
+    // Get all entries (from cache or fetch). Copy: the sort below must not
+    // reorder the cached list.
+    const listed = query
+      ? await this.collectEntries(query)
+      : await this.getAllEntries();
+    let entries = [...listed];
 
     // Apply filters
     if (query) {
@@ -305,7 +332,12 @@ export class MCPRegistryClient extends EventEmitter {
   }
 
   /**
-   * Get a specific entry by ID
+   * Get a specific entry by ID.
+   *
+   * Checks custom entries, then the built-in catalog. Only when remote
+   * lookup is enabled does a miss fall through to the configured registries
+   * (first hit wins); a registry that fails or answers with something
+   * unreadable is skipped, so the result is `undefined` rather than an error.
    */
   async getEntry(id: string): Promise<McpRegistryEntry | undefined> {
     // Check custom entries first
@@ -319,41 +351,374 @@ export class MCPRegistryClient extends EventEmitter {
       return wellKnown;
     }
 
-    // TODO(#1956): Fetch from remote registry
+    if (!this.config.remoteLookup) {
+      return undefined;
+    }
+
+    // An empty id, "." and ".." are path segments: URL normalisation would
+    // turn them into a different registry endpoint, so they are a miss.
+    if (id === "" || id === "." || id === "..") {
+      return undefined;
+    }
+
+    for (const target of this.getRemoteTargets()) {
+      const entry = await this.fetchRemoteEntry(target, id);
+      if (entry) {
+        return entry;
+      }
+    }
+
     return undefined;
   }
 
   /**
-   * Get all available entries
+   * Get all available entries.
+   *
+   * Lists the built-in catalog, then the custom entries (a custom entry
+   * replaces a built-in one with the same id), then, when remote lookup is
+   * enabled, the servers of each configured registry. A remote entry never
+   * replaces a local one. A registry that cannot be read contributes nothing.
    */
   async getAllEntries(): Promise<McpRegistryEntry[]> {
-    const cacheKey = "all-entries";
+    return this.collectEntries();
+  }
+
+  /**
+   * Collect local entries and, when remote lookup is on, each registry's
+   * servers. `query` narrows the remote lists with the registry's own
+   * `search` parameter (substring match on server name); `search()` still
+   * applies its full filter afterwards.
+   *
+   * The merged list is cached only when every registry answered, so a
+   * transient failure is not pinned for the whole TTL.
+   */
+  private async collectEntries(query?: string): Promise<McpRegistryEntry[]> {
+    // Without remote lookup the query changes nothing, so share one entry.
+    const cacheKey =
+      query === undefined || !this.config.remoteLookup
+        ? "all-entries"
+        : `all-entries:${query.toLowerCase()}`;
+
+    // The merged list must not outlive the shortest-lived registry cache, and
+    // is not cached at all if any registry has caching switched off.
+    const targets = this.config.remoteLookup ? this.getRemoteTargets() : [];
+    const cacheable =
+      this.config.enableCache &&
+      targets.every((t) => this.isRemoteCacheEnabled(t));
+    const ttl = Math.min(
+      this.config.defaultCacheTTL,
+      ...targets.map((t) => t.config.cacheTTL ?? this.config.defaultCacheTTL),
+    );
 
     // Check cache
-    if (this.config.enableCache) {
-      const cached = this.cache.get(cacheKey);
-      if (
-        cached &&
-        Date.now() - cached.timestamp < this.config.defaultCacheTTL
-      ) {
-        return cached.data as McpRegistryEntry[];
-      }
+    const cached = cacheable
+      ? this.readCache<McpRegistryEntry[]>(cacheKey, ttl)
+      : undefined;
+    if (cached) {
+      return cached;
     }
 
     // Combine well-known servers and custom entries, deduplicating by ID.
     // Custom entries take precedence over well-known servers.
     const customIds = new Set(this.customEntries.keys());
-    const allEntries = [
+    const localEntries = [
       ...WELL_KNOWN_SERVERS.filter((entry) => !customIds.has(entry.id)),
       ...Array.from(this.customEntries.values()),
     ];
 
+    let allEntries = localEntries;
+    let complete = true;
+
+    if (this.config.remoteLookup) {
+      const lists = await Promise.all(
+        targets.map((target) => this.fetchRemoteList(target, query)),
+      );
+      const seen = new Set(localEntries.map((entry) => entry.id));
+      const remoteEntries: McpRegistryEntry[] = [];
+      for (const list of lists) {
+        complete = complete && list.ok;
+        for (const entry of list.entries) {
+          if (!seen.has(entry.id)) {
+            seen.add(entry.id);
+            remoteEntries.push(entry);
+          }
+        }
+      }
+      allEntries = [...localEntries, ...remoteEntries];
+    }
+
     // Cache the result
-    if (this.config.enableCache) {
-      this.cache.set(cacheKey, { data: allEntries, timestamp: Date.now() });
+    if (cacheable && complete) {
+      this.writeCache(cacheKey, allEntries);
     }
 
     return allEntries;
+  }
+
+  /**
+   * Registries the client may query: `official` and `custom` sources with a
+   * usable URL. Other sources are skipped.
+   */
+  private getRemoteTargets(): RemoteRegistryTarget[] {
+    return this.config.registries.flatMap((registry) => {
+      const target = resolveRemoteTarget(registry);
+      if (target === undefined) {
+        mcpLogger.debug(
+          `[MCPRegistryClient] Skipping registry of type "${registry.type}": not queryable (unsupported type, missing or unusable URL, or a bearer token on plain http to a non-loopback host)`,
+        );
+        return [];
+      }
+      return [target];
+    });
+  }
+
+  private async fetchRemoteEntry(
+    target: RemoteRegistryTarget,
+    id: string,
+  ): Promise<McpRegistryEntry | undefined> {
+    const cacheKey = `remote-entry:${target.apiBase}:${id}`;
+    const cached = this.readRemoteCache<McpRegistryEntry>(cacheKey, target);
+    if (cached) {
+      return cached;
+    }
+
+    try {
+      const response = await this.requestJson(
+        target,
+        `/servers/${encodeURIComponent(id)}/versions/latest`,
+      );
+      if (response.body === undefined) {
+        return undefined;
+      }
+
+      const record = parseRemoteRecord(response.body);
+      if (
+        record === undefined ||
+        record.status === "deleted" ||
+        record.server.name.toLowerCase() !== id.toLowerCase()
+      ) {
+        throw new Error("registry returned no record for the requested server");
+      }
+
+      const entry = mapRemoteRecord(record, target.apiBase);
+      this.writeRemoteCache(cacheKey, entry, target);
+      return entry;
+    } catch (error) {
+      this.reportRemoteError(target, "getEntry", error);
+      return undefined;
+    }
+  }
+
+  private async fetchRemoteList(
+    target: RemoteRegistryTarget,
+    query?: string,
+  ): Promise<{ entries: McpRegistryEntry[]; ok: boolean }> {
+    const cacheKey = `remote-list:${target.apiBase}:${(query ?? "").toLowerCase()}`;
+    const cached = this.readRemoteCache<McpRegistryEntry[]>(cacheKey, target);
+    if (cached) {
+      return { entries: cached, ok: true };
+    }
+
+    try {
+      const configuredPages = target.config.maxPages;
+      const maxPages =
+        configuredPages !== undefined && Number.isFinite(configuredPages)
+          ? Math.max(1, Math.floor(configuredPages))
+          : REMOTE_DEFAULT_MAX_PAGES;
+      const entries: McpRegistryEntry[] = [];
+      const seenCursors = new Set<string>();
+      let cursor: string | undefined;
+
+      for (let page = 0; page < maxPages; page++) {
+        const params = new URLSearchParams({
+          version: "latest",
+          limit: String(REMOTE_PAGE_SIZE),
+        });
+        if (query) {
+          params.set("search", query);
+        }
+        if (cursor) {
+          params.set("cursor", cursor);
+        }
+
+        const response = await this.requestJson(target, "/servers", params);
+        const { records, nextCursor } = parseRemotePage(response.body);
+        entries.push(
+          ...records
+            .filter((record) => record.status !== "deleted")
+            .map((record) => mapRemoteRecord(record, target.apiBase)),
+        );
+
+        if (nextCursor === undefined || seenCursors.has(nextCursor)) {
+          break;
+        }
+        if (page === maxPages - 1) {
+          mcpLogger.debug(
+            `[MCPRegistryClient] ${target.apiBase}: stopped after ${maxPages} page(s); more servers are available`,
+          );
+          break;
+        }
+        seenCursors.add(nextCursor);
+        cursor = nextCursor;
+      }
+
+      this.writeRemoteCache(cacheKey, entries, target);
+      return { entries, ok: true };
+    } catch (error) {
+      this.reportRemoteError(target, "list", error);
+      return { entries: [], ok: false };
+    }
+  }
+
+  /**
+   * GET a JSON document from a registry, bounded by its timeout. A 404
+   * resolves with an undefined body (a normal "not found"); any other
+   * non-2xx status, a network error, a timeout or a body that is not JSON
+   * rejects.
+   */
+  private async requestJson(
+    target: RemoteRegistryTarget,
+    path: string,
+    params?: URLSearchParams,
+  ): Promise<{ body: unknown }> {
+    const url = new URL(`${target.apiBase}${path}`);
+    params?.forEach((value, key) => url.searchParams.set(key, value));
+
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      "User-Agent": this.config.userAgent,
+      ...(target.config.authToken
+        ? { Authorization: `Bearer ${target.config.authToken}` }
+        : {}),
+    };
+
+    const response = await globalThis.fetch(url, {
+      method: "GET",
+      headers,
+      signal: AbortSignal.timeout(target.config.timeout ?? this.config.timeout),
+    });
+
+    if (response.status === 404) {
+      await response.body?.cancel();
+      return { body: undefined };
+    }
+    if (!response.ok) {
+      await response.body?.cancel();
+      throw new Error(`registry responded with HTTP ${response.status}`);
+    }
+
+    return { body: await this.readBoundedJson(response) };
+  }
+
+  /**
+   * Parse a JSON body, refusing to buffer more than
+   * `REMOTE_MAX_RESPONSE_BYTES`. The request timeout bounds duration, not
+   * memory, so the size is checked while reading.
+   */
+  private async readBoundedJson(response: Response): Promise<unknown> {
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    if (response.body) {
+      const reader = response.body.getReader();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        size += value.byteLength;
+        if (size > REMOTE_MAX_RESPONSE_BYTES) {
+          await reader.cancel();
+          throw new Error(
+            `registry response exceeds ${REMOTE_MAX_RESPONSE_BYTES} bytes`,
+          );
+        }
+        chunks.push(value);
+      }
+    }
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  }
+
+  private reportRemoteError(
+    target: RemoteRegistryTarget,
+    operation: "getEntry" | "list",
+    error: unknown,
+  ): void {
+    const baseMessage = error instanceof Error ? error.message : String(error);
+    // fetch() reports every connection failure as "fetch failed"; the code
+    // (ECONNREFUSED, ENOTFOUND, ...) sits on the cause.
+    const cause = error instanceof Error ? error.cause : undefined;
+    const causeCode =
+      typeof cause === "object" && cause !== null && "code" in cause
+        ? String(cause.code)
+        : undefined;
+    const message =
+      causeCode === undefined ? baseMessage : `${baseMessage} (${causeCode})`;
+
+    mcpLogger.debug(
+      `[MCPRegistryClient] ${operation} failed for ${target.apiBase}: ${message}`,
+    );
+    try {
+      this.emit("registryError", {
+        registry: target.apiBase,
+        operation,
+        message,
+      });
+    } catch (listenerError) {
+      // A throwing listener must not turn a degraded lookup into an error.
+      mcpLogger.debug(
+        `[MCPRegistryClient] registryError listener threw: ${String(listenerError)}`,
+      );
+    }
+  }
+
+  private readCache<T>(key: string, ttl: number): T | undefined {
+    const cached = this.cache.get(key);
+    // Each key is written with one shape only, so the cast matches the writer.
+    return cached && Date.now() - cached.timestamp < ttl
+      ? (cached.data as T)
+      : undefined;
+  }
+
+  private readRemoteCache<T>(
+    key: string,
+    target: RemoteRegistryTarget,
+  ): T | undefined {
+    return this.isRemoteCacheEnabled(target)
+      ? this.readCache<T>(
+          key,
+          target.config.cacheTTL ?? this.config.defaultCacheTTL,
+        )
+      : undefined;
+  }
+
+  private writeRemoteCache(
+    key: string,
+    data: unknown,
+    target: RemoteRegistryTarget,
+  ): void {
+    if (this.isRemoteCacheEnabled(target)) {
+      this.writeCache(key, data);
+    }
+  }
+
+  /**
+   * The client-wide `enableCache: false` is a ceiling: a registry can switch
+   * its own caching off but cannot turn it back on.
+   */
+  private isRemoteCacheEnabled(target: RemoteRegistryTarget): boolean {
+    return this.config.enableCache && (target.config.enableCache ?? true);
+  }
+
+  private writeCache(key: string, data: unknown): void {
+    // Bound the cache: a long-lived client that searches many different
+    // queries must not grow without limit. Map iterates oldest first.
+    if (!this.cache.has(key) && this.cache.size >= CACHE_MAX_ENTRIES) {
+      const oldest = this.cache.keys().next();
+      if (!oldest.done) {
+        this.cache.delete(oldest.value);
+      }
+    }
+    this.cache.set(key, { data, timestamp: Date.now() });
   }
 
   /**
@@ -466,6 +831,17 @@ export class MCPRegistryClient extends EventEmitter {
     this.clearCache();
     const { authToken: _, ...safeConfig } = config;
     this.emit("registryAdded", { config: safeConfig });
+  }
+
+  /**
+   * Turn remote lookup on or off at runtime, e.g. on the client returned by
+   * `NeuroLink.getMCPRegistryClient()`. Off is the default. Clears the cache
+   * so the next lookup reflects the new setting.
+   */
+  setRemoteLookup(enabled: boolean): void {
+    this.config.remoteLookup = enabled;
+    this.clearCache();
+    this.emit("remoteLookupChanged", { enabled });
   }
 
   /**

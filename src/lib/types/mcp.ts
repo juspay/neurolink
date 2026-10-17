@@ -1670,29 +1670,47 @@ export type RegistryConfig = {
   type: RegistrySourceType;
 
   /**
-   * Registry URL or identifier
+   * Base URL of the registry. `official` defaults to
+   * `https://registry.modelcontextprotocol.io`; `custom` requires it. The
+   * client appends `/v0.1/servers`, so pass the origin (a trailing `/v0.1`
+   * is accepted too). Only `http:` and `https:` URLs without embedded
+   * credentials are used.
    */
   url?: string;
 
   /**
-   * Authentication token
+   * Bearer token sent as `Authorization: Bearer <token>` to this registry
+   * only. It is never emitted in events or logs. A registry with a token is
+   * queried only over `https:` or on a loopback host (`localhost`,
+   * `127.0.0.0/8`, `[::1]`); a plain `http:` URL to any other host is skipped
+   * so the token never crosses the network in clear.
    */
   authToken?: string;
 
   /**
-   * Request timeout in milliseconds
+   * Request timeout in milliseconds. Overrides the client-wide `timeout`
+   * for this registry.
    */
   timeout?: number;
 
   /**
-   * Enable caching
+   * Set to `false` to turn off caching of this registry's responses. It
+   * cannot override a client-wide `enableCache: false`, which turns caching
+   * off for every registry.
    */
   enableCache?: boolean;
 
   /**
-   * Cache TTL in milliseconds
+   * Cache TTL in milliseconds for this registry's responses. Falls back to
+   * the client-wide `defaultCacheTTL`.
    */
   cacheTTL?: number;
+
+  /**
+   * Maximum number of list pages (100 servers each) fetched when this
+   * registry is merged into `search()` / `getAllEntries()`. Defaults to 5.
+   */
+  maxPages?: number;
 };
 
 /**
@@ -1764,12 +1782,26 @@ export type RegistrySearchResult = {
 
 export type MCPRegistryClientConfig = {
   /**
-   * Default registries to use
+   * Registries to consult when `remoteLookup` is on. Only `official` and
+   * `custom` registries are queried; `npm` and `github` entries are accepted
+   * for compatibility but skipped. Defaults to the official MCP Registry.
    */
   registries?: RegistryConfig[];
 
   /**
-   * Enable automatic caching
+   * Opt in to remote lookups. Default `false`: the client then reads only
+   * its built-in catalog and custom entries and never touches the network,
+   * whatever `registries` says. When `true`, `getEntry()` falls back to the
+   * configured registries on a local miss and `search()` / `getAllEntries()`
+   * merge their servers after the local ones. Remote entries are always
+   * `verified: false`, and any network or parse failure falls back to the
+   * local result instead of throwing.
+   */
+  remoteLookup?: boolean;
+
+  /**
+   * Enable automatic caching. `false` turns it off for the merged list and
+   * for every registry, including one that sets its own `enableCache: true`.
    */
   enableCache?: boolean;
 
@@ -1779,14 +1811,94 @@ export type MCPRegistryClientConfig = {
   defaultCacheTTL?: number;
 
   /**
-   * Request timeout
+   * Request timeout in milliseconds for each remote registry request
+   * (default 10000). A registry's own `timeout` takes precedence.
    */
   timeout?: number;
 
   /**
-   * User agent string
+   * User-Agent header sent on every remote registry request
    */
   userAgent?: string;
+};
+
+/**
+ * An input (environment variable or header) declared by a registry record.
+ * Mirrors the `KeyValueInput` schema of the official MCP Registry API.
+ */
+
+export type RemoteRegistryInput = {
+  name: string;
+  isRequired: boolean;
+  isSecret: boolean;
+};
+
+/**
+ * Transport declared by a registry record (`stdio`, `streamable-http` or
+ * `sse`). `url` is present for the remote transports.
+ */
+
+export type RemoteRegistryTransport = {
+  type: string;
+  url?: string;
+};
+
+/**
+ * A package a registry record can be installed from (`npm`, `pypi`, `oci`, ...)
+ */
+
+export type RemoteRegistryPackage = {
+  registryType: string;
+  identifier: string;
+  version?: string;
+  transport?: RemoteRegistryTransport;
+  environmentVariables: RemoteRegistryInput[];
+};
+
+/**
+ * Server description inside a registry record. Mirrors the `ServerDetail`
+ * schema of the official MCP Registry API, reduced to the fields the client
+ * reads; everything else in the response is ignored.
+ */
+
+export type RemoteRegistryServer = {
+  name: string;
+  description: string;
+  version: string;
+  repositoryUrl?: string;
+  websiteUrl?: string;
+  packages: RemoteRegistryPackage[];
+  remotes: RemoteRegistryTransport[];
+};
+
+/**
+ * One validated record from a remote registry: the server plus the status
+ * and timestamp the official registry reports under `_meta`.
+ */
+
+export type RemoteRegistryRecord = {
+  server: RemoteRegistryServer;
+  status?: string;
+  updatedAt?: string;
+};
+
+/**
+ * One validated page of a registry's server list
+ */
+
+export type RemoteRegistryPage = {
+  records: RemoteRegistryRecord[];
+  nextCursor?: string;
+};
+
+/**
+ * A registry the client can query: its configuration plus the resolved,
+ * credential-free API base URL (`.../v0.1`)
+ */
+
+export type RemoteRegistryTarget = {
+  config: RegistryConfig;
+  apiBase: string;
 };
 
 /**

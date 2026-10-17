@@ -23,6 +23,10 @@ const entry = await client.getEntry("postgres");
 
 // Convert to MCPServerInfo
 const serverInfo = client.toServerInfo(entry);
+
+// Opt in to the official MCP Registry (remote entries are never `verified`)
+const remote = new MCPRegistryClient({ remoteLookup: true });
+const found = await remote.getEntry("io.github.example/my-server");
 ```
 
 ## Extends
@@ -73,7 +77,12 @@ Search the registry
 
 > **getEntry**(`id`): `Promise`\<[`McpRegistryEntry`](../type-aliases/McpRegistryEntry.md) \| `undefined`\>
 
-Get a specific entry by ID
+Get a specific entry by ID.
+
+Checks custom entries, then the built-in catalog. Only when remote
+lookup is enabled does a miss fall through to the configured registries
+(first hit wins); a registry that fails or answers with something
+unreadable is skipped, so the result is `undefined` rather than an error.
 
 #### Parameters
 
@@ -91,7 +100,12 @@ Get a specific entry by ID
 
 > **getAllEntries**(): `Promise`\<[`McpRegistryEntry`](../type-aliases/McpRegistryEntry.md)[]\>
 
-Get all available entries
+Get all available entries.
+
+Lists the built-in catalog, then the custom entries (a custom entry
+replaces a built-in one with the same id), then, when remote lookup is
+enabled, the servers of each configured registry. A remote entry never
+replaces a local one. A registry that cannot be read contributes nothing.
 
 #### Returns
 
@@ -224,6 +238,26 @@ Add a registry configuration
 ##### config
 
 [`RegistryConfig`](../type-aliases/RegistryConfig.md)
+
+#### Returns
+
+`void`
+
+---
+
+### setRemoteLookup()
+
+> **setRemoteLookup**(`enabled`): `void`
+
+Turn remote lookup on or off at runtime, e.g. on the client returned by
+`NeuroLink.getMCPRegistryClient()`. Off is the default. Clears the cache
+so the next lookup reflects the new setting.
+
+#### Parameters
+
+##### enabled
+
+`boolean`
 
 #### Returns
 

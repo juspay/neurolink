@@ -24,7 +24,11 @@ Registry type
 
 > `optional` **url?**: `string`
 
-Registry URL or identifier
+Base URL of the registry. `official` defaults to
+`https://registry.modelcontextprotocol.io`; `custom` requires it. The
+client appends `/v0.1/servers`, so pass the origin (a trailing `/v0.1`
+is accepted too). Only `http:` and `https:` URLs without embedded
+credentials are used.
 
 ---
 
@@ -32,7 +36,11 @@ Registry URL or identifier
 
 > `optional` **authToken?**: `string`
 
-Authentication token
+Bearer token sent as `Authorization: Bearer <token>` to this registry
+only. It is never emitted in events or logs. A registry with a token is
+queried only over `https:` or on a loopback host (`localhost`,
+`127.0.0.0/8`, `[::1]`); a plain `http:` URL to any other host is skipped
+so the token never crosses the network in clear.
 
 ---
 
@@ -40,7 +48,8 @@ Authentication token
 
 > `optional` **timeout?**: `number`
 
-Request timeout in milliseconds
+Request timeout in milliseconds. Overrides the client-wide `timeout`
+for this registry.
 
 ---
 
@@ -48,7 +57,9 @@ Request timeout in milliseconds
 
 > `optional` **enableCache?**: `boolean`
 
-Enable caching
+Set to `false` to turn off caching of this registry's responses. It
+cannot override a client-wide `enableCache: false`, which turns caching
+off for every registry.
 
 ---
 
@@ -56,4 +67,14 @@ Enable caching
 
 > `optional` **cacheTTL?**: `number`
 
-Cache TTL in milliseconds
+Cache TTL in milliseconds for this registry's responses. Falls back to
+the client-wide `defaultCacheTTL`.
+
+---
+
+### maxPages?
+
+> `optional` **maxPages?**: `number`
+
+Maximum number of list pages (100 servers each) fetched when this
+registry is merged into `search()` / `getAllEntries()`. Defaults to 5.
