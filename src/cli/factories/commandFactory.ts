@@ -3194,11 +3194,19 @@ export class CLICommandFactory {
       // Use SDK's provider diagnostic method instead of manual testing
       const results = await sdk.getProviderStatus({ quiet: !!argv.quiet });
 
+      // A configured provider whose live check the SDK skips comes back as
+      // "not-configured" with configured: true. It is neither working nor
+      // unconfigured, so it is shown as skipped and left out of the count.
+      const isSkipped = (r: (typeof results)[number]): boolean =>
+        r.configured && r.status === "not-configured";
+
       if (spinner) {
         const working = results.filter((r) => r.status === "working").length;
-        const configured = results.filter((r) => r.configured).length;
+        const checked = results.filter(
+          (r) => r.configured && !isSkipped(r),
+        ).length;
         spinner.succeed(
-          `Provider check complete: ${working}/${configured} providers working`,
+          `Provider check complete: ${working}/${checked} providers working`,
         );
       }
 
@@ -3209,13 +3217,17 @@ export class CLICommandFactory {
             ? chalk.green("✅ Working")
             : result.status === "failed"
               ? chalk.red("❌ Failed")
-              : chalk.gray("⚪ Not configured");
+              : isSkipped(result)
+                ? chalk.gray("⏭ Skipped")
+                : chalk.gray("⚪ Not configured");
 
         const time = result.responseTime ? ` (${result.responseTime}ms)` : "";
         const model = result.model ? ` [${result.model}]` : "";
         logger.always(`${result.provider}: ${status}${time}${model}`);
 
-        if (argv.verbose && result.error) {
+        if (isSkipped(result) && result.error) {
+          logger.always(`  ${chalk.gray(result.error)}`);
+        } else if (argv.verbose && result.error) {
           logger.always(`  Error: ${chalk.red(result.error)}`);
         }
       }

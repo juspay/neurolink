@@ -16153,6 +16153,10 @@ Current user's request: ${currentInput}`;
   /**
    * Get comprehensive status of all AI providers
    * Primary method for provider health checking and diagnostics
+   *
+   * Bedrock and SageMaker are never called live: their entries come back as
+   * `status: "not-configured"` with `configured: true` and the reason in
+   * `error`. Use `testProvider()` to check either one explicitly.
    */
   async getProviderStatus(options?: {
     quiet?: boolean;
@@ -16204,6 +16208,20 @@ Current user's request: ${currentInput}`;
               configured: false,
               authenticated: false,
               error: "Missing required environment variables",
+              responseTime: Date.now() - startTime,
+            };
+          }
+
+          // These probes are billable generate() calls signed with ambient AWS
+          // credentials, against models the account may not be allowed to
+          // call, so they are never made here.
+          if (providerName === "bedrock" || providerName === "sagemaker") {
+            return {
+              provider: providerName,
+              status: "not-configured" as const,
+              configured: true,
+              authenticated: false,
+              error: `Live status check is skipped for ${providerName}`,
               responseTime: Date.now() - startTime,
             };
           }

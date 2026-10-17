@@ -968,25 +968,112 @@ async function runDescriptorTests(
     }
   });
 
-  logSection("NeuroLink.getProviderStatus covers all real providers");
+  logSection("NeuroLink.getProviderStatus skips Bedrock and SageMaker");
 
-  await test("getProviderStatus reports on every descriptor-backed provider, not just the original 11", async () => {
+  await test("getProviderStatus reports every descriptor-backed provider and never calls AWS for Bedrock or SageMaker", async () => {
+    // Dummy AWS variables make both providers pass the missing-env check, so
+    // the skip branch is what keeps them off the network. Every non-loopback
+    // socket and fetch is recorded and refused while the probe runs; loopback
+    // traffic (this suite's own runtime fixtures) goes through untouched.
+    const net = await import("node:net");
+    const attempts: string[] = [];
+    const originalConnect = net.Socket.prototype.connect;
+    const originalFetch = globalThis.fetch;
+    const isLoopback = (host: string): boolean =>
+      ["127.0.0.1", "localhost", "::1", "[::1]"].includes(host);
+    const testEnv = {
+      AWS_ACCESS_KEY_ID: "AKIAXXXXXXXXXXXXXXXX",
+      AWS_SECRET_ACCESS_KEY: "dummy-secret-not-a-real-key-00000000000",
+      AWS_REGION: "us-east-1",
+      // The repo-root MCP config would otherwise spawn a server through npx.
+      NEUROLINK_SKIP_MCP: "true",
+    };
+    const savedEnv = Object.fromEntries(
+      Object.keys(testEnv).map((k) => [k, process.env[k]]),
+    );
+    Object.assign(process.env, testEnv);
+    net.Socket.prototype.connect = function (
+      this: InstanceType<typeof net.Socket>,
+      ...connectArgs: unknown[]
+    ) {
+      const first = connectArgs[0];
+      const opts =
+        typeof first === "object" && first !== null
+          ? (first as { host?: unknown; path?: unknown })
+          : {};
+      const target = String(
+        opts.host ?? opts.path ?? connectArgs[1] ?? "localhost",
+      );
+      if (opts.path !== undefined || isLoopback(target)) {
+        return Reflect.apply(originalConnect, this, connectArgs);
+      }
+      attempts.push(target);
+      queueMicrotask(() => this.destroy(new Error("blocked by test")));
+      return this;
+    } as typeof net.Socket.prototype.connect;
+    globalThis.fetch = (async (
+      input: string | URL | Request,
+      init?: RequestInit,
+    ) => {
+      const url = new URL(
+        typeof input === "string" || input instanceof URL ? input : input.url,
+      );
+      if (isLoopback(url.hostname)) {
+        return originalFetch(input, init);
+      }
+      attempts.push(`fetch:${url.host}`);
+      throw new Error("blocked by test");
+    }) as typeof fetch;
     const { NeuroLink } = await import("../dist/index.js");
     const nl = new NeuroLink();
     try {
       const statuses = await nl.getProviderStatus({ quiet: true });
-      const reportedNames = new Set(
-        statuses.map((s: { provider: string }) => s.provider),
+      const byName = new Map(
+        statuses.map((s: { provider: string }) => [s.provider, s]),
       );
       assert(
-        reportedNames.has("groq"),
-        "getProviderStatus missing 'groq' (outside the old hardcoded 11)",
+        byName.has("groq") && byName.has("cohere"),
+        "getProviderStatus missing providers outside the original hardcoded 11",
       );
-      assert(
-        reportedNames.has("cohere"),
-        "getProviderStatus missing 'cohere' (outside the old hardcoded 11)",
+      for (const name of ["bedrock", "sagemaker"]) {
+        const entry = byName.get(name) as
+          | {
+              status: string;
+              configured: boolean;
+              authenticated: boolean;
+              error?: string;
+            }
+          | undefined;
+        assert(entry !== undefined, `getProviderStatus has no ${name} entry`);
+        assertEqual(entry?.status, "not-configured", `${name} status`);
+        assertEqual(entry?.configured, true, `${name} configured`);
+        assertEqual(entry?.authenticated, false, `${name} authenticated`);
+        assertEqual(
+          entry?.error,
+          `Live status check is skipped for ${name}`,
+          `${name} skip reason`,
+        );
+      }
+      const toAws = attempts.filter((h) => /amazonaws\.com/.test(h));
+      assertEqual(toAws.length, 0, "getProviderStatus tried to reach AWS");
+      // Control: the blocker does see an outbound request.
+      const before = attempts.length;
+      await globalThis.fetch("https://example.invalid/").catch(() => {});
+      assertEqual(
+        attempts.slice(before).join(","),
+        "fetch:example.invalid",
+        "the network blocker did not record a control request",
       );
     } finally {
+      net.Socket.prototype.connect = originalConnect;
+      globalThis.fetch = originalFetch;
+      for (const [k, v] of Object.entries(savedEnv)) {
+        if (v === undefined) {
+          delete process.env[k];
+        } else {
+          process.env[k] = v;
+        }
+      }
       await nl.shutdown();
     }
   });
