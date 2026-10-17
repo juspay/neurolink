@@ -1981,6 +1981,7 @@ export enum RekaModels {
   REKA_FLASH = "reka-flash",
   REKA_EDGE = "reka-edge",
   REKA_EDGE_2603 = "reka-edge-2603",
+  REKA_FLASH_3 = "reka-flash-3",
 }
 
 export enum RunInfraModels {

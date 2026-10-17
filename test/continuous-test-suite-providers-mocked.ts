@@ -551,13 +551,18 @@ async function runOpenAICompatSection(): Promise<void> {
 
 // ───────────────────────────────────────────────────────────────────────
 // Section: per-model tool support from the catalog (issue #1875).
-// Reka's docs name exactly one tool-capable model out of three
-// ("Currently, only Reka Flash supports function calling."). Before this
-// fix, a "model-dependent" provider-level `capabilities.tools` left
-// OpenAICompatCatalogEntry.supportsTools unset, which fell through to the
-// model registry's "unknown model -> tools supported" default for every
-// catalog provider — so reka-edge and reka-edge-2603 received a `tools`
-// array despite the vendor's own docs saying they reject it.
+// Reka's docs say which of its models take tool definitions, and the answer
+// differs per model. As of 2026-10-17 the Models table at
+// https://docs.reka.ai/chat/models.md has Tools = Yes for reka-edge-2603 and
+// Tools = No for reka-flash-3. reka-flash and reka-edge are no longer in that
+// table; the earlier docs listed reka-edge as "reka-edge (or reka-edge-2603)",
+// so the catalog treats it as the same model. Before the catalog
+// carried a per-model flag, a "model-dependent" provider-level
+// `capabilities.tools` left OpenAICompatCatalogEntry.supportsTools unset, which
+// fell through to the model registry's "unknown model -> tools supported"
+// default for every catalog provider. Now a model the catalog marks
+// `tools: false` must not receive a `tools` array, and one marked `tools: true`
+// must. reka-flash-3 is the case that keeps the withhold path covered.
 // ───────────────────────────────────────────────────────────────────────
 
 async function runCatalogPerModelToolsSection(): Promise<void> {
@@ -580,8 +585,9 @@ async function runCatalogPerModelToolsSection(): Promise<void> {
 
   for (const [model, expectTools] of [
     ["reka-flash", true],
-    ["reka-edge", false],
-    ["reka-edge-2603", false],
+    ["reka-edge", true],
+    ["reka-edge-2603", true],
+    ["reka-flash-3", false],
   ] as const) {
     const name = `${section}: ${model} ${expectTools ? "receives" : "never receives"} a tools array`;
     try {

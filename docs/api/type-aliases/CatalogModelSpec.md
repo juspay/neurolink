@@ -40,12 +40,13 @@
 
 Per-model override of the provider-level `capabilities.tools`, for a
 "model-dependent" provider whose vendor docs name which specific models
-accept tool definitions (e.g. Reka: "Currently, only Reka Flash
-supports function calling"). Absent means "inherit the provider-level
-answer", same as every model before this field existed. Only meaningful
-when `capabilities.tools` is `"model-dependent"` — a provider that
-already declares a plain `true`/`false` has no need for it, since that
-single value already applies to every model it serves.
+accept tool definitions (e.g. Reka: its Models table has a Tools column,
+Yes for reka-edge-2603 and No for reka-flash-3). Absent means "inherit
+the provider-level answer", same as every model before this field
+existed. Only meaningful when `capabilities.tools` is
+`"model-dependent"` — a provider that already declares a plain
+`true`/`false` has no need for it, since that single value already
+applies to every model it serves.
 
 ---
 
