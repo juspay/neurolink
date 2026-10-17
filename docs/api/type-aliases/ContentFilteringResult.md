@@ -38,6 +38,15 @@ Result from content filtering operation
 
 > **regexPatternsApplied**: `number`
 
+Regex patterns that were compiled and run.
+
+#### regexPatternsRejected?
+
+> `optional` **regexPatternsRejected?**: `number`
+
+Regex patterns refused before they ran because they were too long or
+could backtrack catastrophically. Invalid patterns are not counted.
+
 #### stringFiltersApplied
 
 > **stringFiltersApplied**: `number`

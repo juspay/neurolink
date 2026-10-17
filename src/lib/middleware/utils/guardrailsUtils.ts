@@ -1,5 +1,6 @@
 import { AIProviderFactory } from "../../core/factory.js";
 import { logger } from "../../utils/logger.js";
+import { vetRegexPattern } from "./regexSafety.js";
 import type {
   BadWordsConfig,
   LanguageModelV3GenerateResult,
@@ -30,6 +31,14 @@ Evaluate the following user input for safety and appropriateness. Respond ONLY w
 
 User Input: "{USER_INPUT}"
 `;
+
+/** Longest slice of a refused pattern written to the log. */
+const MAX_LOGGED_PATTERN_LENGTH = 60;
+
+const describePattern = (pattern: string): string =>
+  pattern.length > MAX_LOGGED_PATTERN_LENGTH
+    ? `${pattern.slice(0, MAX_LOGGED_PATTERN_LENGTH)}...`
+    : pattern;
 
 /**
  * Extract user input from middleware params
@@ -243,6 +252,14 @@ export function applyEvaluationActions(
 
         patterns.forEach((pattern, index) => {
           try {
+            const verdict = vetRegexPattern(pattern);
+            if (!verdict.safe) {
+              logger.error(
+                `[GuardrailsUtils] Refusing sanitization pattern "${describePattern(pattern)}": ${verdict.reason}. The pattern is skipped.`,
+              );
+              return;
+            }
+
             const regex = new RegExp(pattern, "gi");
             const before = sanitized;
             let matchCount = 0;
@@ -406,6 +423,8 @@ export function applyContentFiltering(
     let hasChanges = false;
     const appliedFilters: string[] = [];
     let totalMatches = 0;
+    let regexPatternsApplied = 0;
+    let regexPatternsRejected = 0;
     const replacementText = badWordsConfig.replacementText || "[REDACTED]";
 
     // Priority 1: Use regex patterns if provided
@@ -425,22 +444,17 @@ export function applyContentFiltering(
 
       for (const pattern of badWordsConfig.regexPatterns) {
         try {
-          // TODO(#1954): Add blocking for overly complex or long patterns
-          if (pattern.length > 1000) {
-            logger.warn(
-              `[ContentFiltering:${context}] Regex pattern exceeds max length (1000 chars): "${pattern.substring(0, 50)}..."`,
+          const verdict = vetRegexPattern(pattern);
+          if (!verdict.safe) {
+            regexPatternsRejected++;
+            logger.error(
+              `[ContentFiltering:${context}] Refusing regex pattern "${describePattern(pattern)}": ${verdict.reason}. The pattern is skipped.`,
             );
+            continue;
           }
 
           const regex = new RegExp(pattern, "gi");
-
-          const testStart = Date.now();
-          regex.test("test");
-          if (Date.now() - testStart > 100) {
-            logger.warn(
-              `[ContentFiltering:${context}] Regex pattern "${pattern}" appears to be too complex (slow test execution).`,
-            );
-          }
+          regexPatternsApplied++;
 
           const before = filteredText;
           let matchCount = 0;
@@ -498,7 +512,8 @@ export function applyContentFiltering(
       hasChanges,
       appliedFilters,
       filteringStats: {
-        regexPatternsApplied: badWordsConfig.regexPatterns?.length || 0,
+        regexPatternsApplied,
+        regexPatternsRejected,
         stringFiltersApplied: badWordsConfig.list?.length || 0,
         totalMatches,
       },

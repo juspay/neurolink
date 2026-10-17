@@ -122,6 +122,7 @@
     "test:loop-engine": "pnpm exec tsx test/continuous-test-suite-loop-engine.ts",
     "test:middleware": "pnpm exec tsx test/continuous-test-suite-middleware.ts",
     "test:stream-middleware": "pnpm exec tsx test/continuous-test-suite-stream-middleware.ts",
+    "test:guardrails-regex-safety": "pnpm exec tsx test/continuous-test-suite-guardrails-regex-safety.ts",
     "test:stream-tool-telemetry": "pnpm exec tsx test/continuous-test-suite-stream-tool-telemetry.ts",
     "test:tool-replay": "pnpm exec tsx test/continuous-test-suite-tool-replay.ts",
     "test:memory:hippocampus": "pnpm exec tsx test/continuous-test-suite-memory-hippocampus.ts",
