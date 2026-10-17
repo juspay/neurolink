@@ -509,10 +509,10 @@ await test("a bytes-plus-name upload keeps the name detection routes on", async 
   );
 });
 
-// The gzip-bomb bound used to be asserted here, by running ArchiveProcessor
-// directly and sampling RSS. It went with the unit suites (CLAUDE.md rule 15):
-// measuring one processor's peak memory means importing that processor out of
-// src/lib/. No suite measures the memory spent inflating a bomb any more.
+// The gzip-bomb bound is asserted in continuous-test-suite-archive-security.ts:
+// it attaches the bomb to generate() in a child process that imports only dist/
+// and reads the peak memory it cost. The Office members are in
+// continuous-test-suite-office-security.ts.
 
 // Cleanup must precede runSuite(): it prints the summary and then calls
 // process.exit, so anything after it never runs.

@@ -148,34 +148,30 @@ export async function writeZeroDeclaredZip(
 }
 
 /**
- * A single-entry ZIP storing `text` uncompressed (method 0).
- *
- * Hand-built because adm-zip's `addFile` writes method 8 whatever compression
- * level it is given, so a fixture made with it silently exercises the DEFLATE
- * path while appearing to cover STORED.
- *
- * `corruptCrc` declares a CRC the content does not hash to, which is what a
- * truncated or damaged archive looks like.
+ * Write a ZIP holding one entry whose header tells the truth: the CRC and both
+ * sizes describe `raw`, which is stored as given or DEFLATE-compressed.
  */
-export function writeStoredZip(
+function writeSingleEntryZip(
   target: string,
-  text: string,
-  options: { corruptCrc?: boolean } = {},
+  entryName: string,
+  raw: Buffer,
+  options: { readonly deflate: boolean; readonly corruptCrc?: boolean },
 ): string {
-  const payload = Buffer.from(text, "utf8");
-  const realCrc = zlib.crc32(payload) >>> 0;
+  const payload = options.deflate ? zlib.deflateRawSync(raw) : raw;
+  const method = options.deflate ? 8 : 0;
+  const realCrc = zlib.crc32(raw) >>> 0;
   const crc = options.corruptCrc ? (realCrc ^ 0xffff) >>> 0 : realCrc;
-  const name = Buffer.from("stored.txt", "ascii");
+  const name = Buffer.from(entryName, "ascii");
   const local = Buffer.concat([
     u32(0x04034b50),
     u16(20),
     u16(0),
-    u16(0),
+    u16(method),
     u16(0),
     u16(0),
     u32(crc),
     u32(payload.length),
-    u32(payload.length),
+    u32(raw.length),
     u16(name.length),
     u16(0),
     name,
@@ -185,12 +181,12 @@ export function writeStoredZip(
     u16(20),
     u16(20),
     u16(0),
-    u16(0),
+    u16(method),
     u16(0),
     u16(0),
     u32(crc),
     u32(payload.length),
-    u32(payload.length),
+    u32(raw.length),
     u16(name.length),
     u16(0),
     u16(0),
@@ -214,6 +210,45 @@ export function writeStoredZip(
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.writeFileSync(target, Buffer.concat([local, payload, central, end]));
   return target;
+}
+
+/**
+ * A single-entry ZIP storing `text` uncompressed (method 0), as "stored.txt".
+ *
+ * Hand-built because adm-zip's `addFile` writes method 8 whatever compression
+ * level it is given, so a fixture made with it silently exercises the DEFLATE
+ * path while appearing to cover STORED.
+ *
+ * `corruptCrc` declares a CRC the content does not hash to, which is what a
+ * truncated or damaged archive looks like.
+ */
+export function writeStoredZip(
+  target: string,
+  text: string,
+  options: { corruptCrc?: boolean } = {},
+): string {
+  return writeSingleEntryZip(target, "stored.txt", Buffer.from(text, "utf8"), {
+    deflate: false,
+    corruptCrc: options.corruptCrc,
+  });
+}
+
+/**
+ * A single-entry ZIP holding `text` DEFLATE-compressed (method 8), as
+ * "deflated.txt", with the true size and CRC in its header.
+ *
+ * The ordinary counterpart of `writeZeroDeclaredZip`. Reading it back is the
+ * one thing that runs the bounded `inflateRawSync` call: a STORED entry is
+ * copied out and never reaches the decoder, so a pairing built on
+ * `writeStoredZip` cannot notice a bound that refuses every inflate.
+ */
+export function writeDeflatedZip(target: string, text: string): string {
+  return writeSingleEntryZip(
+    target,
+    "deflated.txt",
+    Buffer.from(text, "utf8"),
+    { deflate: true },
+  );
 }
 
 /** A small, ordinary .gz carrying `token` in its content. */

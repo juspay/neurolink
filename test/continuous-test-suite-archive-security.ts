@@ -5,7 +5,8 @@
  * Attaches an ordinary archive and requires its contents to come back through
  * `generate()` and `stream()`. The archive paths apply a size limit while
  * inflating; this suite is what fails if that limit is ever tightened into
- * refusing legitimate input.
+ * refusing legitimate input, and, for a gzip and a declared-size-0 bomb, if the
+ * limit stops being applied while the data is inflated.
  *
  * ## Attack coverage
  *
@@ -30,28 +31,48 @@
  *     request — is what the test asserts, via a distinguishing marker that
  *     must not appear in the captured request body.
  *
- * Not covered here: the declared-size-lie bypass (`writeZeroDeclaredZip` —
- * entry claims size 0, real inflate is huge). It is defended in depth by
- * `readZipEntryWithinLimit`'s own `maxOutputLength` bound
- * (`src/lib/processors/archive/zipEntryReader.ts`), but proving that bound
- * requires measuring peak RSS while importing the processor directly, which
- * rule 15 (end-to-end only) excludes from this suite.
+ * ## Bound coverage: peak memory, measured in a child process
  *
- * ## What used to be here
+ * A size limit checked against the finished buffer is arithmetically correct
+ * and useless: the allocation it exists to prevent has already happened, and
+ * the verdict looks identical either way. Two cases therefore read
+ * `process.resourceUsage().maxRSS` in a fresh process
+ * (`helpers/boundedGenerateChild.ts`, which imports only `dist/`), after a
+ * warm-up call so one-off module loading is not charged to the bomb:
  *
- * This suite also asserted the *bounds* themselves — that a zip entry declaring
- * size 0, a gzip bomb, and a gzip-encoded HTTP response could not force an
- * unbounded inflate. Those probes ran in child processes and read
- * `process.resourceUsage().maxRSS`, because a limit checked against the
- * finished buffer is arithmetically correct and useless: the allocation it
- * exists to prevent has already happened, and the verdict looks identical
- * either way.
+ *   - **gzip bomb through `generate()`**: 400 MB of zeros in ~400 KB of gzip.
+ *   - **zip entry declaring size 0, through the `./files` export**: the
+ *     `extract_file_content` tool asked for an entry whose header says 0 bytes
+ *     and whose DEFLATE stream inflates to 400 MB. One attacker-chosen number
+ *     defeats both the caller's `size > limit` check and adm-zip's own
+ *     `maxOutputLength`, so the bound has to be the reader's. This one cannot
+ *     go through `generate()`: `ArchiveProcessor` drops size-0 entries when it
+ *     reads eagerly, so such an entry is only ever opened on demand.
  *
- * They were removed with the unit suites (CLAUDE.md rule 15) — measuring the
- * peak memory of a processor requires importing that processor, and routing the
- * same fixture through `generate()` would measure the whole SDK and need
- * credentials. Nothing replaces them, so a regression that reintroduces an
- * unbounded inflate will not be caught here.
+ * Why memory and not "the inflated bytes never reach the request": for the gzip
+ * case that assertion is true with the bound deleted. `ArchiveProcessor`
+ * re-checks the ratio and the length after inflating, so an unbounded 400 MB
+ * gzip is still refused, after it was allocated, and the request is
+ * byte-identical. Peak memory is the one observable that differs. Calibration
+ * (bounded against the bound removed from a scratch copy of `dist/`) is in
+ * `helpers/boundedGenerateProbe.ts`.
+ *
+ * Each case is paired with an ordinary file of the same shape that goes through
+ * the same child first, whose content must reach the request (or come back from
+ * the tool). A bound that refuses everything would pass the memory assertion
+ * alone. "The same shape" includes the compression method: the ordinary zip is
+ * DEFLATED, because a STORED entry is copied out without being decoded and so
+ * never reaches the bounded inflate.
+ *
+ * Not covered: a gzip-encoded HTTP response. `generate()` fetches a URL
+ * attachment with `undici.request`, which does not decode `Content-Encoding`,
+ * so the response arrives still compressed and meets the same gunzip bound as
+ * the local `.gz` above; `BaseFileProcessor`'s own decode bound is not reachable
+ * from it. Through the public `./processors` export it can be reached, but the
+ * transport buffers about as much as the bomb itself (measured once at 435 MB
+ * and 212 MB bounded for single and double encoding, against 1265 MB and 1213 MB
+ * with the bounds removed), which is too heavy and too platform-dependent to
+ * hold a default ceiling.
  *
  * Run: npx tsx test/continuous-test-suite-archive-security.ts
  */
@@ -61,10 +82,20 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { defineSuite, assert, tempDir, Skip } from "./helpers/harness.js";
 import {
+  BOMB_MB,
+  writeGzBomb,
+  writeDeflatedZip,
   writeNormalGz,
+  writeZeroDeclaredZip,
   writeZipSlipZip,
   writeRatioBombZip,
 } from "./helpers/archiveBombFixtures.js";
+import {
+  assertBombRefusedInRequest,
+  assertGrowthBounded,
+  probeExtractEntry,
+  probeGenerate,
+} from "./helpers/boundedGenerateProbe.js";
 import {
   startMockChatServer,
   mockOpenAICredentials,
@@ -390,6 +421,57 @@ await test("a decompression-ratio bomb never reaches the request as inflated con
   } finally {
     await server.close();
   }
+});
+
+await test("a gzip bomb is inflated under the decoder bound, not in full — generate()", async () => {
+  // Built before the child starts so its own cost is never charged to the
+  // code under test; streamed through the compressor so building it does not
+  // allocate the payload either.
+  const warmup = writeNormalGz(path.join(dir, "normal.gz"), TOKEN);
+  const bomb = await writeGzBomb(path.join(dir, "bomb.gz"), BOMB_MB);
+  const server = await startMockChatServer();
+  try {
+    const result = await probeGenerate(warmup, bomb, server.baseURL);
+    assertGrowthBounded(result);
+    assertBombRefusedInRequest(result, server.getAllRequestBodies(), TOKEN);
+  } finally {
+    await server.close();
+  }
+});
+
+await test("a ZIP entry declaring size 0 is inflated under the reader's bound — extract_file_content", async () => {
+  // The names are fixed by the fixture builders: writeDeflatedZip stores
+  // "deflated.txt" and writeZeroDeclaredZip stores "payload.txt". The warm-up is
+  // DEFLATED because a stored entry is copied out and never reaches the bounded
+  // inflate, which would let a bound that refuses every inflate pass the pairing.
+  const warmup = writeDeflatedZip(
+    path.join(dir, "deflated.zip"),
+    `The access code is ${TOKEN}.\n`,
+  );
+  const bomb = await writeZeroDeclaredZip(
+    path.join(dir, "declared-zero.zip"),
+    BOMB_MB,
+  );
+  const result = await probeExtractEntry(
+    { file: warmup, entry: "deflated.txt" },
+    { file: bomb, entry: "payload.txt" },
+  );
+  assertGrowthBounded(result);
+  assert(
+    result.warmupDetail.includes(TOKEN),
+    "the ordinary entry's text did not come back from the tool, so a bound that refuses everything would pass",
+  );
+  assert(
+    result.outcome === "completed",
+    "the tool call for the bomb entry failed instead of returning a verdict",
+  );
+  // With the bound removed the same entry is reported as corrupt, because the
+  // CRC it declares (0) does not match what was inflated. Naming the size limit
+  // is what shows the inflate was stopped rather than finished.
+  assert(
+    /too large/i.test(result.detail),
+    "the refusal does not name the size limit",
+  );
 });
 
 try {

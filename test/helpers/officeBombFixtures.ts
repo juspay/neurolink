@@ -34,8 +34,17 @@ const METHOD_DEFLATED = 8;
 /** One member of a ZIP under construction. */
 type ZipMember = {
   readonly name: string;
-  /** Literal content, stored uncompressed. */
+  /** Literal content. Stored uncompressed unless `deflate` is set. */
   readonly text?: string;
+  /**
+   * Compress `text` with DEFLATE (method 8), declaring its true size and CRC.
+   *
+   * Real documents are deflated, and only a deflated entry reaches the bounded
+   * `inflateRawSync` call: the zip reader copies a stored entry out without
+   * decoding it. A warm-up that is meant to prove the bound still lets an
+   * ordinary file through has to exercise that call, so it sets this.
+   */
+  readonly deflate?: boolean;
   /** Build a bomb entry instead: this many MB of zeros, declaring size 0. */
   readonly bombMb?: number;
 };
@@ -67,13 +76,18 @@ export async function writeOfficeZip(
     const name = Buffer.from(member.name, "ascii");
     const isBomb = typeof member.bombMb === "number";
 
+    const raw = Buffer.from(member.text ?? "", "utf8");
+    const deflated = !isBomb && member.deflate === true;
+
     const payload = isBomb
       ? await deflateZeros(member.bombMb as number)
-      : Buffer.from(member.text ?? "", "utf8");
-    const method = isBomb ? METHOD_DEFLATED : METHOD_STORED;
-    const crc = isBomb ? 0 : zlib.crc32(payload) >>> 0;
+      : deflated
+        ? zlib.deflateRawSync(raw)
+        : raw;
+    const method = isBomb || deflated ? METHOD_DEFLATED : METHOD_STORED;
+    const crc = isBomb ? 0 : zlib.crc32(raw) >>> 0;
     // A bomb declares nothing about itself; an honest entry declares the truth.
-    const uncompressed = isBomb ? 0 : payload.length;
+    const uncompressed = isBomb ? 0 : raw.length;
 
     const local = Buffer.concat([
       u32(0x04034b50),
@@ -155,6 +169,21 @@ async function deflateZeros(inflateMb: number): Promise<Buffer> {
   deflate.resume();
   await done;
   return Buffer.concat(parts);
+}
+
+/**
+ * `members` with every literal member DEFLATED, the way an office suite writes
+ * them, so the file takes the same path through the zip reader as a bomb does.
+ *
+ * `mimetype` stays stored: the OpenDocument packaging rules require it, and
+ * readers sniff it at a fixed offset.
+ */
+export function deflatedMembers(members: readonly ZipMember[]): ZipMember[] {
+  return members.map((member) =>
+    member.text === undefined || member.name === "mimetype"
+      ? member
+      : { ...member, deflate: true },
+  );
 }
 
 const CONTENT_TYPES = (override: string): string =>
