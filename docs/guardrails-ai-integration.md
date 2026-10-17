@@ -28,7 +28,7 @@ graph TD
 
 ### Using the `security` Preset
 
-The easiest way to enable guardrails is to use the `security` preset when creating your `MiddlewareFactory`. This preset is specifically designed to enable the `guardrails` middleware with a default configuration.
+The easiest way to enable guardrails is to use the `security` preset when creating your `MiddlewareFactory`. This preset enables the `guardrails` middleware with an empty configuration: it filters nothing until you add `badWords`, `modelFilter` or `precallEvaluation` (see [Customizing Guardrails](#customizing-guardrails)). To apply a preset to every call without building a factory, use [`new NeuroLink({ middleware })`, `configureGlobalMiddleware()` or `NEUROLINK_MIDDLEWARE_PRESET`](./features/guardrails.md#defaults-and-precedence).
 
 ```typescript
 import { MiddlewareFactory } from "@juspay/neurolink";

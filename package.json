@@ -121,6 +121,7 @@
     "test:retired-model-defaults": "pnpm exec tsx test/continuous-test-suite-retired-model-defaults.ts",
     "test:loop-engine": "pnpm exec tsx test/continuous-test-suite-loop-engine.ts",
     "test:middleware": "pnpm exec tsx test/continuous-test-suite-middleware.ts",
+    "test:middleware-defaults": "pnpm exec tsx test/continuous-test-suite-middleware-defaults.ts",
     "test:stream-middleware": "pnpm exec tsx test/continuous-test-suite-stream-middleware.ts",
     "test:stream-tool-telemetry": "pnpm exec tsx test/continuous-test-suite-stream-tool-telemetry.ts",
     "test:tool-replay": "pnpm exec tsx test/continuous-test-suite-tool-replay.ts",

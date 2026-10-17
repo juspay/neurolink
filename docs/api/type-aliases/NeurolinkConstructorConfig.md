@@ -247,3 +247,28 @@ embeddings or vector store. Opt-in (`enabled: false` by default) and fails
 open: any retrieval failure leaves the turn ungrounded. Sources are fixed
 for the lifetime of the instance. See
 [KnowledgeGroundingConfig](KnowledgeGroundingConfig.md).
+
+---
+
+### middleware?
+
+> `optional` **middleware?**: [`MiddlewareFactoryOptions`](MiddlewareFactoryOptions.md)
+
+Language-model middleware applied to every generate()/stream() on this
+instance (guardrails, analytics, custom middleware). Spares each call from
+repeating the same `middleware` option.
+
+Precedence, lowest to highest: `NEUROLINK_MIDDLEWARE_PRESET`,
+`configureGlobalMiddleware()`, this option, then the call's own
+`middleware`. `middlewareConfig` merges per middleware id, and a key set
+by a higher layer replaces the lower layer's value; arrays are replaced,
+never concatenated. A call can switch off an inherited middleware with
+`disabledMiddleware` or `middlewareConfig.<id>.enabled: false`.
+
+Throws a TypeError at construction when this is not an object or its
+`preset` is not a built-in preset (`default`, `all` or `security`).
+
+Unset by default, in which case calls behave exactly as before. Note that
+`preset: "security"` only turns guardrails on: nothing is redacted until
+`middlewareConfig.guardrails.config` supplies `badWords` or `modelFilter`.
+See [MiddlewareFactoryOptions](MiddlewareFactoryOptions.md).

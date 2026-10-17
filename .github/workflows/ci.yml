@@ -1202,6 +1202,7 @@ jobs:
             test:agent-delegation@78
             test:error-classification-e2e@71
             test:background-commands@23
+            test:middleware-defaults@23
             test:agent-tasks@13
             test:artifact-banking@13
             test:multimodal:sdk@110

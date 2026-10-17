@@ -403,6 +403,10 @@ export {
 } from "./middleware/builtin/analytics.js";
 export { createLifecycleMiddleware } from "./middleware/builtin/lifecycle.js";
 export { MiddlewareFactory } from "./middleware/factory.js";
+export {
+  clearGlobalMiddleware,
+  configureGlobalMiddleware,
+} from "./middleware/defaults.js";
 
 // Tool + schema helpers. Previously a consumer reached for `tool()` and
 // `jsonSchema()` from the ai package to build tools for generate({tools}).
