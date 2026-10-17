@@ -7,6 +7,7 @@ export { createAuthMiddleware } from "./auth.js";
 
 export { createCacheMiddleware } from "./cache.js";
 export { createRateLimitMiddleware } from "./rateLimit.js";
+export { createSessionMiddleware } from "./session.js";
 export { createRequestValidationMiddleware } from "./validation.js";
 export {
   createTimingMiddleware,

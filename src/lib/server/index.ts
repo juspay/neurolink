@@ -118,6 +118,7 @@ export {
   createSlidingWindowRateLimitMiddleware,
   InMemoryRateLimitStore,
 } from "./middleware/rateLimit.js";
+export { createSessionMiddleware } from "./middleware/session.js";
 export {
   CommonSchemas,
   createFieldValidator,

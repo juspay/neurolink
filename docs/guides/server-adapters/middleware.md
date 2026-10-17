@@ -25,6 +25,7 @@ NeuroLink server adapters provide a comprehensive set of middleware components f
 | `createAbortSignalMiddleware()`       | Client disconnection detection            | 5     |
 | `createCompressionMiddleware()`       | Response compression signaling            | 5     |
 | `createAuthMiddleware()`              | Authentication                            | 10    |
+| `createSessionMiddleware()`           | Sets `ctx.session`, scoped to the user    | 12    |
 | `createRequestValidationMiddleware()` | Request body/query/params validation      | 15    |
 | `createCacheMiddleware()`             | Response caching                          | 20    |
 | `createMCPBodyAttachmentMiddleware()` | MCP SDK body compatibility                | 10    |
@@ -787,6 +788,51 @@ In non-production environments, requests with `X-NeuroLink-Dev-Playground: true`
 - User identification and authorization
 - Rate limiting by user
 - Audit logging
+
+---
+
+## Session Middleware
+
+Sets `ctx.session` from a header (or an opt-in cookie) and scopes it to the authenticated user. Register it after authentication.
+
+The agent routes ignore a body `sessionId` for an authenticated request, because a caller must not be able to name another user's session, and use `ctx.session.id` instead. Nothing else sets it, so without this middleware an authenticated client has no conversation memory through those routes.
+
+### Configuration
+
+```typescript
+type ServerSessionConfig = {
+  headerName?: string; // default "X-Session-Id"
+  cookieName?: string; // read when the header is absent; off by default
+  skipPaths?: string[];
+};
+```
+
+### Usage
+
+```typescript
+import {
+  createAuthMiddleware,
+  createSessionMiddleware,
+} from "@juspay/neurolink";
+
+server.registerMiddleware(createAuthMiddleware({ type: "bearer", validate }));
+server.registerMiddleware(createSessionMiddleware());
+```
+
+A client sends `X-Session-Id: chat-1`; the agent routes then keep that conversation.
+
+### Behaviour
+
+| Request                                                  | `ctx.session.id`                                                              |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Authenticated, header `chat-1`                           | `<userId>:chat-1`, so two users who send `chat-1` get different conversations |
+| Not authenticated, header `chat-1`                       | `chat-1`                                                                      |
+| No header (and no cookie configured)                     | not set; no session                                                           |
+| Id that is not 1 to 128 letters, digits, `.`, `_` or `-` | `400`                                                                         |
+
+The user prefix matters because the in-memory conversation manager keys sessions by id alone: without it one user could read and extend another's conversation by guessing its id. Ids contain no `:`, so a crafted id cannot imitate another user's prefix. Memory routes report the prefixed id; treat it as opaque.
+
+A cookie is sent by the browser on its own, so `cookieName` is off by default and the header wins when both are present.
 
 ---
 

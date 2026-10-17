@@ -1234,6 +1234,24 @@ export type ServerValidationResult<T> =
   | { success: false; error: ErrorResponse; data?: undefined };
 
 /**
+ * Session middleware configuration
+ */
+export type ServerSessionConfig = {
+  /** Header that carries the session id (default: "X-Session-Id") */
+  headerName?: string;
+
+  /**
+   * Cookie that carries the session id, read when the header is absent.
+   * Off by default: a cookie is sent by the browser on its own, so enabling it
+   * is the operator's decision.
+   */
+  cookieName?: string;
+
+  /** Skip the middleware for certain paths */
+  skipPaths?: string[];
+};
+
+/**
  * Authentication configuration
  */
 

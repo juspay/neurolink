@@ -1316,6 +1316,7 @@ export {
   createSecurityHeadersMiddleware,
   // Server Factory
   createServer,
+  createSessionMiddleware,
   createSlidingWindowRateLimitMiddleware,
   createSSEHeaders,
   createTimingMiddleware,
