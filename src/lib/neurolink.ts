@@ -168,6 +168,7 @@ import type {
   ToolRoutingServerDescriptor,
   ToolDedupConfig,
   ToolConfig,
+  MiddlewareFactoryOptions,
   FileToolRootPolicy,
   RequestRouter,
   RouterInputContext,
@@ -428,6 +429,12 @@ import {
 import { interleaveTTSStream } from "./utils/ttsStream.js";
 import { resolveLifecycleTimeoutMs } from "./utils/lifecycleTimeout.js";
 import { cloneOptionsForCallIsolation } from "./utils/cloneOptions.js";
+import {
+  getGlobalMiddleware,
+  readEnvMiddlewarePreset,
+  resolveMiddlewareOptions,
+  snapshotMiddlewareOptions,
+} from "./middleware/defaults.js";
 import { preserveLiveStreamAccessors } from "./utils/streamResultAccessors.js";
 import {
   coerceJsonToSchema,
@@ -1146,6 +1153,13 @@ export class NeuroLink {
   // Add orchestration property
   private enableOrchestration: boolean;
 
+  // Language-model middleware defaults, lowest precedence first: the layer
+  // read from NEUROLINK_MIDDLEWARE_PRESET, then the constructor's `middleware`
+  // option. The module-level global registry sits between them and is read on
+  // each call, so it can change after construction. See middleware/defaults.ts.
+  private readonly envMiddleware?: MiddlewareFactoryOptions;
+  private readonly constructorMiddleware?: MiddlewareFactoryOptions;
+
   // Authentication provider for secure access control
   private authProvider?: AuthProvider;
   private pendingAuthConfig?: NeuroLinkAuthConfig;
@@ -1475,6 +1489,24 @@ export class NeuroLink {
       ...options.requestContext,
       ...tokenDerivedFields,
     };
+  }
+
+  /**
+   * Fold the instance, global and environment middleware defaults beneath the
+   * call's own `middleware`. Runs before the lifecycle helpers so they layer
+   * onFinish/onError on top of the resolved config rather than replacing it.
+   * With no default set the options are left untouched.
+   */
+  private applyMiddlewareDefaults(options: {
+    middleware?: MiddlewareFactoryOptions;
+  }): void {
+    const resolved = resolveMiddlewareOptions(
+      [this.envMiddleware, getGlobalMiddleware(), this.constructorMiddleware],
+      options.middleware,
+    );
+    if (resolved !== options.middleware) {
+      options.middleware = resolved;
+    }
   }
 
   private applyGenerateLifecycleMiddleware(options: GenerateOptions): void {
@@ -1834,6 +1866,14 @@ export class NeuroLink {
   }
 
   constructor(config?: NeurolinkConstructorConfig) {
+    // Validated first: an invalid default must throw before the constructor
+    // starts telemetry or any other process-wide state.
+    this.envMiddleware = readEnvMiddlewarePreset();
+    this.constructorMiddleware =
+      config?.middleware === undefined
+        ? undefined
+        : snapshotMiddlewareOptions(config.middleware, "NeuroLink constructor");
+
     if (config?.toolRegistry) {
       // A supplied registry (a host's, shared with a worker) keeps its owner's
       // roots; per-call executeTool() binds this instance's policy anyway.
@@ -5683,6 +5723,7 @@ Current user's request: ${currentInput}`;
     }
 
     this.enforceSessionBudget(options.maxBudgetUsd);
+    this.applyMiddlewareDefaults(options);
     this.applyGenerateLifecycleMiddleware(options);
     await this.applyAuthenticatedRequestContext(options);
 
@@ -7402,6 +7443,9 @@ Current user's request: ${currentInput}`;
     // NL-004: Resolve model aliases/deprecations before processing
     isolated.model = resolveModel(isolated.model, this.modelAliasConfig);
     bindFileToolRoots(isolated, this.resolveFileToolRoots(isolated.toolRoots));
+    // generateText() reaches the same providers as generate() without passing
+    // through its prelude, so the middleware defaults are folded in here too.
+    this.applyMiddlewareDefaults(isolated);
 
     // Use internal generation method directly
     return await this.generateTextInternal(isolated);
@@ -11241,6 +11285,7 @@ Current user's request: ${currentInput}`;
     this.enforceSessionBudget(options.maxBudgetUsd);
     await this.applyAuthenticatedRequestContext(options);
     this.emitStreamStartEvents(options, startTime);
+    this.applyMiddlewareDefaults(options);
     this.applyStreamLifecycleMiddleware(options);
   }
 

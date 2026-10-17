@@ -1907,7 +1907,7 @@ type TypedEventEmitter<TEvents> = {
 ## Related Features
 
 - [Human-in-the-Loop (HITL)](../features/hitl.md) - Mark tools with `requiresConfirmation: true`
-- [Guardrails Middleware](../features/guardrails.md) - Enable with `middleware: { preset: 'security' }`
+- [Guardrails Middleware](../features/guardrails.md) - Set `middleware` per call, in `new NeuroLink({ middleware })` or with `configureGlobalMiddleware()`; add `badWords` or `modelFilter` to filter
 - [Conversation History](../features/conversation-history.md) - Use `getConversationHistory()` method
 - [Multimodal Chat](../features/multimodal-chat.md) - Use `images` array in `generate()` options
 - [Auto Evaluation](../features/auto-evaluation.md) - Enable with `enableEvaluation: true`

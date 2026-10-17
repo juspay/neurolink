@@ -220,7 +220,11 @@ export abstract class BaseProvider implements AIProvider {
   protected modelName: string;
   protected readonly providerName: AIProviderName;
   protected readonly defaultTimeout: number = 30000; // 30 seconds
-  protected middlewareOptions?: MiddlewareFactoryOptions; // TODO(#1953): Implement global level middlewares that can be used
+  // Only set by a subclass passing the 4th constructor argument; no provider
+  // does. NeuroLink resolves its instance, global and environment middleware
+  // defaults into `options.middleware` before a call reaches here (see
+  // middleware/defaults.ts), so a per-call value already carries them.
+  protected middlewareOptions?: MiddlewareFactoryOptions;
 
   // Tools are conditionally included based on centralized configuration
   protected readonly directTools = shouldDisableBuiltinTools()
@@ -3270,7 +3274,6 @@ export abstract class BaseProvider implements AIProvider {
   /**
    * Get AI SDK model with middleware applied
    * This method wraps the base model with any configured middleware
-   * TODO(#1953): Implement global level middlewares that can be used
    */
   protected async getAISDKModelWithMiddleware(
     options: TextGenerationOptions | StreamOptions = {},
