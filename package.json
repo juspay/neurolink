@@ -155,6 +155,7 @@
     "test:acceptance-gate": "pnpm exec tsx test/continuous-test-suite-acceptance-gate.ts",
     "test:cli-fallback": "pnpm exec tsx test/continuous-test-suite-cli-fallback.ts",
     "test:package-declarations": "pnpm exec tsx test/continuous-test-suite-package-declarations.ts",
+    "test:package-consumer": "pnpm exec tsx test/continuous-test-suite-package-consumer.ts",
     "scaffold:provider": "pnpm exec tsx tools/scaffold-provider.ts",
     "verify:provider-onboarding": "pnpm exec tsx tools/verify-provider-onboarding.ts",
     "test:openai-compat-catalog": "pnpm exec tsx test/continuous-test-suite-openai-compat-catalog.ts",
