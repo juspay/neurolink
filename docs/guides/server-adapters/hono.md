@@ -192,6 +192,12 @@ const server = await createServer(neurolink, {
 });
 ```
 
+### Request body limits
+
+`bodyParser.jsonLimit` bounds JSON bodies and `bodyParser.maxSize` bounds url-encoded forms. Both default to `10mb`, as on the Express, Fastify and Koa adapters, and raising either one is honoured. Uploads (`multipart/form-data`, `application/octet-stream`, `audio/*`) are bounded by `bodyParser.rawMaxSize`, which defaults to `maxSize` when that is set and to `64mb` otherwise.
+
+A JSON or url-encoded form body over its limit is answered `413` with `error.code` set to `PAYLOAD_TOO_LARGE`, before any middleware or route runs. A declared `Content-Length` over the limit is refused without reading the body, and a body sent without one is read only as far as the limit. An upload over the limit still reaches its route, which answers in its own wire format.
+
 ---
 
 ## Middleware Integration

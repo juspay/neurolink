@@ -47,6 +47,8 @@ import {
   restoreAllClients,
 } from "../proxy-clients/registry.js";
 import { resolveProxyConfigPath } from "../../lib/proxy/proxyConfig.js";
+import { readProxyRequestText } from "../../lib/proxy/requestBodyLimit.js";
+import { RawBodyTooLargeError } from "../../lib/server/utils/rawBody.js";
 import {
   redactUrlsInText,
   sanitizeForLog,
@@ -2056,6 +2058,21 @@ export async function createProxyStartApp(params: {
     ]);
   };
 
+  /** 413 in the wire format this proxy answers its other request errors in. */
+  const respondRequestTooLarge = async (
+    c: Context,
+    metadata: RuntimeRequestMetadata | undefined,
+    message: string,
+  ) => {
+    if (metadata) {
+      await recordRuntimeError(metadata, 413, "request_too_large", message);
+    }
+    return c.json(
+      { type: "error", error: { type: "request_too_large", message } },
+      413,
+    );
+  };
+
   app.onError(async (err, c) => {
     const errMsg = err instanceof Error ? err.message : String(err);
     logger.always(`[proxy] unhandled error: ${errMsg}`);
@@ -2310,7 +2327,13 @@ export async function createProxyStartApp(params: {
       let body: unknown;
       let rawBody: string | undefined;
       if (method === "post") {
-        rawBody = await c.req.text().catch(() => undefined);
+        // Bounded before it is parsed, and so before the share gate below
+        // (which needs the model), the way the server adapters bound theirs.
+        const read = await readProxyRequestText(c.req.raw, route.path);
+        if (read instanceof RawBodyTooLargeError) {
+          return respondRequestTooLarge(c, metadata, read.message);
+        }
+        rawBody = read;
         try {
           body = rawBody ? JSON.parse(rawBody) : emptyBody;
         } catch {

@@ -23,8 +23,10 @@ export function isRawBodyContentType(contentType: unknown): boolean {
   );
 }
 
-/** "10mb" / "512kb" / "1gb" / a byte count → bytes. Falls back to 10 MB. */
-export function parseByteLimit(limit: string | number | undefined): number {
+/** "10mb" / "512kb" / "1gb" / a byte count → bytes, or `undefined` when it is none of those. */
+export function tryParseByteLimit(
+  limit: string | number | undefined,
+): number | undefined {
   if (typeof limit === "number" && Number.isFinite(limit) && limit > 0) {
     return limit;
   }
@@ -33,7 +35,7 @@ export function parseByteLimit(limit: string | number | undefined): number {
       ? limit.trim().match(/^(\d+(?:\.\d+)?)\s*(b|kb|mb|gb)?$/i)
       : null;
   if (!match) {
-    return 10 * 1024 * 1024;
+    return undefined;
   }
   const units: Record<string, number> = {
     b: 1,
@@ -41,7 +43,17 @@ export function parseByteLimit(limit: string | number | undefined): number {
     mb: 1024 * 1024,
     gb: 1024 * 1024 * 1024,
   };
-  return Math.floor(Number(match[1]) * units[(match[2] ?? "b").toLowerCase()]);
+  const bytes = Math.floor(
+    Number(match[1]) * units[(match[2] ?? "b").toLowerCase()],
+  );
+  // A digit string long enough to overflow reads as Infinity, which no body
+  // can exceed: treat it as unparseable so the caller's default applies.
+  return Number.isFinite(bytes) ? bytes : undefined;
+}
+
+/** "10mb" / "512kb" / "1gb" / a byte count → bytes. Falls back to 10 MB. */
+export function parseByteLimit(limit: string | number | undefined): number {
+  return tryParseByteLimit(limit) ?? 10 * 1024 * 1024;
 }
 
 /** Thrown when a raw body grows past the adapter's `maxSize`. */
@@ -69,6 +81,70 @@ export async function readRawBody(
     chunks.push(buffer);
   }
   return Buffer.concat(chunks);
+}
+
+/** A web `ReadableStream` of bytes as an async iterable of Buffers, releasing the reader on exit. */
+export async function* webStreamChunks(
+  stream: ReadableStream<Uint8Array>,
+): AsyncIterable<Buffer> {
+  const reader = stream.getReader();
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) {
+        return;
+      }
+      if (value) {
+        yield Buffer.from(value.buffer, value.byteOffset, value.byteLength);
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+/** Bodies already read for a request, so a second read never hits a consumed stream. */
+const boundedBodies = new WeakMap<Request, Buffer | RawBodyTooLargeError>();
+
+/**
+ * Read a web `Request` body, refusing more than `maxBytes`.
+ *
+ * A declared `Content-Length` over the limit is refused without reading
+ * anything. Otherwise the stream is read chunk by chunk and stopped at the
+ * limit, so a chunked body without a `Content-Length` cannot be buffered whole.
+ * Over the limit the result is the error itself rather than a throw: a throw
+ * from a middleware lands in the framework's error handler, which answers 500.
+ *
+ * The outcome is kept per request, because a web stream can only be read once
+ * and the body may be asked for more than once (middleware, then route).
+ */
+export async function readBoundedRequestBody(
+  request: Request,
+  maxBytes: number,
+): Promise<Buffer | RawBodyTooLargeError> {
+  if (Number(request.headers.get("content-length") ?? 0) > maxBytes) {
+    return new RawBodyTooLargeError(maxBytes);
+  }
+  const cached = boundedBodies.get(request);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const stream = request.body;
+  if (!stream) {
+    return Buffer.alloc(0);
+  }
+  let outcome: Buffer | RawBodyTooLargeError;
+  try {
+    outcome = await readRawBody(webStreamChunks(stream), maxBytes);
+  } catch (error) {
+    if (!(error instanceof RawBodyTooLargeError)) {
+      throw error;
+    }
+    await stream.cancel().catch(() => undefined);
+    outcome = error;
+  }
+  boundedBodies.set(request, outcome);
+  return outcome;
 }
 
 /** A web `Response` returned by a route handler. */
