@@ -179,7 +179,7 @@ export abstract class BaseAuthProvider implements AuthProvider {
   protected sessionStorage: SessionStorage;
   protected sessionConfig: SessionConfig;
   protected rbacConfig: RBACConfig;
-  protected emitter = new EventEmitter();
+  protected emitter: EventEmitter = new EventEmitter();
 
   constructor(config: AuthProviderConfig) {
     // Deep-merge tokenExtraction: preserve header defaults when partial config given

@@ -85,7 +85,7 @@ Provider configuration
 
 ### emitter
 
-> `protected` **emitter**: `EventEmitter`\<`DefaultEventMap`\>
+> `protected` **emitter**: `EventEmitter`
 
 ## Methods
 

@@ -34,6 +34,10 @@
  * did exactly that through `ReactNode`; its public signature now uses the structural
  * `ClientReactElement`, and no optional peer is baselined.
  *
+ * A second, unrelated guard: declaration emit writes the type it infers, and for
+ * `new EventEmitter()` that is `EventEmitter<[never]>`, which @types/node 25 and 26
+ * reject (TS2344) in OUR file, for any consumer on a current @types/node.
+ *
  * What this does NOT do: it does not type-check a consumer. It scans module
  * specifiers in the published `.d.ts` files (comments are ignored) and checks
  * the packed file list. The consumer-level check is a clean `npm install` of the
@@ -121,6 +125,13 @@ const packagesImportedFrom = (
     .filter((name): name is string => name !== null && packages.has(name));
   return [...new Set(named)].sort();
 };
+
+// `\bEventEmitter` so TypedEventEmitter<[never]> is not read as the node class.
+const NEVER_EVENT_EMITTER = /\bEventEmitter\s*<\s*\[\s*never\s*\]\s*>/;
+
+/** True when the declaration source, comments aside, names `EventEmitter<[never]>`. */
+const namesNeverEventEmitter = (source: string): boolean =>
+  NEVER_EVENT_EMITTER.test(stripComments(source));
 
 const isDeclarationFile = (path: string): boolean => /\.d\.[cm]?ts$/.test(path);
 const isJsxSource = (path: string): boolean => path.endsWith(".tsx");
@@ -317,6 +328,31 @@ await test("control: optional peers count as optional packages, required peers d
   );
 });
 
+await test("control: the EventEmitter<[never]> scanner fires on emitted text and ignores comments", () => {
+  assert(
+    namesNeverEventEmitter("protected emitter: EventEmitter<[never]>;"),
+    "the scanner missed EventEmitter<[never]>",
+  );
+  assert(
+    namesNeverEventEmitter("protected emitter: EventEmitter< [ never ] >;"),
+    "the scanner missed EventEmitter<[never]> written with spaces",
+  );
+  const commentOnly = [
+    "/** Emitted as EventEmitter<[never]> before the annotation. */",
+    "// protected emitter: EventEmitter<[never]>;",
+    "protected emitter: EventEmitter;",
+  ].join("\n");
+  assert(
+    !namesNeverEventEmitter(commentOnly),
+    "the scanner counted a comment, or the annotated form, as the inferred type",
+  );
+  assert(
+    !namesNeverEventEmitter("emitter: TypedEventEmitter<[never]>;") &&
+      !namesNeverEventEmitter("emitter: EventEmitter<[string]>;"),
+    "the scanner flagged a different emitter type",
+  );
+});
+
 await test("control: only .tsx is treated as JSX source", () => {
   assert(isJsxSource("dist/client/reactHooks.tsx"), ".tsx was not detected");
   assert(!isJsxSource("dist/client/reactHooks.d.ts"), ".d.ts was flagged");
@@ -390,6 +426,23 @@ await test("no published declaration imports an optional dependency or optional 
   assert(
     gone.length === 0,
     `${gone.length} baseline entr(ies) no longer leak; remove them from KNOWN_OPTIONAL_IMPORTS`,
+  );
+});
+
+await test("no published declaration names EventEmitter<[never]> (@types/node 25 and 26 fail it with TS2344)", async () => {
+  const { dist } = await packedFiles();
+  const declarations = dist.filter(isDeclarationFile);
+  const offenders = declarations.filter((path) =>
+    namesNeverEventEmitter(readFileSync(join(REPO_ROOT, path), "utf8")),
+  );
+  if (offenders.length > 0) {
+    console.error(
+      `Declarations naming EventEmitter<[never]>:\n${offenders.join("\n")}`,
+    );
+  }
+  assert(
+    offenders.length === 0,
+    `${offenders.length} declaration file(s) name EventEmitter<[never]>, of ${declarations.length} scanned`,
   );
 });
 
