@@ -39,7 +39,7 @@ import type { FileHandle } from "node:fs/promises";
 import path from "node:path";
 import type {
   ServerAgentResolvedInput,
-  ServerAgentRouteOptions,
+  ServerAgentResolveOptions,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 
@@ -266,7 +266,11 @@ async function readWithinLimit(
   return Buffer.concat(chunks, total);
 }
 
-async function downloadAttachment(url: string, limit: number): Promise<Buffer> {
+async function downloadAttachment(
+  url: string,
+  limit: number,
+  signal: AbortSignal | undefined,
+): Promise<Buffer> {
   // Dynamic import keeps undici off the static import graph; see
   // test/continuous-test-suite-import-cost.ts.
   const { safeDownload } = await import("../../utils/safeFetch.js");
@@ -274,8 +278,14 @@ async function downloadAttachment(url: string, limit: number): Promise<Buffer> {
     return await safeDownload(url, {
       maxBytes: limit,
       label: "agent attachment",
+      signal,
     });
   } catch (error) {
+    // A cancelled download is not a refused URL: the caller is gone, and
+    // reporting it as one would put a refusal in the log that never happened.
+    if (signal?.aborted) {
+      throw error;
+    }
     // The reason can name the address a host resolved to; the caller gets none
     // of it, the operator gets it in the log.
     const reason = error instanceof Error ? error.message : String(error);
@@ -295,9 +305,10 @@ async function resolveAttachment(
   entry: string,
   roots: string[] | undefined,
   limit: number,
+  signal: AbortSignal | undefined,
 ): Promise<Buffer> {
   if (/^https?:\/\//i.test(entry)) {
-    return downloadAttachment(entry, limit);
+    return downloadAttachment(entry, limit, signal);
   }
   if (URL_SCHEME.test(entry)) {
     throw new AgentInputError(
@@ -317,7 +328,7 @@ async function resolveAttachment(
  */
 export async function resolveAgentInput(
   input: { text: string; images?: string[]; files?: string[] },
-  options?: ServerAgentRouteOptions,
+  options?: ServerAgentResolveOptions,
 ): Promise<ServerAgentResolvedInput> {
   const maxAttachments = limitOr(
     options?.maxInputAttachments,
@@ -364,6 +375,8 @@ export async function resolveAgentInput(
     }
     const resolved: Array<Buffer | string> = [];
     for (const entry of list) {
+      // A caller that has gone away starts nothing further.
+      options?.signal?.throwIfAborted();
       // Exactly the prefix the SDK keys on, so nothing that reaches it as a
       // string is anything but a data URI.
       if (isDataUri(entry)) {
@@ -373,7 +386,7 @@ export async function resolveAgentInput(
       const limit = Math.min(perAttachment, remaining);
       let bytes: Buffer;
       try {
-        bytes = await resolveAttachment(entry, roots, limit);
+        bytes = await resolveAttachment(entry, roots, limit, options?.signal);
       } catch (error) {
         if (
           limit < perAttachment &&

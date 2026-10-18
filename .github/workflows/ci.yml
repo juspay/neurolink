@@ -1244,6 +1244,7 @@ jobs:
             test:openai-compat-streaming-retry@16
             test:servers@16
             test:agent-input-guard@17
+            test:proxy-image-input@40
             test:video:unit@12
             test:adjust-body-after-400@10
             test:anthropic-streaming-retry@10

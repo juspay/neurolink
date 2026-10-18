@@ -22,6 +22,10 @@ One part of a Gemini `contents[].parts[]` entry.
 
 > `optional` **inlineData?**: `object`
 
+#### mimeType?
+
+> `optional` **mimeType?**: `string`
+
 #### data?
 
 > `optional` **data?**: `string`

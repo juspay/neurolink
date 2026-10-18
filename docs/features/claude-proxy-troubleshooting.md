@@ -201,6 +201,16 @@ NEUROLINK_LOG_LEVEL=debug neurolink proxy start
 # [proxy] -> account=secondary (oauth)
 ```
 
+---
+
+### 12. "400 invalid_image_reference" when sending an image
+
+**Cause:** A request to a translated route (`/v1/chat/completions`, Gemini `generateContent`, or `/v1/messages` routed to a non-Anthropic provider) named its image as a local file path, an `http://` URL or another scheme, or (Gemini) sent raw base64 in `inlineData.data` without an `image/<subtype>` `mimeType`, or with a length or `=` padding that is not valid base64. The proxy resolves image references before the SDK sees them and accepts only `data:` URIs and public `https://` URLs. The answer is identical whether or not the file exists, and it never echoes the path.
+
+**Fix:** Send the image inline as a `data:` URI (a Claude `base64` source is converted for you), or host it at a public `https://` URL that answers without a redirect. A Gemini client may send `inlineData.data` as raw base64 (standard or URL-safe) next to a `mimeType` such as `image/png`: the proxy converts it to a `data:` URI. If that request gets this answer, check `inlineData.mimeType`: it must be an `image/<subtype>` type with no space, comma or semicolon, and audio, PDF and untyped parts are not translated. Then check `data` itself: a length one character over a multiple of four, or `=` padding that does not match the length, is refused rather than forwarded. `image_url_unfetchable` means an `https://` URL was refused (a private or non-public address, a redirect, an error status, or larger than the size limit while downloading); `image_input_too_large` means more than 20 images, a `data:` image over 50 MB, or `data:` images together over 100 MB. See [Image references on translated requests](/docs/features/claude-proxy#image-references-on-translated-requests).
+
+---
+
 ## Debugging
 
 ### Enable debug logging

@@ -48,13 +48,78 @@ function partsToText(parts: ProxyGeminiPart[] | undefined): string {
     .join("");
 }
 
+/** `image/<subtype>` as a MIME restricted-name (RFC 6838): no space, comma or semicolon. */
+const IMAGE_MIME_TYPE = /^image\/[a-z0-9][a-z0-9!#$&^_.+-]{0,126}$/i;
+
+/** Standard or URL-safe base64, the two alphabets Google's JSON `bytes` fields accept. */
+const RAW_BASE64 = /^[A-Za-z0-9+/_-]+={0,2}$/;
+
+/**
+ * `data` as padded standard-alphabet base64, which is what a `data:` URI carries,
+ * or undefined when it is not well-formed base64.
+ *
+ * The SDK forwards the base64 text of a `data:` URI to the provider as it is, so
+ * a URL-safe or unpadded payload would reach a provider that expects neither.
+ * The alphabet check alone lets through a payload no decoder takes: one
+ * character over a multiple of four is no base64 length at all, and padding
+ * must be exactly what the length calls for.
+ */
+function toStandardBase64(data: string): string | undefined {
+  const standard = /[-_]/.test(data)
+    ? data.replace(/-/g, "+").replace(/_/g, "/")
+    : data;
+  const body = standard.replace(/=+$/, "");
+  const padding = standard.length - body.length;
+  const missing = (4 - (body.length % 4)) % 4;
+  if (missing === 3 || (padding > 0 && padding !== missing)) {
+    return undefined;
+  }
+  return `${body}${"=".repeat(missing)}`;
+}
+
+/**
+ * The `input.images` entry for one `inlineData`, or undefined when it has none.
+ *
+ * Google's wire format puts raw base64 in `data` and the type in a sibling
+ * `mimeType`, while the image vetter takes only `data:` URIs and https URLs, so
+ * raw base64 of an image type is wrapped into a `data:` URI here. The SDK reads
+ * a `data:` string as inline bytes and never as a path or URL.
+ *
+ * Anything else is passed on as it came and left to the vetter: a value that
+ * is not base64 (a `data:` URI, an https URL, a path) is judged as the
+ * reference it names, and base64 with a missing, non-image or malformed
+ * `mimeType`, an impossible length or inconsistent padding is refused there as
+ * `invalid_image_reference`. Audio and PDF parts land in the same place; this
+ * parser has never told them from images.
+ */
+function inlineDataToImage(
+  inlineData: ProxyGeminiPart["inlineData"],
+): string | undefined {
+  const data = inlineData?.data;
+  if (typeof data !== "string" || data.length === 0) {
+    return undefined;
+  }
+  const mimeType = inlineData?.mimeType;
+  if (
+    typeof mimeType !== "string" ||
+    !IMAGE_MIME_TYPE.test(mimeType) ||
+    !RAW_BASE64.test(data)
+  ) {
+    return data;
+  }
+  const standard = toStandardBase64(data);
+  return standard === undefined
+    ? data
+    : `data:${mimeType.toLowerCase()};base64,${standard}`;
+}
+
 function partsToImages(parts: ProxyGeminiPart[] | undefined): string[] {
   if (!Array.isArray(parts)) {
     return [];
   }
   return parts
-    .map((p) => p?.inlineData?.data)
-    .filter((d): d is string => typeof d === "string" && d.length > 0);
+    .map((p) => inlineDataToImage(p?.inlineData))
+    .filter((d): d is string => d !== undefined);
 }
 
 /**

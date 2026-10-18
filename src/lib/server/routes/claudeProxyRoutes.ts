@@ -133,6 +133,7 @@ import {
 } from "../../proxy/shareLease.js";
 import { forwardToPeer } from "../../proxy/peerTransport.js";
 import { getShareContext } from "../../proxy/shareContext.js";
+import { ProxyImageInputError } from "../../proxy/proxyImageInput.js";
 import { buildShareRefusal, extractShareToken } from "../../proxy/shareGate.js";
 import {
   debitShareGrantCoins,
@@ -11440,7 +11441,11 @@ export function createClaudeProxyRoutes(
               const refusal = buildLoggedClaudeError(
                 localRefusal.status,
                 localRefusal.message,
-                localRefusal.code,
+                // A refused image reference is a malformed request in
+                // Anthropic's vocabulary; its code stays in `error.code`.
+                error instanceof ProxyImageInputError
+                  ? "invalid_request_error"
+                  : localRefusal.code,
                 { errorCode: localRefusal.code, retryable: false },
               );
               return new Response(

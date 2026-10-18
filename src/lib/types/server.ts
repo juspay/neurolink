@@ -625,6 +625,20 @@ export type ServerAgentRouteOptions = {
 };
 
 /**
+ * The route options plus the one thing that belongs to a single call:
+ * `resolveAgentInput` options. A signal is not route configuration, so it is
+ * kept off {@link ServerAgentRouteOptions}, where `createAgentRoutes` would
+ * apply it to every request.
+ */
+export type ServerAgentResolveOptions = ServerAgentRouteOptions & {
+  /**
+   * Cancels the resolution: an `https` download in flight is aborted and no
+   * further attachment is started. Omitted, nothing can cancel it.
+   */
+  signal?: AbortSignal;
+};
+
+/**
  * An agent request's `input` once every attachment has been vetted: URLs and
  * allowed local paths are replaced by the bytes the server read itself, `data:`
  * URIs pass through untouched.

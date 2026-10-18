@@ -803,6 +803,12 @@ The proxy classifies upstream errors and applies different strategies:
 - No retry or failover. These are client-side errors (malformed request, invalid parameters).
 - Return the error body directly to Claude Code.
 
+### 400 Refused Image Reference
+
+- A translated request (OpenAI, Gemini, or Claude routed to another provider) named an image the proxy will not resolve: a local path, an `http://` URL, another scheme, an `https://` URL that could not be fetched safely, or (Gemini) raw base64 whose `mimeType` is not an `image/<subtype>` type.
+- Answered locally before any provider is contacted, with code `invalid_image_reference`, `image_url_unfetchable` or `image_input_too_large`. No retry and no fallback.
+- See [Image references on translated requests](#image-references-on-translated-requests).
+
 ### 404 Not Found
 
 - Typically means the model is not available for this account.
@@ -935,6 +941,39 @@ When model routing directs to a non-Anthropic provider:
 4. For non-streaming: collect all text from the stream and call `serializeClaudeResponse()` to build a Claude Messages API response.
 
 If the translated response model differs from the requested model, the proxy records that as a model-substitution metric (`proxy_model_substitution_total`) and adds the requested vs actual model attributes to the trace.
+
+### Image references on translated requests
+
+Translation mode serves three request formats, and each carries images in its own slot:
+
+| Format | Endpoint                                                                | Image slot                                                |
+| ------ | ----------------------------------------------------------------------- | --------------------------------------------------------- |
+| OpenAI | `POST /v1/chat/completions`                                             | `image_url.url` of the latest user turn                   |
+| Gemini | `POST /v1beta/models/<model>:generateContent`, `:streamGenerateContent` | `inlineData` of the latest user turn (`data`, `mimeType`) |
+| Claude | `POST /v1/messages` (routed or falling back to another provider)        | `source.url` of an image block (`source.type: "url"`)     |
+
+The SDK resolves an image string by itself (an `http(s)` URL is fetched, anything else naming an existing file is read from disk), which is right for a program naming its own files and wrong for a request that arrived over a socket. So the proxy resolves every reference first and hands the SDK nothing but bytes it vetted:
+
+| Reference                                                   | What the proxy does                                                                                                                                                                    |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data:` URI                                                 | Accepted and passed through unchanged. Its length counts against the limits below.                                                                                                     |
+| Claude `base64` source (`source.type: "base64"`)            | Converted to a `data:<media_type>;base64,<data>` URI (`image/png` when `media_type` is absent) and then handled as one: the converted string's length counts against the limits below. |
+| Gemini `inlineData` raw base64 with an `image/*` `mimeType` | Wrapped into a `data:<mimeType>;base64,<data>` URI (as standard, padded base64) and then handled as one. See below.                                                                    |
+| `https://` URL                                              | Downloaded by the proxy: redirects are refused, the resolved address must be public, and the size is capped.                                                                           |
+| `http://` URL                                               | Refused. Nothing is fetched.                                                                                                                                                           |
+| Local path, `file://` or any other scheme                   | Refused. The file system is not touched, so a path that exists and one that does not get the same answer.                                                                              |
+
+A request may carry at most 20 images, each at most 50 MB and all together at most 100 MB (the limits the agent routes use). A `data:` URI is charged its string length when the request is read; an `https://` image is measured as it downloads, against 50 MB and against what is left of the 100 MB. There is no allowed-directories setting: the proxy listens on loopback without credentials by default, and the share port admits any holder of a share token, so a path allow-list would still hand the operator's disk to every caller. Behind `HTTPS_PROXY` / `ALL_PROXY` the download goes through that proxy, which resolves the host name, so only the URL text is checked.
+
+A refused reference answers `400` before anything is sent upstream or any stream starts, in the client's own error format, with code `invalid_image_reference` (an unaccepted form), `image_url_unfetchable` (an `https://` URL that could not be fetched safely: a private or non-public address, a redirect, an error status, or larger than the size limit while downloading) or `image_input_too_large` (more than 20 images, a `data:` image over 50 MB, or `data:` images together over 100 MB). The answer never echoes the reference or any server path, and no fallback provider is tried because every one would refuse the same request.
+
+| Format | Refusal body                                                                                                         |
+| ------ | -------------------------------------------------------------------------------------------------------------------- |
+| OpenAI | `{"error": {"type": "invalid_request_error", "message": "...", "code": "invalid_image_reference"}}`                  |
+| Claude | `{"type": "error", "error": {"type": "invalid_request_error", "message": "...", "code": "invalid_image_reference"}}` |
+| Gemini | `{"error": {"code": 400, "status": "INVALID_ARGUMENT", "message": "...", "reason": "invalid_image_reference"}}`      |
+
+Requests with a `claude-*` model on the passthrough path are forwarded to Anthropic as sent, so their image sources are fetched (or rejected) by Anthropic and the proxy resolves nothing. Gemini clients that follow Google's wire format send `inlineData.data` as raw base64 with the type in a sibling `inlineData.mimeType`, and the proxy accepts that form: when `mimeType` is an `image/<subtype>` type (no space, comma or semicolon) and `data` is base64 in the standard or URL-safe alphabet, it is wrapped into `data:<mimeType>;base64,<data>` before the checks above (a URL-safe alphabet or missing padding is rewritten to padded standard base64), so the limits count the wrapped string, 22 characters longer than `data` for `image/png`. Raw base64 whose `mimeType` is missing, malformed or not an image (audio and PDF parts are not translated) answers `400 invalid_image_reference`, and the answer does not echo the type or the data. So does raw base64 that no decoder would take: a length one character over a multiple of four (after any `=`), or `=` padding that is not the amount the length calls for. Such a value is not wrapped, so it never reaches the provider. A `data` value that is not base64 is judged as the reference it names: a `data:` URI passes through, an `https://` URL is downloaded, and a path is refused. A path that happens to be made only of base64 characters, with a length that passes the check above, is taken for bytes, forwarded as an unreadable image, and never opened; one whose length does not pass is refused. Either way the file system is not touched.
 
 ### OAuth cloaking
 

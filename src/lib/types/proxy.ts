@@ -4200,7 +4200,10 @@ export type OpenAIErrorResponse = {
 
 /** Parsed OpenAI request — intermediate form for NeuroLink pipeline. */
 /** One part of a Gemini `contents[].parts[]` entry. */
-export type ProxyGeminiPart = { text?: string; inlineData?: { data?: string } };
+export type ProxyGeminiPart = {
+  text?: string;
+  inlineData?: { mimeType?: string; data?: string };
+};
 
 /** One turn in a Gemini `contents[]` array. */
 export type ProxyGeminiContent = { role?: string; parts?: ProxyGeminiPart[] };

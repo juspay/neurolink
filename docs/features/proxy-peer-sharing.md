@@ -533,6 +533,13 @@ purpose, because a tunnel and a peer both need a liveness probe:
   block is blanked. A caller holding the update-control token sees the real
   values.
 
+A borrower's request reaches the same routes as yours, so image references are
+vetted for it too: on the OpenAI-compatible and Gemini routes (and on `/v1/messages`
+when a model is routed to another provider) a borrower can send `data:` URIs and
+public `https://` URLs, but a local path, an `http://` URL or any other scheme is
+refused with a `400` before anything is read or fetched. A borrower cannot make
+your proxy read a file on your disk or call a service on your network.
+
 A loopback allowlist would not have worked here: `cloudflared` runs on the same
 machine and connects to `127.0.0.1`, so tunnelled traffic arrives from loopback
 exactly like the operator's own CLI does. Separating the two by **listener** is
