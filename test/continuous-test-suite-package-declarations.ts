@@ -201,7 +201,6 @@ const KNOWN_OPTIONAL_IMPORTS: ReadonlySet<string> = new Set([
   "dist/providers/amazonBedrock/loopAdapter.d.ts -> @aws-sdk/client-bedrock-runtime",
   "dist/providers/amazonBedrock/modelBridge.d.ts -> @aws-sdk/client-bedrock-runtime",
   "dist/providers/amazonBedrock/utils.d.ts -> @aws-sdk/client-bedrock",
-  "dist/types/processor.d.ts -> exceljs",
   "dist/voice/livekit/realtimeMcpTools.d.ts -> @livekit/agents",
   "dist/voice/livekit/realtimeMemory.d.ts -> @livekit/agents",
   "dist/voice/livekit/realtimeVoiceAgent.d.ts -> @livekit/agents",

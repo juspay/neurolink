@@ -1205,8 +1205,90 @@ export type BatchFileProcessingResult = {
 // EXCEL PROCESSOR (from processors/document/ExcelProcessor.ts)
 // =============================================================================
 
-/** Alias for ExcelJS.CellValue to avoid leaking exceljs types across files. */
-export type CellValue = import("exceljs").CellValue;
+/**
+ * Structural equivalents of the exceljs cell types, mirroring exceljs 4.x.
+ * The public declarations reach these through ExcelJSCell and ExcelJSRow, so
+ * they must not name the optional `exceljs` package: a consumer installed with
+ * `--omit=optional` has no such module to resolve.
+ */
+export type ExcelJSColor = {
+  argb?: string;
+  theme?: number;
+};
+
+export type ExcelJSFont = {
+  name?: string;
+  size?: number;
+  family?: number;
+  scheme?: "minor" | "major" | "none";
+  charset?: number;
+  color?: ExcelJSColor;
+  bold?: boolean;
+  italic?: boolean;
+  underline?:
+    | boolean
+    | "none"
+    | "single"
+    | "double"
+    | "singleAccounting"
+    | "doubleAccounting";
+  vertAlign?: "superscript" | "subscript";
+  strike?: boolean;
+  outline?: boolean;
+};
+
+export type ExcelJSCellErrorValue = {
+  error:
+    | "#N/A"
+    | "#REF!"
+    | "#NAME?"
+    | "#DIV/0!"
+    | "#NULL!"
+    | "#VALUE!"
+    | "#NUM!";
+};
+
+export type ExcelJSRichText = {
+  text: string;
+  font?: ExcelJSFont;
+};
+
+export type ExcelJSCellRichTextValue = {
+  richText: ExcelJSRichText[];
+};
+
+export type ExcelJSCellHyperlinkValue = {
+  text: string;
+  hyperlink: string;
+  tooltip?: string;
+};
+
+export type ExcelJSCellFormulaValue = {
+  formula: string;
+  result?: number | string | boolean | Date | ExcelJSCellErrorValue;
+  date1904?: boolean;
+};
+
+export type ExcelJSCellSharedFormulaValue = {
+  sharedFormula: string;
+  readonly formula?: string;
+  result?: number | string | boolean | Date | ExcelJSCellErrorValue;
+  date1904?: boolean;
+};
+
+/** Structural equivalent of ExcelJS.CellValue; see the note above. */
+export type CellValue =
+  | null
+  | number
+  | string
+  | boolean
+  | Date
+  | undefined
+  | ExcelJSCellErrorValue
+  | ExcelJSCellRichTextValue
+  | ExcelJSCellHyperlinkValue
+  | ExcelJSCellFormulaValue
+  | ExcelJSCellSharedFormulaValue;
 
 // =============================================================================
 // ERROR HELPERS (from processors/errors/errorHelpers.ts)

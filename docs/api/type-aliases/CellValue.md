@@ -6,6 +6,6 @@
 
 # Type Alias: CellValue
 
-> **CellValue** = `CellValue`
+> **CellValue** = `null` \| `number` \| `string` \| `boolean` \| `Date` \| `undefined` \| [`ExcelJSCellErrorValue`](ExcelJSCellErrorValue.md) \| [`ExcelJSCellRichTextValue`](ExcelJSCellRichTextValue.md) \| [`ExcelJSCellHyperlinkValue`](ExcelJSCellHyperlinkValue.md) \| [`ExcelJSCellFormulaValue`](ExcelJSCellFormulaValue.md) \| [`ExcelJSCellSharedFormulaValue`](ExcelJSCellSharedFormulaValue.md)
 
-Alias for ExcelJS.CellValue to avoid leaking exceljs types across files.
+Structural equivalent of ExcelJS.CellValue; see the note above.
