@@ -1,5 +1,3 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
 
 # Cheap no-API tier: build freshness + mocked provider contracts + registry
 # structure. Keeps local pushes fast; live-credential suites run in the
