@@ -153,6 +153,36 @@ leaves it off for them whatever the thinking setting.
 default applies. If `enabled: true` and `budgetTokens` are also set, thinking is
 enabled, as before.
 
+### When thinking is left off a request
+
+Anthropic rejects some requests that carry thinking, so on the `anthropic`
+provider NeuroLink drops the `thinking` block from those requests and logs a
+warning, instead of sending a request that would fail with a 400. (Claude on
+`vertex` does the same for `generate({ schema })` and caps the budget the same
+way.)
+
+Dropping the block is not the same as `type: "disabled"`. The request then
+carries no `thinking` field, so the model's own default applies, as described
+in [Turning thinking off](#turning-thinking-off): a model that thinks by
+default may still think. NeuroLink never sends `type: "disabled"` in place of a
+budget you asked for.
+
+- **A forced tool choice.** `toolChoice: "required"`, a named tool, a choice
+  forced on a step by `prepareStep` or `toolChoiceSteps`, and `generate({ schema })`
+  without tools (which forces a JSON tool) all force tool use, and Anthropic does
+  not allow thinking with that. `"auto"` and `"none"` keep thinking.
+- **The rest of a tool turn that started without thinking.** Thinking cannot
+  start partway through a tool call. While the last assistant message calls a
+  tool and does not open with a thinking block, the block stays off, including
+  when a new prompt follows tool results replayed from history. It comes back
+  on the first request after the model answers without calling a tool.
+- **A budget that cannot fit.** `budgetTokens` is capped at the request's
+  `maxTokens` minus 1,024, which leaves room for the answer. When that cap is
+  under Anthropic's 1,024-token minimum, the block is dropped.
+- **A budget that is not a finite number.** A `budgetTokens` of `Infinity`, a
+  negative number or a non-number is dropped rather than sent. A fractional
+  budget is rounded down.
+
 ## Configuration Options
 
 The `thinkingConfig` object supports the following options:
