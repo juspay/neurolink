@@ -28,21 +28,44 @@ npx @juspay/neurolink generate "Hello from behind corporate proxy"
 
 ### Optional Proxy Variables
 
-| Variable   | Description             | Default               |
-| ---------- | ----------------------- | --------------------- |
-| `NO_PROXY` | Domains to bypass proxy | `localhost,127.0.0.1` |
+| Variable                 | Description                                                                             | Default |
+| ------------------------ | --------------------------------------------------------------------------------------- | ------- |
+| `NO_PROXY`               | Domains to bypass proxy. Nothing is exempt by default, loopback included                | unset   |
+| `NEUROLINK_PROXY_STRICT` | `true` makes a request whose proxy attempt failed fail, instead of retrying it directly | unset   |
+
+### Fail-Closed (Strict) Mode
+
+By default, when a request through the proxy fails (the proxy is unreachable or refuses it, its URL cannot be parsed, or it is a SOCKS URL), NeuroLink logs a warning and retries the request once over a direct connection. That keeps requests working, but it can expose the host's address and bypass a network policy that only allows egress through the proxy.
+
+Set `NEUROLINK_PROXY_STRICT=true` (`1`, `yes` and `on` also work) to fail closed: the request fails with the proxy error and no direct connection is attempted. The variable applies to every request sent through NeuroLink's proxy-aware fetch. Strict mode does not block hosts listed in `NO_PROXY`, or requests made while no proxy variable is set: those go direct by design. NeuroLink applies no built-in `NO_PROXY` default, so `localhost` and `127.0.0.1` targets also go through the proxy (and fail in strict mode when it does) unless you list them in `NO_PROXY`; this includes the loopback WebSocket endpoints of local voice services, which strict mode refuses until they are listed. Provider-returned media downloads never fall back, with or without the variable.
+
+The voice WebSockets listed in the table below cannot go through a proxy at all, so under strict mode they are refused whenever a proxy applies to their endpoint: the voice providers throw before connecting, the LiveKit agent refuses to build the realtime model or the STT/TTS plugin, and the voice server closes a client session with code `1011` before allocating it.
+
+What strict mode does **not** cover, because those transports never use NeuroLink's fetch:
+
+- **Native AWS SDK clients** (Bedrock runtime and control): their requests neither go through the proxy-aware fetch nor are blocked by `NEUROLINK_PROXY_STRICT`.
+- **Google ADC token acquisition and refresh** (`google-auth-library` / `gaxios`): the token requests behind Vertex are outside the fetch hook and are not blocked either.
+- **The LiveKit room and worker connection** to the LiveKit server (`@livekit/rtc-node` and the agents worker): it is not checked against the proxy policy.
+
+If your network must not allow any direct egress, enforce that at the network layer as well; strict mode is a guarantee about NeuroLink's own HTTP fetch and the WebSockets named here.
+
+### SOCKS Proxies
+
+`SOCKS_PROXY` and `socks4://` / `socks5://` URLs in `ALL_PROXY` are recognized but not supported: no SOCKS client ships with the package. Such a request falls back to a direct connection with a warning, or fails under `NEUROLINK_PROXY_STRICT`. Use an HTTP(S) proxy, or an HTTP-to-SOCKS bridge in front of the SOCKS proxy.
 
 ## 🌐 Provider-Specific Proxy Support
 
 ### Transport Coverage and Limits
 
-| Transport                                                         | Integration                                   | Coverage limit                                                                                                                                              |
-| ----------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Google AI Studio / Vertex `@google/genai` model HTTP              | SDK HTTP fetch hook                           | The owned HTTP proxy suite covers AI Studio, Vertex Express and the direct web-search tool; it excludes ADC token requests and Live WebSockets.             |
-| Other fetch-backed model requests                                 | Provider-specific proxy-aware fetch           | Check the actual provider request path; a configured variable or successful response alone is not routing proof.                                            |
-| Native AWS SDK clients, including Bedrock runtime/control clients | AWS request handler and runtime configuration | Current native Bedrock constructors do not inject NeuroLink's proxy handler. Handler/agent/runtime behavior and bypass semantics need separate route tests. |
-| Gemini Live WebSockets                                            | `ws` or the GenAI Live SDK transport          | Outside the HTTP fetch hook. WebSocket agents and Node runtime settings can affect routing independently.                                                   |
-| Vertex ADC token acquisition/refresh                              | `google-auth-library` / `gaxios`              | Outside the model fetch hook. The dependency may honor proxy variables independently; its token-refresh and bypass behavior must be checked separately.     |
+| Transport                                                                                             | Integration                                   | Coverage limit                                                                                                                                                 |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Google AI Studio / Vertex `@google/genai` model HTTP                                                  | SDK HTTP fetch hook                           | The owned HTTP proxy suite covers AI Studio, Vertex Express and the direct web-search tool; it excludes ADC token requests and Live WebSockets.                |
+| Other fetch-backed model requests                                                                     | Provider-specific proxy-aware fetch           | Check the actual provider request path; a configured variable or successful response alone is not routing proof.                                               |
+| Native AWS SDK clients, including Bedrock runtime/control clients                                     | AWS request handler and runtime configuration | Current native Bedrock constructors do not inject NeuroLink's proxy handler. Handler/agent/runtime behavior and bypass semantics need separate route tests.    |
+| Voice WebSockets (Gemini Live, OpenAI Realtime, Deepgram streaming STT, Cartesia TTS, Soniox)         | `ws`, built without a proxy agent             | Always connect directly. With a proxy configured for the endpoint a warning is logged; under `NEUROLINK_PROXY_STRICT` the connection is refused instead.       |
+| LiveKit agent plugins (xAI and Gemini realtime, Soniox and Deepgram STT, Cartesia and ElevenLabs TTS) | Plugin-owned WebSockets                       | Always connect directly. The proxy policy is checked before each plugin is built: a warning is logged, or under `NEUROLINK_PROXY_STRICT` the build is refused. |
+| LiveKit room / worker connection                                                                      | `@livekit/rtc-node`, agents worker            | Not checked against the proxy policy, in either mode.                                                                                                          |
+| Vertex ADC token acquisition/refresh                                                                  | `google-auth-library` / `gaxios`              | Outside the model fetch hook. The dependency may honor proxy variables independently; its token-refresh and bypass behavior must be checked separately.        |
 
 `NO_PROXY` syntax is documented in the [Environment Variables guide](environment-variables.md). Those shared HTTP matching rules do not automatically apply to the other transports. Missing custom integration does not mean a dependency or runtime can never proxy: observe the route in the environment you use.
 
