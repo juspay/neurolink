@@ -134,7 +134,11 @@ NeuroLink includes a **HITL (Human-in-the-Loop) system** that pauses a tool call
 | **Audit Logging**           | `auditLogging: true` writes each request and decision, with the full tool arguments, to the NeuroLink logger; it is a log, not a compliance control                       | Debugging and your own review records      |
 
 ```typescript
-import { NeuroLink, type ConfirmationRequestEvent } from "@juspay/neurolink";
+import {
+  NeuroLink,
+  type ConfirmationRequestEvent,
+  type ConfirmationResponseEvent,
+} from "@juspay/neurolink";
 
 const neurolink = new NeuroLink({
   hitl: {
@@ -148,6 +152,7 @@ const neurolink = new NeuroLink({
 // Approval is event-based: NeuroLink emits a request, your app answers it
 const emitter = neurolink.getEventEmitter();
 emitter.on("hitl:confirmation-request", async (event) => {
+  const receivedAt = Date.now();
   // The emitter types listener arguments as unknown, so narrow the event
   const { payload } = event as ConfirmationRequestEvent;
   const { confirmationId, toolName, arguments: args } = payload;
@@ -160,8 +165,12 @@ emitter.on("hitl:confirmation-request", async (event) => {
       confirmationId,
       approved,
       reason: approved ? undefined : "Rejected by reviewer",
+      metadata: {
+        timestamp: new Date().toISOString(),
+        responseTime: Date.now() - receivedAt, // ms since the request arrived
+      },
     },
-  });
+  } satisfies ConfirmationResponseEvent);
 });
 
 // A tool call to a matching tool pauses until your handler answers

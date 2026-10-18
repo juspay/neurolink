@@ -52,11 +52,15 @@ const neurolink = new NeuroLink({
 ### Handling Confirmations
 
 ```typescript
-import type { ConfirmationRequestEvent } from "@juspay/neurolink";
+import type {
+  ConfirmationRequestEvent,
+  ConfirmationResponseEvent,
+} from "@juspay/neurolink";
 
 const emitter = neurolink.getEventEmitter();
 
 emitter.on("hitl:confirmation-request", async (event) => {
+  const receivedAt = Date.now();
   // The emitter types listener arguments as unknown, so narrow the event
   const { payload } = event as ConfirmationRequestEvent;
   console.log(`Approval needed: ${payload.toolName}`);
@@ -66,6 +70,11 @@ emitter.on("hitl:confirmation-request", async (event) => {
   // Your approval logic (UI prompt, Slack notification, etc.)
   const approved = await promptUserForApproval(payload);
 
+  const metadata = {
+    timestamp: new Date().toISOString(),
+    responseTime: Date.now() - receivedAt, // ms since the request arrived
+  };
+
   if (approved) {
     // Continue execution
     emitter.emit("hitl:confirmation-response", {
@@ -73,9 +82,9 @@ emitter.on("hitl:confirmation-request", async (event) => {
       payload: {
         confirmationId: payload.confirmationId,
         approved: true,
-        metadata: { timestamp: new Date().toISOString(), responseTime: 0 },
+        metadata,
       },
-    });
+    } satisfies ConfirmationResponseEvent);
   } else {
     emitter.emit("hitl:confirmation-response", {
       type: "hitl:confirmation-response",
@@ -83,9 +92,9 @@ emitter.on("hitl:confirmation-request", async (event) => {
         confirmationId: payload.confirmationId,
         approved: false,
         reason: "User rejected",
-        metadata: { timestamp: new Date().toISOString(), responseTime: 0 },
+        metadata,
       },
-    });
+    } satisfies ConfirmationResponseEvent);
   }
 });
 ```

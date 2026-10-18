@@ -1,4 +1,8 @@
-import type { ConfirmationRequestEvent, NeuroLink } from "@juspay/neurolink";
+import type {
+  ConfirmationRequestEvent,
+  ConfirmationResponseEvent,
+  NeuroLink,
+} from "@juspay/neurolink";
 
 export const neurolinkConfig = {
   hitl: {
@@ -18,12 +22,20 @@ export const neurolinkConfig = {
 export function attachApprovalHandler(neurolink: NeuroLink): void {
   const emitter = neurolink.getEventEmitter();
   emitter.on("hitl:confirmation-request", async (event) => {
+    const receivedAt = Date.now();
     const { payload } = event as ConfirmationRequestEvent;
     const approved = await requestHumanApproval(payload.toolName);
     emitter.emit("hitl:confirmation-response", {
       type: "hitl:confirmation-response",
-      payload: { confirmationId: payload.confirmationId, approved },
-    });
+      payload: {
+        confirmationId: payload.confirmationId,
+        approved,
+        metadata: {
+          timestamp: new Date().toISOString(),
+          responseTime: Date.now() - receivedAt,
+        },
+      },
+    } satisfies ConfirmationResponseEvent);
   });
 }
 

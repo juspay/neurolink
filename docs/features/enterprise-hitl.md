@@ -37,7 +37,11 @@ Tracking: [#752](https://github.com/juspay/neurolink/issues/752).
 Anything else on this page is not implemented.
 
 ```typescript
-import { NeuroLink, type ConfirmationRequestEvent } from "@juspay/neurolink";
+import {
+  NeuroLink,
+  type ConfirmationRequestEvent,
+  type ConfirmationResponseEvent,
+} from "@juspay/neurolink";
 
 const neurolink = new NeuroLink({
   hitl: {
@@ -75,6 +79,7 @@ do not exist:
 const emitter = neurolink.getEventEmitter();
 
 emitter.on("hitl:confirmation-request", (event) => {
+  const receivedAt = Date.now();
   // Listener arguments are typed unknown, so narrow the event
   const { payload } = event as ConfirmationRequestEvent;
   const { confirmationId, toolName, arguments: args } = payload;
@@ -82,8 +87,15 @@ emitter.on("hitl:confirmation-request", (event) => {
   // Your approval UI / Slack / email integration decides here.
   emitter.emit("hitl:confirmation-response", {
     type: "hitl:confirmation-response",
-    payload: { confirmationId, approved: true },
-  });
+    payload: {
+      confirmationId,
+      approved: true,
+      metadata: {
+        timestamp: new Date().toISOString(),
+        responseTime: Date.now() - receivedAt, // ms since the request arrived
+      },
+    },
+  } satisfies ConfirmationResponseEvent);
 });
 ```
 

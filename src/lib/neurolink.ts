@@ -257,7 +257,7 @@ import { ProviderFactory } from "./factories/providerFactory.js";
 import { ProviderRegistry } from "./factories/providerRegistry.js";
 import { FileReferenceRegistry } from "./files/fileReferenceRegistry.js";
 import { createFileTools } from "./files/fileTools.js";
-import { HITLManager } from "./hitl/hitlManager.js";
+import { HITLManager, DEFAULT_ALLOW_MODIFICATION } from "./hitl/hitlManager.js";
 import { ToolCallBatcher } from "./mcp/batching/index.js";
 // MCP Enhancement modules - wired into core execution path
 import { ToolResultCache } from "./mcp/caching/index.js";
@@ -651,7 +651,10 @@ const MEMORY_WRITE_TIMEOUT_MS = 30_000;
  *
  * @example With HITL security
  * ```typescript
- * import type { ConfirmationRequestEvent } from '@juspay/neurolink';
+ * import type {
+ *   ConfirmationRequestEvent,
+ *   ConfirmationResponseEvent,
+ * } from '@juspay/neurolink';
  *
  * const neurolink = new NeuroLink({
  *   hitl: {
@@ -664,12 +667,20 @@ const MEMORY_WRITE_TIMEOUT_MS = 30_000;
  * // Approval is event-based; answer each request with the matching id
  * const emitter = neurolink.getEventEmitter();
  * emitter.on('hitl:confirmation-request', async (event) => {
+ *   const receivedAt = Date.now();
  *   const { payload } = event as ConfirmationRequestEvent; // listeners are typed unknown
  *   const approved = await askUser(payload); // your approval UI
  *   emitter.emit('hitl:confirmation-response', {
  *     type: 'hitl:confirmation-response',
- *     payload: { confirmationId: payload.confirmationId, approved }
- *   });
+ *     payload: {
+ *       confirmationId: payload.confirmationId,
+ *       approved,
+ *       metadata: {
+ *         timestamp: new Date().toISOString(),
+ *         responseTime: Date.now() - receivedAt // ms since the request arrived
+ *       }
+ *     }
+ *   } satisfies ConfirmationResponseEvent);
  * });
  * ```
  *
@@ -2267,7 +2278,7 @@ export class NeuroLink {
           dangerousActions: config.hitl.dangerousActions || [],
           timeout: config.hitl.timeout || 30000,
           allowArgumentModification:
-            config.hitl.allowArgumentModification ?? true,
+            config.hitl.allowArgumentModification ?? DEFAULT_ALLOW_MODIFICATION,
           auditLogging: config.hitl.auditLogging ?? false,
         },
         message: "Starting HITL (Human-in-the-Loop) initialization",
@@ -2308,7 +2319,7 @@ export class NeuroLink {
           dangerousActions: config.hitl.dangerousActions?.length || 0,
           timeout: config.hitl.timeout || 30000,
           allowArgumentModification:
-            config.hitl.allowArgumentModification ?? true,
+            config.hitl.allowArgumentModification ?? DEFAULT_ALLOW_MODIFICATION,
           auditLogging: config.hitl.auditLogging ?? false,
         });
       } catch (error) {

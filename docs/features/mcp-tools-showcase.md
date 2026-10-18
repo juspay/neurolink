@@ -181,7 +181,11 @@ const result = await neurolink.generate({
 **Example**:
 
 ```typescript
-import { NeuroLink, type ConfirmationRequestEvent } from "@juspay/neurolink";
+import {
+  NeuroLink,
+  type ConfirmationRequestEvent,
+  type ConfirmationResponseEvent,
+} from "@juspay/neurolink";
 
 // HITL is configured on the NeuroLink instance; generate() has no per-call hitl option
 const neurolink = new NeuroLink({
@@ -194,12 +198,20 @@ const neurolink = new NeuroLink({
 // Your app answers the request (see the HITL guide for the full handler)
 const emitter = neurolink.getEventEmitter();
 emitter.on("hitl:confirmation-request", async (event) => {
+  const receivedAt = Date.now();
   const { payload } = event as ConfirmationRequestEvent; // Listener arguments are typed unknown
   const approved = await askUser(payload); // Your approval UI
   emitter.emit("hitl:confirmation-response", {
     type: "hitl:confirmation-response",
-    payload: { confirmationId: payload.confirmationId, approved },
-  });
+    payload: {
+      confirmationId: payload.confirmationId,
+      approved,
+      metadata: {
+        timestamp: new Date().toISOString(),
+        responseTime: Date.now() - receivedAt, // ms since the request arrived
+      },
+    },
+  } satisfies ConfirmationResponseEvent);
 });
 
 const result = await neurolink.generate({

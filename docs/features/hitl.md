@@ -80,6 +80,7 @@ const emitter = neurolink.getEventEmitter();
 
 // (2)! Listen for confirmation requests
 emitter.on("hitl:confirmation-request", async (event) => {
+  const receivedAt = Date.now();
   const {
     confirmationId,
     toolName,
@@ -104,7 +105,7 @@ emitter.on("hitl:confirmation-request", async (event) => {
       reason: approved ? undefined : "User denied permission",
       metadata: {
         timestamp: new Date().toISOString(),
-        responseTime: Date.now(), // Track response speed
+        responseTime: Date.now() - receivedAt, // Milliseconds since the request arrived
       },
     },
   });
@@ -245,6 +246,7 @@ const tool = {
 const emitter = neurolink.getEventEmitter();
 
 emitter.on("hitl:confirmation-request", async (event) => {
+  const receivedAt = Date.now();
   const { confirmationId } = event.payload; // (1)!
 
   const approved = await showConfirmationDialog(event.payload);
@@ -257,7 +259,7 @@ emitter.on("hitl:confirmation-request", async (event) => {
       approved,
       metadata: {
         timestamp: new Date().toISOString(),
-        responseTime: Date.now(),
+        responseTime: Date.now() - receivedAt,
       },
     },
   });

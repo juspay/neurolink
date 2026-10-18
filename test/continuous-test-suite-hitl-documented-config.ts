@@ -8,8 +8,12 @@
  * dropped, audit events stay on the HITLManager, and the removed enterprise
  * shape does not construct. The documented handlers are compiled with strict
  * TypeScript against `dist/index.d.ts`, every enterprise-page heading whose
- * code uses an unimplemented key must be marked `(Planned)`, and no doc
- * example may enable HITL without `dangerousActions`.
+ * code uses an unimplemented key must be marked `(Planned)`, no doc example
+ * may enable HITL without `dangerousActions`, and every documented
+ * `hitl:confirmation-response` must satisfy `ConfirmationResponseEvent`
+ * (including the `metadata` the type requires) with a measured `responseTime`.
+ * The init logs must report the `allowArgumentModification` the approval
+ * request carries.
  *
  * Offline: no provider is called; tools are local fixtures.
  */
@@ -17,7 +21,7 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
-import { HITLManager, NeuroLink } from "../dist/index.js";
+import { HITLManager, NeuroLink, logger } from "../dist/index.js";
 import {
   assert,
   assertEqual,
@@ -196,7 +200,11 @@ type ToolFixture = {
 };
 
 const createFixture = (
-  hitl: { timeout?: number; auditLogging?: boolean },
+  hitl: {
+    timeout?: number;
+    auditLogging?: boolean;
+    allowArgumentModification?: boolean;
+  },
   decide: ((payload: Record<string, unknown>) => boolean) | null,
   modifiedArguments?: unknown,
 ): ToolFixture => {
@@ -280,6 +288,78 @@ await test("documented flow: with no answer the call times out and does not run"
   assertEqual(fixture.executions(), 0);
   assertEqual(timeouts, 1);
 });
+
+// The init logs are what an operator reads to learn the effective policy, so
+// they must report the value the approval request will carry, not their own
+// guess at the default.
+type LoggedCall = { message: string; data: Record<string, unknown> };
+
+const captureLogs = <T>(build: () => T): { result: T; calls: LoggedCall[] } => {
+  const calls: LoggedCall[] = [];
+  const original = { debug: logger.debug, info: logger.info };
+  const record = (...args: unknown[]): void => {
+    const [message, data] = args;
+    calls.push({
+      message: String(message),
+      data:
+        typeof data === "object" && data !== null
+          ? Object.fromEntries(Object.entries(data))
+          : {},
+    });
+  };
+  logger.debug = record;
+  logger.info = record;
+  try {
+    return { result: build(), calls };
+  } finally {
+    logger.debug = original.debug;
+    logger.info = original.info;
+  }
+};
+
+const loggedAllowModification = (
+  calls: LoggedCall[],
+): { started: unknown; enabled: unknown } => {
+  const started = calls.find((call) =>
+    call.message.includes("LOG_POINT_C015_HITL_INIT_START"),
+  );
+  const enabled = calls.find((call) =>
+    call.message.includes("HITL safety features enabled"),
+  );
+  assertNotNull(started, "no HITL init start log was captured");
+  assertNotNull(enabled, "no HITL enabled log was captured");
+  const startedConfig = started.data.hitlConfig;
+  if (typeof startedConfig !== "object" || startedConfig === null) {
+    throw new Error("the init start log has no hitlConfig object");
+  }
+  return {
+    started: Object.fromEntries(Object.entries(startedConfig))
+      .allowArgumentModification,
+    enabled: enabled.data.allowArgumentModification,
+  };
+};
+
+for (const configured of [undefined, false, true] as const) {
+  await test(`init logs report allowArgumentModification=${configured ?? "(omitted)"} as the request event does`, async () => {
+    const { result: fixture, calls } = captureLogs(() =>
+      createFixture(
+        {
+          timeout: 5000,
+          ...(configured === undefined
+            ? {}
+            : { allowArgumentModification: configured }),
+        },
+        () => true,
+      ),
+    );
+    await fixture.neurolink.executeTool("fixture_write", {});
+    const advertised = fixture.requests()[0].allowModification;
+    assertEqual(advertised, configured ?? false);
+    const logged = loggedAllowModification(calls);
+    assertEqual(logged.started, advertised);
+    assertEqual(logged.enabled, advertised);
+  });
+}
 
 await test("auditLogging emits hitl:audit on the HITLManager, not on the NeuroLink emitter", async () => {
   const manager = new HITLManager({
@@ -498,6 +578,30 @@ neurolink.getEventEmitter().on("hitl:confirmation-request", async (event) => {
 });
 `;
 
+// The reply a handler must send: `metadata` is required by the type, so a
+// documented reply that omits it must fail to compile, not just read oddly
+const RESPONSE_WITHOUT_METADATA = `
+import { NeuroLink, type ConfirmationResponseEvent } from "@juspay/neurolink";
+const emitter = new NeuroLink().getEventEmitter();
+emitter.emit("hitl:confirmation-response", {
+  type: "hitl:confirmation-response",
+  payload: { confirmationId: "id", approved: true },
+} satisfies ConfirmationResponseEvent);
+`;
+
+const RESPONSE_WITH_METADATA = `
+import { NeuroLink, type ConfirmationResponseEvent } from "@juspay/neurolink";
+const emitter = new NeuroLink().getEventEmitter();
+emitter.emit("hitl:confirmation-response", {
+  type: "hitl:confirmation-response",
+  payload: {
+    confirmationId: "id",
+    approved: true,
+    metadata: { timestamp: new Date().toISOString(), responseTime: 12 },
+  },
+} satisfies ConfirmationResponseEvent);
+`;
+
 const compileSnippets = (
   snippets: ReadonlyArray<{ name: string; code: string }>,
   realFiles: ReadonlyArray<string>,
@@ -559,7 +663,12 @@ const EXAMPLE_APP_CONFIG = join(
 );
 const hitlSnippets = readHitlSnippets();
 const compiled = compileSnippets(
-  [...hitlSnippets, { name: "unnarrowed handler", code: UNNARROWED_HANDLER }],
+  [
+    ...hitlSnippets,
+    { name: "unnarrowed handler", code: UNNARROWED_HANDLER },
+    { name: "response without metadata", code: RESPONSE_WITHOUT_METADATA },
+    { name: "response with metadata", code: RESPONSE_WITH_METADATA },
+  ],
   [EXAMPLE_APP_CONFIG],
 );
 
@@ -569,6 +678,35 @@ await test("type-check control: an unnarrowed event.payload is rejected as unkno
     diagnostics.some((message) => message.startsWith("TS18046")),
     `the control did not fail as expected: ${diagnostics.join(" | ") || "no diagnostics"}`,
   );
+});
+
+await test("type-check control: a response without metadata does not satisfy ConfirmationResponseEvent (TS2741)", async () => {
+  const diagnostics = compiled.get("response without metadata") ?? [];
+  assert(
+    diagnostics.some((message) => message.startsWith("TS2741")),
+    `the control did not fail as expected: ${diagnostics.join(" | ") || "no diagnostics"}`,
+  );
+});
+
+await test("type-check control: a response with metadata satisfies ConfirmationResponseEvent", async () => {
+  const diagnostics = compiled.get("response with metadata") ?? [
+    "not compiled",
+  ];
+  assertEqual(diagnostics.join("\n"), "");
+});
+
+const RESPONSE_EMIT = /\.emit\(\s*["']hitl:confirmation-response["']/;
+
+await test("every documented handler checks its reply against ConfirmationResponseEvent", async () => {
+  const emitting = hitlSnippets.filter(({ code }) => RESPONSE_EMIT.test(code));
+  assert(
+    emitting.length >= 7,
+    `only ${emitting.length} snippets emit a reply, so the check measured too little`,
+  );
+  const unchecked = emitting
+    .filter(({ code }) => !code.includes("satisfies ConfirmationResponseEvent"))
+    .map(({ name }) => name);
+  assertEqual(unchecked.join(" | "), "");
 });
 
 for (const { name } of hitlSnippets) {
@@ -687,23 +825,109 @@ await test("mcp-tools-showcase.md uses no unimplemented HITL key", async () => {
   assertEqual(hits.map(({ heading }) => heading).join(" | "), "");
 });
 
+const userDocFiles = (): string[] => [
+  "README.md",
+  "SECURITY.md",
+  ...readdirSync(join(REPO_ROOT, "docs"), { recursive: true })
+    .map(String)
+    .filter((file) => file.endsWith(".md") && !file.startsWith("api/"))
+    .map((file) => `docs/${file}`),
+];
+
 await test("no doc example enables HITL without dangerousActions", async () => {
   // The enterprise page is a design sketch; the planned-marker test covers it
   const sketch = "docs/features/enterprise-hitl.md";
-  const files = [
-    "README.md",
-    "SECURITY.md",
-    ...readdirSync(join(REPO_ROOT, "docs"), { recursive: true })
-      .map(String)
-      .filter((file) => file.endsWith(".md") && !file.startsWith("api/"))
-      .map((file) => `docs/${file}`),
-  ].filter((file) => file !== sketch);
+  const files = userDocFiles().filter((file) => file !== sketch);
   const offenders = files.flatMap((file) =>
     extractFences(readText(file))
       .filter((fence) => enabledWithoutDangerousActions(fence.body))
       .map((fence) => `${file}:${fence.line}`),
   );
   assertEqual(offenders.join(", "), "");
+});
+
+// ---------------------------------------------------------------------------
+// Every documented reply carries the metadata the type requires
+// ---------------------------------------------------------------------------
+
+// Text-level, so it also covers the pages whose fences are not compiled
+const replyProblems = (code: string): string[] => {
+  if (!RESPONSE_EMIT.test(code)) {
+    return [];
+  }
+  const problems: string[] = [];
+  // `metadata,` shorthand counts: the object literal is still checked by `satisfies`
+  if (!/\bmetadata\s*[:,}]/.test(code)) {
+    problems.push("no metadata");
+  }
+  if (!/\btimestamp\s*:/.test(code)) {
+    problems.push("no metadata.timestamp");
+  }
+  if (!/\bresponseTime\s*:/.test(code)) {
+    problems.push("no metadata.responseTime");
+  }
+  if (/\bresponseTime\s*:\s*(0|Date\.now\(\))\s*[,}\n]/.test(code)) {
+    problems.push("responseTime is not elapsed time");
+  }
+  return problems;
+};
+
+await test("reply control: a reply with no metadata, a zero or an epoch responseTime is flagged", async () => {
+  const emit = (payload: string): string =>
+    `emitter.emit("hitl:confirmation-response", { type: "hitl:confirmation-response", payload: { ${payload} } });`;
+  assertEqual(replyProblems("emitter.on('x', () => {})").length, 0);
+  assertEqual(
+    replyProblems(emit("confirmationId, approved")).join(", "),
+    "no metadata, no metadata.timestamp, no metadata.responseTime",
+  );
+  assertEqual(
+    replyProblems(
+      emit(
+        "metadata: { timestamp: new Date().toISOString(), responseTime: 0 }",
+      ),
+    ).join(", "),
+    "responseTime is not elapsed time",
+  );
+  assertEqual(
+    replyProblems(
+      emit(
+        "metadata: { timestamp: new Date().toISOString(), responseTime: Date.now(), }",
+      ),
+    ).join(", "),
+    "responseTime is not elapsed time",
+  );
+  assertEqual(
+    replyProblems(
+      emit(
+        "metadata: { timestamp: new Date().toISOString(), responseTime: Date.now() - receivedAt }",
+      ),
+    ).join(", "),
+    "",
+  );
+});
+
+await test("every documented hitl:confirmation-response carries timestamp and a measured responseTime", async () => {
+  const offenders = [
+    ...userDocFiles().flatMap((file) =>
+      extractFences(readText(file))
+        .filter((fence) => TS_LANGS.has(fence.lang))
+        .map((fence) => ({
+          where: `${file}:${fence.line}`,
+          problems: replyProblems(fence.body),
+        })),
+    ),
+    {
+      where: "examples/projects/enterprise-app",
+      problems: replyProblems(readFileSync(EXAMPLE_APP_CONFIG, "utf8")),
+    },
+    {
+      where: "neurolink.ts JSDoc",
+      problems: replyProblems(readJsdocHitlExample()),
+    },
+  ]
+    .filter(({ problems }) => problems.length > 0)
+    .map(({ where, problems }) => `${where} (${problems.join(", ")})`);
+  assertEqual(offenders.join(" | "), "");
 });
 
 await runSuite();

@@ -23,7 +23,8 @@ import { logger } from "../utils/logger.js";
 
 // Default configuration constants
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
-const DEFAULT_ALLOW_MODIFICATION = false;
+// Shared with NeuroLink's HITL init logs so they report the policy applied here
+export const DEFAULT_ALLOW_MODIFICATION = false;
 
 /**
  * HITLManager - Central orchestrator for Human-in-the-Loop safety mechanisms

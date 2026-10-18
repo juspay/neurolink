@@ -72,7 +72,11 @@ When using NeuroLink in production, follow these security best practices:
 NeuroLink includes a production-ready HITL system for high-stakes operations:
 
 ```typescript
-import { NeuroLink, type ConfirmationRequestEvent } from "@juspay/neurolink";
+import {
+  NeuroLink,
+  type ConfirmationRequestEvent,
+  type ConfirmationResponseEvent,
+} from "@juspay/neurolink";
 
 const neurolink = new NeuroLink({
   hitl: {
@@ -89,13 +93,14 @@ const neurolink = new NeuroLink({
     timeout: 60000, // 60 seconds for user response
     autoApproveOnTimeout: false, // Reject on timeout for safety
     allowArgumentModification: true, // Hint for the approval UI; not enforced
-    auditLogging: true, // Log each approval request and decision
+    auditLogging: true, // Log each approval request and decision, with the full tool arguments
   },
 });
 
 // Listen for confirmation requests using events
 const emitter = neurolink.getEventEmitter();
 emitter.on("hitl:confirmation-request", async (event) => {
+  const receivedAt = Date.now();
   // The emitter types listener arguments as unknown, so narrow the event
   const { payload } = event as ConfirmationRequestEvent;
   const { confirmationId, toolName, arguments: args } = payload;
@@ -113,11 +118,16 @@ emitter.on("hitl:confirmation-request", async (event) => {
       confirmationId,
       approved,
       reason: approved ? undefined : "Denied by security policy",
-      metadata: { timestamp: new Date().toISOString() },
+      metadata: {
+        timestamp: new Date().toISOString(),
+        responseTime: Date.now() - receivedAt, // ms since the request arrived
+      },
     },
-  });
+  } satisfies ConfirmationResponseEvent);
 });
 ```
+
+> **Audit logs hold tool arguments.** With `auditLogging: true`, each request and decision is written to the NeuroLink logger at info level, and every entry includes the full tool arguments. Redact secrets and personal data at the logger sink, or send the logs to a protected sink that only reviewers can read.
 
 **Use HITL for:**
 
@@ -181,10 +191,12 @@ const neurolink = new NeuroLink({
   hitl: {
     enabled: true,
     dangerousActions: ["delete", "remove", "drop"], // Required when enabled
-    auditLogging: true, // Logs each approval request and decision
+    auditLogging: true, // Logs each approval request and decision, with the full tool arguments
   },
 });
 ```
+
+Audit entries include the full tool arguments, so redact sensitive fields at the logger sink or send the logs to a protected sink.
 
 ### Guardrails Middleware
 
