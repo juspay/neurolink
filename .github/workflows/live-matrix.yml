@@ -213,6 +213,18 @@ jobs:
           RECRAFT_API_KEY: ${{ secrets.RECRAFT_API_KEY }}
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
           API_ROUTE_API_KEY: ${{ secrets.API_ROUTE_API_KEY }}
+          # Only each provider's primary secret name is mapped in this group. A key
+          # stored under a fallback env var name (RUNINFRA_API_KEY, MIMO_API_KEY) is
+          # not passed to the matrix, so create the secret under the name mapped here.
+          A2AGENT_API_KEY: ${{ secrets.A2AGENT_API_KEY }}
+          ABLITERATION_API_KEY: ${{ secrets.ABLITERATION_API_KEY }}
+          AIHUBMIX_API_KEY: ${{ secrets.AIHUBMIX_API_KEY }}
+          LONGCAT_API_KEY: ${{ secrets.LONGCAT_API_KEY }}
+          NAVER_CLOVA_STUDIO_API_KEY: ${{ secrets.NAVER_CLOVA_STUDIO_API_KEY }}
+          # RunInfra's catalog entry overrides the key name: the matrix reads
+          # RUNINFRA_GATEWAY_KEY, and RUNINFRA_API_KEY is only its fallback.
+          RUNINFRA_GATEWAY_KEY: ${{ secrets.RUNINFRA_GATEWAY_KEY }}
+          XIAOMI_MIMO_API_KEY: ${{ secrets.XIAOMI_MIMO_API_KEY }}
 
       # The CLI mirror of the sweep above (dist/cli/index.js against the same
       # PROVIDERS matrix, minus embed-only providers the CLI has no command
@@ -324,6 +336,18 @@ jobs:
           STACKIT_API_KEY: ${{ secrets.STACKIT_API_KEY }}
           BYTEZ_API_KEY: ${{ secrets.BYTEZ_API_KEY }}
           API_ROUTE_API_KEY: ${{ secrets.API_ROUTE_API_KEY }}
+          # Only each provider's primary secret name is mapped in this group. A key
+          # stored under a fallback env var name (RUNINFRA_API_KEY, MIMO_API_KEY) is
+          # not passed to the matrix, so create the secret under the name mapped here.
+          A2AGENT_API_KEY: ${{ secrets.A2AGENT_API_KEY }}
+          ABLITERATION_API_KEY: ${{ secrets.ABLITERATION_API_KEY }}
+          AIHUBMIX_API_KEY: ${{ secrets.AIHUBMIX_API_KEY }}
+          LONGCAT_API_KEY: ${{ secrets.LONGCAT_API_KEY }}
+          NAVER_CLOVA_STUDIO_API_KEY: ${{ secrets.NAVER_CLOVA_STUDIO_API_KEY }}
+          # RunInfra's catalog entry overrides the key name: the matrix reads
+          # RUNINFRA_GATEWAY_KEY, and RUNINFRA_API_KEY is only its fallback.
+          RUNINFRA_GATEWAY_KEY: ${{ secrets.RUNINFRA_GATEWAY_KEY }}
+          XIAOMI_MIMO_API_KEY: ${{ secrets.XIAOMI_MIMO_API_KEY }}
 
       # The JSON-validity/huge-text E2E suite, which spans nearly the same
       # provider breadth as the sweep above (tools-active structured output
