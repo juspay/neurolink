@@ -150,7 +150,8 @@ export type OpenAICompatStreamDelta = {
   role?: OpenAICompatChatRole;
   content?: string | null;
   tool_calls?: Array<{
-    index: number;
+    // Absent on Gemini's OpenAI-compatible endpoint.
+    index?: number;
     id?: string;
     type?: "function";
     function?: {

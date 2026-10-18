@@ -72,6 +72,7 @@ import {
 import { htmlToMarkdown } from "../src/lib/utils/htmlToMarkdown.js";
 import { formatMediaDuration } from "../src/lib/utils/mediaDuration.js";
 import { decodeBuffer } from "../src/lib/utils/textEncoding.js";
+import { parseSSEStream } from "../src/lib/providers/openaiChatCompletionsClient.js";
 import { CSVLoader } from "../src/lib/rag/document/loaders.js";
 import {
   AIProviderName,
@@ -12150,7 +12151,172 @@ exit 127
       );
     },
   },
+  // ---------- OpenAI-compatible SSE tool-call accumulation ----------
+  {
+    name: "parseSSEStream keeps parallel tool calls apart when deltas carry no index (Gemini OpenAI-compatible endpoint)",
+    category: "openai-compatible-sse",
+    fn: async () => {
+      // Shape of a real gemini-3.5-flash stream from
+      // generativelanguage.googleapis.com/v1beta/openai: each call arrives
+      // whole in its own chunk, without `index`.
+      const events = [
+        {
+          choices: [
+            {
+              index: 0,
+              delta: {
+                role: "assistant",
+                tool_calls: [
+                  {
+                    extra_content: { google: { thought_signature: "sig" } },
+                    function: {
+                      arguments: '{"city":"Paris"}',
+                      name: "get_weather",
+                    },
+                    id: "call_1",
+                    type: "function",
+                  },
+                ],
+              },
+              finish_reason: null,
+            },
+          ],
+        },
+        {
+          choices: [
+            {
+              index: 0,
+              delta: {
+                role: "assistant",
+                tool_calls: [
+                  {
+                    function: {
+                      arguments: '{"city":"Tokyo"}',
+                      name: "get_weather",
+                    },
+                    id: "call_2",
+                    type: "function",
+                  },
+                ],
+              },
+              finish_reason: "stop",
+            },
+          ],
+        },
+      ];
+      const sse = await parseSSEStream(sseBody(events), () => {});
+      const calls = [...sse.toolCalls.values()];
+      return (
+        calls.length === 2 &&
+        calls[0]?.id === "call_1" &&
+        calls[0]?.argsBuffered === '{"city":"Paris"}' &&
+        calls[1]?.id === "call_2" &&
+        calls[1]?.argsBuffered === '{"city":"Tokyo"}'
+      );
+    },
+  },
+  {
+    name: "parseSSEStream merges argument fragments of one unindexed tool call",
+    category: "openai-compatible-sse",
+    fn: async () => {
+      const delta = (toolCall: Record<string, unknown>) => ({
+        choices: [
+          { index: 0, delta: { tool_calls: [toolCall] }, finish_reason: null },
+        ],
+      });
+      const sse = await parseSSEStream(
+        sseBody([
+          delta({
+            id: "call_1",
+            type: "function",
+            function: { name: "get_weather", arguments: '{"city":' },
+          }),
+          delta({ function: { arguments: '"Par' } }),
+          delta({ function: { arguments: 'is"}' } }),
+        ]),
+        () => {},
+      );
+      const calls = [...sse.toolCalls.values()];
+      return (
+        calls.length === 1 &&
+        calls[0]?.id === "call_1" &&
+        calls[0]?.argsBuffered === '{"city":"Paris"}'
+      );
+    },
+  },
+  {
+    name: "parseSSEStream gives an unindexed tool call its own key after an indexed one",
+    category: "openai-compatible-sse",
+    fn: async () => {
+      const delta = (toolCall: Record<string, unknown>) => ({
+        choices: [
+          { index: 0, delta: { tool_calls: [toolCall] }, finish_reason: null },
+        ],
+      });
+      const sse = await parseSSEStream(
+        sseBody([
+          delta({
+            index: 1,
+            id: "call_a",
+            type: "function",
+            function: { name: "get_weather", arguments: '{"city":' },
+          }),
+          delta({ function: { arguments: '"Paris"}' } }),
+          delta({
+            id: "call_b",
+            type: "function",
+            function: { name: "get_time", arguments: "{}" },
+          }),
+        ]),
+        () => {},
+      );
+      const calls = [...sse.toolCalls.values()];
+      return (
+        calls.length === 2 &&
+        calls[0]?.id === "call_a" &&
+        calls[0]?.argsBuffered === '{"city":"Paris"}' &&
+        calls[1]?.id === "call_b" &&
+        calls[1]?.argsBuffered === "{}"
+      );
+    },
+  },
+  {
+    name: "parseSSEStream still merges indexed tool-call argument deltas",
+    category: "openai-compatible-sse",
+    fn: async () => {
+      const delta = (toolCall: Record<string, unknown>) => ({
+        choices: [
+          { index: 0, delta: { tool_calls: [toolCall] }, finish_reason: null },
+        ],
+      });
+      const sse = await parseSSEStream(
+        sseBody([
+          delta({
+            index: 0,
+            id: "call_1",
+            type: "function",
+            function: { name: "get_weather", arguments: '{"city":' },
+          }),
+          delta({ index: 0, function: { arguments: '"Paris"}' } }),
+        ]),
+        () => {},
+      );
+      const calls = [...sse.toolCalls.values()];
+      return (
+        calls.length === 1 &&
+        calls[0]?.id === "call_1" &&
+        calls[0]?.argsBuffered === '{"city":"Paris"}'
+      );
+    },
+  },
 ];
+
+function sseBody(events: unknown[]): ReadableStream<Uint8Array> {
+  const text =
+    events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("") +
+    "data: [DONE]\n\n";
+  return new Response(text).body as ReadableStream<Uint8Array>;
+}
 
 // ============================================================================
 // Runner
