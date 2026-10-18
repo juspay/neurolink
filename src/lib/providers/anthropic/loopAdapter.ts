@@ -481,9 +481,13 @@ export function createAnthropicLoopAdapter<
                 ? params.thinking.budget_tokens
                 : undefined,
           },
-          input: {
-            system: params.system,
-            messages: sanitizeAnthropicMessagesForTrace(params.messages),
+          // Read only by a recording span, so a request nobody traces is not
+          // copied and sanitized on every step.
+          get input() {
+            return {
+              system: params.system,
+              messages: sanitizeAnthropicMessagesForTrace(params.messages),
+            };
           },
         },
       };

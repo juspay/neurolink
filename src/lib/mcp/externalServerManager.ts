@@ -38,6 +38,7 @@ import { HITLUserRejectedError, HITLTimeoutError } from "../hitl/hitlErrors.js";
 import { detectCategory } from "../utils/mcpDefaults.js";
 
 import { isObject, isNonNullObject } from "../utils/typeUtils.js";
+import { recordMCPToolCall } from "../telemetry/aiMetrics.js";
 import { tracers } from "../telemetry/tracers.js";
 import { SpanStatusCode } from "@opentelemetry/api";
 
@@ -2672,8 +2673,9 @@ export class ExternalServerManager extends EventEmitter {
       if (result.success) {
         // A resolved `{ isError: true }` still comes back with success:true so
         // the caller receives the MCP error payload as-is, but it is a failed
-        // call for telemetry: label mcp_tool_calls_total accordingly instead
-        // of counting every resolved error as a success.
+        // call for telemetry: count it in the server's totalErrors and as
+        // success=false in mcp_tool_calls_total instead of counting every
+        // resolved error as a success.
         const resolvedError = result.isErrorResult === true;
         if (resolvedError) {
           instance.metrics.totalErrors++;
@@ -2686,12 +2688,14 @@ export class ExternalServerManager extends EventEmitter {
             duration,
           },
         );
+        recordMCPToolCall(toolName, duration, !resolvedError);
         return result.data;
       } else {
         throw new Error(result.error || "Tool execution failed");
       }
     } catch (error) {
       instance.metrics.totalErrors++;
+      recordMCPToolCall(toolName, Date.now() - startTime, false);
 
       mcpLogger.error(
         `[ExternalServerManager] Tool execution failed: ${toolName} on ${serverId}`,

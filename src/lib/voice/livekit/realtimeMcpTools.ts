@@ -15,6 +15,7 @@
  * See docs/features/livekit-voice-agent.md.
  */
 
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { llm as llmNs } from "@livekit/agents";
 import { logger } from "../../utils/logger.js";
@@ -207,8 +208,11 @@ export async function buildRealtimeMcpTools(
             args: args ?? {},
           });
           publishEvent("tool-start", { name: mcpTool.name });
+          // Concurrent calls of one tool can end in any order; the id lets the
+          // turn record give each its own result.
+          const callId = randomUUID();
           observe(() =>
-            onToolStart?.({ name: mcpTool.name, args: args ?? {} }),
+            onToolStart?.({ name: mcpTool.name, args: args ?? {}, callId }),
           );
           const startedAt = Date.now();
           try {
@@ -237,6 +241,7 @@ export async function buildRealtimeMcpTools(
             observe(() =>
               onToolEnd?.({
                 name: mcpTool.name,
+                callId,
                 ...(result.isError === true
                   ? { error: text }
                   : { result: text }),
@@ -251,7 +256,11 @@ export async function buildRealtimeMcpTools(
             });
             publishEvent("tool-result", { name: mcpTool.name, result: null });
             observe(() =>
-              onToolEnd?.({ name: mcpTool.name, error: String(error) }),
+              onToolEnd?.({
+                name: mcpTool.name,
+                callId,
+                error: String(error),
+              }),
             );
             return `Tool ${mcpTool.name} failed: ${String(error)}`;
           }

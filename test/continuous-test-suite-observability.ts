@@ -806,7 +806,7 @@ await test("a base64 data URL in a prompt is replaced by a size placeholder", as
   assert(!input.includes("QUJDQUJD"), "base64 payload reached the span");
 });
 
-await test("user, session, tags and metadata ride on every span", async () => {
+await test("user, session, tags and metadata ride on every span through the @langfuse/otel processor", async () => {
   clear();
   await nl.generate(request("gpt-4o-mini"));
   const spans = await everySpan();
@@ -831,7 +831,7 @@ await test("user, session, tags and metadata ride on every span", async () => {
   }
 });
 
-await test("environment and release come from the environment on every span", async () => {
+await test("environment and release come from the environment on every span through the @langfuse/otel processor", async () => {
   clear();
   await nl.generate(request("gpt-4o-mini"));
   for (const span of await everySpan()) {
@@ -2284,6 +2284,7 @@ async function runHost(env: Record<string, string>): Promise<{
         DOTENV_CONFIG_PATH: "/dev/null",
         NEUROLINK_SKIP_MCP: "true",
         OBS_INGEST_URL: receiver.baseUrl,
+        LANGFUSE_BASE_URL: receiver.baseUrl,
         OBS_OPENAI_URL: fake.baseURL,
         ...env,
       },
@@ -2361,11 +2362,19 @@ await test("two NeuroLink instances never register a second exporter", async () 
   }
 });
 
-await test("a host provider without Langfuse configured registers no exporter and is unhealthy", async () => {
+await test("a host provider without Langfuse configured registers no exporter, is unhealthy and sends nothing", async () => {
   const run = await runHost({ HOST_PROCESSOR: "1" });
   assert(!run.status.isHealthy, "health claimed an exporter that is not there");
   assert(!run.status.hasProcessor, "an exporter was registered without keys");
   assertEqual(run.spans.length, 0, "spans were exported without keys");
+  // The receiver is addressed through LANGFUSE_BASE_URL in both runs; only the
+  // keys differ, so the silence above is not just an unreachable receiver.
+  const keyed = await runHost({
+    HOST_PROCESSOR: "1",
+    LANGFUSE_PUBLIC_KEY: "pk-env",
+    LANGFUSE_SECRET_KEY: "sk-env",
+  });
+  assert(keyed.spans.length > 0, "keys in the environment exported nothing");
 });
 
 await runSuite();

@@ -633,6 +633,7 @@ async function* runTranslationAttempts(args: {
   format: ProxyFormat;
   parsed: ParsedClaudeRequest | ParsedOpenAIRequest | ParsedGeminiRequest;
   attempts: ProxyTranslationAttempt[];
+  tracer?: ProxyTracer;
   requestStartTime: number;
   request: ReturnType<typeof createTranslationRequest>;
   options?: Parameters<ServerContext["neurolink"]["stream"]>[0];
@@ -761,18 +762,21 @@ async function* runTranslationAttempts(args: {
         },
       });
       recordAttempt(attempt.label ?? "translation", "translation");
-      const result = await raceWithAbort(
+      const modelCall = () =>
         ctx.neurolink.stream(
           request.withVettedImages(prepared.body) as Parameters<
             typeof ctx.neurolink.stream
           >[0],
-        ),
+        );
+      const result = await raceWithAbort(
+        args.tracer ? args.tracer.runModelCall(modelCall) : modelCall(),
         signal,
       );
       request.setResult(result);
-      const iterator = (result.stream as AsyncIterable<unknown>)[
+      const source = (result.stream as AsyncIterable<unknown>)[
         Symbol.asyncIterator
       ]();
+      const iterator = args.tracer ? args.tracer.modelStream(source) : source;
       request.setIterator(iterator);
       let hasText = false;
       while (true) {

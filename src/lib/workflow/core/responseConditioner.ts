@@ -37,6 +37,7 @@ export async function conditionResponse(
     {
       name: "neurolink.workflow.response.condition",
       tracer: tracers.workflow,
+      observationType: "span",
       attributes: {
         "workflow.conditioning.enabled": Boolean(options.config?.useConfidence),
         "workflow.conditioning.has_synthesis_model": Boolean(

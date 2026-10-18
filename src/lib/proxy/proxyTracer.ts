@@ -25,8 +25,15 @@ import {
   metrics,
   trace,
 } from "@opentelemetry/api";
-import { setLangfuseContext } from "../services/server/ai/observability/instrumentation.js";
-import { spanContentAttribute } from "../telemetry/attributes.js";
+import { PROXY_TRACER_SCOPE } from "../constants/telemetry.js";
+import {
+  ensureTelemetry,
+  setLangfuseContext,
+} from "../services/server/ai/observability/instrumentation.js";
+import {
+  spanContentAttribute,
+  withoutSpanContent,
+} from "../telemetry/attributes.js";
 import {
   observationLevel,
   observe,
@@ -34,6 +41,7 @@ import {
   usageDetails,
 } from "../telemetry/observation.js";
 import { generationName } from "../telemetry/observationNames.js";
+import { recordAIRequest } from "../telemetry/aiMetrics.js";
 import { proxyTokenUsage } from "./proxyTokenUsage.js";
 import {
   calculateCost,
@@ -63,11 +71,12 @@ import type {
 // ---------------------------------------------------------------------------
 // OTEL Metric Instruments — lazy singleton
 //
-// The MeterProvider is registered in initializeOpenTelemetry() which runs
-// *after* module import time.  @opentelemetry/api v1.x getMeter() returns a
-// NoopMeter if called before a real MeterProvider is set.  We therefore
-// defer instrument creation until the first ProxyTracer.end() call, at which
-// point the MeterProvider is guaranteed to be registered.
+// The MeterProvider is created by ensureTelemetry() (instrumentation.ts) when
+// OTEL_EXPORTER_OTLP_ENDPOINT is set; `neurolink proxy start` calls it at
+// startup, *after* module import time.  @opentelemetry/api v1.x getMeter()
+// returns a NoopMeter if called before a real MeterProvider is set.  We
+// therefore defer instrument creation until the first ProxyTracer.end()
+// call, at which point the MeterProvider is registered.
 // ---------------------------------------------------------------------------
 
 let _metrics: ProxyMetrics | null = null;
@@ -210,8 +219,22 @@ function redactHeaders(
 /** Redact sensitive JSON fields in request/response bodies before logging. */
 const SENSITIVE_BODY_KEYS =
   /api[_-]?key|token|secret|password|credential|authorization/i;
-const BODY_LOGGING_ENABLED =
+const envFlag = (name: string): string | undefined =>
+  process.env[name]?.trim().toLowerCase();
+
+/**
+ * Request and response bodies, both as observation input and output and as raw
+ * span events, are recorded only on an explicit
+ * `NEUROLINK_PROXY_TRACE_BODY_LOGGING=true`, read per call. Bodies are the
+ * most sensitive thing a proxy sees, so tracing the request alone never turns
+ * them on.
+ */
+const bodyLoggingEnabled = (): boolean =>
   process.env.NEUROLINK_PROXY_TRACE_BODY_LOGGING === "true";
+
+/** `NEUROLINK_RECORD_INPUTS=false` keeps request content out of every trace. */
+const recordInputsEnabled = (): boolean =>
+  envFlag("NEUROLINK_RECORD_INPUTS") !== "false";
 const MAX_BODY_LOG_SIZE = Number.parseInt(
   process.env.NEUROLINK_PROXY_TRACE_BODY_LOG_BYTES ?? "8192",
   10,
@@ -286,7 +309,7 @@ function detectClientApp(userAgent?: string): string {
 class ProxyTracer {
   private readonly rootSpan: Span;
   private readonly traceContext: Context;
-  private readonly proxyTracer = trace.getTracer("proxy");
+  private readonly proxyTracer = trace.getTracer(PROXY_TRACER_SCOPE);
   private readonly requestId: string;
   /**
    * Model used for costing. Starts as the model the client asked for and is
@@ -314,6 +337,12 @@ class ProxyTracer {
   private readonly requestedModel: string;
   private input?: JsonValue;
   private output?: JsonValue | ResponseInfoContext["output"];
+  /** The parsed response outranks the raw upstream body that arrives after it. */
+  private outputIsParsed = false;
+  /** A model call made through `runModelCall` records the generation. */
+  private modelCallDelegated = false;
+  /** That call's records carry no content; fixed when the call starts. */
+  private modelContentWithheld = false;
   private responseModel?: string;
   private finishReason?: string;
   private firstOutputAt?: number;
@@ -349,7 +378,11 @@ class ProxyTracer {
     ctx: ProxyRequestContext,
     incomingHeaders?: Record<string, string>,
   ): ProxyTracer {
-    const tracer = trace.getTracer("proxy");
+    // The proxy tracer is not a scrubbed tracer, so nothing else starts
+    // telemetry before its first root span; without this an embedder that only
+    // set the Langfuse keys loses that first request.
+    ensureTelemetry();
+    const tracer = trace.getTracer(PROXY_TRACER_SCOPE);
 
     // Extract parent context from incoming headers (Claude Code may send traceparent)
     let parentContext = context.active();
@@ -368,12 +401,13 @@ class ProxyTracer {
     }
 
     const clientApp = ctx.clientApp ?? detectClientApp(ctx.userAgent);
+    const sessionId =
+      incomingHeaders?.["x-neurolink-session-id"] ?? ctx.sessionId;
     const traceContext = context.with(parentContext, () =>
       setLangfuseContext(
         {
           userId: incomingHeaders?.["x-neurolink-user-id"],
-          sessionId:
-            incomingHeaders?.["x-neurolink-session-id"] ?? ctx.sessionId,
+          sessionId,
           conversationId: incomingHeaders?.["x-neurolink-conversation-id"],
           requestId: ctx.requestId,
           traceName: `proxy:${ctx.model}`,
@@ -387,6 +421,9 @@ class ProxyTracer {
       ),
     );
 
+    // Model and usage are written under the gen_ai.* names collectors read
+    // before as well as under proxy.*; Langfuse's export leaves the gen_ai.*
+    // ones off this plain span, so the generation stays the priced record.
     const rootSpan = tracer.startSpan(
       "proxy.request",
       {
@@ -395,6 +432,7 @@ class ProxyTracer {
           "http.method": ctx.method,
           "http.target": ctx.path,
           "proxy.request.model": ctx.model,
+          "gen_ai.request.model": ctx.model,
           "proxy.stream": ctx.stream,
           "proxy.tool_count": ctx.toolCount,
           "proxy.client_app": clientApp,
@@ -402,9 +440,26 @@ class ProxyTracer {
       },
       traceContext,
     );
+    // Marked at the start so a model call that ends before this span (the
+    // translated path) is attached to it rather than to the span above it.
+    observe(rootSpan, "span", {});
 
     if (ctx.userAgent) {
       rootSpan.setAttribute("http.user_agent", ctx.userAgent);
+    }
+    // Plain attributes for backends that index identity by key; Langfuse reads
+    // the propagated user and session instead.
+    for (const [key, value] of [
+      ["neurolink.user_id", incomingHeaders?.["x-neurolink-user-id"]],
+      ["neurolink.session_id", sessionId],
+      [
+        "neurolink.conversation_id",
+        incomingHeaders?.["x-neurolink-conversation-id"],
+      ],
+    ] as const) {
+      if (value) {
+        rootSpan.setAttribute(key, value);
+      }
     }
     if (ctx.toolNames && ctx.toolNames.length > 0) {
       // What the caller exposed to the model (tool catalogue for this request).
@@ -486,10 +541,44 @@ class ProxyTracer {
         attributes: {
           "proxy.request_id": this.requestId,
           "proxy.request.model": this.model,
+          "gen_ai.request.model": this.model,
         },
       },
       this.traceContext,
     );
+  }
+
+  /**
+   * Run a model call inside this request's trace context, so the spans it
+   * starts nest under the proxy root and carry the request's user and session.
+   * That call's generation holds usage and cost, so the root records none of
+   * its own. Its prompt and answer are request and response bodies, so its
+   * records carry them only with `NEUROLINK_PROXY_TRACE_BODY_LOGGING=true`.
+   */
+  runModelCall<T>(fn: () => T): T {
+    this.modelCallDelegated = true;
+    this.modelContentWithheld = !bodyLoggingEnabled();
+    return context.with(this.traceContext, () =>
+      this.modelContentWithheld ? withoutSpanContent(fn) : fn(),
+    );
+  }
+
+  /**
+   * The delegated call's stream, read and closed under the same content rule:
+   * the call records its answer while the stream is consumed, which happens
+   * after `runModelCall` has returned.
+   */
+  modelStream<T>(iterator: AsyncIterator<T>): AsyncIterator<T> {
+    if (!this.modelContentWithheld) {
+      return iterator;
+    }
+    const close = iterator.return?.bind(iterator);
+    return {
+      next: (...value) => withoutSpanContent(() => iterator.next(...value)),
+      ...(close && {
+        return: (value) => withoutSpanContent(() => close(value)),
+      }),
+    };
   }
 
   // -------------------------------------------------------------------------
@@ -576,6 +665,9 @@ class ProxyTracer {
       "proxy.usage.input_tokens": totalTokens - ctx.outputTokens,
       "proxy.usage.output_tokens": ctx.outputTokens,
       "proxy.usage.total_tokens": totalTokens,
+      "gen_ai.usage.input_tokens": totalTokens - ctx.outputTokens,
+      "gen_ai.usage.output_tokens": ctx.outputTokens,
+      "gen_ai.usage.total_tokens": totalTokens,
     });
 
     // Prefix-inferred prices are not an observed model rate. Keep provenance,
@@ -626,11 +718,17 @@ class ProxyTracer {
     this.responseModel = ctx.responseModel ?? this.responseModel;
     this.finishReason = ctx.finishReason ?? this.finishReason;
     this.firstOutputAt = ctx.firstOutputAt ?? this.firstOutputAt;
-    if (BODY_LOGGING_ENABLED && ctx.output !== undefined) {
+    // A reply parsed to nothing (no content block, or an error before any)
+    // is still parsed: the raw upstream text must not stand in for it.
+    if (ctx.output !== undefined && this.recordsBodies()) {
       this.output = ctx.output;
+      this.outputIsParsed = true;
     }
     if (ctx.responseModel) {
-      this.rootSpan.setAttribute("proxy.response.model", ctx.responseModel);
+      this.rootSpan.setAttributes({
+        "proxy.response.model": ctx.responseModel,
+        "gen_ai.response.model": ctx.responseModel,
+      });
     }
     if (ctx.finishReason) {
       this.rootSpan.setAttribute(
@@ -694,6 +792,7 @@ class ProxyTracer {
       "proxy.original_model": requestedModel,
       "proxy.actual_model": actualModel,
       "proxy.response.model": actualModel,
+      "gen_ai.response.model": actualModel,
       ...(actualProvider ? { "proxy.actual_provider": actualProvider } : {}),
     });
     if (this.recordRequestMetrics) {
@@ -728,16 +827,25 @@ class ProxyTracer {
   // Log payloads as span events
   // -------------------------------------------------------------------------
 
+  /** Record the client request body as the input of the root and its generation. */
+  setRequestInput(body: JsonValue): void {
+    if (this.recordsBodies() && recordInputsEnabled()) {
+      this.input = body;
+    }
+  }
+
   /** Log the incoming client request body (redacted). */
   logRequestBody(body: string): void {
-    if (!BODY_LOGGING_ENABLED) {
+    if (this.recordsBodies() && recordInputsEnabled()) {
+      this.input = parseBody(body);
+    }
+    if (!bodyLoggingEnabled() || !recordInputsEnabled()) {
       this.rootSpan.addEvent("proxy.client.request_body", {
         "proxy.body.size": body.length,
         "proxy.body.logged": false,
       });
       return;
     }
-    this.input = parseBody(body);
     this.rootSpan.addEvent("proxy.client.request_body", {
       ...buildBodyEventAttributes(body),
     });
@@ -752,7 +860,7 @@ class ProxyTracer {
 
   /** Log the upstream request body (redacted, as sent to Anthropic). */
   logUpstreamRequestBody(body: string): void {
-    if (!BODY_LOGGING_ENABLED) {
+    if (!bodyLoggingEnabled() || !recordInputsEnabled()) {
       this.rootSpan.addEvent("proxy.upstream.request_body", {
         "proxy.body.size": body.length,
         "proxy.body.logged": false,
@@ -780,14 +888,16 @@ class ProxyTracer {
 
   /** Log the upstream response body (redacted). */
   logUpstreamResponseBody(body: string): void {
-    if (!BODY_LOGGING_ENABLED) {
+    if (this.recordsBodies() && !this.outputIsParsed) {
+      this.output = parseBody(body);
+    }
+    if (!bodyLoggingEnabled()) {
       this.rootSpan.addEvent("proxy.upstream.response_body", {
         "proxy.body.size": body.length,
         "proxy.body.logged": false,
       });
       return;
     }
-    this.output = parseBody(body);
     this.rootSpan.addEvent("proxy.upstream.response_body", {
       ...buildBodyEventAttributes(body),
     });
@@ -797,7 +907,7 @@ class ProxyTracer {
   logStreamEvents(
     events: Array<{ type: string; timestamp: number; data: string }>,
   ): void {
-    if (!BODY_LOGGING_ENABLED) {
+    if (!bodyLoggingEnabled()) {
       this.rootSpan.addEvent("proxy.stream.events", {
         "proxy.stream.event_count": events.length,
         "proxy.body.logged": false,
@@ -974,6 +1084,14 @@ class ProxyTracer {
       if (cost !== undefined) {
         m.costTotal.add(cost, tokenLabels);
       }
+
+      recordAIRequest(
+        this.billingProvider,
+        this.model,
+        billingUsage.total,
+        durationMs,
+        cost,
+      );
     }
 
     // Error metrics
@@ -994,6 +1112,11 @@ class ProxyTracer {
         status: String(responseStatus),
       });
     }
+  }
+
+  /** Bodies are only worth keeping while something is recording the span. */
+  private recordsBodies(): boolean {
+    return bodyLoggingEnabled() && this.rootSpan.isRecording();
   }
 
   private levelFor(responseStatus: number): ObservationLevel | undefined {
@@ -1030,7 +1153,7 @@ class ProxyTracer {
     });
     observeTrace(this.rootSpan, io);
 
-    if (this.upstreamStartedAt === undefined) {
+    if (this.upstreamStartedAt === undefined || this.modelCallDelegated) {
       return;
     }
     const generation = this.proxyTracer.startSpan(
@@ -1171,6 +1294,31 @@ function trackFallbackLegHealth(
   reportedDeadFallbackLegs.add(legKey);
 }
 
+/** Leg failure classes the fallback paths put in brackets before a message. */
+const FALLBACK_ERROR_CLASSES = new Set([
+  "unknown",
+  "unavailable",
+  "rate_limit",
+  "context_overflow",
+  "empty_response",
+  "schema_mismatch",
+  "provider_quota",
+]);
+
+/**
+ * A metric label from a fixed set: an error message is unbounded cardinality
+ * and can echo the prompt or a credential.
+ */
+function fallbackErrorLabel(errorMessage: string | undefined): string {
+  if (errorMessage === undefined) {
+    return "unknown";
+  }
+  const named = /^\[([a-z_]+)\]/.exec(errorMessage)?.[1];
+  return named !== undefined && FALLBACK_ERROR_CLASSES.has(named)
+    ? named
+    : "other";
+}
+
 export function recordFallbackAttempt(attrs: {
   provider: string;
   model: string;
@@ -1207,7 +1355,7 @@ export function recordFallbackAttempt(attrs: {
     } else {
       m.fallbackFailureTotal.add(1, {
         ...labels,
-        error: attrs.errorMessage?.slice(0, 100) ?? "unknown",
+        error: fallbackErrorLabel(attrs.errorMessage),
       });
     }
   } catch {
@@ -1279,6 +1427,7 @@ export function startProxyHttpTrace(
   headers: Record<string, string>,
 ) {
   try {
+    ensureTelemetry();
     const normalizedHeaders = { ...headers };
     if (normalizedHeaders.traceparent?.includes(",")) {
       normalizedHeaders.traceparent = normalizedHeaders.traceparent
@@ -1286,7 +1435,7 @@ export function startProxyHttpTrace(
         .trim();
     }
     const parent = propagation.extract(ROOT_CONTEXT, normalizedHeaders);
-    const span = trace.getTracer("proxy").startSpan(
+    const span = trace.getTracer(PROXY_TRACER_SCOPE).startSpan(
       "proxy.http.request",
       {
         kind: SpanKind.SERVER,

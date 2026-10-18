@@ -25,7 +25,10 @@ import { createRealtimeLlm, requireXaiApiKey } from "./realtimeModel.js";
 import { readCallContextFromRoom } from "./roomContext.js";
 import { attachRealtimeEventBridge } from "./realtimeEventBridge.js";
 import { buildRealtimeMcpTools } from "./realtimeMcpTools.js";
-import { setUpRealtimeCallMemory } from "./realtimeMemory.js";
+import {
+  setUpRealtimeCallMemory,
+  setUpRealtimeCallTracing,
+} from "./realtimeMemory.js";
 import type {
   RealtimeVoiceAgentConfig,
   RealtimeVoiceConfig,
@@ -249,6 +252,19 @@ export function defineRealtimeVoiceAgent(
       model: cfg.model,
       backend: cfg.backend,
     });
+    // Tracing does not depend on memory: a call without it is still traced.
+    const recorder =
+      memory?.recorder ??
+      setUpRealtimeCallTracing(ctx, {
+        model: cfg.model,
+        backend: cfg.backend,
+        ...(memoryConfig?.settleMs !== undefined
+          ? { settleMs: memoryConfig.settleMs }
+          : {}),
+        ...(memoryConfig?.flushBudgetMs !== undefined
+          ? { flushBudgetMs: memoryConfig.flushBudgetMs }
+          : {}),
+      });
 
     await installRealtimeJobLifecycle(ctx, cfg);
 
@@ -284,10 +300,10 @@ export function defineRealtimeVoiceAgent(
             xContext,
             publishEvent: bridge.publishEvent,
             requestConfirmation: bridge.requestConfirmation,
-            ...(memory
+            ...(recorder
               ? {
-                  onToolStart: (call) => memory.recorder.toolStart(call),
-                  onToolEnd: (call) => memory.recorder.toolEnd(call),
+                  onToolStart: (call) => recorder.toolStart(call),
+                  onToolEnd: (call) => recorder.toolEnd(call),
                 }
               : {}),
           });
@@ -356,7 +372,7 @@ export function defineRealtimeVoiceAgent(
                 });
               }
               bridge.publishEvent("text", { delta: chunk });
-              memory?.recorder.assistantDelta(chunk);
+              recorder?.assistantDelta(chunk);
             }
           }
         } catch {
@@ -396,7 +412,7 @@ export function defineRealtimeVoiceAgent(
         text: ev.transcript,
         final: ev.isFinal,
       });
-      memory?.recorder.userTranscript({
+      recorder?.userTranscript({
         text: ev.transcript,
         final: ev.isFinal,
       });
@@ -419,7 +435,7 @@ export function defineRealtimeVoiceAgent(
         // The id the stored messages carry, so a client can merge its live
         // copy of the turn with history instead of showing it twice.
         bridge.publishEvent("done", memory ? { turnId: ev.item.id } : {});
-        memory?.recorder.assistantMessage({
+        recorder?.assistantMessage({
           id: ev.item.id,
           text: ev.item.textContent,
           interrupted: ev.item.interrupted,
@@ -440,7 +456,7 @@ export function defineRealtimeVoiceAgent(
 
     if (cfg.greeting.trim().length > 0) {
       logger.info("realtime.session.greeting", { ms: sinceConnect() });
-      memory?.recorder.expectGreeting();
+      recorder?.expectGreeting();
       session.generateReply({ instructions: cfg.greeting });
     }
   }

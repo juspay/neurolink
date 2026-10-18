@@ -4,7 +4,12 @@
  * to enable telemetry and observability features in Neurolink SDK
  */
 
-import type { AttributeValue } from "@opentelemetry/api";
+import type {
+  AttributeValue,
+  Counter,
+  Histogram,
+  Meter,
+} from "@opentelemetry/api";
 import type { JsonValue, RawUsageObject, Unknown } from "./common.js";
 import type { SpanData } from "./span.js";
 
@@ -45,18 +50,24 @@ export type LangfuseSpanAttributes = {
  * @description Langfuse exporter options. Every field falls back to its `LANGFUSE_*` environment variable when omitted.
  */
 export type NeurolinkLangfuseConfig = {
+  /** `false` keeps Langfuse export off although keys are present; any other value, or leaving it out, leaves it on. */
+  enabled?: boolean;
   /** Project public key; defaults to `LANGFUSE_PUBLIC_KEY`. */
   publicKey?: string;
   /** Project secret key; defaults to `LANGFUSE_SECRET_KEY`. */
   secretKey?: string;
   /** Langfuse host; defaults to `LANGFUSE_BASE_URL`, then Langfuse Cloud. */
   baseUrl?: string;
-  /** Environment name; defaults to `LANGFUSE_TRACING_ENVIRONMENT`. */
+  /** Environment name on Langfuse traces; defaults to `LANGFUSE_TRACING_ENVIRONMENT`. The OTLP resource's `deployment.environment` also falls back to `LANGFUSE_ENVIRONMENT`, then `PUBLIC_APP_ENVIRONMENT`. */
   environment?: string;
-  /** Release identifier; defaults to `LANGFUSE_RELEASE`. */
+  /** Release identifier on Langfuse traces; defaults to `LANGFUSE_RELEASE`. The OTLP resource's `service.version` also falls back to `PUBLIC_APP_VERSION`. */
   release?: string;
-  /** Applied to input, output and metadata before they leave the process. */
+  /** Applied to input, output and metadata before they are sent to Langfuse. It does not reach other exporters, the OTLP export, `getSpans()` or error text. */
   mask?: (params: { data: JsonValue }) => JsonValue;
+  /** Leaves input and output out of what is sent to Langfuse. It does not reach other exporters, the OTLP export, `getSpans()` or error text. */
+  redactIO?: boolean;
+  /** Milliseconds a flush or shutdown waits for the Langfuse exporter before it drops what is still in flight; defaults to 3000. */
+  flushBudgetMs?: number;
   /** `"immediate"` sends every span as it ends; `"batched"` (default) queues them. */
   exportMode?: "batched" | "immediate";
   /** Spans queued before a batch is sent; defaults to 15. */
@@ -66,7 +77,28 @@ export type NeurolinkLangfuseConfig = {
 };
 
 /**
- * @description Observability configuration for the NeuroLink SDK. Langfuse turns on automatically when `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` are set; `false` turns it off.
+ * @description Kind of connection counted by the `connections_total` metric.
+ */
+export type MetricConnectionType = "websocket" | "sse" | "http";
+
+/**
+ * @description The OpenTelemetry instruments behind NeuroLink's `ai_*`, `mcp_*`, `connections_total`, `response_time_ms` and `custom_*` metrics, created on one meter.
+ */
+export type AiMetricInstruments = {
+  meter: Meter;
+  requests: Counter;
+  duration: Histogram;
+  tokens: Counter;
+  cost: Counter;
+  providerErrors: Counter;
+  mcpToolCalls: Counter;
+  connections: Counter;
+  responseTime: Histogram;
+  custom: Map<string, Counter | Histogram>;
+};
+
+/**
+ * @description Observability configuration for the NeuroLink SDK. Langfuse turns on automatically when `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` are set and `LANGFUSE_ENABLED` is not `false`, `0`, `off` or `no`; `false` turns it off.
  */
 export type ObservabilityConfig = {
   /** `false` disables Langfuse, `true` or an options object enables it. */
@@ -448,12 +480,20 @@ export type HealthMetrics = {
 export type SpanOptions = {
   name: string;
   tracer: import("@opentelemetry/api").Tracer;
+  /** Marks the span as an observation of this type when it starts, which is what sends it to the exporters. Without it a span is exported only if its own code marks it with `observe`. */
+  observationType?: ObservationType;
   kind?: import("@opentelemetry/api").SpanKind;
   attributes?: Record<string, string | number | boolean | undefined>;
   /** Marks a thrown error as an expected skip whose Langfuse level the span set itself, so `withSpan` keeps it instead of raising ERROR. */
   expectedFailure?: (error: unknown) => boolean;
   /** Keeps the span out of the active context, so spans started inside `fn` parent to the nearest ancestor that is exported. */
   detached?: boolean;
+  /**
+   * With `detached`, lets the span be the active, exported root of its trace
+   * when no span is active, so what it wraps stays in one trace instead of
+   * each child starting its own. With an active ancestor it stays detached.
+   */
+  rootWhenOrphaned?: boolean;
 };
 
 // =============================================================================

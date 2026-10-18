@@ -51,6 +51,16 @@ import type {
   ProxyCancellableTransformer,
 } from "../types/index.js";
 
+/**
+ * Characters of `response.output_item.done` payloads kept to stand in for a
+ * completed response that carries no output. Bounds what the tap holds for a
+ * stream whose items it cannot otherwise discard.
+ */
+const OUTPUT_ITEMS_LIMIT_CHARS = 1024 * 1024;
+
+/** Type of the item that stands where output items past the cap were left out. */
+const OMITTED_ITEMS_TYPE = "neurolink_output_omitted";
+
 const nonNegativeInt = (value: unknown): number =>
   typeof value === "number" && Number.isFinite(value) && value > 0
     ? Math.floor(value)
@@ -255,6 +265,44 @@ export function createCodexUsageTap(): {
 } {
   const evidence: CodexStreamEvidence = { completed: false, terminalBytes: 0 };
   let totalBytes = 0;
+  // Items announced by response.output_item.done. The terminal response may
+  // arrive with an empty or absent output, leaving these as the only record
+  // of what the model said.
+  const streamedItems: JsonObject[] = [];
+  let streamedItemChars = 0;
+  let omittedItems = 0;
+  // An item past the cap leaves a marker in its place, so the record reads as
+  // incomplete rather than as a shorter reply; adjacent omissions share one.
+  const omitItem = (): void => {
+    omittedItems += 1;
+    const last = streamedItems[streamedItems.length - 1];
+    if (last?.type === OMITTED_ITEMS_TYPE) {
+      streamedItems[streamedItems.length - 1] = {
+        ...last,
+        omitted_items: Number(last.omitted_items) + 1,
+      };
+      return;
+    }
+    const marker: JsonObject = {
+      type: OMITTED_ITEMS_TYPE,
+      omitted_items: 1,
+      note: `…[truncated: output items past ${OUTPUT_ITEMS_LIMIT_CHARS} characters are not recorded]`,
+    };
+    streamedItems.push(marker);
+    streamedItemChars += JSON.stringify(marker).length;
+  };
+  const withStreamedOutput = (response: JsonObject): JsonObject => {
+    if (
+      (Array.isArray(response.output) && response.output.length > 0) ||
+      streamedItems.length === 0
+    ) {
+      return response;
+    }
+    if (omittedItems > 0) {
+      evidence.outputItemsOmitted = true;
+    }
+    return { ...response, output: [...streamedItems] };
+  };
   const inspectEvidence = (
     events: Array<{ event: string; data: string }>,
   ): void => {
@@ -283,6 +331,22 @@ export function createCodexUsageTap(): {
           if (evidence.firstUsefulOutputAt === undefined) {
             evidence.firstUsefulOutputAt = Date.now();
             evidence.firstUsefulOutputEvent = String(type);
+          }
+        }
+        if (
+          type === "response.output_item.done" &&
+          event.item &&
+          typeof event.item === "object" &&
+          !Array.isArray(event.item)
+        ) {
+          if (
+            streamedItemChars + frame.data.length <=
+            OUTPUT_ITEMS_LIMIT_CHARS
+          ) {
+            streamedItems.push(event.item as JsonObject);
+            streamedItemChars += frame.data.length;
+          } else {
+            omitItem();
           }
         }
         // Some clients/providers emit complete output items without deltas.
@@ -334,9 +398,11 @@ export function createCodexUsageTap(): {
           type.startsWith("response.") &&
           completedResponse &&
           typeof completedResponse === "object" &&
-          "output" in completedResponse
+          ("output" in completedResponse || streamedItems.length > 0)
         ) {
-          evidence.response = completedResponse as JsonObject;
+          evidence.response = withStreamedOutput(
+            completedResponse as JsonObject,
+          );
         }
         if (type === "response.completed") {
           evidence.completed = true;

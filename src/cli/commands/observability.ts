@@ -14,7 +14,13 @@ import chalk from "chalk";
 import ora from "ora";
 import { logger } from "../../lib/utils/logger.js";
 import { NeuroLink } from "../../lib/neurolink.js";
-import { formatRow, formatCost } from "../utils/formatters.js";
+import { ensureTelemetry } from "../../lib/services/server/ai/observability/instrumentation.js";
+import {
+  formatRow,
+  formatCost,
+  formatExporterLines,
+  formatOtelStatus,
+} from "../utils/formatters.js";
 import { redactUrlCredentials } from "../../lib/utils/logSanitize.js";
 import type {
   ObservabilityStatusArgs as StatusArgs,
@@ -77,6 +83,9 @@ export class ObservabilityCommandFactory {
           : ora("Checking observability status...").start();
 
         try {
+          // A one-shot process only starts telemetry with its first span, so
+          // start it here to report the exporters this process would run.
+          ensureTelemetry();
           const neurolink = new NeuroLink();
           const status = neurolink.getTelemetryStatus();
 
@@ -134,9 +143,11 @@ export class ObservabilityCommandFactory {
             if (status.openTelemetry) {
               logger.always("");
               logger.always(chalk.bold("OpenTelemetry:"));
-              const otelStatus = status.openTelemetry.enabled
-                ? chalk.green("Enabled")
-                : chalk.gray("Disabled");
+              const otelStatus = formatOtelStatus(
+                status.openTelemetry,
+                "Enabled",
+                "Disabled",
+              );
               logger.always(formatRow("  Status:", otelStatus));
               if (status.openTelemetry.endpoint) {
                 logger.always(
@@ -151,6 +162,12 @@ export class ObservabilityCommandFactory {
                   formatRow("  Service:", status.openTelemetry.serviceName),
                 );
               }
+            }
+
+            logger.always("");
+            logger.always(chalk.bold("Exporters:"));
+            for (const line of formatExporterLines(status.exporters)) {
+              logger.always(line);
             }
 
             logger.always("");

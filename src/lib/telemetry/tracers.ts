@@ -8,20 +8,37 @@ import {
   type Tracer,
 } from "@opentelemetry/api";
 import type { GenerationOperation } from "../types/index.js";
-import { ensureTelemetry } from "../services/server/ai/observability/instrumentation.js";
+import { startTelemetry } from "./telemetryStarter.js";
 
 const PRODUCT_NAME = /neurolink/gi;
 const OPERATION_ROOT = /^(?:provider\.)?(generate|stream)(?:\.|$)/;
+const TURN_NAME = /^(?:generate|stream)$/;
 const operations = new WeakMap<Span, GenerationOperation>();
 const nestedOperations = new WeakSet<Span>();
+const turnlessTrees = new WeakSet<Span>();
 
-function trackOperation(span: Span, name: string, parent?: Span): Span {
+function trackOperation(
+  span: Span,
+  name: string,
+  scope: string,
+  parent?: Span,
+): Span {
   const root = OPERATION_ROOT.exec(name)?.[1] as
     | GenerationOperation
     | undefined;
   const parentOperation = parent && operations.get(parent);
-  if (root && parentOperation) {
+  // A NeuroLink turn (a sub-agent a direct loop's tool runs) stops the loop's
+  // turnless mark, so it and its generations stay nested and leave the
+  // trace's input and output to the loop.
+  const turnless =
+    parent !== undefined &&
+    turnlessTrees.has(parent) &&
+    !(scope === "sdk" && TURN_NAME.test(name));
+  if (root && parentOperation && !turnless) {
     nestedOperations.add(span);
+  }
+  if (turnless) {
+    turnlessTrees.add(span);
   }
   const operation = root ?? parentOperation;
   if (operation) {
@@ -48,6 +65,36 @@ export function isNestedOperation(span: Span): boolean {
   return nestedOperations.has(span);
 }
 
+/**
+ * @description Reports whether a span belongs to the tree of a root a direct provider loop opened for itself, so neither a host span nor a NeuroLink turn sits above it.
+ * @param span {Span} - Span returned by a scrubbed tracer.
+ * @returns {boolean} `true` for that root and the spans started under it, apart from a NeuroLink turn's own subtree; `false` for everything under a host span or a turn.
+ */
+export function inTurnlessTree(span: Span): boolean {
+  return turnlessTrees.has(span);
+}
+
+/**
+ * @description Marks the root a direct provider loop opened for itself. It names the operation its steps belong to, but no NeuroLink turn sits above it and it records no input or output, so a generation under it is still the top owner of the trace's input and output and `isNestedOperation` stays `false` for it. A NeuroLink `generate` or `stream` turn started inside it, such as a sub-agent run by a tool, is not marked: that turn and its generations stay nested.
+ * @param span {Span} - Root span returned by a scrubbed tracer, marked before any child is started.
+ * @returns {Span} The same span.
+ */
+export function markTurnlessRoot(span: Span): Span {
+  turnlessTrees.add(span);
+  return span;
+}
+
+// An Error's name or message may be missing, not a string, or a getter that
+// throws; recording the exception must not throw in its place.
+function exceptionText(read: () => unknown, fallback: string): string {
+  try {
+    const value = read();
+    return value === undefined || value === null ? fallback : String(value);
+  } catch {
+    return fallback;
+  }
+}
+
 function scrubException(exception: Exception): Exception {
   if (!(exception instanceof Error)) {
     return typeof exception === "string"
@@ -55,8 +102,14 @@ function scrubException(exception: Exception): Exception {
       : exception;
   }
   return {
-    name: exception.name.replace(PRODUCT_NAME, "Ai"),
-    message: exception.message.replace(PRODUCT_NAME, "ai"),
+    name: exceptionText(() => exception.name, "Error").replace(
+      PRODUCT_NAME,
+      "Ai",
+    ),
+    message: exceptionText(() => exception.message, "").replace(
+      PRODUCT_NAME,
+      "ai",
+    ),
   };
 }
 
@@ -68,7 +121,7 @@ function withScrubbedExceptions(span: Span): Span {
 }
 
 /**
- * @description Resolves a tracer whose spans record exceptions as type and message only, without stack traces or product-name references that would reach trace backends as event metadata.
+ * @description Resolves a tracer whose spans record exceptions as type and message only, without stack traces or product-name references that would reach trace backends as event metadata. Exception and status messages have credentials masked, like recorded input and output.
  * @param name {string} - Instrumentation scope name.
  * @returns {Tracer} A tracer delegating to the globally registered provider.
  */
@@ -76,13 +129,14 @@ export function scrubbedTracer(name: string): Tracer {
   const inner = trace.getTracer(name);
   return {
     startSpan: (spanName: string, options?: SpanOptions, ctx?: Context) => {
-      ensureTelemetry();
+      startTelemetry();
       const span = withScrubbedExceptions(
         inner.startSpan(spanName, options, ctx),
       );
       return trackOperation(
         span,
         spanName,
+        name,
         trace.getSpan(ctx ?? context.active()),
       );
     },
@@ -92,7 +146,7 @@ export function scrubbedTracer(name: string): Tracer {
       arg3?: Context | F,
       arg4?: F,
     ): ReturnType<F> {
-      ensureTelemetry();
+      startTelemetry();
       const fn = [arg4, arg3, arg2].find(
         (arg): arg is F => typeof arg === "function",
       ) as F;
@@ -101,7 +155,7 @@ export function scrubbedTracer(name: string): Tracer {
       const parent = trace.getSpan(ctx ?? context.active());
       const wrapped = ((span: Span) =>
         fn(
-          trackOperation(withScrubbedExceptions(span), spanName, parent),
+          trackOperation(withScrubbedExceptions(span), spanName, name, parent),
         )) as F;
       if (ctx) {
         return inner.startActiveSpan(spanName, options ?? {}, ctx, wrapped);

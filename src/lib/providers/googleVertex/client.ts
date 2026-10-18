@@ -160,6 +160,7 @@ import {
 import { resolveLiveTool } from "../../tools/toolDiscovery.js";
 import {
   ATTR,
+  recordsSpanInputs,
   spanContentAttribute,
   spanModelRequestAttribute,
   tracers,
@@ -167,6 +168,8 @@ import {
   withClientStreamSpan,
   withSpan,
 } from "../../telemetry/index.js";
+import { recordsSpanContent } from "../../telemetry/attributes.js";
+import { inTurnlessTree } from "../../telemetry/tracers.js";
 import {
   observe,
   observeGeneration,
@@ -1358,6 +1361,7 @@ export class GoogleVertexProvider extends BaseProvider {
         name: "provider.stream",
         tracer: tracers.provider,
         detached: true,
+        rootWhenOrphaned: true,
         attributes: {
           [ATTR.NL_MODEL]: modelName,
           [ATTR.NL_PROVIDER]: this.providerName,
@@ -4583,7 +4587,7 @@ export class GoogleVertexProvider extends BaseProvider {
     // Langfuse/OTel: the native SDK bypasses the Vercel AI SDK's
     // experimental_telemetry, so emit spans manually — one turn span, one
     // generation span per API call, one tool span per execution — all carrying
-    // langfuse.* attributes the LangfuseSpanProcessor maps to observations.
+    // the langfuse.* observation attributes ExporterSpanProcessor exports.
     // Usage lives ONLY on the generation spans (Langfuse sums usage across
     // observations for trace totals, so repeating it on the turn double-counts).
     const offeredToolNames = (tools ?? []).map(
@@ -7119,6 +7123,7 @@ export class GoogleVertexProvider extends BaseProvider {
         name: "provider.generate",
         tracer: tracers.provider,
         detached: true,
+        rootWhenOrphaned: true,
         attributes: {
           [ATTR.NL_MODEL]: modelName,
           [ATTR.NL_PROVIDER]: this.providerName,
@@ -7126,6 +7131,13 @@ export class GoogleVertexProvider extends BaseProvider {
       },
       async (generateSpan) => {
         const generateStartTime = Date.now();
+        // Neither this span nor executeGeneration is an observation: the
+        // generation spans below carry the model call. Marked internal so no
+        // exporter of ours sends them as duplicates, except for the root a
+        // direct call opened for itself, which the loop hangs from.
+        if (!inTurnlessTree(generateSpan)) {
+          generateSpan.setAttribute(ATTR.NL_INTERNAL, true);
+        }
 
         // One dispatch decision for the whole override: Vertex's generate()
         // bypasses BaseProvider.generate(), so it re-runs the same
@@ -7242,18 +7254,24 @@ export class GoogleVertexProvider extends BaseProvider {
           (mergedOptions as { prompt?: string }).prompt ||
           "";
 
-        // Set generation input before the call so error paths still carry the
-        // request; output is set after the native call resolves.
-        const generationInputAttribute = spanModelRequestAttribute({
-          ...(mergedOptions.systemPrompt
-            ? { system: mergedOptions.systemPrompt }
-            : {}),
-          prompt: inputPrompt,
-        });
-        generateSpan.setAttribute(
-          LangfuseOtelSpanAttributes.OBSERVATION_INPUT,
-          generationInputAttribute,
-        );
+        // A host exporter on the same provider reads the input and output of
+        // these two spans, so they follow the policy of a generation: masked,
+        // and left out when inputs (or all content) are not recorded. The
+        // input is set before the call so an error path still carries it.
+        const generationInputAttribute = recordsSpanInputs()
+          ? spanModelRequestAttribute({
+              ...(mergedOptions.systemPrompt
+                ? { system: mergedOptions.systemPrompt }
+                : {}),
+              prompt: inputPrompt,
+            })
+          : undefined;
+        if (generationInputAttribute !== undefined) {
+          generateSpan.setAttribute(
+            LangfuseOtelSpanAttributes.OBSERVATION_INPUT,
+            generationInputAttribute,
+          );
+        }
 
         try {
           let result: EnhancedGenerateResult;
@@ -7269,11 +7287,16 @@ export class GoogleVertexProvider extends BaseProvider {
               detached: true,
               attributes: {
                 [ATTR.NL_MODEL]: modelName,
+                [ATTR.NL_INTERNAL]: true,
                 path: isAnthropicModel(modelName)
                   ? "native.anthropic"
                   : "native.google-genai",
-                [LangfuseOtelSpanAttributes.OBSERVATION_INPUT]:
-                  generationInputAttribute,
+                ...(generationInputAttribute !== undefined
+                  ? {
+                      [LangfuseOtelSpanAttributes.OBSERVATION_INPUT]:
+                        generationInputAttribute,
+                    }
+                  : {}),
               },
             },
             async (executionSpan) => {
@@ -7310,10 +7333,12 @@ export class GoogleVertexProvider extends BaseProvider {
                     ),
                 );
               }
-              executionSpan.setAttribute(
-                LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT,
-                spanContentAttribute(nativeResult?.content ?? ""),
-              );
+              if (recordsSpanContent()) {
+                executionSpan.setAttribute(
+                  LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT,
+                  spanContentAttribute(nativeResult?.content ?? ""),
+                );
+              }
               return nativeResult;
             },
           );
@@ -7322,10 +7347,12 @@ export class GoogleVertexProvider extends BaseProvider {
           // enabled / useAiResponse is false, so the cost is zero on
           // non-TTS paths.
           result = await this.synthesizeAIResponseIfNeeded(result, options);
-          generateSpan.setAttribute(
-            LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT,
-            spanContentAttribute(result?.content ?? ""),
-          );
+          if (recordsSpanContent()) {
+            generateSpan.setAttribute(
+              LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT,
+              spanContentAttribute(result?.content ?? ""),
+            );
+          }
           // Fire onFinish lifecycle callback for the native generate path.
           // Pipeline A providers get this for free via the AI SDK middleware
           // wrapper (LifecycleMiddleware); native @google/genai bypasses
@@ -8214,11 +8241,12 @@ export class GoogleVertexProvider extends BaseProvider {
   }
 
   /**
-   * Emit `generation:end` so the Pipeline B observability listener creates
-   * the corresponding `model.generation` span. Vertex bypasses the AI SDK
-   * (and therefore the experimental_telemetry plumbing), so this hand-off
-   * is the only way native Vertex calls show up in Langfuse / Pipeline B
-   * exporters. Mirrors the Bedrock + Ollama pattern.
+   * Emit `generation:end` so event listeners and the in-process metrics
+   * aggregator record the generation. Vertex bypasses the AI SDK (and
+   * therefore the experimental_telemetry plumbing), so nothing else emits it;
+   * the in-process store is never exported, and the Langfuse generation
+   * observations are the spans opened where each model call is made.
+   * Mirrors the Bedrock + Ollama pattern.
    */
   private emitGenerationEnd(
     modelName: string,

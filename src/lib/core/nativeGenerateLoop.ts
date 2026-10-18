@@ -595,7 +595,7 @@ export async function runNativeGenerateLoop(
   args: NativeGenerateLoopArgs,
   toolExecutionSummaries: ToolExecutionSummaryInternal[],
 ): Promise<NativeGenerateLoopResult> {
-  const stepSpans = new StepSpans();
+  const stepSpans = new StepSpans("generate");
   try {
     return await runGenerateSteps(args, toolExecutionSummaries, stepSpans);
   } finally {

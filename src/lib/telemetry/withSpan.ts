@@ -5,17 +5,54 @@ import {
   SpanKind,
   type SpanStatus,
   SpanStatusCode,
+  isSpanContextValid,
   trace,
 } from "@opentelemetry/api";
-import type { GenerationRecord, SpanOptions } from "../types/index.js";
+import type {
+  GenerationOperation,
+  GenerationRecord,
+  SpanOptions,
+} from "../types/index.js";
 import { isAbortError } from "../utils/errorHandling.js";
 import { observe, observeGeneration } from "./observation.js";
 import { generationName, stepSpanName } from "./observationNames.js";
-import { tracers } from "./tracers.js";
+import { markTurnlessRoot, tracers } from "./tracers.js";
 
-function markFailure(span: Span, error: unknown, expected = false): void {
-  const message = error instanceof Error ? error.message : String(error);
-  if (isAbortError(error)) {
+// The thrown value is the caller's, and reading it can throw as well (a
+// Proxy, a getter or toString that throws). Failure recording reads it through
+// these, and whatever it still cannot record is skipped, so the caller always
+// rethrows its own error.
+function failureText(error: unknown): string {
+  try {
+    return String(error instanceof Error ? error.message : error);
+  } catch {
+    return "unreadable error";
+  }
+}
+
+function readsAsAbort(error: unknown): boolean {
+  try {
+    return isAbortError(error);
+  } catch {
+    return false;
+  }
+}
+
+export function markFailure(
+  span: Span,
+  error: unknown,
+  expected = false,
+): void {
+  try {
+    recordFailure(span, error, expected);
+  } catch {
+    // The span keeps whatever was recorded before the value could not be read.
+  }
+}
+
+function recordFailure(span: Span, error: unknown, expected: boolean): void {
+  const message = failureText(error);
+  if (readsAsAbort(error)) {
     span.setAttributes({
       [LangfuseOtelSpanAttributes.OBSERVATION_LEVEL]: "WARNING",
       [LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]: message,
@@ -34,6 +71,42 @@ function markFailure(span: Span, error: unknown, expected = false): void {
   }
 }
 
+// A stream result its caller drops without reading it to the end or closing
+// it can no longer end its span, so the span is ended here once the result is
+// garbage collected. Best effort: collection may come late or never.
+const droppedStreams = new FinalizationRegistry<Span>((span) => {
+  try {
+    if (span.isRecording()) {
+      span.setAttributes({
+        [LangfuseOtelSpanAttributes.OBSERVATION_LEVEL]: "WARNING",
+        [LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]:
+          "stream dropped before it was read to the end",
+      });
+      span.end();
+    }
+  } catch {
+    // A finalizer has no caller to report to.
+  }
+});
+
+/**
+ * @description Ends `span` at WARNING once `stream` is garbage collected while the span is still open, for a stream result whose caller dropped it without reading it to the end or closing it. Best effort: it runs only if and when the collector reclaims `stream`, and a span that already ended is left alone.
+ * @param stream {object} - The iterable handed to the caller; `span` must not keep it reachable.
+ * @param span {Span} - Span that reading or closing `stream` would have ended.
+ * @returns {void} Nothing.
+ */
+export function endSpanWhenDropped(stream: object, span: Span): void {
+  droppedStreams.register(stream, span);
+}
+
+function startsOrphanedRoot(options: SpanOptions): boolean {
+  if (!options.detached || !options.rootWhenOrphaned) {
+    return false;
+  }
+  const active = trace.getSpan(context.active());
+  return !active || !isSpanContextValid(active.spanContext());
+}
+
 export async function withSpan<T>(
   options: SpanOptions,
   fn: (span: Span) => Promise<T>,
@@ -44,8 +117,16 @@ export async function withSpan<T>(
     kind = SpanKind.INTERNAL,
     attributes,
     detached,
+    observationType,
   } = options;
+  const asRoot = startsOrphanedRoot(options);
   const run = async (span: Span): Promise<T> => {
+    if (asRoot) {
+      markTurnlessRoot(span);
+      observe(span, "agent", {});
+    } else if (observationType) {
+      observe(span, observationType, {});
+    }
     if (attributes) {
       for (const [key, value] of Object.entries(attributes)) {
         if (value !== undefined) {
@@ -64,7 +145,7 @@ export async function withSpan<T>(
       span.end();
     }
   };
-  return detached
+  return detached && !asRoot
     ? run(tracer.startSpan(name, { kind }))
     : tracer.startActiveSpan(name, { kind }, run);
 }
@@ -108,8 +189,16 @@ export async function withStreamSpan<TResult, TChunk>(
     kind = SpanKind.CLIENT,
     attributes,
     detached,
+    observationType,
   } = options;
+  const asRoot = startsOrphanedRoot(options);
   const span = tracer.startSpan(name, { kind });
+  if (asRoot) {
+    markTurnlessRoot(span);
+    observe(span, "agent", {});
+  } else if (observationType) {
+    observe(span, observationType, {});
+  }
   if (attributes) {
     for (const [key, value] of Object.entries(attributes)) {
       if (value !== undefined) {
@@ -117,9 +206,10 @@ export async function withStreamSpan<TResult, TChunk>(
       }
     }
   }
-  const spanContext = detached
-    ? context.active()
-    : trace.setSpan(context.active(), span);
+  const spanContext =
+    detached && !asRoot
+      ? context.active()
+      : trace.setSpan(context.active(), span);
 
   let result: TResult;
   try {
@@ -130,7 +220,14 @@ export async function withStreamSpan<TResult, TChunk>(
     throw error;
   }
 
-  const iterator = getIterable(result)[Symbol.asyncIterator]();
+  let iterator: AsyncIterator<TChunk>;
+  try {
+    iterator = getIterable(result)[Symbol.asyncIterator]();
+  } catch (error) {
+    markFailure(span, error);
+    span.end();
+    throw error;
+  }
   let ended = false;
   let started = false;
   function end(status?: SpanStatus): void {
@@ -171,8 +268,11 @@ export async function withStreamSpan<TResult, TChunk>(
         }
         return step;
       } catch (err) {
-        markFailure(span, err);
-        end();
+        // A return() that raced this pull has already ended the span.
+        if (!ended) {
+          markFailure(span, err);
+          end();
+        }
         throw err;
       }
     },
@@ -181,13 +281,32 @@ export async function withStreamSpan<TResult, TChunk>(
       return { done: true, value: undefined };
     },
     async throw(error: Error): Promise<IteratorResult<TChunk>> {
-      await close();
-      throw error;
+      const forward = iterator.throw;
+      if (ended || forward === undefined) {
+        await close();
+        throw error;
+      }
+      try {
+        const step = await context.with(spanContext, () =>
+          forward.call(iterator, error),
+        );
+        if (step.done) {
+          end({ code: SpanStatusCode.OK });
+        }
+        return step;
+      } catch (err) {
+        if (!ended) {
+          markFailure(span, err);
+          end();
+        }
+        throw err;
+      }
     },
     [Symbol.asyncIterator]() {
       return wrapped;
     },
   };
+  endSpanWhenDropped(wrapped, span);
 
   return setIterable(result, wrapped);
 }
@@ -257,17 +376,26 @@ export async function withStepSpan<T>(
  */
 export class StepSpans {
   private current: Span | undefined;
+  private root: Span | undefined;
 
   /**
-   * @description Closes the previous step and opens `step` under the active span.
+   * @param operation {GenerationOperation} - Public API the loop serves, naming the root opened when no span is active; inferred from the enclosing span when unset, `generate` when there is none.
+   */
+  constructor(private readonly operation?: GenerationOperation) {}
+
+  /**
+   * @description Closes the previous step and opens `step` under the active span. When no span is active, the first step also opens a `generate` or `stream` root, so a loop run outside NeuroLink and outside any host span stays in one trace instead of starting a trace per step.
    * @param stepNumber {number} - One-based step number within the turn.
    * @returns {void} Nothing.
    */
   begin(stepNumber: number): void {
-    this.end();
-    this.current = tracers.sdk.startSpan(stepSpanName(), {
-      kind: SpanKind.INTERNAL,
-    });
+    this.endStep();
+    this.root ??= this.startOrphanedRoot();
+    this.current = tracers.sdk.startSpan(
+      stepSpanName(),
+      { kind: SpanKind.INTERNAL },
+      this.root ? trace.setSpan(context.active(), this.root) : undefined,
+    );
     observe(this.current, "span", { metadata: { step_index: stepNumber } });
   }
 
@@ -284,11 +412,31 @@ export class StepSpans {
   }
 
   /**
-   * @description Closes the open step, if any.
+   * @description Closes the open step, and the root when this loop opened one.
    * @returns {void} Nothing.
    */
   end(): void {
+    this.endStep();
+    this.root?.end();
+    this.root = undefined;
+  }
+
+  private endStep(): void {
     this.current?.end();
     this.current = undefined;
+  }
+
+  private startOrphanedRoot(): Span | undefined {
+    const active = trace.getSpan(context.active());
+    if (active && isSpanContextValid(active.spanContext())) {
+      return undefined;
+    }
+    const root = markTurnlessRoot(
+      tracers.sdk.startSpan(generationName(this.operation), {
+        kind: SpanKind.INTERNAL,
+      }),
+    );
+    observe(root, "agent", {});
+    return root;
   }
 }

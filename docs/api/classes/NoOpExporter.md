@@ -341,7 +341,7 @@ Create a standard health status
 
 ### withRetry()
 
-> `protected` **withRetry**\<`T`\>(`operation`, `operationName`): `Promise`\<`T`\>
+> `protected` **withRetry**\<`T`\>(`operation`, `operationName`, `signal?`, `delayMs?`): `Promise`\<`T`\>
 
 Execute an operation with exponential backoff retry
 
@@ -365,6 +365,18 @@ The async operation to execute
 
 Name for logging purposes
 
+##### signal?
+
+`AbortSignal`
+
+Stops further attempts and cuts a backoff wait short when aborted
+
+##### delayMs?
+
+(`error`, `attempt`) => `number`
+
+Milliseconds to wait before the next attempt, given why the attempt failed and its zero-based number; one second doubled per attempt by default
+
 #### Returns
 
 `Promise`\<`T`\>
@@ -373,7 +385,7 @@ The result of the operation
 
 #### Throws
 
-The last error if all retries fail
+The last error if all retries fail, or the abort reason when the signal fires
 
 #### Inherited from
 

@@ -39,14 +39,17 @@ WARNING: This is a sensitive credential. Handle securely.
 When true, `input` and `output` fields are omitted from exported spans and
 generations. Enable in compliance-sensitive deployments where prompt/response
 content is considered PII or subject to data-minimisation requirements.
-Defaults to false (input/output are exported).
+Defaults to false (input/output are exported). It acts on what this
+exporter sends to Langfuse and nowhere else.
 
 ### mask?
 
 > `optional` **mask?**: (`params`) => [`JsonValue`](JsonValue.md)
 
-Applied to input, output and metadata before they are sent. When it
-throws, the value is replaced by `<fully masked>`.
+Applied to input, output and metadata before they are sent to Langfuse.
+When it throws, the value is replaced by `<fully masked>`. It acts on what
+this exporter sends and nowhere else: not on other exporters, the OTLP
+export, `getSpans()` or error text.
 
 #### Parameters
 
@@ -59,3 +62,10 @@ throws, the value is replaced by `<fully masked>`.
 #### Returns
 
 [`JsonValue`](JsonValue.md)
+
+### flushBudgetMs?
+
+> `optional` **flushBudgetMs?**: `number`
+
+Milliseconds `flush()` and `shutdown()` wait for delivery before they
+give up on what is still in flight and drop it. Defaults to 3000.

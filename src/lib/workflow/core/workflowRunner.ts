@@ -20,6 +20,7 @@ import {
   SpanStatus,
   getMetricsAggregator,
 } from "../../observability/index.js";
+import { observe } from "../../telemetry/observation.js";
 import { withSpan } from "../../telemetry/withSpan.js";
 import { tracers } from "../../telemetry/tracers.js";
 import type {
@@ -79,6 +80,7 @@ export async function runWorkflow(
     {
       name: "neurolink.workflow.run",
       tracer: tracers.sdk,
+      observationType: "span",
       attributes: {
         "workflow.name": config.name,
         "workflow.type": config.type,
@@ -676,7 +678,10 @@ export async function* runWorkflowWithStreaming(
         "workflow.id": config.id ?? "unknown",
       },
     },
-    (otelSpan) => runWorkflowStreamingInner(config, options, otelSpan),
+    (otelSpan) => {
+      observe(otelSpan, "span", {});
+      return runWorkflowStreamingInner(config, options, otelSpan);
+    },
   );
   yield* generator;
 }

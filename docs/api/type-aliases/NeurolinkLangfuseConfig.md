@@ -14,6 +14,14 @@ Langfuse exporter options. Every field falls back to its `LANGFUSE_*` environmen
 
 ## Properties
 
+### enabled?
+
+> `optional` **enabled?**: `boolean`
+
+`false` keeps Langfuse export off although keys are present; any other value, or leaving it out, leaves it on.
+
+---
+
 ### publicKey?
 
 > `optional` **publicKey?**: `string`
@@ -42,7 +50,7 @@ Langfuse host; defaults to `LANGFUSE_BASE_URL`, then Langfuse Cloud.
 
 > `optional` **environment?**: `string`
 
-Environment name; defaults to `LANGFUSE_TRACING_ENVIRONMENT`.
+Environment name on Langfuse traces; defaults to `LANGFUSE_TRACING_ENVIRONMENT`. The OTLP resource's `deployment.environment` also falls back to `LANGFUSE_ENVIRONMENT`, then `PUBLIC_APP_ENVIRONMENT`.
 
 ---
 
@@ -50,7 +58,7 @@ Environment name; defaults to `LANGFUSE_TRACING_ENVIRONMENT`.
 
 > `optional` **release?**: `string`
 
-Release identifier; defaults to `LANGFUSE_RELEASE`.
+Release identifier on Langfuse traces; defaults to `LANGFUSE_RELEASE`. The OTLP resource's `service.version` also falls back to `PUBLIC_APP_VERSION`.
 
 ---
 
@@ -58,7 +66,7 @@ Release identifier; defaults to `LANGFUSE_RELEASE`.
 
 > `optional` **mask?**: (`params`) => [`JsonValue`](JsonValue.md)
 
-Applied to input, output and metadata before they leave the process.
+Applied to input, output and metadata before they are sent to Langfuse. It does not reach other exporters, the OTLP export, `getSpans()` or error text.
 
 #### Parameters
 
@@ -71,6 +79,22 @@ Applied to input, output and metadata before they leave the process.
 #### Returns
 
 [`JsonValue`](JsonValue.md)
+
+---
+
+### redactIO?
+
+> `optional` **redactIO?**: `boolean`
+
+Leaves input and output out of what is sent to Langfuse. It does not reach other exporters, the OTLP export, `getSpans()` or error text.
+
+---
+
+### flushBudgetMs?
+
+> `optional` **flushBudgetMs?**: `number`
+
+Milliseconds a flush or shutdown waits for the Langfuse exporter before it drops what is still in flight; defaults to 3000.
 
 ---
 

@@ -99,6 +99,7 @@ import type {
   SpanData,
   ConfirmationResponseEvent,
   HITLConfig,
+  ExporterStatus,
   ObservabilityConfig,
   TaskManagerConfig,
   WorkflowConfig,
@@ -331,8 +332,9 @@ import type {
   TerminalAgentModeVersion,
 } from "./types/index.js";
 import { resolveTerminalAgentMode } from "./agent/prompts/terminalAgentPrompt.js";
+import { getExporterRegistry } from "./observability/exporterRegistry.js";
 import { SpanSerializer } from "./observability/utils/spanSerializer.js";
-import { withSpan } from "./telemetry/withSpan.js";
+import { endSpanWhenDropped, withSpan } from "./telemetry/withSpan.js";
 import { getActiveTraceContext } from "./telemetry/traceContext.js";
 import { calculateCost } from "./utils/pricing.js";
 import {
@@ -831,6 +833,9 @@ function startTurn(
   span: Span,
   optionsOrPrompt: GenerateOptions | StreamOptions | DynamicOptions | string,
 ): void {
+  if (!span.isRecording()) {
+    return;
+  }
   observeTurn(span, { input: turnInput(optionsOrPrompt) });
   if (typeof optionsOrPrompt !== "string") {
     const name = (optionsOrPrompt as GenerateOptions).context?.observationName;
@@ -903,71 +908,97 @@ function traceTurnStream<T>(
       );
     }
   };
+  const advance = async (
+    pull: () => Promise<IteratorResult<T>>,
+    afterThrow = false,
+  ): Promise<IteratorResult<T>> => {
+    started = true;
+    try {
+      const step = await context.with(turnContext, pull);
+      if (step.done) {
+        span.setStatus({ code: SpanStatusCode.OK });
+        end(observationLevel(result.finishReason));
+        return { done: true, value: undefined };
+      }
+      const content =
+        typeof step.value === "object" && step.value !== null
+          ? (step.value as { content?: string }).content
+          : undefined;
+      if (typeof content === "string") {
+        output += content;
+      }
+      return step;
+    } catch (error) {
+      failTurnSpan(
+        span,
+        error instanceof Error ? error : new Error(String(error)),
+      );
+      // A consumer that throws into the stream ends it early, as return()
+      // does, and the root has always kept the model in that case.
+      if (afterThrow) {
+        observeTurn(span, { metadata: { model: result.model } });
+      }
+      finish();
+      throw error;
+    }
+  };
   const traced: AsyncIterableIterator<T> = {
     async next(): Promise<IteratorResult<T>> {
       if (ended) {
         return { done: true, value: undefined };
       }
-      started = true;
-      try {
-        const step = await context.with(turnContext, () => iterator.next());
-        if (step.done) {
-          span.setStatus({ code: SpanStatusCode.OK });
-          end(observationLevel(result.finishReason));
-          return { done: true, value: undefined };
-        }
-        const content =
-          typeof step.value === "object" && step.value !== null
-            ? (step.value as { content?: string }).content
-            : undefined;
-        if (typeof content === "string") {
-          output += content;
-        }
-        return step;
-      } catch (error) {
-        failTurnSpan(
-          span,
-          error instanceof Error ? error : new Error(String(error)),
-        );
-        finish();
-        throw error;
-      }
+      return advance(() => iterator.next());
     },
     async return(): Promise<IteratorResult<T>> {
       await close();
       return { done: true, value: undefined };
     },
     async throw(error: Error): Promise<IteratorResult<T>> {
-      await close();
-      throw error;
+      const forward = iterator.throw;
+      if (ended || forward === undefined) {
+        await close();
+        throw error;
+      }
+      return advance(() => forward.call(iterator, error), true);
     },
     [Symbol.asyncIterator]() {
       return traced;
     },
   };
+  endSpanWhenDropped(traced, span);
   return traced;
 }
 
+/**
+ * Runs every pull of `stream` inside `drainContext`, and forwards `return()`
+ * and `throw()` to it even before the first `next()`. A generator that has not
+ * started never enters its body, so wrapping the drain in one would swallow a
+ * pre-start close and leave the drain's own settle step unreached.
+ */
 function drainInContext<T>(
   stream: AsyncIterable<T>,
   drainContext: Context,
-): AsyncGenerator<T> {
-  return (async function* () {
-    const iterator = stream[Symbol.asyncIterator]();
-    try {
-      while (true) {
-        const step = await context.with(drainContext, () => iterator.next());
-        if (step.done) {
-          return;
-        }
-        yield step.value;
+): AsyncIterableIterator<T> {
+  const iterator = stream[Symbol.asyncIterator]();
+  const drained: AsyncIterableIterator<T> = {
+    next: () => context.with(drainContext, () => iterator.next()),
+    async return(): Promise<IteratorResult<T>> {
+      await context.with(drainContext, async () => iterator.return?.());
+      return { done: true, value: undefined };
+    },
+    async throw(error: Error): Promise<IteratorResult<T>> {
+      const forward = iterator.throw;
+      if (forward === undefined) {
+        await context.with(drainContext, async () => iterator.return?.());
+        throw error;
       }
-    } finally {
-      await context.with(drainContext, async () => {
-        await iterator.return?.();
-      });
-    }
-  })();
+      return context.with(drainContext, () => forward.call(iterator, error));
+    },
+    [Symbol.asyncIterator]() {
+      return drained;
+    },
+  };
+  return drained;
 }
 
 /** Monotonic source for {@link NeuroLink.logInstanceId}. Process-local by design. */
@@ -1362,8 +1393,8 @@ export class NeuroLink {
     traceId: string;
     parentSpanId: string;
   } {
-    // Attempt to reuse the active OTel trace context so Pipeline B spans
-    // land in the same Langfuse trace as Pipeline A spans.
+    // Reuse the active OTel trace context so the in-process span records
+    // carry the traceId of the exported OTEL trace of the same request.
     const activeSpan = trace.getSpan(context.active());
     if (activeSpan) {
       const spanCtx = activeSpan.spanContext();
@@ -4367,6 +4398,10 @@ Current user's request: ${currentInput}`;
 
   /**
    * Get comprehensive telemetry status including Langfuse and OpenTelemetry state
+   * and every registered exporter with its queued, delivered and dropped spans.
+   * `openTelemetry.enabled` is whether tracing is initialized, as it always
+   * was. Beside a host TracerProvider, `openTelemetry.usingExternalProvider`
+   * is `true`: NeuroLink exports nothing to the endpoint.
    */
   getTelemetryStatus(): {
     enabled: boolean;
@@ -4379,12 +4414,14 @@ Current user's request: ${currentInput}`;
       enabled: boolean;
       endpoint?: string;
       serviceName?: string;
+      usingExternalProvider?: boolean;
     };
+    exporters: ExporterStatus[];
   } {
     const langfuseConfig = this.observabilityConfig?.langfuse;
     const langfuseOptions =
       typeof langfuseConfig === "object" ? langfuseConfig : undefined;
-    const { hasProcessor } = getLangfuseHealthStatus();
+    const { hasProcessor, usingExternalProvider } = getLangfuseHealthStatus();
 
     return {
       enabled: isOpenTelemetryInitialized(),
@@ -4405,8 +4442,10 @@ Current user's request: ${currentInput}`;
               enabled: isOpenTelemetryInitialized(),
               endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
               serviceName: process.env.OTEL_SERVICE_NAME,
+              ...(usingExternalProvider && { usingExternalProvider }),
             }
           : undefined,
+      exporters: getExporterRegistry().getStatuses(),
     };
   }
 
@@ -10153,8 +10192,12 @@ Current user's request: ${currentInput}`;
         return { done: true, value: undefined };
       },
       async throw(error: Error): Promise<IteratorResult<T>> {
-        await scope.run(eventScope, async () => iterator.return?.());
-        throw error;
+        const forward = iterator.throw;
+        if (forward === undefined) {
+          await scope.run(eventScope, async () => iterator.return?.());
+          throw error;
+        }
+        return scope.run(eventScope, () => forward.call(iterator, error));
       },
       [Symbol.asyncIterator]() {
         return bound;
@@ -10615,6 +10658,7 @@ Current user's request: ${currentInput}`;
             },
           });
           attempt.stream = drainInContext(attempt.stream, context.active());
+          endSpanWhenDropped(attempt.stream, streamSpan);
           return attempt;
         }),
       );
@@ -11650,7 +11694,19 @@ Current user's request: ${currentInput}`;
         }
         return stream.return(value);
       },
-      throw: (error) => stream.throw(error),
+      throw: async (error) => {
+        if (!started) {
+          started = true;
+          await this.settleStandardStreamDrain(drain, {
+            accumulatedContent: "",
+            chunkCount: 0,
+            streamError:
+              error instanceof Error ? error : new Error(String(error)),
+            resolvedUsage: undefined,
+          });
+        }
+        return stream.throw(error);
+      },
       [Symbol.asyncIterator]: () => guarded,
     };
     return guarded;
@@ -19164,13 +19220,15 @@ Current user's request: ${currentInput}`;
    * on the wire can differ from the instance's.
    *
    * Fail-open by construction, in three layers. Without a decision provider
-   * nothing runs at all — no hook, no event — and the consumer gets the null
-   * it always got. Everything a host can reach (its hook's return value, the
-   * event payloads, the answer split, `onAnswers`) runs inside one `try`;
-   * whatever a host throws, the consumer gets what `tryRunDecide` alone
-   * would have given it. And every host-facing value is a `structuredClone`,
-   * so a hook or listener that edits what it is handed edits neither the
-   * wire request nor the consumer's own question objects.
+   * no hook runs and no event is emitted: the call goes to `tryRunDecide`
+   * alone, which records the WARNING `decide` observation it always did, and
+   * the consumer gets the null it always got. Everything a host can reach
+   * (its hook's return value, the event payloads, the answer split,
+   * `onAnswers`) runs inside one `try`; whatever a host throws, the consumer
+   * gets what `tryRunDecide` alone would have given it. And every
+   * host-facing value is a `structuredClone`, so a hook or listener that
+   * edits what it is handed edits neither the wire request nor the
+   * consumer's own question objects.
    *
    * `outer` is what the surrounding `generate()` / `stream()` supplies —
    * per-call credentials, abort signal, ids — and wins over the same fields
@@ -19196,9 +19254,10 @@ Current user's request: ${currentInput}`;
     if (!site) {
       return this.tryRunDecide(merged);
     }
-    // Inert without a decision provider: a host's hook must not sit on the
-    // request path of a tenant that has no decision model to reach, and an
-    // event for a call that could never be made would only mislead.
+    // No host hook or event without a decision provider: a hook must not sit
+    // on the request path of a tenant that has no decision model to reach, and
+    // an event for a call that could never be made would only mislead. The
+    // plain call still runs, so the WARNING observation it records is kept.
     if (
       !this.resolveDecisionProviderName(merged.provider, merged.credentials)
     ) {
@@ -19587,11 +19646,14 @@ Current user's request: ${currentInput}`;
               ? { "decision.upstream_ms": result.upstreamMs }
               : {}),
           });
-          // BOTH aggregators, exactly as the generate path does. The
-          // instance one is what `neurolink.getMetrics()` / `getSpans()`
-          // read; the global one is what the exporters drain. Recording to
-          // only the global one would make a decision invisible to the very
-          // API a caller would use to check whether it ran.
+          // BOTH aggregators, exactly as the generate path does. They are
+          // in-process stores that are never exported: what Langfuse and the
+          // OTLP exporters receive for this decision is the `decide`
+          // generation span. The instance one is what
+          // `neurolink.getMetrics()` / `getSpans()` read; the global one is
+          // what `getMetricsAggregator()` readers see. Recording to only the
+          // global one would make a decision invisible to the very API a
+          // caller would use to check whether it ran.
           const ended = SpanSerializer.endSpan(span, SpanStatus.OK);
           this.metricsAggregator.recordSpan(ended);
           getMetricsAggregator().recordSpan(ended);

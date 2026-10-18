@@ -1142,6 +1142,9 @@ export class ToolsManager {
                 attributes: {
                   "tool.name": toolName,
                   "tool.type": "custom",
+                  // Pure wrapper around the `tool` observation of the same
+                  // call: it stays an OpenTelemetry span but is not exported.
+                  [ATTR.NL_INTERNAL]: true,
                 },
               },
             );

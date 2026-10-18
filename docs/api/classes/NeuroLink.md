@@ -223,6 +223,10 @@ Reports whether any tracing backend is active.
 > **getTelemetryStatus**(): `object`
 
 Get comprehensive telemetry status including Langfuse and OpenTelemetry state
+and every registered exporter with its queued, delivered and dropped spans.
+`openTelemetry.enabled` is whether tracing is initialized, as it always
+was. Beside a host TracerProvider, `openTelemetry.usingExternalProvider`
+is `true`: NeuroLink exports nothing to the endpoint.
 
 ##### Returns
 
@@ -263,6 +267,14 @@ Get comprehensive telemetry status including Langfuse and OpenTelemetry state
 ###### openTelemetry.serviceName?
 
 > `optional` **serviceName?**: `string`
+
+###### openTelemetry.usingExternalProvider?
+
+> `optional` **usingExternalProvider?**: `boolean`
+
+###### exporters
+
+> **exporters**: [`ExporterStatus`](../type-aliases/ExporterStatus.md)[]
 
 ---
 

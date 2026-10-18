@@ -1379,7 +1379,7 @@ function startCodexTracer(
   isFallbackRequest: boolean,
 ): ProxyTracer | undefined {
   try {
-    return ProxyTracer.startRequest(
+    const tracer = ProxyTracer.startRequest(
       {
         requestId: ctx.requestId,
         method: ctx.method,
@@ -1394,6 +1394,8 @@ function startCodexTracer(
       },
       ctx.headers,
     );
+    tracer.setRequestInput(body);
+    return tracer;
   } catch {
     return undefined;
   }

@@ -1044,6 +1044,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
         name: "provider.stream",
         tracer: tracers.provider,
         detached: true,
+        rootWhenOrphaned: true,
         attributes: {
           [ATTR.NL_MODEL]: modelName,
           [ATTR.NL_PROVIDER]: this.providerName,
@@ -1915,6 +1916,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
         name: "provider.generate",
         tracer: tracers.provider,
         detached: true,
+        rootWhenOrphaned: true,
         attributes: {
           [ATTR.NL_MODEL]: modelName,
           [ATTR.NL_PROVIDER]: this.providerName,

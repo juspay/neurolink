@@ -57,6 +57,10 @@ import type {
 } from "../../types/index.js";
 import { withSpan } from "../../telemetry/withSpan.js";
 import { tracers } from "../../telemetry/tracers.js";
+// Starts tracing at the first span, as this module always did: the shared
+// tracers only start what a loaded entry registered, and this path can be
+// imported without the package entry. The client entry stays free of it.
+import "../../services/server/ai/observability/instrumentation.js";
 // =============================================================================
 // UTILITY FUNCTIONS
 // =============================================================================
@@ -458,6 +462,7 @@ export class ProcessorRegistry {
       {
         name: "neurolink.processor.processFile",
         tracer: tracers.processor,
+        observationType: "span",
         attributes: {
           "processor.filename": fileInfo.name ?? "unknown",
           "processor.mimetype": fileInfo.mimetype ?? "unknown",

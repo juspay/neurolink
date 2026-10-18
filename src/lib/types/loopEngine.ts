@@ -3,7 +3,7 @@ import type { Span } from "@opentelemetry/api";
 import type { Tool } from "./tools.js";
 import type { GenerateStopReason } from "./generate.js";
 import type { UnknownRecord } from "./common.js";
-import type { GenerationRecord } from "./observability.js";
+import type { GenerationOperation, GenerationRecord } from "./observability.js";
 import type {
   CollectedChunkResult,
   NativeFunctionCall,
@@ -267,6 +267,15 @@ export type AgenticLoopAdapter<TConversation = unknown, TRaw = unknown> = {
     hadToolCalls: boolean,
   ): string;
 
+  /**
+   * Optional: maps a step's usage onto what its generation observation
+   * prices, where `inputTokens` excludes cache reads and `outputTokens`
+   * includes reasoning. Only for providers whose API reports otherwise
+   * (Gemini counts cached tokens inside the prompt count and thinking tokens
+   * outside the candidate count). The turn totals the engine returns are not
+   * touched: callers already reconcile those once.
+   */
+  observedUsage?(usage: AgenticLoopUsage): AgenticLoopUsage;
   /** Optional: in-turn context-budget reclaim, called once per step before buildStepRequest. */
   planReclaim?(
     conversation: TConversation,
@@ -632,6 +641,12 @@ export type AgenticLoopOptions = {
     }
   >;
   abortSignal?: AbortSignal;
+  /**
+   * Public API the turn serves, used only to name the root observation the
+   * loop opens when it runs with no active span. Inferred from the enclosing
+   * span when omitted, and `generate` when there is none.
+   */
+  operation?: GenerationOperation;
   /**
    * Span the per-step provider retry annotates, via
    * `withProviderRetry(..., span, ...)` — it records

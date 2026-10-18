@@ -83,6 +83,10 @@ Observes a tool call as it starts. A throwing observer never affects the call.
 
 `Record`\<`string`, `unknown`\>
 
+###### callId?
+
+`string`
+
 #### Returns
 
 `void`
@@ -108,6 +112,10 @@ Observes a tool call as it ends, with its result as text or its error.
 `string`
 
 ###### error?
+
+`string`
+
+###### callId?
 
 `string`
 

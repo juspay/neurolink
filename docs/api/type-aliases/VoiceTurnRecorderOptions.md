@@ -30,6 +30,24 @@ Stores one exchange. Throwing means "not stored"; the recorder retries.
 
 ---
 
+### onClosed?
+
+> `optional` **onClosed?**: (`record`) => `void`
+
+An exchange closed: called once per exchange, in order, before its write is queued, so it never waits behind earlier writes.
+
+#### Parameters
+
+##### record
+
+[`VoiceTurnRecord`](VoiceTurnRecord.md)
+
+#### Returns
+
+`void`
+
+---
+
 ### onRecorded?
 
 > `optional` **onRecorded?**: (`record`) => `void`

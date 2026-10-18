@@ -80,6 +80,12 @@ An OTLP/JSON span as Langfuse's ingestion endpoint reads it.
 
 ---
 
+### links?
+
+> `optional` **links?**: [`OtlpLink`](OtlpLink.md)[]
+
+---
+
 ### status
 
 > **status**: `object`

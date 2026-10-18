@@ -2280,6 +2280,7 @@ export abstract class BaseProvider implements AIProvider {
         error,
         latency,
       };
+      this.telemetryHandler.recordTTSFailure(ttsProvider, error, latency);
       logger.error(
         `TTS synthesis failed in Mode 1 (direct input synthesis):`,
         ttsError,
@@ -2743,6 +2744,7 @@ export abstract class BaseProvider implements AIProvider {
     } catch (ttsError) {
       const latency = Date.now() - ttsStartTime;
       const error = this.getTTSErrorDetails(ttsError);
+      this.telemetryHandler.recordTTSFailure(ttsProvider, error, latency);
       logger.error(
         `TTS synthesis failed in Mode 2 (AI response synthesis):`,
         ttsError,

@@ -1,9 +1,9 @@
 import { trace, context } from "@opentelemetry/api";
 
 /**
- * Extract the current OTel trace context for use by Pipeline B spans.
- * Returns undefined values when no OTel context is active, allowing
- * Pipeline B spans to share the same trace as Pipeline A spans.
+ * Extract the current OTel trace context for the in-process span records
+ * (`SpanSerializer`), so they carry the traceId of the exported OTEL trace.
+ * Returns undefined values when no OTel context is active.
  */
 export function getActiveTraceContext(): {
   traceId?: string;

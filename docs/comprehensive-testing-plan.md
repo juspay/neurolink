@@ -128,16 +128,15 @@ const wsServer = new NeuroLinkWebSocketServer({
 ### **B.2 Telemetry Integration Testing** (20 minutes)
 
 ```typescript
-// Test: Telemetry Service (Disabled by Default)
-import { TelemetryService } from "../src/lib/telemetry/telemetryService.js";
+// Test: Tracing (off until Langfuse keys or an OTLP endpoint are set)
+import { getLangfuseHealthStatus } from "@juspay/neurolink";
 
-const telemetry = TelemetryService.getInstance();
-
-// Should be disabled by default
-expect(telemetry.isEnabled()).toBe(false);
+// Should be disabled by default (no LANGFUSE_* keys, no OTEL_EXPORTER_OTLP_ENDPOINT)
+expect(getLangfuseHealthStatus().isHealthy).toBe(false);
 
 // Test enabling via environment
-process.env.NEUROLINK_TELEMETRY_ENABLED = "true";
+process.env.LANGFUSE_PUBLIC_KEY = "pk-lf-test";
+process.env.LANGFUSE_SECRET_KEY = "sk-lf-test";
 // Re-test initialization
 ```
 
@@ -221,7 +220,8 @@ const result = await provider.generate({ input: { text: "test" } });
 const disabledTime = Date.now() - startTime;
 
 // Test: Performance with features enabled
-process.env.NEUROLINK_TELEMETRY_ENABLED = "true";
+process.env.LANGFUSE_PUBLIC_KEY = "pk-lf-test";
+process.env.LANGFUSE_SECRET_KEY = "sk-lf-test";
 // Repeat test
 const enabledTime = Date.now() - startTime;
 
@@ -246,8 +246,7 @@ const chatApp = createEnhancedChatService({
   enableSSE: true,
 });
 
-// Scenario 2: Telemetry-Enabled Production
-process.env.NEUROLINK_TELEMETRY_ENABLED = "true";
+// Scenario 2: Telemetry-Enabled Production (the OTLP endpoint alone turns tracing on)
 process.env.OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:4318";
 // Test telemetry data collection
 
@@ -274,15 +273,14 @@ process.env.OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:4318";
 // Test all new exports work
 import {
   createEnhancedChatService,
-  initializeTelemetry,
-  getTelemetryStatus,
+  getLangfuseHealthStatus,
   NeuroLinkWebSocketServer,
   StreamingManager,
 } from "@juspay/neurolink";
 
 // Test TypeScript types
 const wsServer: NeuroLinkWebSocketServer = new NeuroLinkWebSocketServer({});
-const telemetryStatus: { enabled: boolean } = getTelemetryStatus();
+const telemetryStatus: { isHealthy: boolean } = getLangfuseHealthStatus();
 ```
 
 **Success Criteria:**
@@ -391,7 +389,7 @@ rm -rf node_modules/ dist/ .svelte-kit/
 pnpm install
 
 # Environment variables for testing
-export NEUROLINK_TELEMETRY_ENABLED=false  # Default
+unset LANGFUSE_PUBLIC_KEY LANGFUSE_SECRET_KEY  # Tracing off (default)
 export GOOGLE_AI_API_KEY=test_key
 export OPENAI_API_KEY=test_key
 ```

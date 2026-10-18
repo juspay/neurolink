@@ -51,6 +51,10 @@ import { SIZE_LIMITS } from "../config/index.js";
 import { isAbortError } from "../../utils/errorHandling.js";
 import { withSpan } from "../../telemetry/withSpan.js";
 import { tracers } from "../../telemetry/tracers.js";
+// Starts tracing at the first span, as this module always did: the shared
+// tracers only start what a loaded entry registered, and this path can be
+// imported without the package entry. The client entry stays free of it.
+import "../../services/server/ai/observability/instrumentation.js";
 import {
   createFileError,
   extractHttpStatus,

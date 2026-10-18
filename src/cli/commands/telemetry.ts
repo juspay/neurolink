@@ -14,8 +14,17 @@ import chalk from "chalk";
 import ora from "ora";
 import { logger } from "../../lib/utils/logger.js";
 import { NeuroLink } from "../../lib/neurolink.js";
-import { flushOpenTelemetry } from "../../lib/services/server/ai/observability/instrumentation.js";
-import { formatRow, formatCost } from "../utils/formatters.js";
+import {
+  ensureTelemetry,
+  flushOpenTelemetry,
+} from "../../lib/services/server/ai/observability/instrumentation.js";
+import { getExporterRegistry } from "../../lib/observability/exporterRegistry.js";
+import {
+  formatRow,
+  formatCost,
+  formatExporterLines,
+  formatOtelStatus,
+} from "../utils/formatters.js";
 import { redactUrlCredentials } from "../../lib/utils/logSanitize.js";
 import {
   prepareNativeTelemetry,
@@ -28,6 +37,23 @@ import type {
   TelemetryNativePrepareArgs,
   TelemetryNativeValidateArgs,
 } from "../../lib/types/index.js";
+
+function exporterTotals(): {
+  pending: number;
+  delivered: number;
+  failed: number;
+} {
+  return getExporterRegistry()
+    .getStatuses()
+    .reduce(
+      (sum, exporter) => ({
+        pending: sum.pending + exporter.pendingSpans,
+        delivered: sum.delivered + exporter.deliveredSpans,
+        failed: sum.failed + exporter.failedSpans,
+      }),
+      { pending: 0, delivered: 0, failed: 0 },
+    );
+}
 
 /**
  * Telemetry Command Factory
@@ -218,6 +244,9 @@ export class TelemetryCommandFactory {
           : ora("Checking telemetry status...").start();
 
         try {
+          // A one-shot process only starts telemetry with its first span, so
+          // start it here to report the exporters this process would run.
+          ensureTelemetry();
           const neurolink = new NeuroLink();
           const status = neurolink.getTelemetryStatus();
 
@@ -252,9 +281,11 @@ export class TelemetryCommandFactory {
             if (status.openTelemetry) {
               logger.always("");
               logger.always(chalk.bold("OpenTelemetry:"));
-              const otelStatus = status.openTelemetry.enabled
-                ? chalk.green("Active")
-                : chalk.gray("Inactive");
+              const otelStatus = formatOtelStatus(
+                status.openTelemetry,
+                "Active",
+                "Inactive",
+              );
               logger.always(formatRow("  Status:", otelStatus));
               if (status.openTelemetry.endpoint) {
                 logger.always(
@@ -292,6 +323,12 @@ export class TelemetryCommandFactory {
                   formatRow("  Environment:", status.langfuse.environment),
                 );
               }
+            }
+
+            logger.always("");
+            logger.always(chalk.bold("Exporters:"));
+            for (const line of formatExporterLines(status.exporters)) {
+              logger.always(line);
             }
 
             logger.always("");
@@ -345,6 +382,8 @@ export class TelemetryCommandFactory {
           : ora("Flushing pending spans...").start();
 
         try {
+          const before = exporterTotals();
+
           // Create a timeout promise
           let flushTimer: ReturnType<typeof setTimeout> | undefined;
           const timeoutPromise = new Promise<void>((_, reject) => {
@@ -369,12 +408,41 @@ export class TelemetryCommandFactory {
             spinner.succeed("Flush completed");
           }
 
+          const after = exporterTotals();
+          const flushed = after.delivered - before.delivered;
+          const dropped = after.failed - before.failed;
+
           if (args.format === "json") {
-            logger.always(JSON.stringify({ success: true }, null, 2));
+            logger.always(
+              JSON.stringify(
+                {
+                  success: true,
+                  pendingBefore: before.pending,
+                  pendingAfter: after.pending,
+                  flushed,
+                  dropped,
+                },
+                null,
+                2,
+              ),
+            );
           } else {
             logger.always("");
             logger.always(chalk.bold.cyan("=== Flush Complete ==="));
             logger.always("");
+            logger.always(
+              formatRow("Spans before:", before.pending.toString()),
+            );
+            logger.always(formatRow("Spans after:", after.pending.toString()));
+            logger.always(
+              formatRow("Flushed:", chalk.green(flushed.toString())),
+            );
+            logger.always(
+              formatRow(
+                "Dropped:",
+                dropped > 0 ? chalk.red(dropped.toString()) : "0",
+              ),
+            );
             logger.always("");
           }
         } catch (error) {

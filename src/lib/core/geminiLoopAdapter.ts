@@ -23,6 +23,7 @@ import type {
   AgenticLoopStepRequest,
   AgenticLoopStepResult,
   AgenticLoopToolCallResult,
+  AgenticLoopUsage,
   GeminiLoopAdapterConfig,
   GeminiStepRaw,
   GeminiStepRequest,
@@ -310,6 +311,27 @@ export function createGeminiLoopAdapter(
         })),
       });
       return next;
+    },
+
+    // Gemini's prompt count already contains the cached tokens, and its
+    // candidate count leaves out the thinking tokens. The step's usage keeps
+    // that raw shape because the provider clients reconcile the turn totals
+    // from it once, and callers get those counts as the API reported them;
+    // only the generation observation is rebased, so a cached token is not
+    // billed at the input rate as well as the cache rate, a cached count above
+    // the prompt is not billed as extra tokens, and a thinking token is billed
+    // at the output rate.
+    observedUsage(usage: AgenticLoopUsage): AgenticLoopUsage {
+      const cached =
+        usage.cacheReadTokens === undefined
+          ? undefined
+          : Math.min(usage.cacheReadTokens, usage.inputTokens);
+      return {
+        ...usage,
+        inputTokens: Math.max(0, usage.inputTokens - (cached ?? 0)),
+        outputTokens: usage.outputTokens + (usage.reasoningTokens ?? 0),
+        ...(cached !== undefined && { cacheReadTokens: cached }),
+      };
     },
 
     mapFinishReason(

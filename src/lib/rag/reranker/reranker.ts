@@ -48,6 +48,7 @@ export async function rerank(
     {
       name: "neurolink.rag.rerank",
       tracer: tracers.rag,
+      observationType: "span",
       attributes: {
         "rag.reranker.input_count": results.length,
         "rag.reranker.top_k": options?.topK ?? 3,
@@ -209,6 +210,7 @@ export async function batchRerank(
     {
       name: "neurolink.rag.batchRerank",
       tracer: tracers.rag,
+      observationType: "span",
       attributes: {
         "rag.reranker.input_count": results.length,
         "rag.reranker.top_k": options?.topK ?? 3,

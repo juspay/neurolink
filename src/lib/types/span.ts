@@ -177,7 +177,25 @@ export type SpanAttributes = {
 export type SpanEvent = {
   name: string;
   timestamp: string;
+  /** When the event happened as nanoseconds since the Unix epoch (decimal string); finer than `timestamp`. */
+  timestampUnixNano?: string;
   attributes?: Record<string, unknown>;
+};
+
+/**
+ * Instrumentation scope that created a span
+ */
+export type SpanScope = {
+  name: string;
+  version?: string;
+};
+
+/**
+ * The fields an OpenTelemetry SDK 1.x span exposes where 2.x uses `parentSpanContext` and `instrumentationScope`
+ */
+export type LegacyReadableSpan = {
+  parentSpanId?: string;
+  instrumentationLibrary?: SpanScope;
 };
 
 /**
@@ -207,8 +225,18 @@ export type SpanData = {
   startTime: string;
   /** End timestamp (ISO 8601) */
   endTime?: string;
+  /** Start as nanoseconds since the Unix epoch (decimal string); finer than `startTime` */
+  startTimeUnixNano?: string;
+  /** End as nanoseconds since the Unix epoch (decimal string); finer than `endTime` */
+  endTimeUnixNano?: string;
   /** Duration in milliseconds */
   durationMs?: number;
+  /** OpenTelemetry span kind: 0 internal, 1 server, 2 client, 3 producer, 4 consumer */
+  kind?: number;
+  /** Attributes of the resource that produced the span, such as `service.name` */
+  resource?: SpanAttributes;
+  /** Instrumentation scope that created the span */
+  scope?: SpanScope;
   /** Span status */
   status: SpanStatus;
   /** Status message (for errors) */

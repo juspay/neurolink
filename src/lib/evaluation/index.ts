@@ -1,3 +1,8 @@
+// Imported on its own, this entry starts tracing at its first span, as the
+// main entry does. The import sits here rather than in the shared tracers so
+// that the client entry stays free of the OpenTelemetry Node SDK.
+import "../services/server/ai/observability/instrumentation.js";
+
 import type {
   EvaluationData,
   GenerateResult,

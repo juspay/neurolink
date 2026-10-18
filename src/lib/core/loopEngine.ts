@@ -371,6 +371,7 @@ async function executeObservedStep<TConversation>(
     } catch (err) {
       throw err instanceof PostEmissionStepError ? err.cause : err;
     }
+    const observed = adapter.observedUsage?.(result.usage) ?? result.usage;
     observeGeneration(generationSpan, {
       provider: request.generation?.provider,
       model: request.generation?.model,
@@ -381,13 +382,16 @@ async function executeObservedStep<TConversation>(
         ...(result.toolCalls.length > 0 ? { toolCalls: result.toolCalls } : {}),
       },
       usage: {
-        inputTokens: result.usage.inputTokens,
-        outputTokens: result.usage.outputTokens,
-        cacheReadTokens: result.usage.cacheReadTokens,
-        cacheCreationTokens: result.usage.cacheWriteTokens,
-        reasoningTokens: result.usage.reasoningTokens,
+        inputTokens: observed.inputTokens,
+        outputTokens: observed.outputTokens,
+        cacheReadTokens: observed.cacheReadTokens,
+        cacheCreationTokens: observed.cacheWriteTokens,
+        reasoningTokens: observed.reasoningTokens,
       },
-      finishReason: result.rawStopReason,
+      // A step cut short before the provider's terminal event has no stop
+      // reason; record "other", as the turn's own finishReason does.
+      finishReason:
+        result.rawStopReason ?? (signal.aborted ? "other" : undefined),
       aborted: signal.aborted,
       completionStartTime: firstChunkAt,
     });
@@ -448,7 +452,7 @@ export function runAgenticLoop<TConversation>(
     // ever writes to it, so the loop is the same loop it was.
     let stepCap = adapter.maxSteps;
     const turnStartedAt = Date.now();
-    const stepSpans = new StepSpans();
+    const stepSpans = new StepSpans(options.operation);
 
     try {
       for (let step = 0; step < stepCap; step++) {

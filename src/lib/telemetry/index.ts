@@ -11,6 +11,7 @@ export {
 export {
   ATTR,
   SPAN_ATTRIBUTE_MAX_CHARS,
+  recordsSpanInputs,
   redactSpanContent,
   spanAttributeMaxChars,
   spanContentAttribute,

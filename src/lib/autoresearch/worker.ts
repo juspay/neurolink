@@ -112,6 +112,7 @@ export class ResearchWorker {
       {
         name: "autoresearch.initialize",
         tracer: tracers.autoresearch,
+        observationType: "span",
         attributes: {
           [ATTR.AR_TAG]: tag,
           [ATTR.AR_BRANCH]: `${this.config.branchPrefix}${tag}`,
@@ -195,6 +196,7 @@ export class ResearchWorker {
       {
         name: "autoresearch.resume",
         tracer: tracers.autoresearch,
+        observationType: "span",
       },
       async (span) => {
         const state = await this.stateStore.load();
@@ -271,6 +273,7 @@ export class ResearchWorker {
       {
         name: "autoresearch.experiment_cycle",
         tracer: tracers.autoresearch,
+        observationType: "span",
         attributes: {
           [ATTR.AR_TAG]: state.tag,
           [ATTR.AR_RUN_COUNT]: state.runCount,
@@ -298,6 +301,7 @@ export class ResearchWorker {
           {
             name: "autoresearch.experiment_run",
             tracer: tracers.autoresearch,
+            observationType: "span",
             attributes: { [ATTR.AR_TAG]: state.tag },
           },
           async () => {

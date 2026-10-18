@@ -361,6 +361,27 @@ export default [
             // size cap. The end-to-end half lives in the Vertex Claude
             // characterization suite. Its header states the exception in full.
             "test/continuous-test-suite-span-content-redaction.ts",
+            // The exporter pipeline is read from a local OTLP receiver that
+            // can refuse, hold or fail requests on demand, the OpenTelemetry
+            // SDK 1.x span shape is not installed and is reproduced as a
+            // fixture, and exact nanosecond times, a sampled-out span and an
+            // 80 KB adversarial string cannot come out of a model call. Its
+            // header states the exception in full.
+            "test/continuous-test-suite-observability-exporter-redaction.ts",
+            // More than 5,000 simultaneously open spans, an event stamped with
+            // an out-of-range time, a model call whose output has the wrong
+            // type, a response that names a different model than the request
+            // and a host provider torn down and rebuilt cannot come out of a
+            // live call; a global tracer provider with or without a context
+            // manager is set once per process, so each runs in a child. Its
+            // header states the exception in full.
+            "test/continuous-test-suite-observability-w2-extras-a.ts",
+            // The roots a direct provider call and a direct tool loop open for
+            // themselves come from the tracer wrappers, and the attributes are
+            // read from an in-memory exporter; a global tracer provider is set
+            // once per process and no generate() call exposes either. Its
+            // header states the exception in full.
+            "test/continuous-test-suite-observability-integration.ts",
             // A voice call's recorder, binding verifier and realtime wiring
             // have no path through generate()/stream(); what is asserted is
             // stored message ids, metadata, ordering and the Redis key, plus
@@ -414,6 +435,45 @@ export default [
             // deliberately outside the exception.
             "test/continuous-test-suite-codex.ts",
             "test/continuous-test-suite-proxy-telemetry.ts",
+            // The Langfuse records the Claude and Codex proxy routes, the
+            // translated path and the LiveKit realtime wiring put on the wire
+            // (identity, bodies, usage and cost, one trace per turn, tool
+            // pairing, shutdown flush). A live provider cannot return a fixed
+            // usage, overlapping same-name tool calls, a stalled Langfuse
+            // endpoint or a worker reaped a second after shutdown. Its header
+            // states the exception in full.
+            "test/continuous-test-suite-observability-proxy-voice.ts",
+            // The wave-2 proxy and provider fixes hang on inputs a live call
+            // cannot produce: a Codex stream whose completed output is empty,
+            // a Claude stream whose message_start already counts a token, a
+            // tracer that starts before telemetry, a tool name that cannot be
+            // stringified, a SageMaker finish part out of spec and a provider
+            // result without a stream. Its header states the exception in full.
+            "test/continuous-test-suite-observability-w2-extras-b.ts",
+            // The three maintainer decisions on the follow-up: proxy bodies
+            // opt-in, a dropped Langfuse delivery as a signal without a
+            // breaker, and the dual-written gen_ai.* proxy keys. The real
+            // proxy routes run against recorded replies, and two local OTLP
+            // receivers (Langfuse, collector) decode what leaves the process.
+            // Its header states the exception in full.
+            "test/continuous-test-suite-observability-decisions.ts",
+            // The adversarial follow-up on the exporter: a local OTLP receiver
+            // that answers 200 with a null body or a malformed partialSuccess,
+            // 429 and 503 with Retry-After, or holds every request open; a
+            // GenAI span from another library and non-object metadata; 5,100
+            // spans ended between two ancestors and their descendant; a span
+            // that ends while shutdown() drains. None comes out of a live call.
+            // Its header states the exception in full.
+            "test/continuous-test-suite-observability-adv-exporter.ts",
+            // The defects an adversarial verifier reproduced in the proxy and
+            // realtime tracing: upstream error bodies that echo the prompt, a
+            // stream error event without a message, a stream with no content,
+            // secrets under unusual header names, a Codex item over the cap, a
+            // conversation store that never answers, and the label values a
+            // MeterProvider receives. Real routes and tracers run against local
+            // fakes and a decoding OTLP receiver. Its header states the
+            // exception in full.
+            "test/continuous-test-suite-observability-adv-proxy.ts",
             // Exact isolated transport, cancellation, batching, budget and updater failures.
             "test/continuous-test-suite-proxy-request-lifecycle.ts",
             "test/continuous-test-suite-proxy-http-disconnect.ts",
@@ -625,6 +685,23 @@ export default [
             // branches when its configured model is absent; discovery, wire and
             // returned public content stay real. No SDK/provider/fetch stubs.
             "test/continuous-test-suite-orchestrated-provider-selection.ts",
+            // Fixed Gemini usage metadata (10,000 prompt tokens, 8,000 cached,
+            // 500 output, 300 thinking) whose per-step cost is hand-computed,
+            // a stream closed or thrown into before its first chunk, a direct
+            // provider loop with no ambient span, and a site-stamped decision
+            // call with no decision provider: interleavings and inputs no live
+            // call produces on demand. `createGeminiLoopAdapter` and
+            // `runAgenticLoop` are not root exports. Everything comes from
+            // `src`; loopback fakes only. Its header states the exception.
+            "test/continuous-test-suite-observability-core-providers.ts",
+            // Tool calls whose arguments carry a marker, a NeuroLink turn run
+            // from a direct loop's tool, finish reasons and thrown values in
+            // shapes no provider sends, Gemini usage with more cached than
+            // prompt tokens, a stream result dropped unread before a forced
+            // garbage collection, and a return() racing a pending next().
+            // Everything comes from `src`; loopback fakes only. Its header
+            // states the exception.
+            "test/continuous-test-suite-observability-adv-providers.ts",
 
             // ---------------------------------------------------------------
             // Grandfathered when this rule was extended to cover deep `dist/`

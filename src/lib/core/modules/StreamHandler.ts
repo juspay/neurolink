@@ -192,10 +192,11 @@ export class StreamHandler {
             result,
             getUnderlyingError?.(),
           );
-          // Curator P2-5 + P3-6: stamp the active OTel span so
-          // ContextEnricher.onEnd() surfaces a WARNING-level Langfuse
-          // observation with finishReason + token usage. Centralized in
-          // stampNoOutputSpan so every wired site stamps consistently.
+          // Curator P2-5 + P3-6: stamp the active OTel span with the
+          // WARNING observation level and a status message carrying
+          // finishReason + token usage, which ExporterSpanProcessor exports
+          // with the span. Centralized in stampNoOutputSpan so every wired
+          // site stamps consistently.
           stampNoOutputSpan(sentinel);
           // S4 fix: yield a sentinel chunk so Pipeline B can detect the empty stream
           // and set the span to WARNING status instead of OK

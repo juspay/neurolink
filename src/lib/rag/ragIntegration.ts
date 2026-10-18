@@ -624,6 +624,7 @@ async function _prepareRAGToolInner(
         {
           name: "neurolink.rag.search",
           tracer: tracers.rag,
+          observationType: "span",
           attributes: {
             "rag.query_length": query ? String(query).length : 0,
             "rag.top_k": topK ?? 5,

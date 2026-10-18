@@ -2854,6 +2854,7 @@ export class AnthropicProvider extends BaseProvider {
         adapter,
         payload.messages.slice(),
         {
+          operation: "stream",
           tools: engineTools,
           ...(abortSignal ? { abortSignal } : {}),
           ...(activeSpan ? { span: activeSpan } : {}),

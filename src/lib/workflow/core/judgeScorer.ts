@@ -43,6 +43,7 @@ export async function scoreEnsemble(
     {
       name: "neurolink.workflow.judge.score",
       tracer: tracers.workflow,
+      observationType: "span",
       attributes: {
         "workflow.judges_count": options.judges.length,
         "workflow.responses_count": options.responses.length,

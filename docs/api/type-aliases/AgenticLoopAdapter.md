@@ -235,6 +235,29 @@ row after the first one.
 
 ---
 
+### observedUsage()?
+
+> `optional` **observedUsage**(`usage`): [`AgenticLoopUsage`](AgenticLoopUsage.md)
+
+Optional: maps a step's usage onto what its generation observation
+prices, where `inputTokens` excludes cache reads and `outputTokens`
+includes reasoning. Only for providers whose API reports otherwise
+(Gemini counts cached tokens inside the prompt count and thinking tokens
+outside the candidate count). The turn totals the engine returns are not
+touched: callers already reconcile those once.
+
+#### Parameters
+
+##### usage
+
+[`AgenticLoopUsage`](AgenticLoopUsage.md)
+
+#### Returns
+
+[`AgenticLoopUsage`](AgenticLoopUsage.md)
+
+---
+
 ### planReclaim()?
 
 > `optional` **planReclaim**(`conversation`, `step`): [`AgenticLoopReclaimResult`](AgenticLoopReclaimResult.md)\<`TConversation`\> \| `undefined`

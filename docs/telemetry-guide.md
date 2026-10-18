@@ -4,14 +4,14 @@
 
 ## 📋 Overview
 
-NeuroLink includes optional OpenTelemetry integration for enterprise monitoring and observability. The telemetry system provides comprehensive insights into AI operations, performance metrics, and system health with **zero overhead when disabled**.
+NeuroLink includes optional OpenTelemetry integration for enterprise monitoring and observability. The telemetry system provides insights into AI operations, performance metrics, and system health. Nothing is exported until Langfuse keys or an OTLP endpoint are configured, although importing the main package entry, or the `./rag`, `./workflow`, `./evaluation`, `./processors` or `./autoresearch` entry, already loads the OpenTelemetry SDK (see [Initialisation](./features/observability.md#initialisation)).
 
 ## 🚀 Key Features
 
-- **✅ Zero Overhead by Default** - Telemetry disabled unless explicitly configured
+- **✅ Off by Default** - Nothing is exported unless explicitly configured
 - **🤖 AI Operation Tracking** - Monitor text generation, token usage, costs, and response times
 - **🔧 MCP Tool Monitoring** - Track tool calls, execution time, and success rates
-- **📈 Performance Metrics** - Response times, error rates, throughput monitoring
+- **📈 Performance Metrics** - Response times and throughput; error counts for proxied traffic
 - **🔍 Distributed Tracing** - Full request tracing across AI providers and services
 - **📊 Custom Dashboards** - Grafana, Jaeger, and Prometheus integration
 - **🎯 Production Ready** - Enterprise-grade monitoring for production deployments
@@ -32,7 +32,7 @@ await neurolink.generate({
 });
 ```
 
-If your application already registers an OpenTelemetry `TracerProvider`, NeuroLink creates no provider but registers its Langfuse exporter when keys are configured; add `createExporterSpanProcessor()` to your provider (recommended), or add `new LangfuseSpanProcessor()` from `@langfuse/otel` with its own keys (no custom filter is needed because every NeuroLink observation span carries `gen_ai.observation.type` and infrastructure spans are not exported; NeuroLink's `mask`, chunking and retry do not apply to it). In serverless, call `flushOpenTelemetry()` before exit.
+If your application already registers an OpenTelemetry `TracerProvider`, NeuroLink creates no provider (and ignores `OTEL_EXPORTER_OTLP_ENDPOINT`, so add an OTLP exporter to your own providers) but registers its Langfuse exporter when keys are configured; add `createExporterSpanProcessor()` to your provider (recommended), or add `new LangfuseSpanProcessor()` from `@langfuse/otel` with its own keys (no custom filter is needed because every NeuroLink observation span carries `gen_ai.observation.type` and infrastructure spans are not exported; NeuroLink's `mask`, chunking and retry do not apply to it). In serverless, call `flushOpenTelemetry()` before exit.
 
 The full guide, including the migration table for removed fields and exports, is [Observability](./features/observability.md).
 
@@ -42,13 +42,17 @@ The full guide, including the migration table for removed fields and exports, is
 
 ### Environment Variables
 
-| Variable                      | Description                                          | Default        |
-| ----------------------------- | ---------------------------------------------------- | -------------- |
-| `LANGFUSE_PUBLIC_KEY`         | Langfuse public key; with the secret key, enables it | -              |
-| `LANGFUSE_SECRET_KEY`         | Langfuse secret key                                  | -              |
-| `LANGFUSE_BASE_URL`           | Langfuse host                                        | Langfuse Cloud |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint for traces and metrics       | -              |
-| `OTEL_SERVICE_NAME`           | Service name                                         | `neurolink-ai` |
+| Variable                      | Description                                                                                                                                                                                                        | Default                                        |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| `LANGFUSE_PUBLIC_KEY`         | Langfuse public key; with the secret key, enables it                                                                                                                                                               | -                                              |
+| `LANGFUSE_SECRET_KEY`         | Langfuse secret key                                                                                                                                                                                                | -                                              |
+| `LANGFUSE_BASE_URL`           | Langfuse host                                                                                                                                                                                                      | Langfuse Cloud                                 |
+| `LANGFUSE_ENABLED`            | `false`, `0`, `off` or `no` keeps Langfuse off while the keys are in the environment, in the proxy and for options that leave the keys there; `langfuse: true`, `enabled: true` or keys passed in code win over it | -                                              |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector base URL for traces and metrics, only when NeuroLink owns the tracer provider (ignored beside a host provider)                                                                                      | -                                              |
+| `OTEL_SERVICE_NAME`           | Service name                                                                                                                                                                                                       | `ai-service` (`neurolink-proxy` for the proxy) |
+| `NEUROLINK_TELEMETRY_ENABLED` | `true` records NeuroLink's metrics whatever else is set; a registered `MeterProvider` or an OTLP endpoint already turns them on                                                                                    | -                                              |
+
+The metric names, labels and when each one records are in [Metrics](./features/observability.md#metrics).
 
 ---
 
@@ -68,7 +72,7 @@ When running the NeuroLink proxy (`neurolink proxy start`), OpenTelemetry is aut
 
 **Caller trace linkage:** When a calling SDK already has an active trace, NeuroLink forwards W3C `traceparent`/`tracestate` headers and `x-neurolink-session-id` / `x-neurolink-user-id` / `x-neurolink-conversation-id` headers into the proxy so proxy spans can attach to the caller trace and preserve session-level attribution.
 
-**Provider reuse:** If a global `TracerProvider` is already registered (e.g., by the host application), NeuroLink registers nothing and uses it, avoiding "already registered" errors.
+**Provider reuse:** If a global `TracerProvider` is already registered (e.g., by the host application), NeuroLink registers nothing and uses it, avoiding "already registered" errors. `OTEL_EXPORTER_OTLP_ENDPOINT` then still receives the proxy's request logs, but not its traces or metrics, which go to the host's providers.
 
 **OpenObserve dashboard:** The maintained proxy dashboard definition lives in `docs/assets/dashboards/neurolink-proxy-observability-dashboard.json`. For how to read that dashboard and which streams it should use, see [Claude Proxy Observability](./features/claude-proxy-observability.md).
 
@@ -138,7 +142,7 @@ services:
   my-ai-app:
     build: .
     environment:
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:14268/api/traces
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
       - OTEL_SERVICE_NAME=my-ai-application
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
@@ -150,8 +154,8 @@ services:
     image: jaegertracing/all-in-one:latest
     ports:
       - "16686:16686" # Jaeger UI
-      - "14268:14268" # OTLP HTTP
-      - "14250:14250" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+      - "4317:4317" # OTLP gRPC
     environment:
       - COLLECTOR_OTLP_ENABLED=true
       - LOG_LEVEL=debug
@@ -178,35 +182,41 @@ volumes:
   grafana-storage:
 ```
 
+`OTEL_EXPORTER_OTLP_ENDPOINT` is the collector's base URL: NeuroLink appends `/v1/traces` and `/v1/metrics` itself. Jaeger stores the traces only, so send the metrics to an OpenTelemetry Collector or another backend that accepts OTLP metrics.
+
 ---
 
 ## 📊 Key Metrics to Track
 
 ### AI Operation Metrics
 
-- **Response Time**: Time to generate AI responses
-- **Token Usage**: Input/output tokens by provider and model
-- **Cost Tracking**: Estimated costs per operation
-- **Error Rates**: Failed AI requests by provider
-- **Provider Performance**: Success rates and latency by provider
+- **Request volume**: `ai_requests_total`, by `provider` and `model`
+- **Response time**: `ai_request_duration_ms`, a histogram in milliseconds
+- **Token usage**: `ai_tokens_used_total`, total tokens per request
+- **Cost tracking**: `ai_cost_usd_total`, for models with known pricing
+- **MCP tool calls**: `mcp_tool_calls_total`, by `tool`, `success` and duration bucket
+
+NeuroLink records no AI error-rate or connection metric: `ai_provider_errors_total`, `connections_total` and `response_time_ms` exist as instruments, but nothing in the package records them, and there is no active-connection gauge. For proxied traffic use the proxy's own metrics, such as `proxy_errors_total`; see [Claude Proxy Observability](./features/claude-proxy-observability.md).
 
 ### Sample Prometheus Queries
 
+The names below are the metric names NeuroLink creates; through an OTLP-to-Prometheus pipeline the histogram appears as `_bucket`, `_sum` and `_count` series.
+
 ```promql
-# Average AI response time over 5 minutes
-rate(neurolink_ai_duration_sum[5m]) / rate(neurolink_ai_duration_count[5m])
+# Average AI request duration (ms) over 5 minutes, by provider
+sum by (provider) (rate(ai_request_duration_ms_sum[5m])) / sum by (provider) (rate(ai_request_duration_ms_count[5m]))
+
+# Requests per second by provider and model
+sum by (provider, model) (rate(ai_requests_total[5m]))
 
 # Token usage by provider
-sum by (provider) (rate(neurolink_tokens_total[5m]))
+sum by (provider) (rate(ai_tokens_used_total[5m]))
 
-# Error rate percentage
-rate(neurolink_errors_total[5m]) / rate(neurolink_requests_total[5m]) * 100
+# Cost per hour by provider (USD)
+sum by (provider) (increase(ai_cost_usd_total[1h]))
 
-# Cost per hour by provider
-sum by (provider) (rate(neurolink_cost_total[1h]))
-
-# Active WebSocket connections
-neurolink_websocket_connections_active
+# Share of MCP tool calls that failed, by tool
+sum by (tool) (rate(mcp_tool_calls_total{success="false"}[5m])) / sum by (tool) (rate(mcp_tool_calls_total[5m]))
 ```
 
 ---
@@ -226,19 +236,20 @@ neurolink_websocket_connections_active
    ```bash
    docker run -d \
      -p 16686:16686 \
-     -p 14268:14268 \
+     -p 4318:4318 \
+     -e COLLECTOR_OTLP_ENABLED=true \
      jaegertracing/all-in-one:latest
    ```
 
-3. **Configure Endpoint**
+3. **Configure Endpoint** (the base URL; NeuroLink appends `/v1/traces` and `/v1/metrics`)
 
    ```bash
-   export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:14268/api/traces
+   export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
    ```
 
 4. **Run your app**
 
-   Tracing starts with the first `new NeuroLink()`; no initialization call is needed.
+   No initialization call is needed. Tracing starts at `new NeuroLink({ observability })`, at the first `generate`, `stream` or `decide` call, or at the first NeuroLink span; a plain `new NeuroLink()` starts nothing by itself. See [Initialisation](./features/observability.md#initialisation).
 
 5. **View Traces**
    - Open http://localhost:16686

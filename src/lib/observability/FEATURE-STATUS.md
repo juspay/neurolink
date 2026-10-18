@@ -160,10 +160,6 @@ neurolink observability status
 neurolink observability metrics
 neurolink obs metrics --detailed
 
-# List exporters
-neurolink observability exporters
-neurolink obs exp --format json
-
 # Cost breakdown
 neurolink observability costs
 neurolink obs costs --by-model --by-provider

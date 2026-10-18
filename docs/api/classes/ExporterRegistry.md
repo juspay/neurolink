@@ -335,6 +335,19 @@ Get total pending spans across all exporters
 
 ---
 
+### getStatuses()
+
+> **getStatuses**(): [`ExporterStatus`](../type-aliases/ExporterStatus.md)[]
+
+Snapshot of every registered exporter without a network call: whether it
+runs, what is queued, delivered and dropped, and an open circuit breaker
+
+#### Returns
+
+[`ExporterStatus`](../type-aliases/ExporterStatus.md)[]
+
+---
+
 ### clear()
 
 > **clear**(): `void`

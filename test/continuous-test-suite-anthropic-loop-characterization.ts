@@ -1049,6 +1049,22 @@ function generationLevels(): string[] {
     );
 }
 
+/**
+ * The provider's own finish reason on every generation span, which is what
+ * tells a stop the model chose from one the caller or a limit forced.
+ */
+function generationFinishReasons(): string[] {
+  return spanExporter
+    .getFinishedSpans()
+    .filter(
+      (span: ReadableSpan) =>
+        span.attributes["langfuse.observation.type"] === "generation",
+    )
+    .map((span: ReadableSpan) =>
+      String(span.attributes["langfuse.observation.metadata.finishReason"]),
+    );
+}
+
 section("terminal truth for interrupted turns");
 
 await test("a caller abort mid-stream is reported as an aborted turn, not a normal stop", async () => {
@@ -1116,6 +1132,10 @@ await test("a caller abort mid-stream is reported as an aborted turn, not a norm
     finishes.length === 1 && finishes[0] === "WARNING",
     "the generation span must carry exactly one WARNING level for the aborted turn",
   );
+  assert(
+    generationFinishReasons().join(",") === "other",
+    "the generation span must record the finish reason other for the aborted turn",
+  );
 });
 
 await test("a turn that outlives turnTimeoutMs is reported as a time limit, not a normal stop", async () => {
@@ -1170,6 +1190,10 @@ await test("a turn that outlives turnTimeoutMs is reported as a time limit, not 
     finishes.length === 1 && finishes[0] === "WARNING",
     "the generation span did not carry exactly one WARNING level for the timed-out turn",
   );
+  assert(
+    generationFinishReasons().join(",") === "other",
+    "the generation span did not record the finish reason other for the timed-out turn",
+  );
 });
 
 await test("a turn the model ended itself still reports a plain stop", async () => {
@@ -1221,6 +1245,10 @@ await test("a turn the model ended itself still reports a plain stop", async () 
   assert(
     finishes.length === 1 && finishes[0] === "DEFAULT",
     "a clean turn must leave its single generation span at the default level",
+  );
+  assert(
+    generationFinishReasons().join(",") === "end_turn",
+    "a clean turn must record its provider stop reason verbatim on the generation span",
   );
 });
 

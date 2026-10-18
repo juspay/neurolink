@@ -32,6 +32,14 @@ Malformed, oversized or undispatched frames prevent proving output absence.
 
 ---
 
+### outputItemsOmitted?
+
+> `optional` **outputItemsOmitted?**: `boolean`
+
+Output items past the recorded-size cap were left out of `response.output`.
+
+---
+
 ### firstUsefulOutputAt?
 
 > `optional` **firstUsefulOutputAt?**: `number`

@@ -45,6 +45,11 @@ const MEMORY_STANDIN = [
   '  console.log("MEMORY_CALL " + JSON.stringify({ call }));',
   "  return undefined;",
   "}",
+  // The agent also imports the tracing-only recorder for calls without memory;
+  // like the real one with tracing off, it returns no recorder.
+  "export function setUpRealtimeCallTracing() {",
+  "  return undefined;",
+  "}",
 ].join("\n");
 
 const hooks = [

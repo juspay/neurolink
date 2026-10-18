@@ -1,3 +1,5 @@
+import type { Agent as HttpAgent } from "node:http";
+import type { Agent as HttpsAgent } from "node:https";
 import type { JsonValue } from "./common.js";
 import type { SpanAttributes } from "./span.js";
 
@@ -61,6 +63,34 @@ export type ExporterHealthStatus = {
 };
 
 /**
+ * Point-in-time state of one registered exporter, as `getTelemetryStatus()` and
+ * the CLI status commands report it. `pendingSpans` counts spans queued and not
+ * yet handed to the network; `deliveredSpans` and `failedSpans` count what the
+ * backend accepted and what was dropped since the process started.
+ */
+export type ExporterStatus = {
+  name: string;
+  enabled: boolean;
+  healthy: boolean;
+  pendingSpans: number;
+  deliveredSpans: number;
+  failedSpans: number;
+  /** ISO timestamp of the last export that delivered spans */
+  lastExportTime?: string;
+  errors?: string[];
+};
+
+/**
+ * What an exporter has delivered and dropped, and why its latest delivery
+ * failed, as `getStatuses()` reports it.
+ */
+export type ExporterDeliveryCounts = {
+  delivered: number;
+  failed: number;
+  lastError: string | undefined;
+};
+
+/**
  * Langfuse exporter configuration
  */
 export type LangfuseExporterConfig = ExporterConfig & {
@@ -76,14 +106,22 @@ export type LangfuseExporterConfig = ExporterConfig & {
    * When true, `input` and `output` fields are omitted from exported spans and
    * generations. Enable in compliance-sensitive deployments where prompt/response
    * content is considered PII or subject to data-minimisation requirements.
-   * Defaults to false (input/output are exported).
+   * Defaults to false (input/output are exported). It acts on what this
+   * exporter sends to Langfuse and nowhere else.
    */
   redactIO?: boolean;
   /**
-   * Applied to input, output and metadata before they are sent. When it
-   * throws, the value is replaced by `<fully masked>`.
+   * Applied to input, output and metadata before they are sent to Langfuse.
+   * When it throws, the value is replaced by `<fully masked>`. It acts on what
+   * this exporter sends and nowhere else: not on other exporters, the OTLP
+   * export, `getSpans()` or error text.
    */
   mask?: (params: { data: JsonValue }) => JsonValue;
+  /**
+   * Milliseconds `flush()` and `shutdown()` wait for delivery before they
+   * give up on what is still in flight and drop it. Defaults to 3000.
+   */
+  flushBudgetMs?: number;
 };
 
 /**
@@ -280,6 +318,19 @@ export type OtlpAnyValue =
 /** @description An OTLP/JSON attribute. */
 export type OtlpKeyValue = { key: string; value: OtlpAnyValue };
 
+/** @description How `createExporterSpanProcessor` treats the exporters of its registry. */
+export type ExporterSpanProcessorOptions = {
+  /** Whether the processor's `shutdown()` also shuts down the registry's exporters. Defaults to `true`; `false` flushes them and leaves them running. */
+  shutdownExporters?: boolean;
+};
+
+/** @description An OTLP/JSON link from one span to another. */
+export type OtlpLink = {
+  traceId: string;
+  spanId: string;
+  attributes: OtlpKeyValue[];
+};
+
 /** @description An OTLP/JSON span as Langfuse's ingestion endpoint reads it. */
 export type OtlpSpan = {
   traceId: string;
@@ -295,8 +346,43 @@ export type OtlpSpan = {
     timeUnixNano: string;
     attributes: OtlpKeyValue[];
   }[];
+  links?: OtlpLink[];
   status: { code: number; message?: string };
 };
+
+/** @description An encoded span together with the resource and instrumentation scope it was produced under. */
+export type OtlpEncodedSpan = {
+  span: OtlpSpan;
+  resource: OtlpKeyValue[];
+  scope: { name: string; version?: string };
+};
+
+/** @description The spans one instrumentation scope produced, as an OTLP/JSON request groups them. */
+export type OtlpScopeSpans = {
+  scope: { name: string; version?: string };
+  spans: OtlpSpan[];
+};
+
+/** @description An OTLP/JSON trace export request body. */
+export type OtlpTraceRequest = {
+  resourceSpans: {
+    resource: { attributes: OtlpKeyValue[] };
+    scopeSpans: OtlpScopeSpans[];
+  }[];
+};
+
+/** @description What one delivery attempt of a batch to Langfuse achieved. */
+export type LangfuseDeliveryReport = {
+  delivered: number;
+  rejected: number;
+  droppedIds: string[];
+  error?: string;
+};
+
+/** @description How Langfuse answered one export request: it took the spans (some perhaps rejected) or it did not take them. */
+export type LangfusePostOutcome =
+  | { accepted: true; rejected: number }
+  | { accepted: false };
 
 /** @description What the Langfuse exporter adds to, masks in and removes from span attributes before sending. */
 export type LangfuseAttributePolicy = Pick<
@@ -304,4 +390,12 @@ export type LangfuseAttributePolicy = Pick<
   "environment" | "release" | "mask"
 > & {
   redactIO: boolean;
+};
+
+/** @description The connections NeuroLink's OTLP exporters open, which a flush that has run out of its budget can close. */
+export type OtlpConnections = {
+  /** Hands an exporter the agent it opens its connections with. */
+  agentFor: (protocol: string) => HttpAgent | HttpsAgent;
+  /** Closes every connection now, and again once a retry that was asleep at that moment has sent. */
+  cut: () => void;
 };

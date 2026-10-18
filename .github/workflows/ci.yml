@@ -354,12 +354,12 @@ jobs:
 
   # The work. Split by measured duration: test:providers-mocked alone is
   # 4m13s of this job's 10m14s; the remaining eight suites total roughly the
-  # same. Two shards therefore halve it rather than leaving one long tail.
+  # same. Two shards therefore halve it rather than leaving one long tail; the observability shard runs beside them.
   provider-safety-net-shards:
     strategy:
       fail-fast: false
       matrix:
-        group: [contract, rest]
+        group: [contract, rest, observability]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -510,6 +510,22 @@ jobs:
       - name: 🧩 Provider Onboarding Completeness
         if: matrix.group == 'rest'
         run: pnpm run verify:provider-onboarding
+
+      # The observability suites (BZ-6924) are credential-free: fake provider
+      # servers, local OTLP receivers and recorded replies. Two of them compare
+      # the working tree with the merged PR and its parent through `git show`,
+      # and the checkout above is shallow, so those commits are fetched first.
+      - name: Fetch the commits the observability suites compare against
+        if: matrix.group == 'observability'
+        run: git fetch --no-tags --depth=1 origin fc892bbb58087096594f7ab80d5105e62a94189c 2d394138094c3b89015975ea3fdce69e4a75a5c9
+
+      - name: Observability suite (fake servers, no API keys required)
+        if: matrix.group == 'observability'
+        run: pnpm run test:observability
+
+      - name: Observability follow-up suites (local OTLP receivers, no API keys required)
+        if: matrix.group == 'observability'
+        run: pnpm run test:observability:followups
 
   # REQUIRED. A red run here blocks the merge.
   #

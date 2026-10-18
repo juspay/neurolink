@@ -89,6 +89,7 @@ export abstract class BaseChunker implements Chunker {
       {
         name: "neurolink.rag.chunk",
         tracer: tracers.rag,
+        observationType: "span",
         attributes: {
           "rag.chunker.strategy": this.strategy,
           "rag.chunker.content_chars": content.length,

@@ -2502,9 +2502,9 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         // a blanket "stop" for every stream that drained without throwing.
         streamMetadata.finishReason = toUnifiedFinishReason(rawFinishReason);
         // No-output path: stream completed normally but yielded zero text.
-        // Build an enriched sentinel + stamp the active OTel span so
-        // Pipeline B (ContextEnricher) surfaces a WARNING-level Langfuse
-        // observation instead of silently succeeding.
+        // Build an enriched sentinel + stamp the active OTel span with the
+        // WARNING observation level, which ExporterSpanProcessor exports,
+        // so the observation does not read as a silent success.
         if (contentYielded === 0 && toolsUsed.length === 0) {
           logger.warn(
             `${providerName}: Stream produced no output — emitting enriched sentinel`,
@@ -2695,7 +2695,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         ...(reasoningTokens > 0 ? { reasoningTokens } : {}),
       };
     };
-    const stepSpans = new StepSpans();
+    const stepSpans = new StepSpans("stream");
     try {
       // May grow mid-turn: hydrated tools with wire-unsafe names need
       // reverse-mapping even when the initial name set required none.

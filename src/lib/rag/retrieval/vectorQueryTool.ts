@@ -82,6 +82,7 @@ export function createVectorQueryTool(
         {
           name: "neurolink.rag.vectorQuery",
           tracer: tracers.rag,
+          observationType: "span",
           attributes: {
             "rag.vector.index": indexName,
             "rag.vector.top_k": params.topK ?? topK,

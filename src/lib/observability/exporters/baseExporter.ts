@@ -6,10 +6,78 @@
 import { logger } from "../../utils/logger.js";
 import type {
   ExporterConfig,
+  ExporterDeliveryCounts,
   ExporterHealthStatus,
+  ExporterStatus,
   ExportResult,
   SpanData,
 } from "../../types/index.js";
+
+// What each exporter delivered and dropped is kept here, not on the instance:
+// a subclass written before these counts existed may declare a member of any
+// name, and a plain-JavaScript exporter has no counts at all.
+const deliveryTallies = new WeakMap<BaseExporter, ExporterDeliveryCounts>();
+const deliveryReaders = new WeakMap<
+  BaseExporter,
+  () => ExporterDeliveryCounts
+>();
+const NO_DELIVERIES: ExporterDeliveryCounts = {
+  delivered: 0,
+  failed: 0,
+  lastError: undefined,
+};
+
+/**
+ * Backoff of `withRetry` unless its caller passes another: one second, doubled
+ * for every attempt that failed.
+ */
+export function exponentialRetryDelayMs(
+  _error: unknown,
+  attempt: number,
+): number {
+  return 1000 * 2 ** attempt;
+}
+
+/**
+ * Lets an exporter that counts its own deliveries, instead of through
+ * `createSuccessResult` and `createFailureResult`, say what it counted.
+ */
+export function reportDeliveriesWith(
+  exporter: BaseExporter,
+  read: () => ExporterDeliveryCounts,
+): void {
+  deliveryReaders.set(exporter, read);
+}
+
+/**
+ * Snapshot of a registered exporter for status reporting, without a network
+ * call. It reads only what every exporter has had since the first release
+ * (`getName`, `isInitialized`, `getPendingCount`, `getLastExportTime`), so an
+ * exporter written in plain JavaScript against that set is reported too.
+ */
+export function exporterStatusOf(exporter: BaseExporter): ExporterStatus {
+  const { delivered, failed, lastError } = (
+    deliveryReaders.get(exporter) ??
+    (() => deliveryTallies.get(exporter) ?? NO_DELIVERIES)
+  )();
+  const initialized = exporter.isInitialized();
+  const lastExportTime =
+    typeof exporter.getLastExportTime === "function"
+      ? exporter.getLastExportTime()
+      : 0;
+  return {
+    name: exporter.getName(),
+    enabled: initialized,
+    healthy: initialized && lastError === undefined,
+    pendingSpans: exporter.getPendingCount(),
+    deliveredSpans: delivered,
+    failedSpans: failed,
+    ...(lastExportTime > 0 && {
+      lastExportTime: new Date(lastExportTime).toISOString(),
+    }),
+    ...(lastError !== undefined && { errors: [lastError] }),
+  };
+}
 
 /**
  * Abstract base class for all observability exporters
@@ -151,6 +219,12 @@ export abstract class BaseExporter {
     durationMs: number,
   ): ExportResult {
     this.lastExportTime = Date.now();
+    const tally = deliveryTallies.get(this) ?? NO_DELIVERIES;
+    deliveryTallies.set(this, {
+      delivered: tally.delivered + exportedCount,
+      failed: tally.failed,
+      lastError: undefined,
+    });
     return {
       success: true,
       exportedCount,
@@ -168,6 +242,12 @@ export abstract class BaseExporter {
     durationMs: number,
     retryable: boolean = true,
   ): ExportResult {
+    const tally = deliveryTallies.get(this) ?? NO_DELIVERIES;
+    deliveryTallies.set(this, {
+      delivered: tally.delivered,
+      failed: tally.failed + spanIds.length,
+      lastError: error,
+    });
     return {
       success: false,
       exportedCount: 0,
@@ -201,24 +281,34 @@ export abstract class BaseExporter {
    * Execute an operation with exponential backoff retry
    * @param operation - The async operation to execute
    * @param operationName - Name for logging purposes
+   * @param signal - Stops further attempts and cuts a backoff wait short when aborted
+   * @param delayMs - Milliseconds to wait before the next attempt, given why the attempt failed and its zero-based number; one second doubled per attempt by default
    * @returns The result of the operation
-   * @throws The last error if all retries fail
+   * @throws The last error if all retries fail, or the abort reason when the signal fires
    */
   protected async withRetry<T>(
     operation: () => Promise<T>,
     operationName: string,
+    signal?: AbortSignal,
+    delayMs: (
+      error: unknown,
+      attempt: number,
+    ) => number = exponentialRetryDelayMs,
   ): Promise<T> {
     const maxRetries = this.retries;
-    const baseDelay = 1000;
     let lastError: Error | undefined;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      signal?.throwIfAborted();
       try {
         return await operation();
       } catch (error) {
         lastError = error as Error;
+        if (signal?.aborted) {
+          break;
+        }
         if (attempt < maxRetries) {
-          const delay = baseDelay * 2 ** attempt;
+          const delay = delayMs(lastError, attempt);
           logger.warn(
             `[${this.name}] ${operationName} failed, retrying in ${delay}ms`,
             {
@@ -227,13 +317,32 @@ export abstract class BaseExporter {
               error: lastError.message,
             },
           );
-          await new Promise((resolve) => setTimeout(resolve, delay));
+          await sleepUnlessAborted(delay, signal);
         }
       }
     }
 
     throw lastError;
   }
+}
+
+function sleepUnlessAborted(
+  delayMs: number,
+  signal: AbortSignal | undefined,
+): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) {
+      resolve();
+      return;
+    }
+    const finish = (): void => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", finish);
+      resolve();
+    };
+    const timer = setTimeout(finish, delayMs);
+    signal?.addEventListener("abort", finish, { once: true });
+  });
 }
 
 /**

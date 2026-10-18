@@ -391,6 +391,9 @@ export class MCPToolRegistry extends MCPRegistry {
         attributes: {
           "tool.name": toolName,
           [ATTR.MCP_SERVER_ID]: preResolvedServerId || "builtin",
+          // Registry-level wrapper around the `tool` observation of the same
+          // call: it stays an OpenTelemetry span but is not exported.
+          [ATTR.NL_INTERNAL]: true,
         },
       },
       async (span) => {

@@ -369,10 +369,12 @@ function processMessageDelta(acc: TelemetryAccumulator, parsed: any): void {
 
   const usage = parsed.usage;
   if (usage) {
-    // message_delta provides the final output_tokens count; treat it as
-    // additive because message_start reports output_tokens: 0 for the
-    // initial placeholder.
-    acc.outputTokens += usage.output_tokens ?? 0;
+    // message_delta reports the cumulative output_tokens for the whole
+    // message, including the token message_start already counted (it reports
+    // 1, not 0), so it replaces that count rather than adding to it.
+    if (typeof usage.output_tokens === "number") {
+      acc.outputTokens = usage.output_tokens;
+    }
   }
 }
 

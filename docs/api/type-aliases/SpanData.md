@@ -68,11 +68,51 @@ End timestamp (ISO 8601)
 
 ---
 
+### startTimeUnixNano?
+
+> `optional` **startTimeUnixNano?**: `string`
+
+Start as nanoseconds since the Unix epoch (decimal string); finer than `startTime`
+
+---
+
+### endTimeUnixNano?
+
+> `optional` **endTimeUnixNano?**: `string`
+
+End as nanoseconds since the Unix epoch (decimal string); finer than `endTime`
+
+---
+
 ### durationMs?
 
 > `optional` **durationMs?**: `number`
 
 Duration in milliseconds
+
+---
+
+### kind?
+
+> `optional` **kind?**: `number`
+
+OpenTelemetry span kind: 0 internal, 1 server, 2 client, 3 producer, 4 consumer
+
+---
+
+### resource?
+
+> `optional` **resource?**: [`SpanAttributes`](SpanAttributes.md)
+
+Attributes of the resource that produced the span, such as `service.name`
+
+---
+
+### scope?
+
+> `optional` **scope?**: [`SpanScope`](SpanScope.md)
+
+Instrumentation scope that created the span
 
 ---
 

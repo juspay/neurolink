@@ -268,6 +268,8 @@ These fields matter most when moving between logs, metrics, and traces:
 
 When a caller injects `traceparent` plus `x-neurolink-session-id` / `x-neurolink-user-id` / `x-neurolink-conversation-id`, the proxy attaches its spans to that upstream trace and preserves session-level attribution across SDK and proxy telemetry.
 
+Request and response bodies are recorded on traces only when `NEUROLINK_PROXY_TRACE_BODY_LOGGING=true`, the same opt-in as before the Langfuse migration. The prompt and answer of a translated request follow the same opt-in. Upstream error text is recorded without it, as before the migration, with credentials redacted and the text capped, and header values are recorded as received, except those of credential headers, which read `[REDACTED]`. See [Observability: Proxy](../features/observability.md#proxy) for how `mask`, `redactIO` and `NEUROLINK_RECORD_INPUTS` apply to them.
+
 `ai_cache_creation_tokens` means prompt tokens written into a new cache entry.
 `ai_cache_read_tokens` means prompt tokens reused from an existing cache entry.
 All latency and duration panels are shown in whole seconds for faster scanning.

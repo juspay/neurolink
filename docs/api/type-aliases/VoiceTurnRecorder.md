@@ -100,7 +100,7 @@ Call it once, when the agent is about to speak its greeting.
 
 > **toolStart**: (`call`) => `void`
 
-A tool call started in the current exchange.
+A tool call started in the current exchange. `callId` pairs it with its end when calls overlap.
 
 #### Parameters
 
@@ -113,6 +113,10 @@ A tool call started in the current exchange.
 ###### args?
 
 `unknown`
+
+###### callId?
+
+`string`
 
 #### Returns
 
@@ -139,6 +143,10 @@ A tool call finished in the current exchange.
 `unknown`
 
 ###### error?
+
+`string`
+
+###### callId?
 
 `string`
 

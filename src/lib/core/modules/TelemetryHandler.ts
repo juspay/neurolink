@@ -26,10 +26,16 @@ import type {
   RawUsageObject,
   TextGenerationOptions,
   TokenUsage,
+  TTSMetadata,
 } from "../../types/index.js";
 import { extractTokenUsage } from "../../utils/tokenUtils.js";
 import { logger } from "../../utils/logger.js";
 import { recordProviderPerformanceFromMetrics } from "../evaluationProviders.js";
+import {
+  recordAIRequest,
+  recordCustomHistogram,
+  recordCustomMetric,
+} from "../../telemetry/aiMetrics.js";
 import { calculateCost, hasPricing } from "../../utils/pricing.js";
 
 /**
@@ -117,6 +123,14 @@ export class TelemetryHandler {
         success: true,
       });
 
+      recordAIRequest(
+        this.providerName,
+        this.modelName,
+        totalTokens,
+        responseTime,
+        actualCost !== undefined && actualCost > 0 ? actualCost : undefined,
+      );
+
       logger.debug(`Performance recorded for ${this.providerName}`, {
         responseTime: `${responseTime}ms`,
         tokens: totalTokens,
@@ -126,6 +140,25 @@ export class TelemetryHandler {
     } catch (perfError) {
       logger.warn("⚠️ Performance recording failed:", perfError);
     }
+  }
+
+  /**
+   * Record a TTS synthesis failure without affecting the generation result.
+   */
+  recordTTSFailure(
+    ttsProvider: string,
+    error: NonNullable<TTSMetadata["error"]>,
+    latency: number,
+  ): void {
+    const labels = {
+      provider: ttsProvider,
+      error_code: error.code,
+      ...(error.retriable !== undefined
+        ? { retriable: error.retriable.toString() }
+        : {}),
+    };
+    recordCustomMetric("tts_failures", 1, labels);
+    recordCustomHistogram("tts_failure_latency_ms", latency, labels);
   }
 
   /**

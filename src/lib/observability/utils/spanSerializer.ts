@@ -24,8 +24,9 @@ export class SpanSerializer {
    * Create a new span with generated IDs.
    *
    * When `traceId` / `parentSpanId` are omitted, the method automatically
-   * attempts to inherit them from the active OTel context so that Pipeline B
-   * spans land inside the same Langfuse trace as Pipeline A spans (fix A5).
+   * attempts to inherit them from the active OTel context so that these
+   * in-process span records carry the traceId of the exported OTEL trace they
+   * belong to (fix A5). The records themselves are never exported.
    */
   static createSpan(
     type: SpanType,
@@ -35,7 +36,8 @@ export class SpanSerializer {
     traceId?: string,
   ): SpanData {
     // A5 fix: When no explicit traceId is provided, try to inherit from the
-    // active OTel context so Pipeline B spans are linked to Pipeline A traces.
+    // active OTel context so these in-process records can be matched to the
+    // OTEL trace of the request.
     let resolvedTraceId = traceId;
     let resolvedParentSpanId = parentSpanId;
     if (!resolvedTraceId) {

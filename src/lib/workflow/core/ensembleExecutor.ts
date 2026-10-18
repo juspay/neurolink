@@ -46,6 +46,7 @@ export async function executeEnsemble(
     {
       name: "neurolink.workflow.ensemble.execute",
       tracer: tracers.workflow,
+      observationType: "span",
       attributes: {
         "workflow.model_count": options.models.length,
         "workflow.parallelism": options.executionConfig?.parallelism ?? 10,
@@ -429,6 +430,7 @@ export async function executeModelGroups(
     {
       name: "neurolink.workflow.layers.execute",
       tracer: tracers.workflow,
+      observationType: "span",
       attributes: {
         "workflow.group_count": groups.length,
         "workflow.total_models": groups.reduce(

@@ -34,6 +34,7 @@ import {
 import { generationName } from "../telemetry/observationNames.js";
 import { observeGeneration } from "../telemetry/observation.js";
 import { tracers } from "../telemetry/tracers.js";
+import { markFailure } from "../telemetry/withSpan.js";
 // SageMaker-specific imports
 import {
   getDefaultSageMakerEndpoint,
@@ -508,10 +509,17 @@ export class AmazonSageMakerProvider extends BaseProvider {
           channel.close();
           span.setStatus({ code: SpanStatusCode.OK });
         } catch (error) {
-          span.setStatus({
-            code: SpanStatusCode.ERROR,
-            message: error instanceof Error ? error.message : String(error),
-          });
+          markFailure(span, error);
+          // markFailure leaves an abort at WARNING; the released pump ended
+          // every failure at ERROR, an abort included.
+          try {
+            span.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: error instanceof Error ? error.message : String(error),
+            });
+          } catch {
+            // An error whose text cannot be read is already recorded above.
+          }
           channel.error(error);
         } finally {
           reader.releaseLock();
@@ -522,14 +530,23 @@ export class AmazonSageMakerProvider extends BaseProvider {
             settleFinishReason("unknown");
             settleUsage({ inputTokens: 0, outputTokens: 0 });
           }
-          observeGeneration(span, {
-            ...call,
-            output: text,
-            usage: tokens,
-            finishReason: finish,
-            completionStartTime: firstChunkAt,
-          });
-          span.end();
+          // Recording is best effort and span.end() must follow it either
+          // way: this pump is detached, so nothing else would catch a throw.
+          try {
+            observeGeneration(span, {
+              ...call,
+              output: text,
+              usage: tokens,
+              finishReason: finish,
+              completionStartTime: firstChunkAt,
+            });
+          } catch (error) {
+            logger.debug("[SageMaker] Failed to record the stream generation", {
+              error: error instanceof Error ? error.message : String(error),
+            });
+          } finally {
+            span.end();
+          }
         }
       })();
 

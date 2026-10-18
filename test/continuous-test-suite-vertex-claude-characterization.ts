@@ -1856,7 +1856,7 @@ await test("the answering step's input holds this turn's tool call and result", 
   );
 });
 
-await test("a step that called a tool records the call, and a normal stop leaves every step at the default level", async () => {
+await test("a step that called a tool records the call, and every step its finish reason at the default level", async () => {
   const { spans } = await runObservedToolTurn({});
   const stepSpans = spans
     .filter((s) => s.attributes["langfuse.observation.type"] === "generation")
@@ -1876,6 +1876,16 @@ await test("a step that called a tool records the call, and a normal stop leaves
       (s) => s.attributes["langfuse.observation.level"] === undefined,
     ),
     "a step that stopped normally was flagged above the default level",
+  );
+  assert(
+    askingStep.attributes["langfuse.observation.metadata.finishReason"] ===
+      "tool_use",
+    "the asking step does not record why it stopped",
+  );
+  assert(
+    answeringStep.attributes["langfuse.observation.metadata.finishReason"] ===
+      "end_turn",
+    "the answering step does not record why it stopped",
   );
   assert(
     !String(
@@ -1965,7 +1975,7 @@ await test("an oversized system prompt keeps its full opening beside the truncat
   );
   const system = systemOf(parsed);
   const opening = system.match(/S+/)?.[0].length ?? 0;
-  assert(opening >= 1_500, `the system opening is ${opening} characters`);
+  assert(opening >= 2_000, `the system opening is ${opening} characters`);
   assert(
     system.includes("[truncated"),
     "the system prompt does not say it was shortened",

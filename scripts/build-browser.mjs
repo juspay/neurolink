@@ -304,6 +304,7 @@ export const trace={getTracer(){return NOOP_TRACER},getTracerProvider(){return{g
 export const context={active(){return ROOT_CTX},with(c,fn){return fn()},bind(c,fn){return fn},setValue(){return ROOT_CTX},getValue(){}};
 export const propagation={inject(){},extract(c){return c},setGlobalPropagator(){},getBaggage(){},setBaggage(c){return c},createBaggage(){return{getAllEntries(){return[]},getEntry(){},setEntry(){return this},removeEntry(){return this}}}};
 export const metrics={getMeter(){return NOOP_METER},getMeterProvider(){return{getMeter(){return NOOP_METER}}},setGlobalMeterProvider(){}};
+export const createNoopMeter=()=>NOOP_METER;
 export const diag={setLogger(){},verbose(){},debug(){},info(){},warn(){},error(){},createComponentLogger(){return diag}};
 export const ExportResultCode={SUCCESS:0,FAILED:1};
 export const parseKeyPairsIntoRecord=()=>({});

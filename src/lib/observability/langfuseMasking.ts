@@ -32,7 +32,7 @@ function maskValue(
 }
 
 /**
- * @description Applies the exporter's policy to a span's attributes: fills environment and release when the span has none, removes input and output when `redactIO` is set, and masks input, output and metadata when a mask is configured.
+ * @description Applies the Langfuse exporter's policy to a span's attributes as they are sent to Langfuse: fills environment and release when the span has none, removes input and output when `redactIO` is set, and masks input, output and metadata when a mask is configured. Nothing else is touched: other attributes, events and the status message go to Langfuse as they are, and no other exporter sees the policy.
  * @param attributes {SpanAttributes} - Attributes of the span being exported.
  * @param policy {LangfuseAttributePolicy} - Environment, release, redaction and mask settings.
  * @returns {SpanAttributes} A new attribute record; the input is not modified.

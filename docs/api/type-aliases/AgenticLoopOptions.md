@@ -22,6 +22,16 @@
 
 ---
 
+### operation?
+
+> `optional` **operation?**: [`GenerationOperation`](GenerationOperation.md)
+
+Public API the turn serves, used only to name the root observation the
+loop opens when it runs with no active span. Inferred from the enclosing
+span when omitted, and `generate` when there is none.
+
+---
+
 ### span?
 
 > `optional` **span?**: `Span`

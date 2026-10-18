@@ -414,9 +414,9 @@ export class AmazonBedrockProvider extends BaseProvider {
       throw error;
     }
 
-    // Emit generation:end so Pipeline B (Langfuse) creates a GENERATION observation.
-    // Bedrock bypasses the Vercel AI SDK so experimental_telemetry is never injected;
-    // we emit the event manually to fill that gap.
+    // Emit generation:end for the event listeners and the in-process metrics
+    // aggregator. Bedrock bypasses the Vercel AI SDK so nothing else emits it;
+    // its Langfuse GENERATION observations are the loop's own per-step spans.
     const generateEmitter = this.neurolink?.getEventEmitter();
     if (generateEmitter) {
       generateEmitter.emit("generation:end", {
@@ -565,6 +565,7 @@ export class AmazonBedrockProvider extends BaseProvider {
         }),
       });
       const { resultPromise } = runAgenticLoop(adapter, conversation, {
+        operation: "generate",
         tools: this.toEngineTools(tools),
         abortSignal: signal,
         // `toEngineTools` adds no deadline of its own, so this is the only
@@ -1747,6 +1748,7 @@ export class AmazonBedrockProvider extends BaseProvider {
         },
       };
       return runAgenticLoop(adapter, conversation, {
+        operation: "stream",
         tools: this.toEngineTools(tools),
         abortSignal: signal,
         // `toEngineTools` adds no deadline of its own, so this is the only
@@ -1877,8 +1879,8 @@ export class AmazonBedrockProvider extends BaseProvider {
           // not anyone drains the stream.
 
           // Bedrock bypasses the Vercel AI SDK, so experimental_telemetry is
-          // never injected and generation:end is emitted by hand for
-          // Pipeline B (Langfuse).
+          // never injected and generation:end is emitted by hand for the
+          // event listeners and the in-process metrics aggregator.
           if (streamEmitter) {
             // #1741: tell the orchestration's finally block this stream's
             // `generation:end` has already been emitted here, exactly as the

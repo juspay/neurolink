@@ -27,8 +27,9 @@ Utility class for span creation and serialization
 Create a new span with generated IDs.
 
 When `traceId` / `parentSpanId` are omitted, the method automatically
-attempts to inherit them from the active OTel context so that Pipeline B
-spans land inside the same Langfuse trace as Pipeline A spans (fix A5).
+attempts to inherit them from the active OTel context so that these
+in-process span records carry the traceId of the exported OTEL trace they
+belong to (fix A5). The records themselves are never exported.
 
 #### Parameters
 

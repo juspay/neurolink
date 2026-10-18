@@ -124,6 +124,27 @@ async function writeWithRetry(
   }
 }
 
+/** The stored form of a closed exchange. */
+function turnRecord(exchange: {
+  turnId: string;
+  user: string;
+  assistant: string;
+  interrupted: boolean;
+  callEnded: boolean;
+  events: StreamEventSequence[];
+  startedAt: number;
+}): VoiceTurnRecord {
+  return {
+    turnId: exchange.turnId,
+    userMessage: exchange.user,
+    aiResponse: exchange.assistant,
+    interrupted: exchange.interrupted,
+    callEnded: exchange.callEnded,
+    startTime: new Date(exchange.startedAt),
+    ...(exchange.events.length > 0 ? { events: exchange.events } : {}),
+  };
+}
+
 /** Create a recorder for one call. */
 export function createVoiceTurnRecorder(
   options: VoiceTurnRecorderOptions,
@@ -197,24 +218,14 @@ export function createVoiceTurnRecorder(
     });
   }
 
-  function finishExchange(exchange: {
-    turnId: string;
-    user: string;
-    assistant: string;
-    interrupted: boolean;
-    callEnded: boolean;
-    events: StreamEventSequence[];
-    startedAt: number;
-  }): void {
-    enqueue({
-      turnId: exchange.turnId,
-      userMessage: exchange.user,
-      aiResponse: exchange.assistant,
-      interrupted: exchange.interrupted,
-      callEnded: exchange.callEnded,
-      startTime: new Date(exchange.startedAt),
-      ...(exchange.events.length > 0 ? { events: exchange.events } : {}),
-    });
+  function finishExchange(exchange: Parameters<typeof turnRecord>[0]): void {
+    const record = turnRecord(exchange);
+    try {
+      options.onClosed?.(record);
+    } catch {
+      /* an observer of closed exchanges must never break the call */
+    }
+    enqueue(record);
   }
 
   function syntheticTurnId(): string {
@@ -342,7 +353,7 @@ export function createVoiceTurnRecorder(
       greetingPending = true;
     },
 
-    toolStart(call: { name: string; args?: unknown }): void {
+    toolStart(call: { name: string; args?: unknown; callId?: string }): void {
       if (closing) {
         return;
       }
@@ -350,6 +361,7 @@ export function createVoiceTurnRecorder(
         nextEvent("tool:start", {
           tool: call.name,
           toolName: call.name,
+          ...(call.callId !== undefined ? { callId: call.callId } : {}),
           ...(call.args !== undefined
             ? { args: boundedPayload(call.args) }
             : {}),
@@ -357,7 +369,12 @@ export function createVoiceTurnRecorder(
       );
     },
 
-    toolEnd(call: { name: string; result?: unknown; error?: string }): void {
+    toolEnd(call: {
+      name: string;
+      result?: unknown;
+      error?: string;
+      callId?: string;
+    }): void {
       if (closing) {
         return;
       }
@@ -365,6 +382,7 @@ export function createVoiceTurnRecorder(
         nextEvent("tool:end", {
           tool: call.name,
           toolName: call.name,
+          ...(call.callId !== undefined ? { callId: call.callId } : {}),
           success: call.error === undefined,
           ...(call.error !== undefined
             ? { error: boundedText(call.error) }

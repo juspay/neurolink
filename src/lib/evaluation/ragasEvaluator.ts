@@ -59,6 +59,7 @@ export class RAGASEvaluator {
       {
         name: "neurolink.evaluation.ragas",
         tracer: tracers.sdk,
+        observationType: "span",
         attributes: {
           "evaluation.provider": this.providerName,
           "evaluation.model": this.evaluationModel,

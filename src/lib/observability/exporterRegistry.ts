@@ -5,10 +5,12 @@
 
 import { logger } from "../utils/logger.js";
 import type { BaseExporter } from "./exporters/baseExporter.js";
+import { exporterStatusOf } from "./exporters/baseExporter.js";
 import { AlwaysSampler } from "./sampling/samplers.js";
 import type {
   ExportResult,
   ExporterHealthStatus,
+  ExporterStatus,
   ObservabilityCircuitBreakerConfig,
   ObservabilityCircuitBreakerState,
   Sampler,
@@ -483,6 +485,24 @@ export class ExporterRegistry {
       total += exporter.getPendingCount();
     }
     return total;
+  }
+
+  /**
+   * Snapshot of every registered exporter without a network call: whether it
+   * runs, what is queued, delivered and dropped, and an open circuit breaker
+   */
+  getStatuses(): ExporterStatus[] {
+    return Array.from(this.exporters.entries()).map(([name, exporter]) => {
+      const status = exporterStatusOf(exporter);
+      if (this.circuitBreakers.get(name)?.state !== "open") {
+        return status;
+      }
+      return {
+        ...status,
+        healthy: false,
+        errors: [...(status.errors ?? []), "Circuit breaker open"],
+      };
+    });
   }
 
   /**

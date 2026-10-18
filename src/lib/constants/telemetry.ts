@@ -41,3 +41,12 @@ export const OTEL_LOG_PREFIX = "[OpenTelemetry]";
 
 /** @description Most open and most ended spans the exporter span processor remembers for re-parenting; the oldest are forgotten first. */
 export const MAX_REMEMBERED_SPANS = 5_000;
+
+/** @description Most redacted span attribute strings remembered so `observe` does not redact them a second time. */
+export const MAX_REDACTED_ATTRIBUTES = 64;
+
+/** @description Span attribute that keeps a wrapper span out of every exporter. */
+export const INTERNAL_SPAN_ATTRIBUTE = "langfuse.internal";
+
+/** @description Instrumentation scope of the proxy's tracer. Of the proxy's spans only the ones it marks as observations (the request root and its generation) reach the exporters, although its spans also carry `gen_ai.*` keys for collectors. */
+export const PROXY_TRACER_SCOPE = "neurolink.proxy";

@@ -14,6 +14,10 @@ import {
 } from "../../constants/enums.js";
 import { logger } from "../../utils/logger.js";
 import { googleSdkProxyHttpOptions } from "../../proxy/proxyFetch.js";
+// Starts tracing at the first span, as this module always did: the shared
+// tracers only start what a loaded entry registered, and this path can be
+// imported without the package entry. The client entry stays free of it.
+import "../../services/server/ai/observability/instrumentation.js";
 import { readFile } from "node:fs/promises";
 import { NeuroLinkError, ErrorFactory } from "../../utils/errorHandling.js";
 import type { ModelMessage } from "../../types/index.js";

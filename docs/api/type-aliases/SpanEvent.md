@@ -24,6 +24,14 @@ Span event for recording discrete occurrences
 
 ---
 
+### timestampUnixNano?
+
+> `optional` **timestampUnixNano?**: `string`
+
+When the event happened as nanoseconds since the Unix epoch (decimal string); finer than `timestamp`.
+
+---
+
 ### attributes?
 
 > `optional` **attributes?**: `Record`\<`string`, `unknown`\>

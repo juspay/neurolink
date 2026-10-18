@@ -48,6 +48,53 @@ export function messageRole<T>(message: T): string {
     : "user";
 }
 
+const TOOL_CALL_TYPES = new Set([
+  "function",
+  "function_call",
+  "tool_use",
+  "server_tool_use",
+  "tool-call",
+]);
+const TOOL_ARGUMENT_KEYS = new Set(["arguments", "args", "input"]);
+
+function stripToolArguments(value: unknown, isCall = false): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => stripToolArguments(entry));
+  }
+  if (typeof value !== "object" || value === null) {
+    return value;
+  }
+  const call =
+    isCall ||
+    ("type" in value &&
+      typeof value.type === "string" &&
+      TOOL_CALL_TYPES.has(value.type));
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => !(call && TOOL_ARGUMENT_KEYS.has(key)))
+      .map(([key, entry]) => [
+        key,
+        stripToolArguments(entry, key === "function" || key === "functionCall"),
+      ]),
+  );
+}
+
+/**
+ * @description Removes the arguments of every tool call in assistant messages and keeps each call's name and id: OpenAI `tool_calls` and `function_call` items, Anthropic `tool_use` blocks, AI SDK `tool-call` parts and Gemini `functionCall` parts.
+ * @param messages {object[]} - Messages from `assistantMessages`.
+ * @returns {object[]} Copies of the messages without tool-call arguments.
+ */
+export function withoutToolArguments(messages: object[]): object[] {
+  return messages.map((message) =>
+    Object.fromEntries(
+      Object.entries(message).map(([key, value]) => [
+        key,
+        stripToolArguments(value),
+      ]),
+    ),
+  );
+}
+
 /**
  * @description Shapes a model response as an assistant message array that Langfuse renders as a conversation.
  * @param output {AssistantOutput | undefined} - A text string, a reply with `text`, `reasoning` and `toolCalls`, a message array, or provider content parts.

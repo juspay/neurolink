@@ -2912,6 +2912,8 @@ export type CodexStreamEvidence = {
   terminalBytes: number;
   /** Malformed, oversized or undispatched frames prevent proving output absence. */
   observationIncomplete?: boolean;
+  /** Output items past the recorded-size cap were left out of `response.output`. */
+  outputItemsOmitted?: boolean;
   firstUsefulOutputAt?: number;
   firstUsefulOutputEvent?: string;
   errorType?: string;
