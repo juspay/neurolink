@@ -230,7 +230,7 @@ Office files can sit in `input.files` next to PDFs, images, CSV, audio, and code
 
 ## Large Files
 
-An Office file in `input.files` (or `--file`) is always extracted and inlined in full, whatever its size. There is no on-demand mode for it through `generate()`, `stream()` or the CLI, so a very large workbook or deck is bounded by the limits under [Limitations](#limitations) and by the model's context window.
+An Office file in `input.files` (or `--file`) that is within the size bounds under [Limitations](#limitations) is always extracted and inlined in full. There is no on-demand mode for it through `generate()`, `stream()` or the CLI, so a very large workbook or deck is bounded only by those limits and by the model's context window.
 
 An SDK caller that wants selective reads can use `FileReferenceRegistry` (exported from `@juspay/neurolink/files`) directly, which is a separate path from `input.files`. Its `extractContent` call returns only the slides in `pages` for a presentation (with the same text and speaker notes as above, and `(No text content on this slide)` for a slide that has neither), or the `sheet`, `row_range` and `columns` you name for a spreadsheet.
 

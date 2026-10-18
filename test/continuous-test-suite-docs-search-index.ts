@@ -101,6 +101,68 @@ await test("no parking placeholder leaks into the index", () => {
   );
 });
 
+// A `#` comment line inside a fenced code block is code, and Docusaurus gives
+// it no anchor. The plugin used to read it as a heading, which split the fence
+// across two records, left a stray backtick in the next one's text and linked
+// a search result to a fragment the page does not have.
+await test("a comment line inside a code fence is not indexed as a heading", () => {
+  const docPath = "docs/features/office-documents.md";
+  const source = readFileSync(path.join(ROOT, docPath), "utf8");
+  assert(
+    source.includes(
+      "# attachments are only available on `generate` and `stream`.",
+    ),
+    `precondition: ${docPath} no longer has the fenced comment line; pick another`,
+  );
+  const page = assertAnchor(docPath, "officeOptions");
+  assert(
+    !page.some((r) =>
+      r.url.endsWith("#attachments-are-only-available-on-generate-and-stream"),
+    ),
+    "a comment line inside a code fence became a section of its own",
+  );
+  assert(
+    page.some((r) =>
+      r.content.includes("The CLI has no flags for officeOptions;"),
+    ),
+    "the sentence after the fence lost its inline code or kept a stray backtick",
+  );
+});
+
+// The other side of the same fix: a real heading whose body is only a code
+// block must stay searchable. Code blocks are dropped from section text, so
+// such a section would otherwise have no text at all and leave the index; its
+// heading stands in, and its code stays out.
+await test("a heading whose body is only a code block is still indexed", () => {
+  const docPath = "docs/advanced/analytics.md";
+  const source = readFileSync(path.join(ROOT, docPath), "utf8");
+  const section = source
+    .split("\n### CLI Evaluation\n")[1]
+    ?.split("\n### Evaluation Domains\n")[0];
+  assert(
+    section !== undefined && /^\s*```[\s\S]*```\s*$/.test(section),
+    `precondition: ${docPath} no longer has a code-only "CLI Evaluation" section; pick another`,
+  );
+  assert(
+    records.some(
+      (r) =>
+        r.url === "/docs/advanced/analytics#cli-evaluation" &&
+        r.content.length > 0,
+    ),
+    "a section whose body is only a code block dropped out of the index",
+  );
+  // Code blocks hold placeholder keys and tokens, so the code itself must not
+  // ride into the served index along with the heading.
+  assert(
+    !records.some(
+      (r) =>
+        r.url === "/docs/advanced/analytics#cli-evaluation" &&
+        r.content.includes("--enable-evaluation"),
+    ),
+    "a code-only section carried its code into the index",
+  );
+});
+
 // A heading written `## Title {#custom-id}` is anchored at `#custom-id` by
 // Docusaurus and its text is `Title`. The plugin used to slug the whole line,
 // so the record's title kept the literal `{#custom-id}` and its link pointed at

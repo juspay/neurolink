@@ -82,6 +82,20 @@ function stripMarkdown(content) {
   );
 }
 
+/**
+ * A section's searchable text. A section whose body is only fenced code, such
+ * as a heading over a single command, strips to nothing and would drop out of
+ * the index, so its heading stands in. The code itself stays out: code blocks
+ * hold placeholder keys and tokens that do not belong in a served index.
+ */
+function sectionText(lines, heading) {
+  const text = stripMarkdown(lines.join("\n"));
+  if (text) {
+    return text;
+  }
+  return lines.some((line) => /^ {0,3}(`{3,}|~{3,})/.test(line)) ? heading : "";
+}
+
 /** Extract sections from markdown content */
 function extractSections(content) {
   const sections = [];
@@ -96,7 +110,32 @@ function extractSections(content) {
   // real Markdown slugger would, not just the ones with indexable content.
   // Whether a section has enough body to actually be indexed is decided by
   // the caller, which reads `section.content`.
+  // A `#` line inside a fenced code block (a shell comment, say) is code, not
+  // a heading: Docusaurus gives it no anchor, so treating it as one would
+  // split the fence across two records and invent a link the page lacks.
+  let fence = null;
   for (const line of lines) {
+    const fenceMatch = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    if (fence) {
+      if (
+        fenceMatch &&
+        fenceMatch[1][0] === fence[0] &&
+        fenceMatch[1].length >= fence.length &&
+        fenceMatch[2].trim() === ""
+      ) {
+        fence = null;
+      }
+      currentContent.push(line);
+      continue;
+    }
+    if (
+      fenceMatch &&
+      !(fenceMatch[1][0] === "`" && fenceMatch[2].includes("`"))
+    ) {
+      fence = fenceMatch[1];
+      currentContent.push(line);
+      continue;
+    }
     const headingMatch = line.match(/^(#{1,6})\s+(.+)/);
     if (headingMatch) {
       // Save previous section (skip the pre-first-heading preamble, which
@@ -106,7 +145,9 @@ function extractSections(content) {
           heading: currentHeading,
           id: currentId,
           level: currentLevel,
-          content: truncateAtBoundary(stripMarkdown(currentContent.join("\n"))),
+          content: truncateAtBoundary(
+            sectionText(currentContent, currentHeading),
+          ),
         });
       }
       currentLevel = headingMatch[1].length;
@@ -130,7 +171,7 @@ function extractSections(content) {
       heading: currentHeading,
       id: currentId,
       level: currentLevel,
-      content: truncateAtBoundary(stripMarkdown(currentContent.join("\n"))),
+      content: truncateAtBoundary(sectionText(currentContent, currentHeading)),
     });
   }
 
@@ -344,8 +385,7 @@ async function generateIndex(docsDir, outDir, isExcluded) {
 
         const sectionUrl = `${url}#${anchor}`;
         // Two records on one page can now share an anchor: an explicit `{#id}`
-        // is used as written, so it can equal the auto-slug of another heading
-        // (for example a `# Anthropic` comment line inside a code fence). The
+        // is used as written, so it can equal the auto-slug of another heading. The
         // search hook loads records with MiniSearch.addAll, which throws on a
         // repeated id and would leave the whole index unloaded, so a repeat is
         // given its own id. As with `idSource`, only the id input is suffixed;
