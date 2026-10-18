@@ -271,8 +271,8 @@ export const decideCommand: CommandModule<object, CliDecideArgs> = {
         "Read state and questions from files, emit raw JSON",
       )
       .example(
-        '$0 decide "What color is this?" --provider xor --image ./photo.png --questions \'{"color":{"type":"choice","instructions":"What color is the image?","criteria":{"red":"red","blue":"blue"}}}\'',
-        "Ask about an image (XOR, Perplexity, Cloudflare Clef and OpenAI Decisions read images)",
+        '$0 decide "What color is this?" --provider xor --model xor-omni --image ./photo.png --questions \'{"color":{"type":"choice","instructions":"What color is the image?","criteria":{"red":"red","blue":"blue"}}}\'',
+        "Ask about an image (XOR with its xor-omni model, Perplexity, Cloudflare Clef and OpenAI Decisions read images)",
       ) as Argv<CliDecideArgs>,
 
   handler: async (argv: ArgumentsCamelCase<CliDecideArgs>): Promise<void> => {

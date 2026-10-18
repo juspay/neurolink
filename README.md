@@ -286,7 +286,7 @@ TypeSafe and Laya both configured, TypeSafe runs; with only Laya's key and base 
 set, Laya runs.
 
 [**XOR**](docs/getting-started/providers/xor.md) is Juspay's Apache-2.0,
-open-weights decision model (`xor-1.1`); setup is on
+open-weights decision model (`xor-latest` for text, `xor-omni` for images and video); setup is on
 [Hugging Face](https://huggingface.co/juspay/xor). It has no built-in endpoint
 either: set `XOR_API_KEY` and `XOR_BASE_URL` to the origin of a deployment or of
 a LiteLLM proxy route (or pass `credentials.xor`). XOR counts only with both its

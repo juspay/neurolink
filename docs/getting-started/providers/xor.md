@@ -15,25 +15,28 @@ text at all.
 
 ## Overview
 
-XOR is Juspay's Apache-2.0 decision model, post-trained from Qwen3.6-35B-A3B;
-its model id is `xor-1.1`. You send one `state` plus named, typed questions, and
-optionally images or a video. XOR answers every question in a single batched
-pass and returns a typed answer for each. NeuroLink calls whatever base URL you
-configure — a deployment of the model, or a LiteLLM proxy with a route to one.
-There is no built-in endpoint. The weights and setup instructions are at
+XOR is Juspay's Apache-2.0 decision model, post-trained from Qwen3.6-35B-A3B.
+It is asked for by one of two aliases: `xor-latest`, the text model, and
+`xor-omni`, the multimodal one, which also reads images and a video. You send one
+`state` plus named, typed questions, and optionally images or a video. XOR
+answers every question in a single batched pass and returns a typed answer for
+each; the result's `model` is the id that served the request (for example
+`xor-text-1`), not the alias you asked for. NeuroLink calls whatever base URL
+you configure — a deployment of the model, or a LiteLLM proxy with a route to
+one. There is no built-in endpoint. The weights and setup instructions are at
 [huggingface.co/juspay/xor](https://huggingface.co/juspay/xor).
 
 ### Key Facts
 
-|                       |                                                                      |
-| --------------------- | -------------------------------------------------------------------- |
-| Inference type        | `decide` only                                                        |
-| Model                 | `xor-1.1` by default; `XOR_MODEL` sets the name your proxy uses      |
-| Media                 | up to 8 images and one video; the whole request body at most 8 MB    |
-| Input window          | about 200,000 estimated tokens of state                              |
-| Questions per request | no cap in NeuroLink; a `choice` or `score` takes 2 to 255 options    |
-| Endpoint              | `<base URL>/v1/systemone`; the base URL is required, with no default |
-| Precedence            | used automatically only when TypeSafe and Laya are not configured    |
+|                       |                                                                                          |
+| --------------------- | ---------------------------------------------------------------------------------------- |
+| Inference type        | `decide` only                                                                            |
+| Model                 | `xor-latest` by default, `xor-omni` for media; `XOR_MODEL` sets the name your proxy uses |
+| Media                 | `xor-omni`: up to 8 images and one video; the whole request body at most 8 MB            |
+| Input window          | about 200,000 estimated tokens of state                                                  |
+| Questions per request | no cap in NeuroLink; a `choice` or `score` takes 2 to 64 options                         |
+| Endpoint              | `<base URL>/v1/decisions`; the base URL is required, with no default                     |
+| Precedence            | used automatically only when TypeSafe and Laya are not configured                        |
 
 ---
 
@@ -43,13 +46,13 @@ There is no built-in endpoint. The weights and setup instructions are at
 
 Run a deployment of XOR (see
 [huggingface.co/juspay/xor](https://huggingface.co/juspay/xor)), or use a
-LiteLLM proxy with a route to one. NeuroLink posts to `<base URL>/v1/systemone`.
+LiteLLM proxy with a route to one. NeuroLink posts to `<base URL>/v1/decisions`.
 The base URL is the origin of the deployment or of the proxy route, and a
 trailing `/v1` is accepted. It must be `https://`; `http://` is accepted only for
 `localhost`, `127.0.0.1` and `[::1]`, because every request carries the key and the
 state. A deployment reachable only over plain http inside a network needs an
 `https://` front, or a port-forward to `localhost`. On a LiteLLM proxy the key's team must be allowed
-the model you ask for (`xor-1.1` by default); otherwise the proxy answers 403
+the model you ask for (`xor-latest` by default, `xor-omni` for media); otherwise the proxy answers 403
 `team_model_access_denied`. A proxy may serve XOR under a name of its own: set
 `XOR_MODEL` to that name.
 
@@ -58,9 +61,9 @@ the model you ask for (`xor-1.1` by default); otherwise the proxy answers 403
 Both the base URL and the key are required. Set them in the environment:
 
 ```bash
-export XOR_BASE_URL=https://your-proxy.example.com  # NeuroLink calls <base>/v1/systemone
+export XOR_BASE_URL=https://your-proxy.example.com  # NeuroLink calls <base>/v1/decisions
 export XOR_API_KEY=sk-...                           # the key your endpoint accepts
-export XOR_MODEL=xor-1.1                            # optional
+export XOR_MODEL=xor-latest                         # optional; the default
 ```
 
 or in the config passed to the SDK, exactly as for any other provider. Values
@@ -115,7 +118,9 @@ neurolink decide "We were billed twice for March." --provider xor \
 
 ## Images and video
 
-XOR reads images and one video alongside the `state`. TypeSafe, Laya,
+XOR reads images and one video alongside the `state`, through the `xor-omni`
+model: name it in the request (`model: "xor-omni"`, or `--model xor-omni` on the
+CLI), because the default, `xor-latest`, is the text model. TypeSafe, Laya,
 [SubQ](subq.md) and [ScaleDown](scaledown.md) do not read media, and [Perplexity](perplexity-decider.md),
 [Cloudflare Clef](cloudflare-clef.md) and [OpenAI Decisions](openai-decisions.md)
 read images but no video.
@@ -133,6 +138,7 @@ const neurolink = new NeuroLink();
 // Images: any mix of a file path, a Buffer and a data: URL
 const photo = await neurolink.decide({
   provider: "xor",
+  model: "xor-omni",
   state: "A product photo from a listing.",
   images: ["./front.png", await readFile("./back.jpg")],
   questions: {
@@ -149,6 +155,7 @@ console.log(photo.mediaBytes); // encoded size of the images sent
 // A video, in a request of its own
 const clip = await neurolink.decide({
   provider: "xor",
+  model: "xor-omni",
   state: "A clip from a doorbell camera.",
   video: "./clip.mp4",
   questions: {
@@ -161,7 +168,7 @@ const person = readDecisionBoolean(clip.answers, "person");
 From the CLI, pass `--image <path>` (repeatable) and `--video <path>`:
 
 ```bash
-neurolink decide "A product photo from a listing." --provider xor \
+neurolink decide "A product photo from a listing." --provider xor --model xor-omni \
   --image ./front.png --image ./back.jpg \
   --questions '{"color":{"type":"choice","instructions":"What color is the product?","criteria":{"red":"Mostly red","blue":"Mostly blue"}}}'
 ```
@@ -271,8 +278,12 @@ time. After a burst of rejected requests (403 and 422 replies), every request
 was answered 429 for about half an hour. That order was observed; the rejected
 requests were not confirmed as the cause. NeuroLink retries a 429 once.
 
-**No question cap.** NeuroLink sets none. A `choice` or `score` takes 2 to 255
-options, which the server enforces.
+**No question cap.** NeuroLink sets none. A `choice` or `score` takes 2 to 64
+options, which the server enforces: more, or fewer than two, is answered with
+HTTP 422 and a text such as `q1: 2..64 options, got 65`. NeuroLink reports it as
+a non-retryable `invalid_request` that carries that text, rather than checking
+the count itself. A question type the model does not serve is refused the same
+way.
 
 **The default timeout is 5 seconds.** Override it per call with `timeoutMs`, or
 with `--timeout` on the CLI.
@@ -338,8 +349,8 @@ key, long hex runs and embedded `data:` URLs.
 - **A 401** — the endpoint rejected the key. The provider instance stops
   retrying after a rejection, so fix the key and construct a new one.
 - **A 403 with `team_model_access_denied`** — the LiteLLM proxy's team for this
-  key does not allow the model you asked for (`XOR_MODEL`, or `xor-1.1` by
-  default). Add the model to the team; the instance works again without a
+  key does not allow the model you asked for (`XOR_MODEL`, or `xor-latest` by
+  default; `xor-omni` for media). Add the model to the team; the instance works again without a
   restart.
 - **`max_tokens_exceeded`** — the state is over about 200,000 estimated tokens,
   or the state, the questions and the media together are more than the

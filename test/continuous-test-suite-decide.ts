@@ -185,7 +185,7 @@ const REAL_LAYA_MODEL = process.env.LAYA_MODEL;
 const EXPECTED_LAYA_MODEL = process.env.LAYA_MODEL?.trim() || "typed-decisions";
 // The model the registry recorded for xor: XOR_MODEL as it read at
 // registration, else the default. Never deleted, so this stays the truth.
-const EXPECTED_XOR_MODEL = process.env.XOR_MODEL || "xor-1.1";
+const EXPECTED_XOR_MODEL = process.env.XOR_MODEL || "xor-latest";
 
 function restoreEnv(): void {
   if (HAS_KEY) {
@@ -3288,16 +3288,21 @@ await test("17.12 — live: xor answers boolean, choice and score", async () => 
     result.answers.frustration?.type === "score",
     "frustration must be a score answer",
   );
-  // A LiteLLM route can serve XOR under its own name, so the check is that the
-  // server reports the model that was asked for, not that the name says "xor".
-  const requestedModel = process.env.XOR_MODEL?.trim() || "xor-1.1";
+  // The model asked for is an alias (`xor-latest`), and the server answers with
+  // the id that served it (`xor-text-N`), so the alias itself is not what comes
+  // back; a LiteLLM route may also serve XOR under a name of its own. The check
+  // is that a served model is reported at all.
   assert(
-    result.model === requestedModel,
-    "the reported model must be the one that was asked for",
+    typeof result.model === "string" && result.model.trim() !== "",
+    "the reported model must name the model that served the request",
   );
   assert(result.usage.inputTokens > 0, "usage must be reported");
   assert(result.latencyMs > 0, "latency must be measured");
 });
+
+// The text alias (`xor-latest`) does not read media, so the media cases name
+// the multimodal one.
+const XOR_MEDIA_MODEL = "xor-omni";
 
 async function xorColour(
   media: { images?: string[]; video?: string },
@@ -3306,6 +3311,7 @@ async function xorColour(
   const result = await new NeuroLink()
     .decide({
       provider: "xor",
+      model: XOR_MEDIA_MODEL,
       state,
       questions: XOR_COLOR_QUESTION,
       ...media,
@@ -3358,6 +3364,8 @@ await test("17.15 — live: decide --provider xor --image --format json is clean
       "Look at the attached image.",
       "--provider",
       "xor",
+      "--model",
+      XOR_MEDIA_MODEL,
       "--image",
       `${XOR_FIXTURE_DIR}red.png`,
       "--format",
@@ -5580,7 +5588,7 @@ type FakePredictRequest = {
 
 /**
  * A local stand-in for a System One server (Laya's `/predict`, XOR's
- * `/v1/systemone` — same wire): answers whatever questions it receives
+ * `/v1/decisions` — same wire): answers whatever questions it receives
  * with well-formed, confident answers, so a decision can be driven
  * end-to-end — hooks, namespacing, caps, events, credentials, media —
  * with no network and no key. Answers are deterministic: a `noul` is 0.9 —
@@ -5685,7 +5693,7 @@ async function startFakeLaya(): Promise<{
 
 /**
  * The fake as an XOR deployment: `XOR_BASE_URL` is the origin, and the
- * provider appends `/v1/systemone` itself.
+ * provider appends `/v1/decisions` itself.
  */
 async function startFakeXor(): Promise<{
   baseURL: string;
@@ -7113,7 +7121,7 @@ await test("20.22 — xor through the routing site: hooks run, host ids are name
     );
     const request = fake.requests[0]!;
     assert(
-      request.path === "/v1/systemone" &&
+      request.path === "/v1/decisions" &&
         request.authorization === "Bearer sk-fake-xor",
       "the request must reach xor's route on the per-call credentials",
     );

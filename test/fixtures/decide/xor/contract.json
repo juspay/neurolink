@@ -6,7 +6,7 @@
       "x-request-id": "req-xor-1"
     },
     "body": {
-      "model": "xor-1.1",
+      "model": "xor-text-1",
       "answers": {
         "urgent": {
           "type": "noul",
@@ -44,7 +44,7 @@
       }
     },
     "expected": {
-      "model": "xor-1.1",
+      "model": "xor-text-1",
       "requestId": "req-xor-1",
       "inputTokens": 96,
       "answers": {
@@ -317,7 +317,7 @@
       "status": 403,
       "body": {
         "error": {
-          "message": "team not allowed to access model=xor-1.1",
+          "message": "team not allowed to access model=xor-latest",
           "type": "team_model_access_denied",
           "code": "403"
         }
@@ -389,12 +389,42 @@
       "provenance": "stand-in",
       "status": 422,
       "body": {
-        "error": "q: 2..255 options, got 1"
+        "error": "q: 2..64 options, got 65"
       },
       "expect": {
         "kind": "invalid_request",
         "retryable": false,
-        "messageIncludes": ["2..255 options"]
+        "messageIncludes": ["2..64 options, got 65"]
+      }
+    },
+    {
+      "label": "option count refused behind a proxy",
+      "provenance": "stand-in",
+      "status": 422,
+      "body": {
+        "error": {
+          "message": "litellm.UnprocessableEntityError: Decisions upstream returned HTTP 422: {\"error\": \"q: 2..64 options, got 65\"}. Received Model Group=xor-latest",
+          "type": null,
+          "code": "422"
+        }
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["2..64 options, got 65"]
+      }
+    },
+    {
+      "label": "question type the model does not serve",
+      "provenance": "stand-in",
+      "status": 422,
+      "body": {
+        "error": "question type 'value' is not enabled (advertised: noul,choice,score)"
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["is not enabled"]
       }
     },
     {

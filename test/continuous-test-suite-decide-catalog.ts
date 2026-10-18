@@ -17,7 +17,7 @@ import "dotenv/config";
  *
  * Run: pnpm run test:decide-catalog
  */
-import { deepStrictEqual, throws } from "node:assert/strict";
+import { deepStrictEqual, strictEqual, throws } from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -1216,8 +1216,8 @@ await runSuite(async () => {
     assertNotNull(xorRow, "the XOR descriptor is missing");
     deepStrictEqual(built.decisionLimits?.media, xorRow.decisionLimits?.media);
     deepStrictEqual(
-      resolveDecisionLimitsReading(built, "xor-1.1"),
-      resolveDecisionLimitsReading(xorRow, "xor-1.1"),
+      resolveDecisionLimitsReading(built, "xor-latest"),
+      resolveDecisionLimitsReading(xorRow, "xor-latest"),
     );
 
     // Positive controls: a changed figure is told apart, and an entry without
@@ -1265,7 +1265,7 @@ await runSuite(async () => {
         extraRequired: ["XOR_BASE_URL"],
         model: "XOR_MODEL",
       },
-      defaultModel: "xor-1.1",
+      defaultModel: "xor-latest",
       inferenceKinds: ["decide"],
       decideOrder: 3,
       toolSupport: "none",
@@ -1296,14 +1296,31 @@ await runSuite(async () => {
       imagesKey: "images",
       videoKey: "video",
     });
-    deepStrictEqual(resolveDecisionLimitsReading(built, "xor-1.1"), {
-      provider: "xor",
-      model: "xor-1.1",
-      maxStateTokens: 200000,
-      nonAsciiTokensPerChar: 1,
-      media: { maxImages: 8, video: true, maxRequestBytes: 8388608 },
-      enforcedLocally: true,
-    });
+    // Both aliases, and a name from before them, read the same figures: the
+    // limits are per provider, with no per-model override.
+    for (const model of ["xor-latest", "xor-omni", "xor-1.1"]) {
+      deepStrictEqual(resolveDecisionLimitsReading(built, model), {
+        provider: "xor",
+        model,
+        maxStateTokens: 200000,
+        nonAsciiTokensPerChar: 1,
+        media: { maxImages: 8, video: true, maxRequestBytes: 8388608 },
+        enforcedLocally: true,
+      });
+    }
+    // The route and the two models the endpoint serves: the old route and the
+    // old model name are no longer the entry's.
+    strictEqual(shipped.decide.endpoint, "{baseURL}/v1/decisions");
+    deepStrictEqual(Object.keys(shipped.models.catalog), [
+      "xor-latest",
+      "xor-omni",
+      "xor-1.1",
+    ]);
+    strictEqual(shipped.models.catalog["xor-1.1"]?.status, "retired");
+    deepStrictEqual(shipped.models.topModels, ["xor-latest", "xor-omni"]);
+    strictEqual(shipped.models.default, "xor-latest");
+    strictEqual(shipped.models.catalog["xor-latest"]?.vision, false);
+    strictEqual(shipped.models.catalog["xor-omni"]?.vision, true);
     // Positive control: the comparison tells a changed figure apart.
     throws(() =>
       deepStrictEqual(

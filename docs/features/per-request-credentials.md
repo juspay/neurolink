@@ -110,7 +110,7 @@ All fields are optional — omit any field you want to fall through to a lower-p
 | Ollama               | `ollama`            | `baseURL`                                                                                                     |
 | TypeSafe (Jev)       | `typesafe`          | `apiKey`, `baseURL`, `transport`, `gatewayApiKey`, `gatewayURL`                                               |
 | Laya                 | `laya`              | `apiKey`, `baseURL` (required: Laya has no built-in endpoint)                                                 |
-| XOR                  | `xor`               | `apiKey`, `baseURL` (required: XOR has no built-in endpoint; calls `<base>/v1/systemone`)                     |
+| XOR                  | `xor`               | `apiKey`, `baseURL` (required: XOR has no built-in endpoint; calls `<base>/v1/decisions`)                     |
 | Perplexity Decisions | `perplexityDecider` | `apiKey`, `baseURL` (optional: defaults to `https://api.perplexity.ai`; calls `<base>/v1/decisions`)          |
 | Cloudflare Clef      | `cloudflareClef`    | `apiKey`, `accountId`, `baseURL` (optional: defaults to `https://api.cloudflare.com/client/v4`)               |
 | SubQ                 | `subq`              | `apiKey`, `baseURL` (optional: defaults to `https://api.subq.ai`; calls `<base>/v1/systemone`)                |

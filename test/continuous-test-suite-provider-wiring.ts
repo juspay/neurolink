@@ -800,7 +800,11 @@ await runSuite(async () => {
       );
       assert(
         JSON.stringify(Object.entries(enums.XorModels)) ===
-          JSON.stringify([["XOR_1_1", "xor-1.1"]]),
+          JSON.stringify([
+            ["XOR_LATEST", "xor-latest"],
+            ["XOR_OMNI", "xor-omni"],
+            ["XOR_1_1", "xor-1.1"],
+          ]),
         `XorModels drifted: ${JSON.stringify(enums.XorModels)}`,
       );
     });

@@ -220,7 +220,7 @@ npx @juspay/neurolink decide --state-file ticket.json \
   --questions-file questions.json --format json
 
 # Ask about an image (XOR, Perplexity, Cloudflare Clef and OpenAI Decisions read images); repeat --image for several, or use --video (XOR)
-npx @juspay/neurolink decide "What color is this?" --provider xor \
+npx @juspay/neurolink decide "What color is this?" --provider xor --model xor-omni \
   --image ./photo.png \
   --questions '{"color":{"type":"choice","instructions":"What color is the image?","criteria":{"red":"red","blue":"blue"}}}'
 ```

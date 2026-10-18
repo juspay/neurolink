@@ -6,15 +6,29 @@
   "inferenceKinds": ["decide"],
   "wire": {},
   "models": {
-    "default": "xor-1.1",
-    "topModels": ["xor-1.1"],
+    "default": "xor-latest",
+    "topModels": ["xor-latest", "xor-omni"],
     "catalog": {
-      "xor-1.1": {
+      "xor-latest": {
         "contextWindow": 250000,
         "maxOutputTokens": 256,
         "vision": false,
         "status": "production",
-        "description": "Recommended - XOR 1.1, decision model that also reads images and video"
+        "description": "Recommended - XOR text alias; boolean, choice and score questions, 2 to 64 options each"
+      },
+      "xor-omni": {
+        "contextWindow": 250000,
+        "maxOutputTokens": 256,
+        "vision": true,
+        "status": "production",
+        "description": "XOR multimodal alias; reads images and video alongside the state, for boolean, choice and score questions"
+      },
+      "xor-1.1": {
+        "contextWindow": 250000,
+        "maxOutputTokens": 256,
+        "vision": false,
+        "status": "retired",
+        "description": "Name served by the deprecated /v1/systemone route; superseded by xor-latest and xor-omni. Still sent as given when you name it - the endpoint decides whether it accepts it"
       }
     }
   },
@@ -30,7 +44,7 @@
     "baseURLRequired": true,
     "baseURLNormalize": ["strip-trailing-slash", "strip-v1-suffix"],
     "baseURLShape": "origin",
-    "endpoint": "{baseURL}/v1/systemone",
+    "endpoint": "{baseURL}/v1/decisions",
     "model": { "placement": "body" },
     "media": { "imagesKey": "images", "videoKey": "video" },
     "requestIdHeaders": [
@@ -71,14 +85,14 @@
     "description": "API key for your XOR endpoint",
     "instructions": [
       "1. Reach an XOR deployment, or use a LiteLLM proxy with a pass-through route to one",
-      "2. Set XOR_BASE_URL to its origin (NeuroLink calls <XOR_BASE_URL>/v1/systemone)",
-      "3. Set {apiKeyEnvVar} to the key it accepts (on LiteLLM, a virtual key whose team allows xor-1.1)"
+      "2. Set XOR_BASE_URL to its origin (NeuroLink calls <XOR_BASE_URL>/v1/decisions)",
+      "3. Set {apiKeyEnvVar} to the key it accepts (on LiteLLM, a virtual key whose team allows xor-latest, and xor-omni for media)"
     ]
   },
   "evidence": {
     "rosterVerified": {
-      "date": "2026-09-29",
-      "method": "The single model id xor-1.1 is the roster the hand-written XOR descriptor shipped; 2026-09-29 is the date it was added, not a date it was checked. The roster was never verified against a live XOR endpoint, and no live probe was run in this change"
+      "date": "2026-10-18",
+      "method": "POST <origin>/v1/decisions with model xor-latest and a 3-option choice question returned HTTP 200 with served model xor-text-2, through NeuroLink's decide(); a 65-option choice question returned HTTP 422 reading 2..64 options, got 65. A 64-option question returned 200 and 77 options returned 422 on both aliases when probed by hand the same day. A successful xor-omni answer, and any image, audio or video request, were not exercised. The figures contextWindow 250000, maxOutputTokens 256, the 200000-token state window and the media limits are carried over from xor-1.1, not re-measured for the aliases; xor-1.1 is kept only as a retired name"
     },
     "liveMatrix": null,
     "addedInPR": "https://github.com/juspay/neurolink/pull/1984"

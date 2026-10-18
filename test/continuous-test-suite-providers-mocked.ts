@@ -5339,7 +5339,7 @@ async function runLayaDecide(): Promise<void> {
 /**
  * XOR answers on the same System One wire as TypeSafe's direct API, so the
  * `boolean`↔`noul` translation is shared. What this section pins is XOR's own:
- * the route (`<XOR_BASE_URL>/v1/systemone`, no built-in endpoint), the `model`
+ * the route (`<XOR_BASE_URL>/v1/decisions`, no built-in endpoint), the `model`
  * field that is always sent, the request id headers, the error envelopes, the
  * limits and the image and video input.
  */
@@ -5349,9 +5349,9 @@ const XOR_DECIDE_SPEC = {
   provider: "xor",
   envVar: "XOR_API_KEY",
   baseURL: "https://xor.test.example/proxy",
-  urlMatch: "xor.test.example/proxy/v1/systemone",
-  endpoint: "https://xor.test.example/proxy/v1/systemone",
-  model: "xor-1.1",
+  urlMatch: "xor.test.example/proxy/v1/decisions",
+  endpoint: "https://xor.test.example/proxy/v1/decisions",
+  model: "xor-latest",
 };
 
 const XOR_QUESTIONS = {
@@ -5573,10 +5573,18 @@ async function runXorDecide(): Promise<void> {
       await decideOne(await createXor("xor-custom"), {
         model: "xor-per-call",
       });
+      await decideOne(await createXor("xor-omni"));
+      // A model name from before the aliases is the caller's to send: it is
+      // not checked against the catalog, whichever way it is given.
+      await decideOne(await createXor("xor-1.1"));
+      await decideOne(await createXor(), { model: "xor-1.1" });
       const sent = calls.map((c) => (c.bodyJson as { model?: string }).model);
-      expectEq(sent[0], "xor-1.1", "default model");
+      expectEq(sent[0], "xor-latest", "default model");
       expectEq(sent[1], "xor-custom", "model pinned at construction");
       expectEq(sent[2], "xor-per-call", "per-call model wins");
+      expectEq(sent[3], "xor-omni", "the multimodal alias is sent as given");
+      expectEq(sent[4], "xor-1.1", "a legacy name pinned at construction");
+      expectEq(sent[5], "xor-1.1", "a legacy name given per call");
     });
   });
 
@@ -5606,7 +5614,7 @@ async function runXorDecide(): Promise<void> {
       for (const unset of [undefined, "   "]) {
         setEnv("XOR_BASE_URL", unset);
         await withMocks(
-          [{ ...xorOkRoute, url: "/v1/systemone" }],
+          [{ ...xorOkRoute, url: "/v1/decisions" }],
           async ({ calls }) => {
             const failure = await captureDecisionFailure(async () =>
               decideOne(await createXor()),
@@ -5755,7 +5763,7 @@ async function runXorDecide(): Promise<void> {
       try {
         clearDecisionEnv();
         await withMocks(
-          [{ ...xorOkRoute, url: "xor.config.example/proxy/v1/systemone" }],
+          [{ ...xorOkRoute, url: "xor.config.example/proxy/v1/decisions" }],
           async ({ calls }) => {
             const { NeuroLink } = await import("../dist/index.js");
             const nl = new NeuroLink({ credentials: configuredXor });
@@ -5769,7 +5777,7 @@ async function runXorDecide(): Promise<void> {
             const post = calls.find((c) => c.method === "POST");
             expectEq(
               post?.url,
-              "https://xor.config.example/proxy/v1/systemone",
+              "https://xor.config.example/proxy/v1/decisions",
               "endpoint from credentials.xor.baseURL",
             );
             const headers = (post?.headers ?? {}) as Record<string, string>;
@@ -5793,7 +5801,7 @@ async function runXorDecide(): Promise<void> {
       try {
         clearDecisionEnv();
         await withMocks(
-          [{ ...xorOkRoute, url: "xor.config.example/proxy/v1/systemone" }],
+          [{ ...xorOkRoute, url: "xor.config.example/proxy/v1/decisions" }],
           async ({ calls }) => {
             const { NeuroLink } = await import("../dist/index.js");
             const nl = new NeuroLink({ credentials: configuredXor });
@@ -5871,7 +5879,7 @@ async function runXorDecide(): Promise<void> {
           status: 403,
           json: {
             error: {
-              message: "team not allowed to access model=xor-1.1",
+              message: "team not allowed to access model=xor-latest",
               type: "team_model_access_denied",
               code: "403",
             },
@@ -5895,12 +5903,38 @@ async function runXorDecide(): Promise<void> {
           includes: "Budget has been exceeded",
         },
         {
-          label: "XOR 422 flat string",
+          label: "XOR 422 option count, flat string",
           status: 422,
-          json: { error: "q: 2..255 options, got 1" },
+          json: { error: "q: 2..64 options, got 65" },
           kind: "invalid_request",
           calls: 1,
-          includes: "2..255 options",
+          includes: "2..64 options, got 65",
+        },
+        {
+          label: "XOR 422 option count, wrapped by LiteLLM",
+          status: 422,
+          json: {
+            error: {
+              message:
+                'litellm.UnprocessableEntityError: Decisions upstream returned HTTP 422: {"error": "q: 2..64 options, got 65"}. Received Model Group=xor-latest\nAvailable Model Group Fallbacks=[\'xor-omni\']',
+              type: null,
+              code: "422",
+            },
+          },
+          kind: "invalid_request",
+          calls: 1,
+          includes: "2..64 options, got 65",
+        },
+        {
+          label: "XOR 422 question type the model lacks",
+          status: 422,
+          json: {
+            error:
+              "question type 'value' is not enabled (advertised: noul,choice,score)",
+          },
+          kind: "invalid_request",
+          calls: 1,
+          includes: "is not enabled",
         },
         {
           label: "XOR 404 flat string",
@@ -6079,7 +6113,7 @@ async function runXorDecide(): Promise<void> {
                   status: 403,
                   json: {
                     error: {
-                      message: "team not allowed to access model=xor-1.1",
+                      message: "team not allowed to access model=xor-latest",
                       type: "team_model_access_denied",
                       code: "403",
                     },
@@ -6121,7 +6155,7 @@ async function runXorDecide(): Promise<void> {
           "max_tokens_exceeded",
           "over-window state classified",
         );
-        expect(failure.message.includes("xor-1.1"), "names the model");
+        expect(failure.message.includes("xor-latest"), "names the model");
         expectEq(calls.length, 0, "refused before any request");
       });
     },
@@ -6425,7 +6459,7 @@ async function runXorDecide(): Promise<void> {
             // A proxy that echoes the data URL back inside an error message.
             {
               method: "POST",
-              url: "xor.echo.example/v1/systemone",
+              url: "xor.echo.example/v1/decisions",
               respond: {
                 status: 422,
                 json: {
@@ -6573,7 +6607,7 @@ async function runXorDecide(): Promise<void> {
         ]) {
           setEnv("XOR_BASE_URL", base);
           await withMocks(
-            [{ ...xorOkRoute, url: "/v1/systemone" }],
+            [{ ...xorOkRoute, url: "/v1/decisions" }],
             async ({ calls }) => {
               const failure = await captureDecisionFailure(async () =>
                 decideOne(await createXor()),
@@ -6609,7 +6643,7 @@ async function runXorDecide(): Promise<void> {
             url: XOR_DECIDE_SPEC.urlMatch,
             respond: () => {
               throw new TypeError(
-                "Request cannot be constructed from a URL that includes credentials: https://ops:hunter2-basic@xor.internal.test/proxy/v1/systemone?token=hunter2-query",
+                "Request cannot be constructed from a URL that includes credentials: https://ops:hunter2-basic@xor.internal.test/proxy/v1/decisions?token=hunter2-query",
               );
             },
           },
