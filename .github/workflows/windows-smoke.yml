@@ -1,0 +1,129 @@
+name: Windows Smoke
+
+# Not a required check, and it must stay that way: it exists to show whether the
+# three pieces of repo tooling that start other programs still work on Windows,
+# which no other job in this repository can show. CI otherwise runs on Ubuntu
+# only. Do not add its name to branch protection or to a ruleset.
+#
+# It runs only when one of those files (or this workflow) changes, so an
+# ordinary pull request does not pay for a Windows runner:
+#
+#   test/continuous-test-suite-tooling-shell-safety.ts   POSIX-only, skips on win32
+#   test/continuous-test-suite-rag.ts                    source-mode CLI fallback
+#   tools/content/documentationSync.ts                   starts TypeDoc
+#
+# The two launchers it checks are started through the node binary because `npx`
+# is a `.cmd` shim on Windows, which an argument-vector spawn cannot run without
+# a shell: tsx as `process.execPath node_modules/tsx/dist/cli.mjs` (the RAG
+# suite's source-mode fallback and the shell-safety suite's TSX_CLI), and TypeDoc
+# as `process.execPath <typedoc bin>` (documentationSync's resolveTypedocBin).
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "test/continuous-test-suite-tooling-shell-safety.ts"
+      - "test/continuous-test-suite-rag.ts"
+      - "tools/content/documentationSync.ts"
+      - ".github/workflows/windows-smoke.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      # --ignore-scripts: both checks below need tsx and typedoc on disk, not any
+      # package's lifecycle script, and the repo's own `prepare` hook is POSIX
+      # shell (`> /dev/null`). Without the flag an install failure here would say
+      # nothing about the launchers this workflow is for.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      # The suite's cases need `/usr/bin/env`, `/dev/null`, shebang stubs and a
+      # checkout directory named with a double quote (Windows forbids that
+      # character), so on win32 it must report one skip and pass. The exit code
+      # alone would also be 0 for a suite that quietly ran nothing, so the
+      # summary counts are checked too: exactly one skipped case, none passed.
+      - name: Tooling shell-safety suite reports skipped
+        shell: bash
+        run: |
+          pnpm exec tsx test/continuous-test-suite-tooling-shell-safety.ts 2>&1 | tee shell-safety.log
+          grep -Eq "Passed: +0([^0-9]|$)" shell-safety.log
+          grep -Eq "Skipped: +1([^0-9]|$)" shell-safety.log
+
+      # Mirrors what the tools do, not the tools themselves: `resolveTypedocBin`
+      # in tools/content/documentationSync.ts is module-private, and the RAG
+      # suite builds its argument vector inline, so this starts the same two
+      # programs the same way (process.execPath plus the entry file) and fails
+      # if either cannot be found or run.
+      - name: Node starts tsx and TypeDoc without npx
+        shell: bash
+        run: |
+          node --input-type=module - <<'EOF'
+          import { execFileSync } from "node:child_process";
+          import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+          import { createRequire } from "node:module";
+          import { tmpdir } from "node:os";
+          import { dirname, join } from "node:path";
+
+          const root = process.cwd();
+
+          // A typed script only prints if tsx transpiled it. The entry is the one
+          // the RAG suite and the shell-safety suite start.
+          const scratch = mkdtempSync(join(tmpdir(), "windows-smoke-"));
+          const script = join(scratch, "typed.ts");
+          writeFileSync(script, 'const answer: number = 42;\nconsole.log("tsx-ok " + answer);\n');
+          const tsxCli = join(root, "node_modules", "tsx", "dist", "cli.mjs");
+          if (!existsSync(tsxCli)) {
+            throw new Error("tsx's CLI entry is not installed where the suites start it");
+          }
+          const tsxOut = execFileSync(process.execPath, [tsxCli, script], {
+            cwd: root,
+            encoding: "utf8",
+          });
+          if (!tsxOut.includes("tsx-ok 42")) {
+            throw new Error("tsx did not run the typed script through process.execPath");
+          }
+          console.log("tsx started through process.execPath and its cli.mjs");
+
+          const manifestPath = createRequire(join(root, "package.json")).resolve("typedoc/package.json");
+          const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+          const bin = typeof manifest.bin === "string" ? manifest.bin : manifest.bin?.typedoc;
+          if (!bin) {
+            throw new Error("typedoc declares no bin entry");
+          }
+          const typedocBin = join(dirname(manifestPath), bin);
+          if (!existsSync(typedocBin)) {
+            throw new Error("the resolved typedoc bin entry does not exist");
+          }
+          const typedocOut = execFileSync(process.execPath, [typedocBin, "--version"], {
+            cwd: root,
+            encoding: "utf8",
+          });
+          if (!/typedoc/i.test(typedocOut)) {
+            throw new Error("typedoc --version did not identify itself");
+          }
+          console.log("typedoc started through process.execPath: " + typedocOut.trim());
+          EOF
