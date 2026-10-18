@@ -74,6 +74,11 @@ const EXTERNAL_STDIN_FIXTURE = join(
   "fixtures",
   "process-exit-external-stdin-probe.mjs",
 );
+const LISTENER_BEFORE_IMPORT_FIXTURE = join(
+  TEST_DIR,
+  "fixtures",
+  "process-exit-listener-before-import-probe.mjs",
+);
 
 type ProbeHandle = {
   stdout: () => string;
@@ -593,6 +598,77 @@ await test("an external SDK consumer reading stdin via async iteration still rec
     assert(
       stdout.includes(`GOT DATA: ${JSON.stringify(PAYLOAD)}`),
       "the piped payload was not delivered to the external consumer's async-iteration read",
+    );
+  } finally {
+    if (!closed) {
+      proc.kill("SIGKILL");
+    }
+  }
+});
+
+await test("a consumer already reading stdin before it imports the package stays alive and still receives piped input", async () => {
+  // No live provider needed. The shape is a stdio MCP server: its transport
+  // attaches a "data" listener at connect, and the package is lazy-imported
+  // afterwards. The import-time unref must not strand that existing listener,
+  // or the process exits with code 0 while its peer still has the pipe open.
+  const proc = spawn(process.execPath, [LISTENER_BEFORE_IMPORT_FIXTURE], {
+    cwd: REPO_ROOT,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  let stdout = "";
+  let stderr = "";
+  let closed = false;
+  let exitCode: number | null = null;
+  proc.stdout.on("data", (d: Buffer) => {
+    stdout += d.toString();
+  });
+  proc.stderr.on("data", (d: Buffer) => {
+    stderr += d.toString();
+  });
+  proc.on("close", (code) => {
+    closed = true;
+    exitCode = code;
+  });
+
+  const PAYLOAD = "hello from a consumer that was reading first\n";
+  // Without the guard the probe exits within milliseconds of the import, so
+  // this settle window cannot pass by luck; it only has to outlast that.
+  const SETTLE_MS = 2_000;
+
+  try {
+    const readyDeadline = Date.now() + 60_000;
+    while (!stdout.includes("PROBE READY") && !closed) {
+      if (Date.now() > readyDeadline) {
+        break;
+      }
+      await delay(20);
+    }
+    assert(
+      stdout.includes("PROBE READY"),
+      `precondition failed — the probe never finished importing the package, or it exited first (stdout=${stdout.length} bytes, stderr=${stderr.length} bytes, closed=${closed})`,
+    );
+
+    await delay(SETTLE_MS);
+    assert(
+      !closed,
+      `the probe exited ${SETTLE_MS}ms after importing the package with no input written (exitCode=${String(exitCode)}) — the import-time unref stranded a stdin listener that was attached before the import`,
+    );
+
+    proc.stdin.write(PAYLOAD);
+    proc.stdin.end();
+
+    const closeDeadline = Date.now() + 10_000;
+    while (!closed && Date.now() < closeDeadline) {
+      await delay(20);
+    }
+
+    assert(
+      stdout.includes("script end reached"),
+      `the probe never reached its natural end after receiving piped stdin (stdout=${stdout.length} bytes, stderr=${stderr.length} bytes, exitCode=${String(exitCode)})`,
+    );
+    assert(
+      stdout.includes(`GOT DATA: ${JSON.stringify(PAYLOAD)}`),
+      "the piped payload was not delivered to the listener attached before the import",
     );
   } finally {
     if (!closed) {

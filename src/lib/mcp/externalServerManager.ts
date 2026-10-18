@@ -76,8 +76,20 @@ import { SpanStatusCode } from "@opentelemetry/api";
 // listener under the hood). This restores stdin's normal, non-unref'd
 // behavior for any real consumer — internal or external — while a process
 // that never touches stdin still exits on its own.
+//
+// "newListener" only sees listeners added after this point. A consumer that
+// was already reading stdin when it first imported this package — a stdio MCP
+// server that connects its transport, then lazy-imports @juspay/neurolink —
+// would never trigger it, and unref'ing its live stdin made the process exit
+// mid-session with code 0. So leave stdin alone when a consumer is already
+// attached.
 if (process.stdin && typeof process.stdin.unref === "function") {
-  process.stdin.unref();
+  const stdinAlreadyConsumed =
+    process.stdin.listenerCount("data") > 0 ||
+    process.stdin.listenerCount("readable") > 0;
+  if (!stdinAlreadyConsumed) {
+    process.stdin.unref();
+  }
   process.stdin.prependListener(
     "newListener",
     (event: string | symbol): void => {
