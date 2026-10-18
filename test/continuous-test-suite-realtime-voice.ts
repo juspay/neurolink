@@ -102,6 +102,7 @@ const DEFAULT_GREETING =
 const SUITE_ENV: readonly string[] = [
   "VOICE_REALTIME_BACKEND",
   "XAI_REALTIME_BASE_URL",
+  "XAI_REALTIME_ALLOW_INSECURE",
   "XAI_API_KEY",
   "VOICE_LIVE_MODEL",
   "VOICE_S2S_VOICE",
@@ -567,6 +568,219 @@ async function configSection(): Promise<void> {
     assert(
       viaAgent.includes("xaiBaseURL"),
       "defineRealtimeVoiceAgent accepted an https base URL",
+    );
+  });
+
+  await test("config: a valid caller xaiBaseURL wins over an XAI_REALTIME_BASE_URL that would be refused, because the variable is then not read", async () => {
+    const caller = "wss://gateway.example.test/v1";
+    for (const fromEnv of [
+      "https://gateway.example.test/v1",
+      "not a url",
+      "ws://gateway.example.test/v1",
+    ]) {
+      const config = await resolveConfig(
+        { VOICE_REALTIME_BACKEND: "xai", XAI_REALTIME_BASE_URL: fromEnv },
+        { xaiBaseURL: caller },
+      );
+      assert(
+        config.xaiBaseURL === caller,
+        "the caller's base URL did not win over a refused variable",
+      );
+    }
+  });
+
+  await test("config: the base URL is checked whatever the backend, so a refused XAI_REALTIME_BASE_URL stops a gemini deployment too and a valid caller xaiBaseURL does not", async () => {
+    const refused = [
+      "https://gateway.example.test/v1",
+      "ws://gateway.example.test/v1",
+    ];
+    for (const fromEnv of refused) {
+      const viaVariable = await rejection(() =>
+        resolveConfig({
+          VOICE_REALTIME_BACKEND: "gemini",
+          XAI_REALTIME_BASE_URL: fromEnv,
+        }),
+      );
+      assert(
+        viaVariable.includes("XAI_REALTIME_BASE_URL"),
+        "a gemini environment with a refused base URL was not stopped by it",
+      );
+      const viaOverride = await rejection(() =>
+        resolveConfig(
+          { XAI_REALTIME_BASE_URL: fromEnv },
+          { backend: "gemini" },
+        ),
+      );
+      assert(
+        viaOverride.includes("XAI_REALTIME_BASE_URL"),
+        "a passed gemini backend with a refused base URL was not stopped by it",
+      );
+      assert(
+        !viaOverride.includes(fromEnv),
+        "the error repeats the refused URL",
+      );
+      const viaAgent = await rejection(() =>
+        withEnv({ XAI_REALTIME_BASE_URL: fromEnv }, () =>
+          livekit.defineRealtimeVoiceAgent({ backend: "gemini" }),
+        ),
+      );
+      assert(
+        viaAgent.includes("XAI_REALTIME_BASE_URL"),
+        "defineRealtimeVoiceAgent started a gemini agent with a refused base URL",
+      );
+      const rescued = await resolveConfig(
+        { XAI_REALTIME_BASE_URL: fromEnv },
+        { backend: "gemini", xaiBaseURL: "wss://gateway.example.test/v1" },
+      );
+      assert(
+        rescued.backend === "gemini" &&
+          rescued.xaiBaseURL === "wss://gateway.example.test/v1",
+        "a valid caller base URL did not clear a refused variable for gemini",
+      );
+    }
+  });
+
+  await test("config: a ws:// URL to a host other than loopback is refused unless XAI_REALTIME_ALLOW_INSECURE is true, for the variable and for xaiBaseURL, and loopback ws:// and wss:// are accepted", async () => {
+    const before = process.env.XAI_REALTIME_ALLOW_INSECURE;
+    const crossHost = [
+      "ws://gateway.example.test/v1",
+      "ws://gateway.example.test:8080/v1",
+      "ws://10.0.0.5:9/v1",
+      "ws://[2001:db8::1]:9/v1",
+      "ws://localhost.example.test/v1",
+      "ws://127.0.0.1.example.test/v1",
+      "ws://127.0.0.1@gateway.example.test/v1",
+      "ws://localhost@gateway.example.test/v1",
+      "ws://126.255.255.255/v1",
+      "ws://128.0.0.1/v1",
+      "ws://[::ffff:10.0.0.5]/v1",
+    ];
+    const loopback = [
+      "ws://localhost:9/v1",
+      "ws://LOCALHOST:9/v1",
+      "ws://127.0.0.1:9/v1",
+      "ws://127.255.255.254:9/v1",
+      "ws://127.1:9/v1",
+      "ws://[::1]:9/v1",
+    ];
+    const secure = [
+      "wss://gateway.example.test/v1",
+      "wss://10.0.0.5:9/v1",
+      "wss://localhost:9/v1",
+    ];
+    const offOptIns = [undefined, "", "false", "1", "yes", "truthy"];
+
+    for (const url of crossHost) {
+      for (const optIn of offOptIns) {
+        const viaVariable = await rejection(() =>
+          resolveConfig({
+            VOICE_REALTIME_BACKEND: "xai",
+            XAI_REALTIME_BASE_URL: url,
+            XAI_REALTIME_ALLOW_INSECURE: optIn,
+          }),
+        );
+        assert(
+          viaVariable.includes("XAI_REALTIME_BASE_URL"),
+          "the error does not name XAI_REALTIME_BASE_URL",
+        );
+        assert(
+          viaVariable.includes("XAI_REALTIME_ALLOW_INSECURE"),
+          "the error does not name the opt-in variable",
+        );
+        assert(
+          !viaVariable.includes(url) &&
+            !viaVariable.includes(new URL(url).hostname),
+          "the error repeats the refused URL or its host",
+        );
+        const viaCaller = await rejection(() =>
+          resolveConfig(
+            {
+              VOICE_REALTIME_BACKEND: "xai",
+              XAI_REALTIME_ALLOW_INSECURE: optIn,
+            },
+            { xaiBaseURL: url },
+          ),
+        );
+        assert(
+          viaCaller.includes("xaiBaseURL") &&
+            viaCaller.includes("XAI_REALTIME_ALLOW_INSECURE"),
+          "the error for a caller URL does not name xaiBaseURL and the opt-in",
+        );
+        assert(
+          !viaCaller.includes(url) &&
+            !viaCaller.includes(new URL(url).hostname),
+          "the error for a caller URL repeats the refused URL or its host",
+        );
+      }
+      for (const optIn of ["true", "TRUE", "  True  "]) {
+        const viaVariable = await resolveConfig({
+          VOICE_REALTIME_BACKEND: "xai",
+          XAI_REALTIME_BASE_URL: url,
+          XAI_REALTIME_ALLOW_INSECURE: optIn,
+        });
+        assert(
+          viaVariable.xaiBaseURL === url,
+          "the opt-in did not let the variable's ws:// URL through",
+        );
+        const viaCaller = await resolveConfig(
+          { VOICE_REALTIME_BACKEND: "xai", XAI_REALTIME_ALLOW_INSECURE: optIn },
+          { xaiBaseURL: url },
+        );
+        assert(
+          viaCaller.xaiBaseURL === url,
+          "the opt-in did not let the caller's ws:// URL through",
+        );
+      }
+    }
+
+    for (const url of [...loopback, ...secure]) {
+      const viaVariable = await resolveConfig({
+        VOICE_REALTIME_BACKEND: "xai",
+        XAI_REALTIME_BASE_URL: url,
+      });
+      assert(
+        viaVariable.xaiBaseURL === url,
+        "a loopback ws:// or a wss:// variable was refused without the opt-in",
+      );
+      const viaCaller = await resolveConfig(
+        { VOICE_REALTIME_BACKEND: "xai" },
+        { xaiBaseURL: url },
+      );
+      assert(
+        viaCaller.xaiBaseURL === url,
+        "a loopback ws:// or a wss:// caller URL was refused without the opt-in",
+      );
+    }
+
+    const notWebSocket = await rejection(() =>
+      resolveConfig({
+        VOICE_REALTIME_BACKEND: "xai",
+        XAI_REALTIME_BASE_URL: "https://gateway.example.test/v1",
+        XAI_REALTIME_ALLOW_INSECURE: "true",
+      }),
+    );
+    assert(
+      notWebSocket.includes("XAI_REALTIME_BASE_URL") &&
+        !notWebSocket.includes("XAI_REALTIME_ALLOW_INSECURE"),
+      "the opt-in changed how a non-WebSocket URL is refused",
+    );
+
+    const viaAgent = await rejection(() =>
+      withEnv({ VOICE_REALTIME_BACKEND: "xai" }, () =>
+        livekit.defineRealtimeVoiceAgent({
+          xaiBaseURL: "ws://gateway.example.test/v1",
+        }),
+      ),
+    );
+    assert(
+      viaAgent.includes("xaiBaseURL") &&
+        viaAgent.includes("XAI_REALTIME_ALLOW_INSECURE"),
+      "defineRealtimeVoiceAgent accepted a cross-host ws:// base URL",
+    );
+
+    assert(
+      process.env.XAI_REALTIME_ALLOW_INSECURE === before,
+      "XAI_REALTIME_ALLOW_INSECURE was not restored",
     );
   });
 
@@ -1262,6 +1476,97 @@ async function xaiStubSection(): Promise<void> {
         );
         await model.close();
       },
+    );
+  });
+
+  await test("xai factory with a hand-built config: a ws:// base URL to a host other than loopback is refused unless XAI_REALTIME_ALLOW_INSECURE is true, and loopback ws:// and wss:// build the model", async () => {
+    // A config made by hand never goes through resolveRealtimeVoiceConfig, so
+    // the factory has to apply the rule itself. Nothing dials from a
+    // constructor, so a refused URL is told apart from an accepted one by
+    // whether a model comes back.
+    const before = process.env.XAI_REALTIME_ALLOW_INSECURE;
+    const base = await resolveConfig({ VOICE_REALTIME_BACKEND: "xai" });
+    const build = (url: string) =>
+      livekit.createRealtimeLlm({ ...base, xaiBaseURL: url });
+    const hostOf = (model: llm.RealtimeModel): string => model.provider;
+    const crossHost = [
+      "ws://gateway.example.test/v1",
+      "ws://10.0.0.5:9/v1",
+      "ws://[2001:db8::1]:9/v1",
+      "ws://127.0.0.1.example.test/v1",
+      "ws://127.0.0.1@gateway.example.test/v1",
+      "ws://128.0.0.1/v1",
+    ];
+    const accepted = [
+      "ws://localhost:9/v1",
+      "ws://127.0.0.1:9/v1",
+      "ws://[::1]:9/v1",
+      "wss://gateway.example.test/v1",
+      "wss://10.0.0.5:9/v1",
+    ];
+
+    for (const optIn of [undefined, "", "false", "1"]) {
+      for (const url of crossHost) {
+        const message = await withEnv(
+          { XAI_API_KEY: STUB_BEARER, XAI_REALTIME_ALLOW_INSECURE: optIn },
+          () => rejection(() => build(url)),
+        );
+        assert(
+          message.includes("xaiBaseURL") &&
+            message.includes("XAI_REALTIME_ALLOW_INSECURE"),
+          "the error does not name xaiBaseURL and the opt-in variable",
+        );
+        assert(
+          !message.includes(url) &&
+            !message.includes(new URL(url).hostname) &&
+            !message.includes(STUB_BEARER),
+          "the error repeats the refused URL, its host or the key",
+        );
+      }
+    }
+
+    for (const url of crossHost) {
+      await withEnv(
+        { XAI_API_KEY: STUB_BEARER, XAI_REALTIME_ALLOW_INSECURE: "true" },
+        async () => {
+          const model = liveKitModel(
+            await build(url),
+            "the opt-in did not let the factory build a model for a ws:// URL",
+          );
+          assert(
+            hostOf(model) === new URL(url).host,
+            "the model does not target the opted-in host",
+          );
+          await model.close();
+        },
+      );
+    }
+
+    for (const url of accepted) {
+      await withEnv({ XAI_API_KEY: STUB_BEARER }, async () => {
+        const model = liveKitModel(
+          await build(url),
+          "the factory refused a loopback ws:// or a wss:// URL without the opt-in",
+        );
+        assert(
+          hostOf(model) === new URL(url).host,
+          "the model does not target the configured host",
+        );
+        await model.close();
+      });
+    }
+
+    const noKey = await withEnv({}, () =>
+      rejection(() => build("ws://gateway.example.test/v1")),
+    );
+    assert(
+      noKey.includes("XAI_API_KEY"),
+      "a missing key was not reported before the base URL",
+    );
+
+    assert(
+      process.env.XAI_REALTIME_ALLOW_INSECURE === before,
+      "XAI_REALTIME_ALLOW_INSECURE was not restored",
     );
   });
 

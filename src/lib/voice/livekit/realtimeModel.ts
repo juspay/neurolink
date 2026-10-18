@@ -15,6 +15,7 @@
  */
 
 import type { RealtimeLlm, RealtimeVoiceConfig } from "../../types/index.js";
+import { requireNoCleartextCrossHost } from "./config.js";
 
 /**
  * Fail early, naming the variable, when `XAI_API_KEY` is blank or absent.
@@ -69,6 +70,11 @@ async function createXaiRealtimeLlm(
   cfg: RealtimeVoiceConfig,
 ): Promise<RealtimeLlm> {
   requireXaiApiKey();
+  // `cfg` can be built by hand, without `resolveRealtimeVoiceConfig`, so the
+  // key-leak check runs here as well as there.
+  if (cfg.xaiBaseURL) {
+    requireNoCleartextCrossHost(cfg.xaiBaseURL, "xaiBaseURL");
+  }
   const xai = await import("@livekit/agents-plugin-xai");
 
   // Keys are added only when set. The plugin spreads these options over its
@@ -95,7 +101,9 @@ async function createXaiRealtimeLlm(
  * The gemini branch builds exactly what the agent has always built: Vertex AI,
  * the configured model, transcripts of both sides, and project, location,
  * voice and modality when set. The xai branch needs `XAI_API_KEY` in the
- * environment and throws before touching the plugin when it is missing.
+ * environment and throws before touching the plugin when it is missing. It also
+ * throws before touching the plugin for a `ws://` base URL to a host other than
+ * loopback, unless `XAI_REALTIME_ALLOW_INSECURE=true`, as config resolution does.
  */
 export async function createRealtimeLlm(
   cfg: RealtimeVoiceConfig,

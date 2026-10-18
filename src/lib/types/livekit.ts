@@ -551,7 +551,7 @@ export type RealtimeVoiceAgentConfig = {
   location?: string;
   model?: string;
   voice?: string;
-  /** xai only: WebSocket base URL of the realtime endpoint. */
+  /** xai only: WebSocket base URL of the realtime endpoint. A `ws://` URL to a host other than localhost, 127.0.0.0/8 or [::1] is refused unless `XAI_REALTIME_ALLOW_INSECURE=true`, because the xAI key would cross the network unencrypted. */
   xaiBaseURL?: string;
   responseModality?: string;
   systemPrompt?: string;

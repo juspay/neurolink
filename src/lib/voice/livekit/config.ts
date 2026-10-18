@@ -97,6 +97,7 @@ const DEFAULT_GREETING =
   "Briefly greet the merchant and ask how you can help with their store today.";
 const DEFAULT_LIGHTHOUSE_URL = "http://localhost:5173";
 const DEFAULT_MCP_PATH = "/ai/mcp/v2";
+const ALLOW_INSECURE_ENV = "XAI_REALTIME_ALLOW_INSECURE";
 
 /**
  * The backend named by `VOICE_REALTIME_BACKEND`: `gemini` or `xai`, matched
@@ -125,20 +126,61 @@ function requireKnownBackend(value: string): RealtimeVoiceBackend {
   throw new Error('The realtime voice backend must be "gemini" or "xai"');
 }
 
-function isWebSocketUrl(value: string): boolean {
+function parseWebSocketUrl(value: string): URL | undefined {
   try {
-    const { protocol } = new URL(value);
-    return protocol === "ws:" || protocol === "wss:";
+    const url = new URL(value);
+    return url.protocol === "ws:" || url.protocol === "wss:" ? url : undefined;
   } catch {
-    return false;
+    return undefined;
   }
 }
 
-/** A ws or wss URL. The error names the setting and does not repeat the value. */
+/**
+ * Whether a WHATWG-parsed hostname is `localhost`, an address in `127.0.0.0/8`
+ * or `[::1]`. The parser has already lowercased the name and reduced shorthand
+ * IPv4 forms (`127.1`, `0x7f.1`) to dotted decimal, and a userinfo prefix such
+ * as `localhost@host` never reaches `hostname`, so neither can pass for a
+ * loopback host.
+ */
+function isLoopbackHost(hostname: string): boolean {
+  if (hostname === "localhost" || hostname === "[::1]") {
+    return true;
+  }
+  const octets = hostname.split(".");
+  return (
+    octets.length === 4 &&
+    octets[0] === "127" &&
+    octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255)
+  );
+}
+
+/**
+ * Refuse a `ws://` URL to a host other than loopback unless
+ * `XAI_REALTIME_ALLOW_INSECURE=true`: the xAI plugin sends `XAI_API_KEY` to the
+ * URL it is given, and `ws://` sends it unencrypted. Anything else passes,
+ * including a value that is not a ws or wss URL, which is for the caller's own
+ * check. The error names the setting and the opt-in and does not repeat the
+ * value.
+ */
+export function requireNoCleartextCrossHost(value: string, name: string): void {
+  const url = parseWebSocketUrl(value);
+  if (
+    url?.protocol === "ws:" &&
+    !isLoopbackHost(url.hostname) &&
+    readEnv(ALLOW_INSECURE_ENV, "").toLowerCase() !== "true"
+  ) {
+    throw new Error(
+      `${name} is a ws:// URL to a host other than localhost, 127.0.0.0/8 or [::1], which would send XAI_API_KEY unencrypted. Use wss://, or set ${ALLOW_INSECURE_ENV}=true to accept that`,
+    );
+  }
+}
+
+/** A ws or wss URL that passes `requireNoCleartextCrossHost`. The error names the setting and does not repeat the value. */
 function requireWebSocketUrl(value: string, name: string): string {
-  if (!isWebSocketUrl(value)) {
+  if (parseWebSocketUrl(value) === undefined) {
     throw new Error(`${name} must be a ws:// or wss:// URL`);
   }
+  requireNoCleartextCrossHost(value, name);
   return value;
 }
 
@@ -164,7 +206,10 @@ function resolveXaiBaseUrl(override: string | undefined): string | undefined {
  * env at all. `VOICE_REALTIME_BACKEND` picks the model family (`gemini`, the
  * default, or `xai`); `backend` here overrides it and then the environment's
  * value is not read. A non-blank `xaiBaseURL` here likewise replaces
- * `XAI_REALTIME_BASE_URL` after the same ws or wss check.
+ * `XAI_REALTIME_BASE_URL` after the same ws or wss check. Either URL is
+ * checked whatever the backend. A `ws://` URL to a host other than `localhost`,
+ * `127.0.0.0/8` or `[::1]` is refused unless `XAI_REALTIME_ALLOW_INSECURE=true`,
+ * because the xAI plugin sends `XAI_API_KEY` to it unencrypted.
  * `VOICE_LIVE_MODEL` overrides the backend's default model.
  * Vertex `project` is resolved from `VERTEX_PROJECT`, then the service-account
  * project (`GOOGLE_AUTH_BREEZE_PROJECT_ID`), then `GOOGLE_CLOUD_PROJECT_ID`;

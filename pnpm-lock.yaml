@@ -431,29 +431,29 @@ importers:
         specifier: ^1.4.6
         version: 1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
       '@livekit/agents-plugin-cartesia':
-        specifier: ^1.4.5
-        version: 1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(zod@4.3.6)
+        specifier: ^1.4.6
+        version: 1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(zod@4.3.6)
       '@livekit/agents-plugin-deepgram':
-        specifier: ^1.4.5
-        version: 1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)
+        specifier: ^1.4.6
+        version: 1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)
       '@livekit/agents-plugin-elevenlabs':
-        specifier: ^1.4.5
-        version: 1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)
+        specifier: ^1.4.6
+        version: 1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)
       '@livekit/agents-plugin-google':
-        specifier: ^1.4.5
+        specifier: ^1.4.6
         version: 1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(@modelcontextprotocol/sdk@1.32.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)
       '@livekit/agents-plugin-livekit':
-        specifier: ^1.4.5
-        version: 1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))
+        specifier: ^1.4.6
+        version: 1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))
       '@livekit/agents-plugin-openai':
         specifier: ^1.4.6
         version: 1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(zod@4.3.6)
       '@livekit/agents-plugin-silero':
-        specifier: ^1.4.5
-        version: 1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)
+        specifier: ^1.4.6
+        version: 1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)
       '@livekit/agents-plugin-soniox':
-        specifier: ^1.4.5
-        version: 1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)
+        specifier: ^1.4.6
+        version: 1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)
       '@livekit/agents-plugin-xai':
         specifier: ^1.4.6
         version: 1.4.6(@livekit/agents-plugin-openai@1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(zod@4.3.6))(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(zod@4.3.6)
@@ -1668,23 +1668,23 @@ packages:
     peerDependencies:
       '@opentelemetry/api': ^1.9.0
 
-  '@livekit/agents-plugin-cartesia@1.4.5':
-    resolution: {integrity: sha512-+V5s6huw0jHHeCQVAnYPK0QUrHulHeLLp0r3py7ptpJwBVcqLCi+MmzQvl89KoneYNPhrSip2rTUAm7+xoNgLw==}
+  '@livekit/agents-plugin-cartesia@1.4.6':
+    resolution: {integrity: sha512-3YUhb8hG4pNna7H3OgtXQehz4VN0zA73bs8WTm9Syo0DvwX8A8oOTa0+ReXuEF9r9M3O+F/YlzGaFIZbF5v3rA==}
     peerDependencies:
-      '@livekit/agents': 1.4.5
+      '@livekit/agents': 1.4.6
       '@livekit/rtc-node': ^0.13.29
       zod: ^3.25.76 || ^4.1.8
 
-  '@livekit/agents-plugin-deepgram@1.4.5':
-    resolution: {integrity: sha512-CiqFZ4nypxJyhjeZpSwRvc8KLofDvMGlnBUqFzBIpeG7xCOPBpZg/qBTnck3efMIejv1UifJchSHyx48Ot9wLA==}
+  '@livekit/agents-plugin-deepgram@1.4.6':
+    resolution: {integrity: sha512-G8bU8apRV7yhLO+aztDhTV0W9EZv0JYeNdP30oll+6TQY0HLQhNfacodu7BQCfCwbHuLkSIMQpZL0rZxSqT2mA==}
     peerDependencies:
-      '@livekit/agents': 1.4.5
+      '@livekit/agents': 1.4.6
       '@livekit/rtc-node': ^0.13.29
 
-  '@livekit/agents-plugin-elevenlabs@1.4.5':
-    resolution: {integrity: sha512-cUHcyrTaDi25ena5AwVDlNo9V75rA0mcCVu5T9BT0a2USHKHmjiB1wEpxR7/tlEu8U9QbkwEVBaeV7xiA4t4+A==}
+  '@livekit/agents-plugin-elevenlabs@1.4.6':
+    resolution: {integrity: sha512-qvd5Eksqs2CjsSjLyop7AEOZ4nyOngWRrE2Z3Anhu4dxWLFWAZiWefLnwSh+J5ehom+B59MAbB862Iw+reRFow==}
     peerDependencies:
-      '@livekit/agents': 1.4.5
+      '@livekit/agents': 1.4.6
       '@livekit/rtc-node': ^0.13.29
 
   '@livekit/agents-plugin-google@1.4.6':
@@ -1693,10 +1693,10 @@ packages:
       '@livekit/agents': 1.4.6
       '@livekit/rtc-node': ^0.13.29
 
-  '@livekit/agents-plugin-livekit@1.4.5':
-    resolution: {integrity: sha512-7lOjt+CXspqNAOyULa4msn22HIJXfW+CjpXuC60c3zdtTzsg2rCswN0O+IIfegmGPliK8S9HErqLMg2Vpsg+Eg==}
+  '@livekit/agents-plugin-livekit@1.4.6':
+    resolution: {integrity: sha512-0t1vkLC+Uy1r1ZRJonzckwgXSY0LBl3kIXBpH9WGvIiTU4ar9qepaXfhpO6Ma1oJMj73Vu9NU/QLI98fZ6LnJA==}
     peerDependencies:
-      '@livekit/agents': 1.4.5
+      '@livekit/agents': 1.4.6
 
   '@livekit/agents-plugin-openai@1.4.6':
     resolution: {integrity: sha512-iVcyMvnLNMrZDsH6sBV1DhDG1sXMKlyUhfAKkIfl4PDReFvIFT/p+4lPOQcEq1iFDIOD5nUSPkazuH24GDnuaA==}
@@ -1705,16 +1705,16 @@ packages:
       '@livekit/rtc-node': ^0.13.29
       zod: ^3.25.76 || ^4.1.8
 
-  '@livekit/agents-plugin-silero@1.4.5':
-    resolution: {integrity: sha512-+j0izXX+1gWJUwCDlp+diWPW2IJZkqLLCmj3lEfzIe/jW67G0dMkADzoWfGJlqOHsc5abPOt8UJkl5XQ+XfRCQ==}
+  '@livekit/agents-plugin-silero@1.4.6':
+    resolution: {integrity: sha512-2iIp94FMc+m8oJYq/+9QPHEjfqtZkcLlPEdYgtvRsy8EHpR7FJwPv7EoXNq2r+O+7tlK3+dwHVBpiY/uhQrb/Q==}
     peerDependencies:
-      '@livekit/agents': 1.4.5
+      '@livekit/agents': 1.4.6
       '@livekit/rtc-node': ^0.13.29
 
-  '@livekit/agents-plugin-soniox@1.4.5':
-    resolution: {integrity: sha512-XZ6fC0oX2Lv6CNtyBNArhgPo6nqO2/FjalYqkoroJe0r+0bMbyxuhtVSAXTxYL8+LmS+K1j2kcij6Rkj3rDhDg==}
+  '@livekit/agents-plugin-soniox@1.4.6':
+    resolution: {integrity: sha512-BWiA+Y6e7N2yqukQ42matuH1J+VZYDvYZV7gN+PqU0PxZrMoMBMlT3UMuRT/VEz7vxlGUY/KO5af7Bo7RpuwwQ==}
     peerDependencies:
-      '@livekit/agents': 1.4.5
+      '@livekit/agents': 1.4.6
       '@livekit/rtc-node': ^0.13.29
 
   '@livekit/agents-plugin-xai@1.4.6':
@@ -8354,7 +8354,7 @@ snapshots:
       '@langfuse/core': 5.13.1(@opentelemetry/api@1.9.1)
       '@opentelemetry/api': 1.9.1
 
-  '@livekit/agents-plugin-cartesia@1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(zod@4.3.6)':
+  '@livekit/agents-plugin-cartesia@1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)(zod@4.3.6)':
     dependencies:
       '@livekit/agents': 1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
       '@livekit/rtc-node': 0.13.29
@@ -8365,7 +8365,7 @@ snapshots:
       - utf-8-validate
     optional: true
 
-  '@livekit/agents-plugin-deepgram@1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)':
+  '@livekit/agents-plugin-deepgram@1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)':
     dependencies:
       '@livekit/agents': 1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
       '@livekit/rtc-node': 0.13.29
@@ -8375,7 +8375,7 @@ snapshots:
       - utf-8-validate
     optional: true
 
-  '@livekit/agents-plugin-elevenlabs@1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)':
+  '@livekit/agents-plugin-elevenlabs@1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)':
     dependencies:
       '@livekit/agents': 1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
       '@livekit/mutex': 1.1.1
@@ -8405,7 +8405,7 @@ snapshots:
       - zod
     optional: true
 
-  '@livekit/agents-plugin-livekit@1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))':
+  '@livekit/agents-plugin-livekit@1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))':
     dependencies:
       '@huggingface/hub': 2.4.1
       '@huggingface/transformers': 4.2.0
@@ -8426,7 +8426,7 @@ snapshots:
       - utf-8-validate
     optional: true
 
-  '@livekit/agents-plugin-silero@1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)':
+  '@livekit/agents-plugin-silero@1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)':
     dependencies:
       '@livekit/agents': 1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
       '@livekit/rtc-node': 0.13.29
@@ -8437,7 +8437,7 @@ snapshots:
       - utf-8-validate
     optional: true
 
-  '@livekit/agents-plugin-soniox@1.4.5(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)':
+  '@livekit/agents-plugin-soniox@1.4.6(@livekit/agents@1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6))(@livekit/rtc-node@0.13.29)':
     dependencies:
       '@livekit/agents': 1.4.6(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@4.3.6)
       '@livekit/rtc-node': 0.13.29
