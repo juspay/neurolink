@@ -701,6 +701,14 @@ export type IndividualProviderConfig = {
 };
 
 /**
+ * The `thinking` block of an Anthropic Messages request, as the direct
+ * Anthropic provider builds it from `thinkingConfig`.
+ */
+export type AnthropicThinkingParam =
+  | { type: "enabled"; budget_tokens: number }
+  | { type: "disabled" };
+
+/**
  * Anthropic-specific provider configuration
  *
  * @description Extends the base provider configuration with Anthropic-specific
