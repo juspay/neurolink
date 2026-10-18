@@ -3,9 +3,16 @@ import type { Server as HttpServer } from "http";
 import { FrameBus } from "./frameBus.js";
 import { TurnManager, TurnState } from "./turnManager.js";
 import { timingSafeEqualString } from "./tokenCompare.js";
-import { CartesiaStream } from "../../adapters/tts/cartesiaHandler.js";
+import {
+  CartesiaStream,
+  getCartesiaWsUrl,
+} from "../../adapters/tts/cartesiaHandler.js";
 import { NeuroLink } from "../../neurolink.js";
 import { logger } from "../../utils/logger.js";
+import {
+  assertWebSocketProxyPolicy,
+  isProxyStrictMode,
+} from "../../proxy/proxyFetch.js";
 import { tryImport } from "../../utils/tryImport.js";
 import { withTimeout } from "../../utils/async/withTimeout.js";
 import type {
@@ -506,6 +513,21 @@ async function handleVoiceConnection(
   const { neurolink, accessKey } = ctx;
   logger.info("[WS] Client connected");
 
+  // Under NEUROLINK_PROXY_STRICT, a session whose Soniox or Cartesia WebSocket
+  // would be refused cannot transcribe or speak. Refuse it here, before Cobra
+  // or any turn's LLM stream is allocated, and close the client with a visible
+  // failure instead of leaving it connected to a session that never answers.
+  if (isProxyStrictMode()) {
+    try {
+      assertWebSocketProxyPolicy(SONIOX_URL, "Soniox STT");
+      assertWebSocketProxyPolicy(getCartesiaWsUrl(), "Cartesia TTS");
+    } catch (err) {
+      logger.error("[WS] Refusing voice session:", (err as Error).message);
+      clientWs.close(1011, "Voice upstream refused by proxy policy");
+      return;
+    }
+  }
+
   // --- Per-session Cobra instance ---
   // Use definite-assignment via early return on catch — avoids dead initial
   // values that ESLint flags as `no-useless-assignment` and matches the
@@ -684,6 +706,18 @@ async function handleVoiceConnection(
   }
 
   function connectSoniox() {
+    try {
+      assertWebSocketProxyPolicy(SONIOX_URL, "Soniox STT");
+    } catch (err) {
+      // Reached on a reconnect when the policy changed mid-session; the
+      // session start check covers the first connection. Without Soniox the
+      // session cannot transcribe, so it is closed rather than left silent.
+      logger.error("[SONIOX] Not connecting:", (err as Error).message);
+      if (!s.sessionClosed) {
+        clientWs.close(1011, "Soniox STT unavailable");
+      }
+      return;
+    }
     const ws = new WebSocket(SONIOX_URL);
     s.sonioxWs = ws;
 

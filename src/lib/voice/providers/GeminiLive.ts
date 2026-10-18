@@ -9,6 +9,7 @@
 import type WebSocket from "ws";
 import { logger } from "../../utils/logger.js";
 import { redactUrlsInText } from "../../utils/logSanitize.js";
+import { assertWebSocketProxyPolicy } from "../../proxy/proxyFetch.js";
 import { RealtimeError } from "../errors.js";
 import { BaseRealtimeHandler } from "../RealtimeVoiceAPI.js";
 import type {
@@ -94,6 +95,7 @@ export class GeminiLive extends BaseRealtimeHandler {
       // key as a query parameter; every error below is scrubbed with
       // `redactUrlsInText` so that URL never reaches a log or a caller.
       const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${this.apiKey}`;
+      assertWebSocketProxyPolicy(wsUrl, "Gemini Live");
 
       this.ws = new WebSocket(wsUrl);
 

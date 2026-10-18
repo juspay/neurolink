@@ -22,6 +22,7 @@ import type {
   llm as llmNs,
   voice as voiceNs,
 } from "@livekit/agents";
+import { assertWebSocketProxyPolicy } from "../../proxy/proxyFetch.js";
 import { logger } from "../../utils/logger.js";
 import { markAgentDefinition } from "./agentDefinition.js";
 import { createVoiceBrain } from "./brain.js";
@@ -188,6 +189,12 @@ async function buildStt(
   config: LiveKitSttConfig,
 ): Promise<voiceNs.AgentSession["stt"]> {
   if (config.provider === "soniox") {
+    // The STT and TTS plugins open their WebSockets without the configured
+    // proxy, so each checks the proxy policy for its endpoint before it loads.
+    assertWebSocketProxyPolicy(
+      "wss://stt-rt.soniox.com/transcribe-websocket",
+      "Soniox STT (LiveKit)",
+    );
     const soniox = await import("@livekit/agents-plugin-soniox");
     const opts: {
       model?: string;
@@ -212,6 +219,10 @@ async function buildStt(
     return new soniox.STT(opts);
   }
   if (config.provider === "deepgram") {
+    assertWebSocketProxyPolicy(
+      "wss://api.deepgram.com/v1/listen",
+      "Deepgram STT (LiveKit)",
+    );
     const deepgram = await import("@livekit/agents-plugin-deepgram");
     const opts: { language?: string } = {};
     if (config.language !== undefined) {
@@ -234,6 +245,10 @@ async function buildTts(
   config: LiveKitTtsConfig,
 ): Promise<voiceNs.AgentSession["tts"]> {
   if (config.provider === "cartesia") {
+    assertWebSocketProxyPolicy(
+      "wss://api.cartesia.ai/tts/websocket",
+      "Cartesia TTS (LiveKit)",
+    );
     const cartesia = await import("@livekit/agents-plugin-cartesia");
     const opts: { voice?: string; model?: string } = {};
     if (config.voice !== undefined) {
@@ -245,6 +260,10 @@ async function buildTts(
     return new cartesia.TTS(opts);
   }
   if (config.provider === "elevenlabs") {
+    assertWebSocketProxyPolicy(
+      "wss://api.elevenlabs.io/v1",
+      "ElevenLabs TTS (LiveKit)",
+    );
     const elevenlabs = await import("@livekit/agents-plugin-elevenlabs");
     const opts: { voiceId?: string; modelID?: string } = {};
     if (config.voice !== undefined) {

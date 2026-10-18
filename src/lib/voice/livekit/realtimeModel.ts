@@ -14,6 +14,7 @@
  * See docs/features/livekit-voice-agent.md.
  */
 
+import { assertWebSocketProxyPolicy } from "../../proxy/proxyFetch.js";
 import type { RealtimeLlm, RealtimeVoiceConfig } from "../../types/index.js";
 import { requireWebSocketUrl } from "./config.js";
 import { observeXaiSession } from "./xaiSessionWatch.js";
@@ -34,9 +35,45 @@ export function requireXaiApiKey(): void {
   }
 }
 
+/** The xAI realtime endpoint the plugin connects to when no base URL is set. */
+const XAI_REALTIME_DEFAULT_URL = "wss://api.x.ai/v1";
+
+/**
+ * The Vertex AI Live endpoint the Google plugin connects to for `cfg`. The
+ * plugin resolves the location as `cfg.location`, then
+ * `GOOGLE_CLOUD_LOCATION`, then `us-central1`, and `@google/genai` maps it to
+ * a host. Only the host matters here: it is what proxy and NO_PROXY rules
+ * match against.
+ */
+function vertexLiveWebSocketUrl(cfg: RealtimeVoiceConfig): string {
+  // `@google/genai` and the Vertex provider both let GOOGLE_VERTEX_BASE_URL
+  // replace the regional host, so a policy check on the canonical host alone
+  // would let a custom endpoint bypass strict mode.
+  const baseURL = process.env.GOOGLE_VERTEX_BASE_URL?.trim();
+  if (baseURL) {
+    return baseURL;
+  }
+  const location =
+    cfg.location || process.env.GOOGLE_CLOUD_LOCATION || "us-central1";
+  if (location === "global") {
+    return "wss://aiplatform.googleapis.com";
+  }
+  if (location === "us" || location === "eu") {
+    return `wss://aiplatform.${location}.rep.googleapis.com`;
+  }
+  return `wss://${location}-aiplatform.googleapis.com`;
+}
+
 async function createGeminiRealtimeLlm(
   cfg: RealtimeVoiceConfig,
 ): Promise<RealtimeLlm> {
+  // The plugin's WebSocket does not go through the configured proxy, so the
+  // proxy policy is checked before the plugin is loaded: it warns, or under
+  // NEUROLINK_PROXY_STRICT refuses before any session can connect.
+  assertWebSocketProxyPolicy(
+    vertexLiveWebSocketUrl(cfg),
+    "Gemini Live (LiveKit realtime)",
+  );
   const google = await import("@livekit/agents-plugin-google");
   const { Modality } = await import("@google/genai");
 
@@ -78,6 +115,12 @@ async function createXaiRealtimeLlm(
   if (cfg.xaiBaseURL) {
     requireWebSocketUrl(cfg.xaiBaseURL, "xaiBaseURL");
   }
+  // As for gemini: checked before the plugin loads, so a refusal under
+  // NEUROLINK_PROXY_STRICT leaves no model that could open a session.
+  assertWebSocketProxyPolicy(
+    cfg.xaiBaseURL || XAI_REALTIME_DEFAULT_URL,
+    "xAI realtime (LiveKit)",
+  );
   const xai = await import("@livekit/agents-plugin-xai");
 
   // Keys are added only when set. The plugin spreads these options over its
