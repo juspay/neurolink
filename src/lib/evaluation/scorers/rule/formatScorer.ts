@@ -12,6 +12,7 @@ import type {
   ScorerMetadata,
   ScorerRule,
 } from "../../../types/index.js";
+import { Validator, type SchemaDraft } from "@cfworker/json-schema";
 import { logger } from "../../../utils/logger.js";
 import {
   BaseRuleScorer,
@@ -499,19 +500,102 @@ export class FormatScorer extends BaseRuleScorer {
   }
 
   /**
+   * Resolves the JSON Schema draft version from the schema's `$schema` declaration,
+   * or defaults to draft '2019-09' when omitted.
+   *
+   * @param schema - The JSON Schema object to inspect
+   * @returns The resolved SchemaDraft or an error message if unsupported
+   */
+  private _resolveSchemaDraft(schema: object): {
+    draft?: SchemaDraft;
+    error?: string;
+  } {
+    if (!("$schema" in schema)) {
+      // Documented library default is 2019-09 when $schema is omitted
+      return { draft: "2019-09" };
+    }
+
+    const declared = (schema as { $schema?: unknown }).$schema;
+    // A present-but-non-string $schema (7, null, ...) is malformed, not absent.
+    if (typeof declared !== "string") {
+      return {
+        error: `Unsupported or invalid JSON Schema draft: ${JSON.stringify(declared)}`,
+      };
+    }
+
+    const raw = declared.trim().toLowerCase();
+
+    // The unversioned meta-schema URL names no draft; use the default.
+    if (/^https?:\/\/json-schema\.org\/schema#?$/.test(raw)) {
+      return { draft: "2019-09" };
+    }
+    // The library has no draft-06; draft-07 is a near-superset, so validate
+    // draft-06 schemas as draft-07 rather than rejecting them.
+    if (/(?:^|\/|#)draft-0?6(?:[/#]|$)/.test(raw) || raw === "6") {
+      return { draft: "7" };
+    }
+    // Match draft-04 / 4
+    if (/(?:^|\/|#)draft-0?4(?:[/#]|$)/.test(raw) || raw === "4") {
+      return { draft: "4" };
+    }
+    // Match draft-07 / 7
+    if (/(?:^|\/|#)draft-0?7(?:[/#]|$)/.test(raw) || raw === "7") {
+      return { draft: "7" };
+    }
+    // Match draft-2019-09 / 2019-09
+    if (
+      /(?:^|\/|#)(?:draft[/-])?2019-09(?:[/#]|$)/.test(raw) ||
+      raw === "2019-09"
+    ) {
+      return { draft: "2019-09" };
+    }
+    // Match draft-2020-12 / 2020-12
+    if (
+      /(?:^|\/|#)(?:draft[/-])?2020-12(?:[/#]|$)/.test(raw) ||
+      raw === "2020-12"
+    ) {
+      return { draft: "2020-12" };
+    }
+
+    // Fail closed: a genuinely unknown draft (e.g. draft-03) cannot be
+    // validated faithfully, and passing it unchecked would reintroduce the
+    // "any parseable JSON passes" bug this scorer exists to prevent.
+    return {
+      error: `Unsupported or invalid JSON Schema draft: "${declared}"`,
+    };
+  }
+
+  /**
    * Validate JSON against schema (basic validation)
    */
   private _validateJsonSchema(
     text: string,
-    _schema: object,
+    schema: object,
   ): { passed: boolean; score: number } {
-    // First check if it's valid JSON
+    let parsed: unknown;
     try {
-      JSON.parse(text);
-      // TODO(#1955): Implement full JSON Schema validation
-      // For now, just check it's valid JSON
-      return { passed: true, score: 1.0 };
+      parsed = JSON.parse(text);
     } catch {
+      return { passed: false, score: 0.0 };
+    }
+
+    const { draft, error: draftError } = this._resolveSchemaDraft(schema);
+    if (draftError || !draft) {
+      logger.warn(
+        `[FormatScorer] ${draftError ?? "Unsupported JSON Schema draft"}`,
+      );
+      return { passed: false, score: 0.0 };
+    }
+
+    try {
+      const validator = new Validator(schema as never, draft, false);
+      const result = validator.validate(parsed);
+      return {
+        passed: result.valid,
+        score: result.valid ? 1.0 : 0.0,
+      };
+    } catch (err) {
+      logger.warn("[FormatScorer] JSON Schema validation error:", err);
       return { passed: false, score: 0.0 };
     }
   }
