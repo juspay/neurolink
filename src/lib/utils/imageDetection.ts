@@ -8,6 +8,8 @@
  * PNG/GIF/WebP with a media-type mismatch 400.
  */
 
+import { detectIsoBmffImageMimeType } from "./isoBmff.js";
+
 /**
  * Detect an image's MIME type from its magic bytes, or `null` when the bytes
  * match no known signature.
@@ -88,4 +90,114 @@ export function sniffImageMimeType(buffer: Buffer): string | null {
  */
 export function detectImageMimeType(buffer: Buffer): string {
   return sniffImageMimeType(buffer) ?? "image/png";
+}
+
+/**
+ * `DIB` header sizes a BMP file may carry after its 14-byte file header: OS/2
+ * core (12, 16), `BITMAPINFOHEADER` (40) and its Adobe variants (52, 56), OS/2 2
+ * (64), `BITMAPV4HEADER` (108) and `BITMAPV5HEADER` (124).
+ */
+const BMP_DIB_HEADER_SIZES: ReadonlySet<number> = new Set([
+  12, 16, 40, 52, 56, 64, 108, 124,
+]);
+
+/**
+ * The formats NeuroLink accepts as input but no vision provider takes verbatim,
+ * plus HEIC, HEIF and AVIF (Google takes the first two natively).
+ *
+ * BMP and ICO open with two or four bytes that plain text could produce, so
+ * each is held to the next structural field as well: a BMP to a known `DIB`
+ * header size, an ICO to a non-empty directory whose first entry has its
+ * reserved byte clear. Without that a payload that merely begins `BM` would be
+ * an image.
+ */
+function sniffConvertibleImageMimeType(buffer: Buffer): string | null {
+  // HEIC, HEIF and AVIF: the shared ISO-BMFF `ftyp` brand tables.
+  const isoBmff = detectIsoBmffImageMimeType(buffer);
+  if (isoBmff !== null) {
+    return isoBmff;
+  }
+
+  // TIFF: "II*\0" (little-endian) or "MM\0*" (big-endian).
+  if (
+    buffer.length >= 4 &&
+    ((buffer[0] === 0x49 &&
+      buffer[1] === 0x49 &&
+      buffer[2] === 0x2a &&
+      buffer[3] === 0x00) ||
+      (buffer[0] === 0x4d &&
+        buffer[1] === 0x4d &&
+        buffer[2] === 0x00 &&
+        buffer[3] === 0x2a))
+  ) {
+    return "image/tiff";
+  }
+
+  // BMP: "BM", then a file header whose DIB header size is one that exists.
+  if (
+    buffer.length >= 18 &&
+    buffer[0] === 0x42 &&
+    buffer[1] === 0x4d &&
+    BMP_DIB_HEADER_SIZES.has(buffer.readUInt32LE(14))
+  ) {
+    return "image/bmp";
+  }
+
+  // ICO: 00 00 01 00, an entry count above zero and a clear reserved byte in
+  // the first 16-byte directory entry.
+  if (
+    buffer.length >= 22 &&
+    buffer[0] === 0x00 &&
+    buffer[1] === 0x00 &&
+    buffer[2] === 0x01 &&
+    buffer[3] === 0x00 &&
+    buffer.readUInt16LE(4) > 0 &&
+    buffer[9] === 0x00
+  ) {
+    return "image/x-icon";
+  }
+
+  // JPEG 2000: the full 12-byte signature box. The trailing 0D 0A 87 0A is a
+  // line-ending probe that a mangled transfer corrupts, so it is checked too.
+  if (
+    buffer.length >= 12 &&
+    buffer[0] === 0x00 &&
+    buffer[1] === 0x00 &&
+    buffer[2] === 0x00 &&
+    buffer[3] === 0x0c &&
+    buffer.toString("latin1", 4, 8) === "jP  " &&
+    buffer[8] === 0x0d &&
+    buffer[9] === 0x0a &&
+    buffer[10] === 0x87 &&
+    buffer[11] === 0x0a
+  ) {
+    return "image/jp2";
+  }
+
+  return null;
+}
+
+/**
+ * Detect the MIME type of any raster image NeuroLink accepts as input, or `null`
+ * when the bytes match none.
+ *
+ * {@link sniffImageMimeType} answers for the four formats every vision provider
+ * takes as they are, and its callers depend on that set staying four. This is
+ * the wider question for a caller deciding whether bytes are an image NeuroLink
+ * can send at all: those four, plus HEIC, HEIF (Google takes both natively),
+ * AVIF, BMP, TIFF, ICO and JPEG 2000, which the SDK tries to convert to PNG
+ * before dispatch (`SUPPORTED_INPUT_IMAGE_MIME_TYPES`) and sends as detected
+ * when no decoder can read them. Every type it returns is in that set, so a
+ * caller that relabels bytes with the answer is never handing the SDK a type it
+ * refuses.
+ *
+ * SVG is deliberately absent. It is markup with no byte signature, and no
+ * provider accepts it; a caller that wants it has to look for it separately.
+ *
+ * Only the leading bytes are read (a few hundred cover every signature), so a
+ * prefix of a large image is enough. A signature is a claim about the opening of
+ * the file, not proof the rest decodes.
+ */
+export function sniffInputImageMimeType(buffer: Buffer): string | null {
+  return sniffImageMimeType(buffer) ?? sniffConvertibleImageMimeType(buffer);
 }

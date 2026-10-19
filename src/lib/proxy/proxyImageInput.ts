@@ -10,14 +10,39 @@
  * names its own files. Neither suits a request that arrived over a socket.
  *
  * So the proxy resolves every reference itself and hands the SDK nothing but
- * `data:` URIs and downloaded bytes:
- *   - `data:` URIs pass through untouched, they carry their own content;
+ * images it has checked:
+ *   - `data:` URIs carry their own content. The payload is decoded strictly (an
+ *     alphabet, length or padding no decoder takes is refused) and its leading
+ *     bytes must be a recognised image, whatever the URI says it is. The SDK is
+ *     handed `data:<detected type>;base64,<standard payload>`: the type comes
+ *     from the bytes, never from the client, so a JPEG labelled `image/png`
+ *     reaches the provider as `image/jpeg`;
  *   - `https://` URLs are downloaded with the same helper the agent routes use
  *     (`resolveAgentInput` -> `safeDownload`): redirects refused, addresses
- *     checked, size capped;
- *   - everything else (local paths, `http://`, `file://`, any other scheme) is
- *     refused before the file system or the network is touched, so the answer
- *     for a path that exists and one that does not is the same.
+ *     checked, size capped. The bytes must then be a recognised image too, or
+ *     the URL is refused, so a page that answers `200 text/html` is never sent
+ *     on as a picture. The SDK reads the type of those bytes itself, from the
+ *     same signatures;
+ *   - everything else (local paths, `http://`, `file://`, any other scheme, an
+ *     empty string) is refused before the file system or the network is
+ *     touched, so the answer for a path that exists and one that does not is the
+ *     same.
+ *
+ * An image slot that carries nothing is refused too, never skipped. The doors
+ * hand over what the client sent: an empty `data:` payload (an OpenAI
+ * `data:image/png;base64,`, a Claude `base64` source or a Gemini `inlineData`
+ * of an image type whose `data` is empty or absent) is `invalid_image_data`, and
+ * an empty URL (an OpenAI `image_url.url` or a Claude `url` source) is
+ * `invalid_image_reference`.
+ *
+ * "A recognised image" is a file signature (`sniffInputImageMimeType`): PNG,
+ * JPEG, WebP and GIF, which every provider takes, and HEIC, HEIF, AVIF, BMP,
+ * TIFF, ICO and JPEG 2000, which no provider except Google (HEIC and HEIF only)
+ * takes. The SDK tries to convert those seven to PNG before dispatch, for every
+ * provider, Google included; when neither sharp nor ffmpeg can read the file it
+ * sends the original bytes under the detected type. SVG is markup and is
+ * refused. Nothing in the proxy decodes the picture: a body that is corrupt
+ * after a valid signature is the provider's to refuse.
  *
  * Unlike the agent routes there is no allowed-roots setting: the proxy listens
  * on loopback without credentials by default, and a path allow-list on a server
@@ -40,6 +65,7 @@ import {
   AgentInputError,
   resolveAgentInput,
 } from "../server/utils/agentInput.js";
+import { sniffInputImageMimeType } from "../utils/imageDetection.js";
 import { logger } from "../utils/logger.js";
 import { ProxyContextPreflightError } from "./proxyContextPreflight.js";
 
@@ -48,6 +74,55 @@ const INVALID_REFERENCE_MESSAGE =
 
 const UNFETCHABLE_URL_MESSAGE =
   "An image URL could not be fetched. It must be a public https URL, answer without a redirect and fit the size limit.";
+
+const INVALID_IMAGE_DATA_MESSAGE =
+  "An inline image is not a recognised image. Send the bytes of a PNG, JPEG, WebP, GIF, HEIC, HEIF, AVIF, BMP, TIFF, ICO or JPEG 2000 image as base64, in a data: URI.";
+
+const INVALID_URL_CONTENT_MESSAGE =
+  "An image URL did not serve a recognised image. It must serve the bytes of a PNG, JPEG, WebP, GIF, HEIC, HEIF, AVIF, BMP, TIFF, ICO or JPEG 2000 image.";
+
+/**
+ * Base64 characters sufficient for the longest signature probe: every format is
+ * recognised within its first few dozen bytes, and an ISO-BMFF `ftyp` box can
+ * list brands for a little longer. A multiple of four, so the prefix of a longer
+ * payload decodes without padding.
+ */
+const SNIFF_BASE64_CHARS = 1024;
+
+/** The longest `data:...;base64` header taken for one; a longer one is no header. */
+const MAX_DATA_URI_HEADER_CHARS = 256;
+
+/** Standard or URL-safe base64, the two alphabets Google's JSON `bytes` fields accept. */
+const BASE64_TEXT = /^[A-Za-z0-9+/_-]+={0,2}$/;
+
+/**
+ * `data` as padded standard-alphabet base64, which is what a `data:` URI carries,
+ * or undefined when it is not well-formed base64.
+ *
+ * The SDK forwards the base64 text of a `data:` URI to the provider as it is, so
+ * a URL-safe or unpadded payload would reach a provider that expects neither.
+ * The alphabet check alone lets through a payload no decoder takes: one
+ * character over a multiple of four is no base64 length at all, and padding
+ * must be exactly what the length calls for. An empty string is not base64.
+ *
+ * One rule for every door: the Gemini parser applies it before wrapping raw
+ * `inlineData`, and the vetter applies it again to every `data:` URI it is given.
+ */
+export function toStandardBase64(data: string): string | undefined {
+  if (!BASE64_TEXT.test(data)) {
+    return undefined;
+  }
+  const standard = /[-_]/.test(data)
+    ? data.replace(/-/g, "+").replace(/_/g, "/")
+    : data;
+  const body = standard.replace(/=+$/, "");
+  const padding = standard.length - body.length;
+  const missing = (4 - (body.length % 4)) % 4;
+  if (missing === 3 || (padding > 0 && padding !== missing)) {
+    return undefined;
+  }
+  return `${body}${"=".repeat(missing)}`;
+}
 
 /** An image reference the proxy refuses; answers 400 in the client's format. */
 export class ProxyImageInputError extends ProxyContextPreflightError {
@@ -69,6 +144,9 @@ function describeRefusal(entry: unknown): string {
   if (typeof entry !== "string") {
     return "non-string";
   }
+  if (entry === "") {
+    return "empty";
+  }
   if (/^https?:\/\//i.test(entry)) {
     return "http-url";
   }
@@ -88,6 +166,77 @@ function refuseReference(entry: unknown): ProxyImageInputError {
   );
 }
 
+/**
+ * `reason` names which check failed, for the operator's log; the data itself is
+ * never logged, nor echoed to the client.
+ */
+function refuseImageData(
+  reason: string,
+  message: string = INVALID_IMAGE_DATA_MESSAGE,
+): ProxyImageInputError {
+  logger.warn("[proxy] refused image bytes that are not a recognised image", {
+    reason,
+  });
+  return new ProxyImageInputError("invalid_image_data", message);
+}
+
+/** A declared type safe to put in a log line; anything else is `malformed`. */
+const loggableType = (declared: string): string =>
+  declared.length <= 64 && /^[\w./+-]*$/.test(declared)
+    ? declared.toLowerCase()
+    : "malformed";
+
+/**
+ * Check one `data:` URI and return it as `data:<detected type>;base64,<payload>`.
+ *
+ * The header's parameters and declared type are discarded: the type is read
+ * from the decoded bytes. Only the leading bytes are decoded to find it; the
+ * rest of the payload has been checked as base64 text and is forwarded as is.
+ *
+ * @throws {ProxyImageInputError} `invalid_image_data` when the URI is not a
+ *   base64 data URI, its payload is empty or not strict base64, or its bytes are
+ *   not a recognised image.
+ */
+function verifyInlineImage(entry: string): string {
+  const comma = entry.indexOf(",");
+  if (comma === -1 || comma > MAX_DATA_URI_HEADER_CHARS) {
+    throw refuseImageData("data-uri-shape");
+  }
+  const header = entry.slice("data:".length, comma);
+  if (!/;base64$/i.test(header)) {
+    throw refuseImageData("data-uri-shape");
+  }
+  if (comma + 1 === entry.length) {
+    throw refuseImageData("empty-payload");
+  }
+  const payload = toStandardBase64(entry.slice(comma + 1));
+  if (payload === undefined) {
+    throw refuseImageData("not-base64");
+  }
+  const detected = sniffInputImageMimeType(
+    Buffer.from(payload.slice(0, SNIFF_BASE64_CHARS), "base64"),
+  );
+  if (detected === null) {
+    throw refuseImageData("not-an-image");
+  }
+  const declared = header.slice(0, header.indexOf(";"));
+  if (declared.toLowerCase() !== detected) {
+    logger.debug("[proxy] corrected the declared type of an inline image", {
+      declared: loggableType(declared),
+      detected,
+    });
+  }
+  return `data:${detected};base64,${payload}`;
+}
+
+/** The bytes of a downloaded image, or a refusal when they are not one. */
+function verifyDownloadedImage(bytes: Buffer): Buffer {
+  if (sniffInputImageMimeType(bytes) === null) {
+    throw refuseImageData("url-content", INVALID_URL_CONTENT_MESSAGE);
+  }
+  return bytes;
+}
+
 function asProxyImageInputError(error: unknown): unknown {
   if (!(error instanceof AgentInputError)) {
     return error;
@@ -104,14 +253,23 @@ function asProxyImageInputError(error: unknown): unknown {
 }
 
 /**
- * Resolve one list of client image references to what the SDK may be given.
+ * Resolve one list of client image references to what the SDK may be given:
+ * `data:` URIs rewritten to carry the type their bytes have, and downloaded
+ * bytes that are an image.
+ *
+ * Inline images are judged before anything is downloaded, so a request already
+ * doomed by one costs no network. Size and count are judged on the `data:` URIs
+ * as the client sent them (their string length), then on the downloads (their
+ * bytes), exactly as the agent routes judge them.
  *
  * `signal` cancels the work: a download in flight is aborted and no further
  * reference is started. A cancellation rejects with the signal's own error, not
  * with a {@link ProxyImageInputError}, since nothing was refused.
  *
- * @throws {ProxyImageInputError} for the first reference that is refused, or
- *   for a list that carries too many images or too many bytes.
+ * @throws {ProxyImageInputError} for the first reference that is refused
+ *   (`invalid_image_reference`, `invalid_image_data`, `image_url_unfetchable`),
+ *   or for a list that carries too many images or too many bytes
+ *   (`image_input_too_large`).
  */
 export async function vetProxyImages(
   images: readonly unknown[],
@@ -124,12 +282,26 @@ export async function vetProxyImages(
     }
     references.push(entry);
   }
+  const inline = references.map((entry) =>
+    isDataUri(entry) ? verifyInlineImage(entry) : undefined,
+  );
   try {
+    // The client's own strings are what is measured against the limits; the
+    // rewritten ones replace them afterwards.
     const resolved = await resolveAgentInput(
       { text: "", images: references },
       { signal },
     );
-    return resolved.images ?? [];
+    return (resolved.images ?? []).map((item, index) => {
+      const verified = inline[index];
+      if (verified !== undefined) {
+        return verified;
+      }
+      if (typeof item === "string") {
+        throw refuseReference(item);
+      }
+      return verifyDownloadedImage(item);
+    });
   } catch (error) {
     throw asProxyImageInputError(error);
   }
