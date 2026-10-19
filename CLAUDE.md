@@ -746,7 +746,17 @@ assert(ok, `terminal journal wrong — mismatch at ${keyPath}`);
 This bit during the Vitest migration: three real failures in
 `continuous-test-suite-proxy-terminal-errors.ts` reported as `Passed: 2,
 Skipped: 3` with exit 0. An audit of the 26 no-API suites found no _existing_
-suite affected — the hazard is for new assertions.
+suite affected, but the docs search-index suite later hit it for real: its
+assertions quote names like `OPENAI_API_KEY`, and a deliberately broken control
+reported `2 skipped` and `RESULT: PASS`.
+
+The structural fix is to declare a suite that makes no network call `offline`:
+`defineSuite("…", { offline: true })`. The matcher is then never consulted — only
+an explicit `Skip` or a `SKIP:` message skips, and a per-test timeout fails too.
+Do this for any suite whose only upstream is a loopback stand-in, a mock or a
+fixture. A suite that also has a live, key-gated case cannot (that case needs
+the provider-error-to-skip route), so for those the rule above is all that
+protects the offline cases.
 
 When adding a suite, sanity-check it by breaking one assertion on purpose and
 confirming it reports `✗` and exits non-zero rather than `⊘`.

@@ -29,7 +29,10 @@ import { assertDistFresh } from "./helpers/distFreshness.js";
 
 assertDistFresh();
 
-const { test, runSuite } = defineSuite("SageMaker streaming");
+// Offline: the SageMaker client is redirected to a loopback server, never AWS.
+const { test, runSuite } = defineSuite("SageMaker streaming", {
+  offline: true,
+});
 
 const { NeuroLink, tool } = await import("../dist/index.js");
 

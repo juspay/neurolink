@@ -46,7 +46,10 @@ import {
 } from "./helpers/mockChatServer.js";
 import { NeuroLink } from "../dist/index.js";
 
-const { test, runSuite } = defineSuite("Vision image transcode format");
+// Offline: every request goes to a loopback mock chat server, never a provider.
+const { test, runSuite } = defineSuite("Vision image transcode format", {
+  offline: true,
+});
 
 type ChatMessage = { role: string; content: unknown };
 type ImageUrlPart = { type: string; image_url?: { url?: string } };

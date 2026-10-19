@@ -52,8 +52,10 @@ import type {
 
 assertDistFresh();
 
+// Offline: the AI Studio SDK is pointed at a loopback server, so a provider-shaped error is a defect, not a skip.
 const { test, section, runSuite } = defineSuite(
   "AI Studio loop characterization",
+  { offline: true },
 );
 
 // Registered BEFORE NeuroLink is imported so its tracers bind to this

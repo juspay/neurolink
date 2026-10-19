@@ -25,7 +25,9 @@
 import "dotenv/config";
 import { defineSuite, assert, runCLI } from "./helpers/harness.js";
 
+// Offline: drives the built CLI against a static docs index, with no model or network call.
 const { test, runSuite, section } = defineSuite("Docs MCP server", {
+  offline: true,
   perTestTimeoutMs: 120_000,
 });
 

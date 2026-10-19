@@ -137,7 +137,10 @@ import { NeuroLink } from "../dist/index.js";
 // `e2e-tests-only` rule ignores these for exactly that reason.
 import type { NeurolinkCredentials } from "../src/lib/types/index.js";
 
-const { test, runSuite } = defineSuite("Image EXIF orientation normalization");
+// Offline: every request goes to a loopback mock chat server, never a provider.
+const { test, runSuite } = defineSuite("Image EXIF orientation normalization", {
+  offline: true,
+});
 
 /** Rejects if `promise` has not settled within `ms`, as a defensive backstop. */
 function withTimeoutMs<T>(

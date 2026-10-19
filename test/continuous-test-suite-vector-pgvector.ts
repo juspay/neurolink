@@ -29,7 +29,10 @@ import { defineSuite, assert, assertEqual } from "./helpers/harness.js";
 import { PgVectorStore } from "../dist/index.js";
 import type { PgClientLike } from "../src/lib/types/index.js";
 
-const { test, runSuite } = defineSuite("PgVectorStore (pgvector adapter)");
+// Offline: an in-process PGlite database, with no network.
+const { test, runSuite } = defineSuite("PgVectorStore (pgvector adapter)", {
+  offline: true,
+});
 
 // ── Shared in-process Postgres instance ─────────────────────────────────────
 // One PGlite database for the whole suite; each test uses its own indexName

@@ -48,7 +48,10 @@ import {
   defineSuite,
 } from "./helpers/harness.js";
 
-const { test, runSuite } = defineSuite("Vector Store: Chroma");
+// Offline: a recording mock Chroma client, with no network.
+const { test, runSuite } = defineSuite("Vector Store: Chroma", {
+  offline: true,
+});
 
 // ---------------------------------------------------------------------------
 // Recording mock client

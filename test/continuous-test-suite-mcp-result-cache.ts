@@ -25,7 +25,10 @@ import { NeuroLink } from "../dist/index.js";
 import { assert, assertEqual, defineSuite } from "./helpers/harness.js";
 import { observe, stub, withStubs } from "./helpers/stubs.js";
 
-const { test, runSuite } = defineSuite("MCP Result Cache Error Skipping");
+// Offline: stubbed MCP tools and an in-memory cache, with no provider call.
+const { test, runSuite } = defineSuite("MCP Result Cache Error Skipping", {
+  offline: true,
+});
 
 type HitListener = (event: { key: string; value: unknown }) => void;
 

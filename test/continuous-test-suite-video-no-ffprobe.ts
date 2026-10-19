@@ -71,7 +71,9 @@ import {
   makeVideoFile,
 } from "./helpers/mediaFixtures.js";
 
+// Offline: local ffmpeg and a loopback chat stand-in, never a provider.
 const { test, runSuite } = defineSuite("Video frames without ffprobe", {
+  offline: true,
   perTestTimeoutMs: 300_000,
 });
 

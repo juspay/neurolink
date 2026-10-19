@@ -83,7 +83,8 @@ const STUB_LENDER_PORT = 9880;
 const LISTENER_PORT = 9893;
 const LISTENER_SHARE_PORT = 9894;
 
-const { test, runSuite } = defineSuite("Proxy Peer Sharing");
+// Offline: a real proxy process and a loopback stub lender, with no upstream account.
+const { test, runSuite } = defineSuite("Proxy Peer Sharing", { offline: true });
 
 const children: ChildProcess[] = [];
 let stubLender: Server | undefined;

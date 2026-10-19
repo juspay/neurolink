@@ -31,7 +31,10 @@ import type {
   PineconeUpsertRecord,
 } from "../src/lib/types/index.js";
 
-const { test, runSuite } = defineSuite("Vector Store: Pinecone adapter");
+// Offline: a recording mock Pinecone client, with no network.
+const { test, runSuite } = defineSuite("Vector Store: Pinecone adapter", {
+  offline: true,
+});
 
 // ---------------------------------------------------------------------------
 // Recording mock client

@@ -42,8 +42,10 @@ import { assertDistFresh } from "./helpers/distFreshness.js";
 
 assertDistFresh();
 
+// Offline: fake AWS credentials and a loopback stand-in, so a real provider call would be a bug.
 const { test, section, runSuite } = defineSuite(
   "Multi-modal embeddings + RAG images",
+  { offline: true },
 );
 
 const { AIProviderFactory } = await import("../dist/index.js");

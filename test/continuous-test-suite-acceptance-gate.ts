@@ -420,8 +420,10 @@ async function runCell(
         // redirection let it reach a real vendor host with the fake key.
         // Re-throw under a fixed, fully-controlled message that never
         // embeds the raw (possibly vendor-shaped) text, so it can never
-        // coincidentally match that live-suite heuristic. The raw error is
-        // logged immediately below for triage.
+        // coincidentally match that live-suite heuristic. The suite is now
+        // declared `offline`, which closes that route in the harness as well;
+        // this stays as a second guard. The raw error is logged immediately
+        // below for triage.
         console.error(`[acceptance-gate] ${name} — raw error:`, msg);
         throw new Error(
           `ACCEPTANCE_GATE_FAIL: ${name} — non-Skip error in a mock-only suite that makes no live vendor calls; raw error logged above via console.error.`,
@@ -509,8 +511,10 @@ async function main(): Promise<void> {
     );
   }
 
+  // Offline: every cell runs against a local mock vendor server, so a vendor-shaped error is a defect, not a skip.
   const { test, runSuite } = defineSuite(
     "Credential-Free Provider Acceptance Gate",
+    { offline: true },
   );
 
   // Generous ceiling: this shared server serves cells 1-7 and 9 across every

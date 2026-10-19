@@ -98,8 +98,10 @@ import type { BaseProvider } from "../src/lib/core/baseProvider.js";
 import { isToolsSchemaExclusionInForce } from "../src/lib/core/modules/structuredOutputPolicy.js";
 import { assert, assertEqual, defineSuite } from "./helpers/harness.js";
 
+// Offline: classifies hand-built errors in process, with no provider call.
 const { test, runSuite, section } = defineSuite(
   "Error classifier contract (Plan 07, rule 15 determinism exception)",
+  { offline: true },
 );
 
 /**

@@ -40,7 +40,8 @@ import type * as ModelChoicesModuleType from "../src/lib/utils/modelChoices.js";
 // Fail loudly rather than silently testing a stale build.
 assertDistFresh();
 
-const { test, runSuite } = defineSuite("Provider Structure");
+// Offline: structural checks on the registry and source tree, with no provider call.
+const { test, runSuite } = defineSuite("Provider Structure", { offline: true });
 
 /**
  * Modules under src/lib/providers/ that are not ProviderRegistry entries.
