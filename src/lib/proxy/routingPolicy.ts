@@ -5,6 +5,7 @@ import type {
   ProxyTranslationAttempt,
   ProxyTranslationPlan,
 } from "../types/index.js";
+import { parseRetryAfterHeaderValue } from "../utils/retryAfter.js";
 
 export function inferClaudeProxyModelTier(
   modelName: string,
@@ -86,19 +87,17 @@ export function buildProxyTranslationPlan(
 
 /**
  * Parse the retry-after header from an upstream 429 response.
- * Returns milliseconds to wait, or 0 if no valid header present.
+ *
+ * @param retryAfterHeader - The raw Retry-After header string or null
+ * @returns Milliseconds to wait (minimum 1000ms if valid), or 0 if no valid header present
  */
 export function parseRetryAfterMs(retryAfterHeader: string | null): number {
   if (!retryAfterHeader) {
     return 0;
   }
-  const seconds = parseInt(retryAfterHeader, 10);
-  if (!Number.isNaN(seconds)) {
-    return Math.max(1, seconds) * 1000;
-  }
-  const date = new Date(retryAfterHeader);
-  if (!Number.isNaN(date.getTime())) {
-    return Math.max(1000, date.getTime() - Date.now());
+  const delay = parseRetryAfterHeaderValue(retryAfterHeader);
+  if (delay !== undefined) {
+    return Math.max(1000, delay);
   }
   return 0;
 }
