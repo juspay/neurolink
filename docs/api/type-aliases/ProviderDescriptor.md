@@ -230,6 +230,12 @@ that lived inline as getBestHealthyProvider's default parameter.
 
 > `optional` **decideMs?**: `number`
 
+#### decideMsPerKStateTokens?
+
+> `optional` **decideMsPerKStateTokens?**: `number`
+
+Added to `decideMs` per 1,000 estimated state tokens.
+
 ---
 
 ### decisionLimits?

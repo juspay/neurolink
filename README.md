@@ -286,12 +286,13 @@ TypeSafe and Laya both configured, TypeSafe runs; with only Laya's key and base 
 set, Laya runs.
 
 [**XOR**](docs/getting-started/providers/xor.md) is Juspay's Apache-2.0,
-open-weights decision model (`xor-latest` for text, `xor-omni` for images and video); setup is on
+open-weights decision model (`xor-latest` for text, `xor-omni` for an image, audio and `value` extraction); setup is on
 [Hugging Face](https://huggingface.co/juspay/xor). It has no built-in endpoint
 either: set `XOR_API_KEY` and `XOR_BASE_URL` to the origin of a deployment or of
 a LiteLLM proxy route (or pass `credentials.xor`). XOR counts only with both its
 key and base URL set, and a call can always name it with `provider: "xor"`. It
-accepts images and video, which TypeSafe, Laya, SubQ and ScaleDown refuse.
+accepts one image and one audio clip (WAV, FLAC, Ogg or MP3; it hears the first
+30 seconds), which TypeSafe, Laya, SubQ and ScaleDown refuse. It refuses video.
 
 [**SubQ**](docs/getting-started/providers/subq.md) is Subquadratic's hosted
 decision model, SubQ Snap (`subq-snap-preview`, in public preview; provider id

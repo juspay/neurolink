@@ -64,4 +64,4 @@ Server-side time behind the edge; isolates model time from network.
 
 > `optional` **mediaBytes?**: `number`
 
-Encoded size of the images and video sent. Absent for a text-only request.
+Encoded size of the images, video and audio sent. Absent for a text-only request.

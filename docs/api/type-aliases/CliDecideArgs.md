@@ -52,6 +52,14 @@ One video file (or data: URL) for a provider that reads video.
 
 ---
 
+### audio?
+
+> `optional` **audio?**: `string`
+
+One audio file (or data: URL) for a provider that reads audio.
+
+---
+
 ### provider?
 
 > `optional` **provider?**: `string`

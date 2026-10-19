@@ -619,12 +619,38 @@ const decideMediaSchema = z
   .strictObject({
     imagesKey: decideMediaKeySchema,
     videoKey: decideMediaKeySchema.optional(),
+    audioKey: decideMediaKeySchema.optional(),
   })
   .refine((media) => media.imagesKey !== media.videoKey, {
     path: ["videoKey"],
     message:
       "decide.media.videoKey must differ from imagesKey: one body key cannot carry both",
-  });
+  })
+  .refine(
+    (media) =>
+      media.audioKey === undefined ||
+      (media.audioKey !== media.imagesKey && media.audioKey !== media.videoKey),
+    {
+      path: ["audioKey"],
+      message:
+        "decide.media.audioKey must differ from imagesKey and videoKey: one body key cannot carry two kinds of media",
+    },
+  );
+
+const DECIDE_QUESTION_TYPES = [
+  "boolean",
+  "choice",
+  "score",
+  "value",
+  "choice-unknown",
+] as const;
+
+// The openai-decisions dialect writes predicates, choices and levels only.
+const OPENAI_DECISIONS_QUESTION_TYPES: ReadonlySet<string> = new Set([
+  "boolean",
+  "choice",
+  "score",
+]);
 
 const GUARD_LIST_MAX = 8;
 
@@ -703,6 +729,12 @@ const decideBlockSchema = z.strictObject({
   authHeader: z.enum(["bearer", "x-api-key"]).optional(),
   stateEncoding: z.enum(["text"]).optional(),
   media: decideMediaSchema.optional(),
+  capableModel: z
+    .strictObject({
+      model: z.string().min(1),
+      questionTypes: z.array(z.enum(DECIDE_QUESTION_TYPES)),
+    })
+    .optional(),
   ambientKeyGuard: ambientKeyGuardSchema.optional(),
   requestIdHeaders: z.array(decideHeaderNameSchema).optional(),
   response: z
@@ -756,6 +788,15 @@ const decideModelsSchema = z
 const decideLimitsSchema = z.strictObject({
   maxStateTokens: decidePositiveInt,
   maxQuestions: decidePositiveInt.optional(),
+  questionTypes: z
+    .array(z.enum(DECIDE_QUESTION_TYPES))
+    .min(1)
+    .refine((types) => new Set(types).size === types.length, {
+      message: "decisionLimits.questionTypes lists the same type twice",
+    })
+    .optional(),
+  maxScoreLevels: decidePositiveInt.optional(),
+  maxChoiceOptions: decidePositiveInt.optional(),
   nonAsciiTokensPerChar: decidePositiveNumber.optional(),
   digitTokensPerChar: decidePositiveNumber.optional(),
   symbolTokensPerChar: decidePositiveNumber.optional(),
@@ -774,10 +815,56 @@ const decideLimitsSchema = z.strictObject({
       maxImages: decidePositiveInt,
       video: z.boolean(),
       maxRequestBytes: decidePositiveInt,
+      audio: z.strictObject({ maxSeconds: decidePositiveInt }).optional(),
     })
     .optional(),
   advisory: z.boolean().optional(),
 });
+
+// decide.capableModel names another key of the catalog, never the default, and
+// only question types the entry reads: anything else is refused before a model
+// is chosen.
+function checkCapableModel(
+  entry: {
+    models: { default: string };
+    decisionLimits?: { questionTypes?: readonly string[] };
+    decide: {
+      capableModel?: { model: string; questionTypes: readonly string[] };
+    };
+  },
+  modelKeys: ReadonlySet<string>,
+  issue: (path: (string | number)[], message: string) => void,
+): void {
+  const capable = entry.decide.capableModel;
+  if (capable === undefined) {
+    return;
+  }
+  if (!modelKeys.has(capable.model)) {
+    issue(
+      ["decide", "capableModel", "model"],
+      "decide.capableModel.model must be a key of models.catalog",
+    );
+  }
+  if (capable.model === entry.models.default) {
+    issue(
+      ["decide", "capableModel", "model"],
+      "decide.capableModel.model must differ from models.default: a request is sent to it instead of the default",
+    );
+  }
+  const declared = entry.decisionLimits?.questionTypes ?? [
+    "boolean",
+    "choice",
+    "score",
+  ];
+  capable.questionTypes.forEach((type, index) => {
+    if (!declared.includes(type)) {
+      issue(
+        ["decide", "capableModel", "questionTypes", index],
+        `decide.capableModel.questionTypes lists ${type}, which decisionLimits.questionTypes does not: such a question is refused before any model is chosen`,
+      );
+    }
+  });
+}
 
 const decideCatalogJsonSchema = z
   .strictObject({
@@ -787,7 +874,10 @@ const decideCatalogJsonSchema = z
     wire: decideWireSchema,
     models: decideModelsSchema,
     timeouts: z
-      .strictObject({ decideMs: decidePositiveInt.optional() })
+      .strictObject({
+        decideMs: decidePositiveInt.optional(),
+        decideMsPerKStateTokens: decidePositiveInt.optional(),
+      })
       .optional(),
     decisionLimits: decideLimitsSchema.optional(),
     decide: decideBlockSchema,
@@ -885,6 +975,8 @@ const decideCatalogJsonSchema = z
       );
     }
 
+    checkCapableModel(entry, modelKeys, issue);
+
     for (const id of Object.keys(entry.decisionLimits?.models ?? {})) {
       if (!modelKeys.has(id)) {
         issue(
@@ -918,6 +1010,20 @@ const decideCatalogJsonSchema = z
           "decide.model.placement must be body with dialect openai-decisions: the model is always a field of the request",
         );
       }
+      if (mediaAllowance?.audio !== undefined) {
+        issue(
+          ["decisionLimits", "media", "audio"],
+          "decisionLimits.media.audio is not valid with dialect openai-decisions: its request input has no audio part",
+        );
+      }
+      (entry.decisionLimits?.questionTypes ?? []).forEach((type, index) => {
+        if (!OPENAI_DECISIONS_QUESTION_TYPES.has(type)) {
+          issue(
+            ["decisionLimits", "questionTypes", index],
+            `decisionLimits.questionTypes cannot list ${type} with dialect openai-decisions: that dialect writes boolean, choice and score questions only`,
+          );
+        }
+      });
     } else {
       if (mediaKeys !== undefined && mediaAllowance === undefined) {
         issue(
@@ -942,6 +1048,24 @@ const decideCatalogJsonSchema = z
           issue(
             ["decide", "media", "videoKey"],
             "decide.media.videoKey must be omitted when decisionLimits.media.video is false",
+          );
+        }
+        if (
+          mediaAllowance.audio !== undefined &&
+          mediaKeys.audioKey === undefined
+        ) {
+          issue(
+            ["decide", "media", "audioKey"],
+            "decide.media.audioKey is required when decisionLimits.media.audio is set",
+          );
+        }
+        if (
+          mediaAllowance.audio === undefined &&
+          mediaKeys.audioKey !== undefined
+        ) {
+          issue(
+            ["decide", "media", "audioKey"],
+            "decide.media.audioKey must be omitted when decisionLimits.media.audio is not set",
           );
         }
       }

@@ -8,7 +8,7 @@
 
 > **DecisionPreparedMedia** = `object`
 
-Media after preparation: everything is a `data:` URL, ready for the wire.
+Media after preparation: images and video are `data:` URLs, ready for the wire.
 
 ## Properties
 
@@ -24,8 +24,14 @@ Media after preparation: everything is a `data:` URL, ready for the wire.
 
 ---
 
+### audio?
+
+> `optional` **audio?**: [`DecisionPreparedAudio`](DecisionPreparedAudio.md)
+
+---
+
 ### bytes
 
 > **bytes**: `number`
 
-Encoded size of every URL above.
+Encoded size of everything above.

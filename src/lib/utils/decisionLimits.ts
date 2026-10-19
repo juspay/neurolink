@@ -15,6 +15,8 @@
 import type {
   DecisionLimits,
   DecisionLimitsReading,
+  DecisionQuestion,
+  DecisionQuestionType,
   DecisionState,
   ProviderDescriptor,
 } from "../types/index.js";
@@ -120,9 +122,18 @@ export function resolveDecisionLimitsReading(
     model,
     maxStateTokens: modelLimits?.maxStateTokens ?? limits.maxStateTokens,
     // Absent for a provider that caps by tokens or bytes rather than by
-    // question count (TypeSafe, XOR).
+    // question count (TypeSafe).
     ...(limits.maxQuestions !== undefined
       ? { maxQuestions: limits.maxQuestions }
+      : {}),
+    ...(limits.questionTypes !== undefined
+      ? { questionTypes: [...limits.questionTypes] }
+      : {}),
+    ...(limits.maxScoreLevels !== undefined
+      ? { maxScoreLevels: limits.maxScoreLevels }
+      : {}),
+    ...(limits.maxChoiceOptions !== undefined
+      ? { maxChoiceOptions: limits.maxChoiceOptions }
       : {}),
     ...(nonAsciiTokensPerChar !== undefined ? { nonAsciiTokensPerChar } : {}),
     // Not model-overridable — `models` only carries `maxStateTokens` and
@@ -139,4 +150,58 @@ export function resolveDecisionLimitsReading(
     ...(limits.media !== undefined ? { media: limits.media } : {}),
     enforcedLocally: limits.advisory !== true,
   };
+}
+
+/** What a provider reads when its limits list no `questionTypes`. */
+export const DEFAULT_DECISION_QUESTION_TYPES: readonly DecisionQuestionType[] =
+  ["boolean", "choice", "score"];
+
+/** The type a question needs a provider to read; a `choice` with `unknown` on needs `choice-unknown`. */
+export function decisionQuestionTypeOf(
+  question: DecisionQuestion,
+): DecisionQuestionType {
+  return question.type === "choice" && question.unknown === true
+    ? "choice-unknown"
+    : question.type;
+}
+
+/**
+ * Why a provider with these limits cannot be asked `question`, or undefined
+ * when it can. Applies whether or not the limits are advisory: a question type
+ * the server does not know is refused outright, never answered from a guess.
+ * `limits` is null for a provider that declares no limits at all, which reads
+ * the default types and has no per-question caps.
+ */
+export function unsupportedDecisionQuestion(
+  question: DecisionQuestion,
+  limits: Pick<
+    DecisionLimitsReading,
+    "questionTypes" | "maxScoreLevels" | "maxChoiceOptions"
+  > | null,
+): string | undefined {
+  const types = limits?.questionTypes ?? DEFAULT_DECISION_QUESTION_TYPES;
+  const type = decisionQuestionTypeOf(question);
+  if (!types.includes(type)) {
+    return type === "choice-unknown"
+      ? "a choice with unknown: true is not accepted"
+      : `the question type "${type}" is not accepted (accepted: ${types.join(", ")})`;
+  }
+  if (question.type === "choice") {
+    const keys = Object.keys(question.criteria);
+    if (question.unknown === true && keys.includes("unknown")) {
+      return 'a choice with unknown: true cannot also name an option "unknown"';
+    }
+    const options = keys.length + (question.unknown === true ? 1 : 0);
+    const max = limits?.maxChoiceOptions;
+    if (max !== undefined && options > max) {
+      return `a choice may have at most ${max} options${question.unknown === true ? ", counting unknown" : ""}; this one has ${options}`;
+    }
+  }
+  if (question.type === "score") {
+    const max = limits?.maxScoreLevels;
+    if (max !== undefined && question.criteria.length > max) {
+      return `a score may have at most ${max} levels; this one has ${question.criteria.length}`;
+    }
+  }
+  return undefined;
 }

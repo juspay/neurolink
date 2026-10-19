@@ -1185,40 +1185,59 @@ await runSuite(async () => {
       await loadDescriptors();
     const { resolveDecisionLimitsReading } =
       await import("../src/lib/utils/decisionLimits.js");
-    const media = { maxImages: 8, video: true, maxRequestBytes: 8388608 };
+    const media = {
+      maxImages: 1,
+      video: false,
+      maxRequestBytes: 25_000_000,
+      audio: { maxSeconds: 30 },
+    };
+    const limits = {
+      maxStateTokens: 28_000,
+      maxQuestions: 128,
+      questionTypes: [
+        "boolean",
+        "choice",
+        "score",
+        "value",
+        "choice-unknown",
+      ] as const,
+      maxScoreLevels: 10,
+      maxChoiceOptions: 64,
+      nonAsciiTokensPerChar: 1,
+      models: {
+        "xor-latest": { maxStateTokens: 120_000 },
+        "xor-omni": { maxStateTokens: 28_000 },
+      },
+      media,
+    };
     const entry: DecideCatalogJson = {
       ...LAYA_ENTRY,
       id: "xor",
-      decisionLimits: {
-        maxStateTokens: 200_000,
-        nonAsciiTokensPerChar: 1,
-        media,
-      },
+      decisionLimits: limits,
       decide: {
         ...LAYA_ENTRY.decide,
-        media: { imagesKey: "images", videoKey: "video" },
+        media: { imagesKey: "images", audioKey: "audio" },
       },
     };
     const built = buildDecideDescriptor(entry);
-    deepStrictEqual(built.decisionLimits, {
-      maxStateTokens: 200_000,
-      nonAsciiTokensPerChar: 1,
-      media: { maxImages: 8, video: true, maxRequestBytes: 8388608 },
-    });
+    deepStrictEqual(built.decisionLimits, limits);
     deepStrictEqual(built.decisionLimits?.media, {
-      maxImages: 8,
-      video: true,
-      maxRequestBytes: 8388608,
+      maxImages: 1,
+      video: false,
+      maxRequestBytes: 25_000_000,
+      audio: { maxSeconds: 30 },
     });
 
     // The same facts as the XOR row registered, which xor.json now builds.
     const xorRow = PROVIDER_DESCRIPTORS.find((d) => String(d.name) === "xor");
     assertNotNull(xorRow, "the XOR descriptor is missing");
     deepStrictEqual(built.decisionLimits?.media, xorRow.decisionLimits?.media);
-    deepStrictEqual(
-      resolveDecisionLimitsReading(built, "xor-latest"),
-      resolveDecisionLimitsReading(xorRow, "xor-latest"),
-    );
+    for (const model of ["xor-latest", "xor-omni"]) {
+      deepStrictEqual(
+        resolveDecisionLimitsReading(built, model),
+        resolveDecisionLimitsReading(xorRow, model),
+      );
+    }
 
     // Positive controls: a changed figure is told apart, and an entry without
     // a media allowance yields a descriptor without one.
@@ -1226,11 +1245,7 @@ await runSuite(async () => {
       deepStrictEqual(
         buildDecideDescriptor({
           ...entry,
-          decisionLimits: {
-            maxStateTokens: 200_000,
-            nonAsciiTokensPerChar: 1,
-            media: { ...media, maxImages: 7 },
-          },
+          decisionLimits: { ...limits, media: { ...media, maxImages: 2 } },
         }).decisionLimits?.media,
         built.decisionLimits?.media,
       ),
@@ -1272,21 +1287,41 @@ await runSuite(async () => {
       localRuntime: false,
       healthCheck: "env-only",
       setupUrl: "https://huggingface.co/juspay/xor",
-      timeouts: { decideMs: 5000 },
+      timeouts: { decideMs: 5000, decideMsPerKStateTokens: 150 },
       decisionLimits: {
-        maxStateTokens: 200000,
+        maxStateTokens: 28000,
+        maxQuestions: 128,
+        questionTypes: [
+          "boolean",
+          "choice",
+          "score",
+          "value",
+          "choice-unknown",
+        ],
+        maxScoreLevels: 10,
+        maxChoiceOptions: 64,
         nonAsciiTokensPerChar: 1,
-        media: { maxImages: 8, video: true, maxRequestBytes: 8388608 },
+        models: {
+          "xor-latest": { maxStateTokens: 120000 },
+          "xor-omni": { maxStateTokens: 28000 },
+        },
+        media: {
+          maxImages: 1,
+          video: false,
+          maxRequestBytes: 25000000,
+          audio: { maxSeconds: 30 },
+        },
       },
     });
     deepStrictEqual(built.decisionLimits?.media, {
-      maxImages: 8,
-      video: true,
-      maxRequestBytes: 8388608,
+      maxImages: 1,
+      video: false,
+      maxRequestBytes: 25000000,
+      audio: { maxSeconds: 30 },
     });
     assert(
-      !("maxQuestions" in (built.decisionLimits ?? {})),
-      "XOR has no question cap: the key must be absent",
+      !("advisory" in (built.decisionLimits ?? {})),
+      "XOR's limits are enforced locally: advisory must be absent",
     );
     const registered = PROVIDER_DESCRIPTORS.find(
       (d) => String(d.name) === "xor",
@@ -1294,20 +1329,42 @@ await runSuite(async () => {
     deepStrictEqual(registered, built);
     deepStrictEqual(shipped.decide.media, {
       imagesKey: "images",
-      videoKey: "video",
+      audioKey: "audio",
     });
-    // Both aliases, and a name from before them, read the same figures: the
-    // limits are per provider, with no per-model override.
-    for (const model of ["xor-latest", "xor-omni", "xor-1.1"]) {
+    // Each alias reads its own measured window (131,072 and 32,768 tokens, with
+    // headroom for the questions and media); any other name, the retired one
+    // included, reads the tighter of the two.
+    for (const [model, maxStateTokens] of [
+      ["xor-latest", 120000],
+      ["xor-omni", 28000],
+      ["xor-1.1", 28000],
+    ] as const) {
       deepStrictEqual(resolveDecisionLimitsReading(built, model), {
         provider: "xor",
         model,
-        maxStateTokens: 200000,
+        maxStateTokens,
+        maxQuestions: 128,
+        questionTypes: [
+          "boolean",
+          "choice",
+          "score",
+          "value",
+          "choice-unknown",
+        ],
+        maxScoreLevels: 10,
+        maxChoiceOptions: 64,
         nonAsciiTokensPerChar: 1,
-        media: { maxImages: 8, video: true, maxRequestBytes: 8388608 },
+        media: {
+          maxImages: 1,
+          video: false,
+          maxRequestBytes: 25000000,
+          audio: { maxSeconds: 30 },
+        },
         enforcedLocally: true,
       });
     }
+    strictEqual(shipped.models.catalog["xor-latest"]?.contextWindow, 131072);
+    strictEqual(shipped.models.catalog["xor-omni"]?.contextWindow, 32768);
     // The route and the two models the endpoint serves: the old route and the
     // old model name are no longer the entry's.
     strictEqual(shipped.decide.endpoint, "{baseURL}/v1/decisions");
@@ -1327,9 +1384,14 @@ await runSuite(async () => {
         buildDecideDescriptor({
           ...shipped,
           decisionLimits: {
-            maxStateTokens: 200000,
-            nonAsciiTokensPerChar: 1,
-            media: { maxImages: 7, video: true, maxRequestBytes: 8388608 },
+            ...shipped.decisionLimits,
+            maxStateTokens: 28000,
+            media: {
+              maxImages: 2,
+              video: false,
+              maxRequestBytes: 25000000,
+              audio: { maxSeconds: 30 },
+            },
           },
         }).decisionLimits?.media,
         built.decisionLimits?.media,

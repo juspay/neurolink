@@ -27,6 +27,7 @@ import { redactUrlsInText } from "../utils/logSanitize.js";
 import {
   estimateDecisionStateTokens,
   resolveDecisionLimitsReading,
+  unsupportedDecisionQuestion,
 } from "../utils/decisionLimits.js";
 import { systemOneDialect } from "./decide/dialects/systemOne.js";
 import { asNumber, isRecord } from "./decide/guards.js";
@@ -69,17 +70,36 @@ export function describeValidationErrors(detail: readonly unknown[]): string {
  * belongs in an error message or a log, whatever the wording, so the
  * configured key, anything shaped like a LiteLLM key, any long hex run and any
  * embedded `data:` URL are all removed.
+ *
+ * Its request-validation errors also quote the request back (pydantic's
+ * `input_value=…`, the start of the state and questions), and its routing
+ * errors append the gateway's fallback table, which names every model group it
+ * serves. The first is the caller's data and the second is the gateway's, so
+ * both are cut.
  */
 export function redactCredentials(message: string, apiKey: string): string {
   const withoutKey = apiKey
     ? message.split(apiKey).join("[redacted]")
     : message;
-  return withoutKey
-    .replace(/\.?\s*Received API Key\s*=[\s\S]*$/, "")
-    .replace(/\bsk-[A-Za-z0-9._-]+/g, "[redacted]")
-    .replace(/\b[0-9a-f]{32,}\b/gi, "[redacted]")
-    .replace(/data:[a-z]+\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+/gi, "[media]")
-    .trim();
+  return (
+    withoutKey
+      .replace(/\.?\s*Received API Key\s*=[\s\S]*$/, "")
+      .replace(/\.?\s*Received Model Group=[\s\S]*$/, "")
+      .replace(/\s*No fallback model group found[\s\S]*$/, "")
+      // Greedy: the quoted value may itself contain ", input_type=", so only the
+      // last one is a delimiter the server wrote.
+      .replace(
+        /input_value=[\s\S]*(?=, input_type=)/g,
+        "input_value=[redacted]",
+      )
+      // Cut short by the server, a quoted value has no input_type after it, and
+      // may run over several lines; everything after it is the value.
+      .replace(/input_value=(?!\[redacted\])[\s\S]*/g, "input_value=[redacted]")
+      .replace(/\bsk-[A-Za-z0-9._-]+/g, "[redacted]")
+      .replace(/\b[0-9a-f]{32,}\b/gi, "[redacted]")
+      .replace(/data:[a-z]+\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+/gi, "[media]")
+      .trim()
+  );
 }
 
 /**
@@ -219,16 +239,23 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
   }
 
   /**
-   * The per-attempt timeout when the caller sets none. A provider whose latency
-   * grows with the number of questions or the size of the state scales the
-   * descriptor's allowance here. `stateTokens` is the local estimate, 0 when the
-   * descriptor sets no local limits.
+   * The per-attempt timeout when the caller sets none: the descriptor's
+   * `decideMs`, plus `decideMsPerKStateTokens` for every full 1,000 estimated
+   * state tokens when it declares that, since a long state takes longer to read
+   * and a flat budget would cut off a request well inside the model's window. A
+   * provider whose latency grows another way overrides this. `stateTokens` is
+   * the local estimate, 0 when the descriptor sets no local limits.
    */
   protected defaultTimeoutMs(
     _questionCount: number,
-    _stateTokens: number,
+    stateTokens: number,
   ): number | undefined {
-    return this.getDescriptorDecideMs();
+    const base = this.getDescriptorDecideMs();
+    const perK = PROVIDER_DESCRIPTORS_BY_NAME.get(this.providerName)?.timeouts
+      ?.decideMsPerKStateTokens;
+    return base === undefined || perK === undefined
+      ? base
+      : base + Math.floor(stateTokens / 1000) * perK;
   }
 
   /**
@@ -251,6 +278,15 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
     requestedModel: string,
   ): string {
     return typeof payload.model === "string" ? payload.model : requestedModel;
+  }
+
+  /**
+   * The model this request goes to and is checked against: the call's own, else
+   * the instance's. A provider whose default cannot read some requests may pick
+   * another for them here.
+   */
+  protected resolveRequestModel(request: DecisionRequest): string {
+    return request.model ?? this.modelName ?? this.getDefaultModel();
   }
 
   /** Extra fields for the credential-rejected warning. */
@@ -351,8 +387,8 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
       });
     }
 
-    const resolvedModel =
-      request.model ?? this.modelName ?? this.getDefaultModel();
+    const resolvedModel = this.resolveRequestModel(request);
+    this.assertSupportedQuestions(request, resolvedModel);
     const stateTokens = this.assertWithinDecisionLimits(
       request,
       resolvedModel,
@@ -548,8 +584,36 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
   }
 
   /**
-   * Turn the request's images and video into data URLs, or refuse it. Refused
-   * as a non-retryable `invalid_request`: resending the same media cannot help.
+   * Refuse a question this provider does not read: a type it does not list in
+   * `decisionLimits.questionTypes` (absent means boolean, choice and score), or
+   * a choice or score past its per-question cap. Checked even when the limits
+   * are advisory, since a server that does not know a question type cannot
+   * answer it.
+   */
+  private assertSupportedQuestions(
+    request: DecisionRequest,
+    model: string,
+  ): void {
+    const descriptor = PROVIDER_DESCRIPTORS_BY_NAME.get(this.providerName);
+    const limits = descriptor
+      ? resolveDecisionLimitsReading(descriptor, model)
+      : null;
+    for (const [id, question] of Object.entries(request.questions)) {
+      const problem = unsupportedDecisionQuestion(question, limits);
+      if (problem !== undefined) {
+        throw this.decisionError({
+          kind: "invalid_request",
+          message: `${this.vendorLabel()} cannot answer question "${id}": ${problem}.`,
+          retryable: false,
+        });
+      }
+    }
+  }
+
+  /**
+   * Turn the request's images, video and audio into wire form, or refuse it.
+   * Refused as a non-retryable `invalid_request`: resending the same media
+   * cannot help.
    */
   private async prepareMedia(
     request: DecisionRequest,
@@ -561,7 +625,10 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
       request,
       limits?.media,
       this.vendorLabel(),
-      listMediaDecisionProviders({ video: request.video !== undefined }),
+      listMediaDecisionProviders({
+        video: request.video !== undefined,
+        audio: request.audio !== undefined,
+      }),
     );
     if (prepared.status === "refused") {
       throw this.decisionError({
@@ -588,7 +655,7 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
     if (bytes > limit) {
       throw this.decisionError({
         kind: "invalid_request",
-        message: `The request is ${bytes} bytes; ${this.vendorLabel()} accepts at most ${limit}. Send fewer or smaller images${media?.video ? ", or a shorter video" : ""}.`,
+        message: `The request is ${bytes} bytes; ${this.vendorLabel()} accepts at most ${limit}. Send fewer or smaller images${media?.video ? ", or a shorter video" : ""}${media?.audio ? ", or a shorter audio clip" : ""}.`,
         retryable: false,
       });
     }

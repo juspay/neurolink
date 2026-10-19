@@ -246,7 +246,10 @@ import {
   snapshotDecisionQuestion,
   stripHostAnswers,
 } from "./utils/decisionAnswers.js";
-import { resolveDecisionLimitsReading } from "./utils/decisionLimits.js";
+import {
+  resolveDecisionLimitsReading,
+  unsupportedDecisionQuestion,
+} from "./utils/decisionLimits.js";
 import type { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
 import {
   isDirectTTSRequest,
@@ -19146,12 +19149,14 @@ Current user's request: ${currentInput}`;
    *    many would have the WHOLE request refused, and NeuroLink's own routing
    *    would silently degrade to the heuristic — the host's problem would
    *    become NeuroLink's. A provider that declares no `maxQuestions`
-   *    (TypeSafe, XOR) takes every well-formed addition.
+   *    (TypeSafe) takes every well-formed addition. For the same reason a
+   *    question the provider cannot answer (a type it does not list, a choice
+   *    or score past its cap) is dropped on its own.
    * 4. Answers are split: the consumer sees only its own ids, exactly as it
    *    would without hooks; `onAnswers` gets the host's answers under the
    *    host's original ids plus the full result.
    *
-   * The request's `images` and `video` ride along untouched — `merged` and
+   * The request's `images`, `video` and `audio` ride along untouched — `merged` and
    * the wire call spread the request, and only `state`, the questions and
    * the result are cloned — so an XOR request keeps its Buffers and its
    * result keeps `mediaBytes`.
@@ -19265,7 +19270,7 @@ Current user's request: ${currentInput}`;
             model: merged.model,
             credentials: merged.credentials,
           });
-          // A provider without a question-count cap (TypeSafe, XOR) takes
+          // A provider without a question-count cap (TypeSafe) takes
           // every well-formed addition; its token/byte limits still apply
           // and are what `decisionLimits()` reports for sizing.
           const room =
@@ -19276,6 +19281,7 @@ Current user's request: ${currentInput}`;
             ...ownQuestions,
           };
           let invalidCount = 0;
+          let unsupportedCount = 0;
           let overflowCount = 0;
           for (const [hostId, proposal] of proposedEntries) {
             // The wire carries a snapshot of the host's question, never the
@@ -19283,6 +19289,12 @@ Current user's request: ${currentInput}`;
             const question = snapshotDecisionQuestion(proposal);
             if (question === undefined) {
               invalidCount += 1;
+              continue;
+            }
+            // A question the provider cannot read would have the whole
+            // request refused, NeuroLink's own questions with it.
+            if (unsupportedDecisionQuestion(question, limits) !== undefined) {
+              unsupportedCount += 1;
               continue;
             }
             if (hostIdByWireId.size >= room) {
@@ -19299,6 +19311,11 @@ Current user's request: ${currentInput}`;
           if (invalidCount > 0) {
             logger.warn(
               `[Decision] dropped ${invalidCount} malformed host question(s) for site "${site}"`,
+            );
+          }
+          if (unsupportedCount > 0) {
+            logger.warn(
+              `[Decision] dropped ${unsupportedCount} host question(s) for site "${site}" that ${limits?.provider ?? "the decision provider"} cannot answer`,
             );
           }
           if (overflowCount > 0 && limits) {
@@ -19460,6 +19477,7 @@ Current user's request: ${currentInput}`;
           "ai.provider": providerName,
           "decision.question_count": questionCount,
           "decision.images.count": options.images?.length ?? 0,
+          "decision.audio.count": options.audio === undefined ? 0 : 1,
           ...siteSpanAttributes,
         },
       },
@@ -19493,6 +19511,7 @@ Current user's request: ${currentInput}`;
             "ai.model": options.model ?? "",
             "decision.question_count": questionCount,
             "decision.images.count": options.images?.length ?? 0,
+            "decision.audio.count": options.audio === undefined ? 0 : 1,
             ...siteSpanAttributes,
           },
           parentSpanId,
@@ -19521,6 +19540,7 @@ Current user's request: ${currentInput}`;
             questions: options.questions,
             images: options.images,
             video: options.video,
+            audio: options.audio,
             model: options.model,
             signal: options.signal,
             timeoutMs: options.timeoutMs,

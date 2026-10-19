@@ -176,7 +176,7 @@ reports.
 ## Images
 
 Perplexity reads images alongside the `state`. TypeSafe, Laya,
-[SubQ](subq.md) and [ScaleDown](scaledown.md) do not read media. XOR reads images and a video; Perplexity reads images only, and so do
+[SubQ](subq.md) and [ScaleDown](scaledown.md) do not read media. XOR reads one image and audio; Perplexity reads images only, and so do
 [Cloudflare Clef](cloudflare-clef.md), up to 4 of them, and
 [OpenAI Decisions](openai-decisions.md). In the probe of
 Perplexity's model it did read an image: asked red versus blue about one, it
@@ -281,7 +281,8 @@ length (…) exceeds or equals model's maximum context length (…)` for text al
 length (…)` above when images are in the request, and NeuroLink reports both as
   `max_tokens_exceeded`.
 - **The result carries `mediaBytes`**, the encoded size of the images sent. The
-  `decide` spans carry `decision.images.count` and `decision.media.bytes`, and
+  `decide` spans carry `decision.images.count`, `decision.audio.count` and
+  `decision.media.bytes`, and
   never any base64.
 
 ---

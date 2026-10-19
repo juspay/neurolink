@@ -92,6 +92,19 @@ Body keys for images and video, after `model`, `state` and `questions`. Omitted 
 
 ---
 
+### capableModel?
+
+> `optional` **capableModel?**: [`DecideCapableModel`](DecideCapableModel.md)
+
+A model the request is sent to instead of the default when the call names
+no model, no model variable is set, and the request carries media or a
+question of one of `questionTypes`. Its `decisionLimits` row is the one
+checked. For a text default that cannot read those requests, whose server
+would otherwise hand them to this model behind its back, with a smaller
+window than the one checked. Omitted means the default model is always sent.
+
+---
+
 ### ambientKeyGuard?
 
 > `optional` **ambientKeyGuard?**: [`DecideAmbientKeyGuard`](DecideAmbientKeyGuard.md)

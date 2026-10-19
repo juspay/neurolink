@@ -40,6 +40,15 @@ One video, in the same forms. Sending images as well is allowed.
 
 ---
 
+### audio?
+
+> `optional` **audio?**: [`DecisionMediaSource`](DecisionMediaSource.md)
+
+One audio clip, in the same forms (a `data:audio/…;base64,` URL). Only a
+provider whose `decisionLimits.media.audio` is set accepts it.
+
+---
+
 ### model?
 
 > `optional` **model?**: `string`

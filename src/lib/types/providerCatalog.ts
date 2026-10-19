@@ -7,6 +7,7 @@
 
 import type {
   DecideAmbientKeyGuard,
+  DecideCapableModel,
   DecideDialectName,
   DecideMedia,
   DecisionErrorKind,
@@ -368,6 +369,15 @@ export type DecideBlock = {
   /** Body keys for images and video, after `model`, `state` and `questions`. Omitted means the body never carries media. */
   media?: DecideMedia;
   /**
+   * A model the request is sent to instead of the default when the call names
+   * no model, no model variable is set, and the request carries media or a
+   * question of one of `questionTypes`. Its `decisionLimits` row is the one
+   * checked. For a text default that cannot read those requests, whose server
+   * would otherwise hand them to this model behind its back, with a smaller
+   * window than the one checked. Omitted means the default model is always sent.
+   */
+  capableModel?: DecideCapableModel;
+  /**
    * Keeps a key found only in the environment from becoming the default
    * decision provider when it plainly belongs to something else. Omitted means
    * no check.
@@ -394,7 +404,11 @@ export type DecideCatalogJson = {
     topModels?: string[];
     testModel?: string;
   };
-  timeouts?: { decideMs?: number };
+  timeouts?: {
+    decideMs?: number;
+    /** Added to `decideMs` per 1,000 estimated state tokens, for a model whose latency grows with the state. */
+    decideMsPerKStateTokens?: number;
+  };
   decisionLimits?: DecisionLimits;
   decide: DecideBlock;
   setup: CatalogSetup;

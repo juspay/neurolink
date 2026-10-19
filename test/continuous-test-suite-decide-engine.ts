@@ -34,6 +34,7 @@ import type {
   DecisionQuestionMap,
   DecisionRequest,
   DecisionState,
+  ProviderDescriptor,
 } from "../src/lib/types/index.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 import { LAYA_ENTRY } from "./helpers/decideFixtures.js";
@@ -2593,8 +2594,10 @@ const asDataUrl = (mime: string, bytes: Buffer): string =>
   `data:${mime};base64,${bytes.toString("base64")}`;
 
 // The base class reads what a request may carry from the descriptor registered
-// under the entry's id, so this entry takes XOR's id and with it XOR's
-// allowance: 8 images, one video, 8 MiB.
+// under the entry's id, so this entry takes XOR's id. XOR's shipped allowance is
+// one image and no video, so the generic media cases run inside
+// withXorAllowance(), which registers this entry's allowance (8 images, one
+// video, 8 MiB) for their duration.
 const MEDIA_ENTRY: DecideCatalogJson = {
   ...LAYA_ENTRY,
   id: "xor",
@@ -2609,6 +2612,26 @@ const MEDIA_ENTRY: DecideCatalogJson = {
     media: { imagesKey: "images", videoKey: "video" },
   },
 };
+
+async function withXorAllowance<T>(run: () => Promise<T>): Promise<T> {
+  const { PROVIDER_DESCRIPTORS_BY_NAME } =
+    await import("../dist/factories/providerDescriptors.js");
+  const registry = PROVIDER_DESCRIPTORS_BY_NAME as Map<
+    string,
+    ProviderDescriptor
+  >;
+  const shipped = registry.get("xor");
+  assertNotNull(shipped, "XOR is not registered");
+  registry.set("xor", {
+    ...shipped,
+    decisionLimits: MEDIA_ENTRY.decisionLimits,
+  });
+  try {
+    return await run();
+  } finally {
+    registry.set("xor", shipped);
+  }
+}
 
 const withMediaKeys = (
   media: NonNullable<DecideCatalogJson["decide"]["media"]>,
@@ -2631,6 +2654,13 @@ const MEDIA_ANSWER = JSON.stringify({
 
 // The JSON the stub received, or why nothing was received.
 async function bodySentFor(
+  entry: DecideCatalogJson,
+  extra: Partial<DecisionRequest>,
+): Promise<Record<string, unknown>> {
+  return withXorAllowance(() => sentBodyOf(entry, extra));
+}
+
+async function sentBodyOf(
   entry: DecideCatalogJson,
   extra: Partial<DecisionRequest>,
 ): Promise<Record<string, unknown>> {
@@ -2886,28 +2916,30 @@ async function configuredMediaSection(): Promise<void> {
           "The request is",
         ],
       ];
-    await withFetchStub(
-      () => new Response(MEDIA_ANSWER),
-      async (sent) => {
-        for (const [extra, needle] of refused) {
-          const provider = await make(
-            { apiKey: "k-1", baseURL: "https://xor.test" },
-            { entry: MEDIA_ENTRY },
-          );
-          const refusal = await provider
-            .decide({ ...MEDIA_REQUEST, ...extra })
-            .then(
-              () => undefined,
-              (rejection: unknown) => rejection,
+    await withXorAllowance(() =>
+      withFetchStub(
+        () => new Response(MEDIA_ANSWER),
+        async (sent) => {
+          for (const [extra, needle] of refused) {
+            const provider = await make(
+              { apiKey: "k-1", baseURL: "https://xor.test" },
+              { entry: MEDIA_ENTRY },
             );
-          assertEqual(causeKind(refusal), "invalid_request");
-          assert(
-            (causeMessage(refusal) ?? "").includes(needle),
-            "the request was refused for another reason",
-          );
-        }
-        assertEqual(sent.length, 0, "a refused request reached the wire");
-      },
+            const refusal = await provider
+              .decide({ ...MEDIA_REQUEST, ...extra })
+              .then(
+                () => undefined,
+                (rejection: unknown) => rejection,
+              );
+            assertEqual(causeKind(refusal), "invalid_request");
+            assert(
+              (causeMessage(refusal) ?? "").includes(needle),
+              "the request was refused for another reason",
+            );
+          }
+          assertEqual(sent.length, 0, "a refused request reached the wire");
+        },
+      ),
     );
   });
 }
@@ -2923,6 +2955,741 @@ function assertBytes(actual: unknown, expected: unknown, what: string): void {
 
 const IMAGE_URL = "data:image/png;base64,AAAA";
 const VIDEO_URL = "data:video/mp4;base64,BBBB";
+
+const SHIPPED_XOR: DecideCatalogJson = JSON.parse(
+  readFileSync(
+    fileURLToPath(
+      new URL("../src/lib/providers/catalog/xor.json", import.meta.url),
+    ),
+    "utf8",
+  ),
+);
+
+// 8-bit mono PCM: one byte a sample, so the length is exact.
+function wavBytes(seconds: number, sampleRate = 8000): Buffer {
+  const dataBytes = Math.round(seconds * sampleRate);
+  const wav = Buffer.alloc(44 + dataBytes, 0x80);
+  wav.write("RIFF", 0, "latin1");
+  wav.writeUInt32LE(36 + dataBytes, 4);
+  wav.write("WAVE", 8, "latin1");
+  wav.write("fmt ", 12, "latin1");
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(sampleRate, 24);
+  wav.writeUInt32LE(sampleRate, 28);
+  wav.writeUInt16LE(1, 32);
+  wav.writeUInt16LE(8, 34);
+  wav.write("data", 36, "latin1");
+  wav.writeUInt32LE(dataBytes, 40);
+  return wav;
+}
+
+// "fLaC" and a STREAMINFO block carrying only the rate and the sample count.
+function flacBytes(seconds: number, sampleRate = 16000): Buffer {
+  const flac = Buffer.alloc(42);
+  flac.write("fLaC", 0, "latin1");
+  flac[4] = 0x80;
+  flac[7] = 34;
+  const total = Math.round(seconds * sampleRate);
+  flac[18] = (sampleRate >> 12) & 0xff;
+  flac[19] = (sampleRate >> 4) & 0xff;
+  flac[20] = (sampleRate & 0x0f) << 4;
+  flac[21] = Math.floor(total / 2 ** 32) & 0x0f;
+  flac.writeUInt32BE(total % 2 ** 32, 22);
+  return flac;
+}
+
+const M4A_BYTES = Buffer.concat([
+  Buffer.from([0, 0, 0, 0x20]),
+  Buffer.from("ftypM4A ", "latin1"),
+  Buffer.alloc(24),
+]);
+const OGG_BYTES = Buffer.concat([
+  Buffer.from("OggS", "latin1"),
+  Buffer.alloc(60),
+]);
+const MP3_BYTES = Buffer.concat([
+  Buffer.from("ID3", "latin1"),
+  Buffer.alloc(60),
+]);
+
+// An Ogg stream: a first page holding the codec's identification packet, then a
+// last page whose granule position is the stream's length in samples.
+function oggBytes(
+  codec: "opus" | "vorbis",
+  seconds: number,
+  rate = 48000,
+): Buffer {
+  const page = (granule: bigint, packet: Buffer): Buffer => {
+    const header = Buffer.alloc(28);
+    header.write("OggS", 0, "latin1");
+    header.writeBigInt64LE(granule, 6);
+    header[26] = 1;
+    header[27] = packet.length;
+    return Buffer.concat([header, packet]);
+  };
+  const id =
+    codec === "opus"
+      ? Buffer.concat([
+          Buffer.from("OpusHead", "latin1"),
+          Buffer.from([1, 1]),
+          Buffer.from([0x38, 0x01]), // pre-skip 312
+          Buffer.alloc(7),
+        ])
+      : (() => {
+          const packet = Buffer.alloc(30);
+          packet.write("\x01vorbis", 0, "latin1");
+          packet[11] = 1;
+          packet.writeUInt32LE(rate, 12);
+          return packet;
+        })();
+  const samples = BigInt(
+    Math.round(seconds * (codec === "opus" ? 48000 : rate)) +
+      (codec === "opus" ? 312 : 0),
+  );
+  return Buffer.concat([page(0n, id), page(samples, Buffer.alloc(16))]);
+}
+
+const VALUE_ANSWER = JSON.stringify({
+  model: "xor-omni-e4b",
+  answers: { q: { type: "noul", noul: 0.9 } },
+  usage: { input_tokens: 10, output_tokens: 1 },
+});
+
+// The body XOR's shipped entry sends for `extra`, or the refusal it gave
+// without sending anything.
+async function xorOutcome(
+  extra: Partial<DecisionRequest>,
+): Promise<
+  | { sent: Record<string, unknown> }
+  | { refused: { kind?: string; message: string } }
+> {
+  return withFetchStub(
+    () =>
+      new Response(VALUE_ANSWER, {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    async (sent) => {
+      const provider = await make(
+        { apiKey: "k-1", baseURL: "https://xor.test" },
+        { entry: SHIPPED_XOR },
+      );
+      try {
+        await provider.decide({
+          state: "payouts have failed",
+          questions: {
+            q: { type: "boolean", instructions: "Is this urgent?" },
+          },
+          ...extra,
+        });
+      } catch (error) {
+        assertEqual(sent.length, 0, "a refused request reached the wire");
+        return {
+          refused: {
+            kind: causeKind(error),
+            message: causeMessage(error) ?? "",
+          },
+        };
+      }
+      assertEqual(sent.length, 1, "the request did not reach the stub");
+      return { sent: JSON.parse(sent[0]?.body ?? "") };
+    },
+  );
+}
+
+function sentBody(
+  outcome: Awaited<ReturnType<typeof xorOutcome>>,
+): Record<string, unknown> {
+  if (!("sent" in outcome)) {
+    throw new Error("the request was refused before it was sent");
+  }
+  return outcome.sent;
+}
+
+function refusedOf(outcome: Awaited<ReturnType<typeof xorOutcome>>): {
+  kind?: string;
+  message: string;
+} {
+  if (!("refused" in outcome)) {
+    throw new Error("the request was sent, not refused");
+  }
+  return outcome.refused;
+}
+
+function refusal(
+  outcome: Awaited<ReturnType<typeof xorOutcome>>,
+  needle: string,
+): void {
+  const refused = refusedOf(outcome);
+  assertEqual(refused.kind, "invalid_request");
+  assertIncludes(refused.message, needle);
+}
+
+async function xorDecisionsSection(): Promise<void> {
+  logSection("XOR: value, choice unknown, audio, per-question caps, errors");
+  const { resolveDecisionLimitsReading, unsupportedDecisionQuestion } =
+    await import("../dist/utils/decisionLimits.js");
+  const { PROVIDER_DESCRIPTORS_BY_NAME } =
+    await import("../dist/factories/providerDescriptors.js");
+  const { getDecisionDialect } =
+    await import("../dist/providers/decide/dialects/index.js");
+  const { redactCredentials } =
+    await import("../dist/providers/systemOneDecision.js");
+  const { classifyDecisionError } =
+    await import("../dist/providers/decide/errors.js");
+
+  const xorRow = PROVIDER_DESCRIPTORS_BY_NAME.get("xor" as never);
+  assertNotNull(xorRow, "XOR is not registered");
+  const xorLimits = resolveDecisionLimitsReading(xorRow, "xor-latest");
+  const choice = (n: number, unknown?: boolean): DecisionQuestion => ({
+    type: "choice",
+    instructions: "Which option?",
+    criteria: Object.fromEntries(
+      Array.from({ length: n }, (_, i) => [`o${i}`, `option ${i}`]),
+    ),
+    ...(unknown === undefined ? {} : { unknown }),
+  });
+
+  await test("the default question types are boolean, choice and score; XOR also reads value and choice-unknown", async () => {
+    const value: DecisionQuestion = {
+      type: "value",
+      instructions: "Invoice amount?",
+      dtype: "int",
+    };
+    assertIncludes(
+      unsupportedDecisionQuestion(value, null) ?? "",
+      'the question type "value" is not accepted',
+    );
+    assertIncludes(
+      unsupportedDecisionQuestion(choice(2, true), null) ?? "",
+      "unknown: true is not accepted",
+    );
+    assertEqual(unsupportedDecisionQuestion(choice(2), null), undefined);
+    assertEqual(unsupportedDecisionQuestion(value, xorLimits), undefined);
+    assertEqual(
+      unsupportedDecisionQuestion(choice(2, true), xorLimits),
+      undefined,
+    );
+    // An unknown: false choice is a plain choice.
+    assertEqual(unsupportedDecisionQuestion(choice(2, false), null), undefined);
+  });
+
+  await test("XOR's per-question caps: 64 options counting unknown, 10 score levels, no option named unknown beside the flag", async () => {
+    assertEqual(unsupportedDecisionQuestion(choice(64), xorLimits), undefined);
+    assertEqual(
+      unsupportedDecisionQuestion(choice(63, true), xorLimits),
+      undefined,
+    );
+    assertIncludes(
+      unsupportedDecisionQuestion(choice(64, true), xorLimits) ?? "",
+      "at most 64 options, counting unknown",
+    );
+    assertIncludes(
+      unsupportedDecisionQuestion(choice(65), xorLimits) ?? "",
+      "at most 64 options",
+    );
+    const named: DecisionQuestion = {
+      type: "choice",
+      instructions: "x",
+      criteria: { unknown: "no idea", yes: "yes" },
+      unknown: true,
+    };
+    assertIncludes(
+      unsupportedDecisionQuestion(named, xorLimits) ?? "",
+      'cannot also name an option "unknown"',
+    );
+    const levels = (n: number): DecisionQuestion => ({
+      type: "score",
+      instructions: "Rate",
+      criteria: Array.from({ length: n }, (_, i) => String(i)),
+    });
+    assertEqual(unsupportedDecisionQuestion(levels(10), xorLimits), undefined);
+    assertIncludes(
+      unsupportedDecisionQuestion(levels(11), xorLimits) ?? "",
+      "at most 10 levels",
+    );
+  });
+
+  await test("a provider that lists no value refuses a value question and a choice with unknown before any request", async () => {
+    await withFetchStub(
+      () => new Response(VALUE_ANSWER),
+      async (sent) => {
+        const laya = await make(GOOD);
+        for (const question of [
+          { type: "value", instructions: "Amount?" } as const,
+          choice(2, true),
+        ]) {
+          const rejection = await laya
+            .decide({ state: "x", questions: { v: question } })
+            .then(
+              () => undefined,
+              (error: unknown) => error,
+            );
+          assertEqual(causeKind(rejection), "invalid_request");
+          assertIncludes(causeMessage(rejection) ?? "", 'question "v"');
+        }
+        assertEqual(sent.length, 0, "a refused question reached Laya's wire");
+      },
+    );
+  });
+
+  await test("XOR sends a value question as given and a choice's unknown only when it is true", async () => {
+    const body = sentBody(
+      await xorOutcome({
+        questions: {
+          amount: {
+            type: "value",
+            instructions: "Invoice amount?",
+            dtype: "float",
+            pattern: "[0-9.]{1,10}",
+          },
+          on: choice(2, true),
+          off: choice(2, false),
+        },
+      }),
+    );
+    assert(
+      sameJson(body.questions, {
+        amount: {
+          type: "value",
+          instructions: "Invoice amount?",
+          dtype: "float",
+          pattern: "[0-9.]{1,10}",
+        },
+        on: { ...choice(2), unknown: true },
+        off: choice(2),
+      }),
+      "the questions on the wire are not the ones asked",
+    );
+  });
+
+  await test("a value question whose pattern does not compile is not a question", async () => {
+    const { isDecisionQuestion } =
+      await import("../dist/utils/decisionAnswers.js");
+    const value = (pattern: string): unknown => ({
+      type: "value",
+      instructions: "Invoice amount?",
+      pattern,
+    });
+    assert(isDecisionQuestion(value("[0-9.]{1,10}")), "a valid pattern");
+    assert(!isDecisionQuestion(value("[0-9")), "an unclosed class");
+    assert(!isDecisionQuestion(value("(a")), "an unclosed group");
+    assert(!isDecisionQuestion(value("")), "an empty pattern");
+  });
+
+  await test("XOR refuses what it cannot read before any request: a second image, a video, 129 questions, an 11-level score", async () => {
+    const png = fixtureBytes("red.png");
+    refusal(await xorOutcome({ images: [png, png] }), "at most 1 images");
+    refusal(
+      await xorOutcome({ model: "xor-omni", video: fixtureBytes("red.mp4") }),
+      "does not accept video",
+    );
+    const many = await xorOutcome({
+      questions: Object.fromEntries(
+        Array.from({ length: 129 }, (_, i) => [
+          `q${i}`,
+          { type: "boolean", instructions: `Statement ${i}?` } as const,
+        ]),
+      ),
+    });
+    assertEqual(refusedOf(many).kind, "max_tokens_exceeded");
+    refusal(
+      await xorOutcome({
+        questions: {
+          s: {
+            type: "score",
+            instructions: "Rate",
+            criteria: Array.from({ length: 11 }, (_, i) => String(i)),
+          },
+        },
+      }),
+      "at most 10 levels",
+    );
+    const one = sentBody(await xorOutcome({ images: [png] }));
+    assert(Array.isArray(one.images) && one.images.length === 1, "one image");
+  });
+
+  await test("audio goes out as { data, format } under the audio key, state and all, and counts toward mediaBytes", async () => {
+    const wav = wavBytes(1);
+    const body = sentBody(await xorOutcome({ state: "", audio: wav }));
+    assert(
+      sameJson(Object.keys(body), ["model", "state", "questions", "audio"]),
+      "the body keys are not model, state, questions, audio",
+    );
+    assert(
+      sameJson(body.audio, { data: wav.toString("base64"), format: "wav" }),
+      "the audio is not the clip's base64 and its format",
+    );
+    assertEqual(body.state, "", "an empty state was not kept");
+    for (const [bytes, format] of [
+      [flacBytes(2), "flac"],
+      [OGG_BYTES, "ogg"],
+      [MP3_BYTES, "mp3"],
+    ] as const) {
+      const sent = sentBody(await xorOutcome({ audio: bytes }));
+      assertEqual(
+        (sent.audio as { format?: string } | undefined)?.format,
+        format,
+        `${format} was not sniffed`,
+      );
+    }
+    const asUrl = sentBody(
+      await xorOutcome({
+        audio: `data:audio/wav;base64,${wav.toString("base64")}`,
+      }),
+    );
+    assert(
+      sameJson(asUrl.audio, { data: wav.toString("base64"), format: "wav" }),
+      "a data: URL clip did not go out as the same bytes",
+    );
+    await withFetchStub(
+      () =>
+        new Response(VALUE_ANSWER, {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      async () => {
+        const provider = await make(
+          { apiKey: "k-1", baseURL: "https://xor.test" },
+          { entry: SHIPPED_XOR },
+        );
+        const result = await provider.decide({
+          state: "",
+          questions: { q: { type: "boolean", instructions: "Speaking?" } },
+          audio: wav,
+        });
+        assertEqual(result.mediaBytes, wav.toString("base64").length);
+      },
+    );
+  });
+
+  await test("audio the model would not hear in full, or cannot decode, is refused before any request", async () => {
+    refusal(await xorOutcome({ audio: M4A_BYTES }), "AAC or M4A");
+    refusal(
+      await xorOutcome({ audio: Buffer.from([0xff, 0xf1, 0x50, 0x80]) }),
+      "AAC or M4A",
+    );
+    refusal(await xorOutcome({ audio: wavBytes(31) }), "runs 31.0 seconds");
+    refusal(await xorOutcome({ audio: flacBytes(45) }), "runs 45.0 seconds");
+    refusal(
+      await xorOutcome({ audio: oggBytes("opus", 31) }),
+      "runs 31.0 seconds",
+    );
+    refusal(
+      await xorOutcome({ audio: oggBytes("vorbis", 40, 44100) }),
+      "runs 40.0 seconds",
+    );
+    for (const ogg of [oggBytes("opus", 29), oggBytes("vorbis", 29, 16000)]) {
+      assertEqual(
+        (
+          sentBody(await xorOutcome({ audio: ogg })).audio as {
+            format?: string;
+          }
+        )?.format,
+        "ogg",
+        "an Ogg clip inside 30 seconds must go out",
+      );
+    }
+    refusal(
+      await xorOutcome({ audio: Buffer.from("not audio at all") }),
+      "not a recognised audio format",
+    );
+    refusal(
+      await xorOutcome({ audio: wavBytes(1).subarray(0, 36) }),
+      "without a complete fmt and data chunk",
+    );
+    refusal(
+      await xorOutcome({ audio: "data:image/png;base64,AAAA" }),
+      "not base64 audio content",
+    );
+    refusal(
+      await xorOutcome({ audio: "https://example.test/a.wav" }),
+      "remote URL",
+    );
+    // 30 seconds exactly is heard in full.
+    sentBody(await xorOutcome({ audio: wavBytes(30) }));
+    await withFetchStub(
+      () => new Response(VALUE_ANSWER),
+      async (sent) => {
+        const laya = await make(GOOD);
+        const rejection = await laya
+          .decide({
+            state: "",
+            questions: { q: { type: "boolean", instructions: "x" } },
+            audio: wavBytes(1),
+          })
+          .then(
+            () => undefined,
+            (error: unknown) => error,
+          );
+        assertEqual(causeKind(rejection), "invalid_request");
+        assertIncludes(causeMessage(rejection) ?? "", "does not accept audio");
+        assertEqual(sent.length, 0, "audio reached Laya's wire");
+      },
+    );
+  });
+
+  await test("value answers parse with their null and unknown; a legend of numbers or objects is kept as text; a choice keeps unknown", async () => {
+    const dialect = getDecisionDialect("system-one");
+    const reading = dialect.readAnswers(
+      {
+        answers: {
+          amount: { type: "value", value: 18275.5, confidence: 0.99 },
+          ref: { type: "value", value: "INV-2024-0892", confidence: 1 },
+          phone: {
+            type: "value",
+            value: null,
+            confidence: 0.82,
+            unknown: true,
+          },
+          broken: { type: "value", value: { a: 1 }, confidence: 0.5 },
+          numbers: {
+            type: "score",
+            score: 2.02,
+            legend: { "0": 1, "1": 2, "2": 3 },
+            probabilities: { "0": 0.01, "1": 0.02, "2": 0.97 },
+            confidence: 0.9,
+          },
+          objects: {
+            type: "score",
+            score: 0.97,
+            legend: { "0": { label: "bad" }, "1": ["good"] },
+            probabilities: { "0": 0.03, "1": 0.97 },
+            confidence: 0.82,
+          },
+          intent: {
+            type: "choice",
+            choice: "unknown",
+            probabilities: { upgrade: 0.003, unknown: 0.997 },
+            confidence: 0.96,
+            unknown: true,
+          },
+        },
+      },
+      {},
+      {},
+    );
+    assertNotNull(reading, "no reading");
+    assert(
+      sameJson(reading.answers.amount, {
+        type: "value",
+        value: 18275.5,
+        confidence: 0.99,
+      }),
+      "a number value was not read",
+    );
+    assertEqual(
+      reading.answers.ref?.type === "value" && reading.answers.ref.value,
+      "INV-2024-0892",
+    );
+    assert(
+      sameJson(reading.answers.phone, {
+        type: "value",
+        value: null,
+        confidence: 0.82,
+        unknown: true,
+      }),
+      "an abstained value lost its null or its unknown",
+    );
+    assert(
+      sameJson(reading.dropped, ["broken"]),
+      "only the object-valued answer should be dropped",
+    );
+    assert(
+      reading.answers.numbers?.type === "score" &&
+        sameJson(reading.answers.numbers.legend, {
+          "0": "1",
+          "1": "2",
+          "2": "3",
+        }),
+      "a number legend was not kept as text",
+    );
+    assert(
+      reading.answers.objects?.type === "score" &&
+        sameJson(reading.answers.objects.legend, {
+          "0": '{"label":"bad"}',
+          "1": '["good"]',
+        }),
+      "an object legend was not kept as JSON text",
+    );
+    assert(
+      reading.answers.intent?.type === "choice" &&
+        reading.answers.intent.unknown === true,
+      "a choice lost its unknown flag",
+    );
+  });
+
+  await test("a LiteLLM gateway's error text loses the quoted request and its fallback table", async () => {
+    const pydantic =
+      "litellm.BadRequestError: Invalid Decisions request: 1 validation error\nquestions.s.score.criteria.0.str\n  Input should be a valid string [type=string_type, input_value={'state': 'SECRET STATE', 'q': 1}, input_type=dict]\n  more [type=x, input_value='cut off";
+    const cleaned = redactCredentials(pydantic, "");
+    assert(!cleaned.includes("SECRET"), "the quoted state survived");
+    assertIncludes(cleaned, "input_value=[redacted], input_type=dict]");
+    assert(
+      !cleaned.includes("cut off"),
+      "a quoted value without input_type survived",
+    );
+    const bracketed = redactCredentials(
+      "1 validation error\n  bad [type=x, input_value={'state': 'acct [A] secret-ssn 123-45-6789",
+      "",
+    );
+    assert(
+      !bracketed.includes("secret-ssn"),
+      "a cut-short value lost only its text before a bracket",
+    );
+    const delimited = redactCredentials(
+      "1 validation error\n  bad [type=x, input_value={'state': 'a, input_type=str] secret-pan 4111', 'q': 1}, input_type=dict]",
+      "",
+    );
+    assert(
+      !delimited.includes("secret-pan"),
+      "a value holding its own input_type text survived past it",
+    );
+    assertIncludes(delimited, "input_value=[redacted], input_type=dict]");
+    const multiline = redactCredentials(
+      "1 validation error\n  bad [type=x, input_value='line one\nsecret-dob 1990-01-01",
+      "",
+    );
+    assert(
+      !multiline.includes("secret-dob"),
+      "a cut-short value lost only its first line",
+    );
+    const routed =
+      'Decisions upstream returned HTTP 422: {"error": "c: 2..64 options, got 65"}. Received Model Group=xor-latest\nAvailable Model Group Fallbacks=[\'xor-omni\']';
+    assertEqual(
+      redactCredentials(routed, ""),
+      'Decisions upstream returned HTTP 422: {"error": "c: 2..64 options, got 65"}',
+    );
+    const unrouted =
+      "upstream returned HTTP 422: {\"error\": \"images supports at most 1 items\"}No fallback model group found for original model_group=xor-omni. Fallbacks=[{'a': ['b']}]";
+    assertEqual(
+      redactCredentials(unrouted, ""),
+      'upstream returned HTTP 422: {"error": "images supports at most 1 items"}',
+    );
+  });
+
+  await test("the shipped xor.json: a 502 wrapping a backend 4xx is a final invalid_request, an over-long state is max_tokens_exceeded, a bare 502 is retried", async () => {
+    const classify = (message: string): DecisionError =>
+      classifyDecisionError(SHIPPED_XOR.decide.errors, {
+        status: 502,
+        payload: { error: { message } },
+        requestId: undefined,
+        label: "XOR",
+        apiKey: "k-1",
+      });
+    const media = classify(
+      'litellm.APIError: Decisions upstream returned HTTP 502: {"error": "backend 400: {\\"error\\":{\\"message\\":\\"Invalid or unsupported audio file.\\"}}"}',
+    );
+    assertEqual(media.kind, "invalid_request");
+    assertEqual(media.retryable, false);
+    const long = classify(
+      "litellm.APIError: Decisions upstream returned HTTP 502: backend 400: This model's maximum context length is 32768 tokens.",
+    );
+    assertEqual(long.kind, "max_tokens_exceeded");
+    const bare = classify("Bad Gateway");
+    assertEqual(bare.kind, "server");
+    assertEqual(bare.retryable, true);
+  });
+
+  await test("decideMsPerKStateTokens adds to decideMs for every full 1,000 estimated state tokens; an entry without it keeps decideMs", async () => {
+    const xor = await make(
+      { apiKey: "k-1", baseURL: "https://xor.test" },
+      { entry: SHIPPED_XOR },
+    );
+    assertEqual(xor.call("defaultTimeoutMs", 1, 0), 5000);
+    assertEqual(xor.call("defaultTimeoutMs", 1, 100_000), 20_000);
+    assertEqual(xor.call("defaultTimeoutMs", 1, 999), 5000);
+    assertEqual(xor.call("defaultTimeoutMs", 1, 1999), 5150);
+    const laya = await make(GOOD);
+    assertEqual(laya.call("defaultTimeoutMs", 1, 100_000), 5000);
+  });
+
+  await test("the base class reads decideMsPerKStateTokens from the registered descriptor, for any provider", async () => {
+    const registry = PROVIDER_DESCRIPTORS_BY_NAME as Map<
+      string,
+      ProviderDescriptor
+    >;
+    const shipped = registry.get("laya");
+    assertNotNull(shipped, "Laya is not registered");
+    registry.set("laya", {
+      ...shipped,
+      timeouts: { decideMs: 4000, decideMsPerKStateTokens: 100 },
+    });
+    try {
+      const laya = await make(GOOD);
+      assertEqual(laya.call("defaultTimeoutMs", 1, 2500), 4200);
+    } finally {
+      registry.set("laya", shipped);
+    }
+  });
+
+  await test("capableModel: with no model chosen, media or a value question goes to xor-omni and is checked against its window", async () => {
+    // resolveRequestModel reads XOR_MODEL at decide time, after make()'s
+    // withEnv has put the developer's .env back.
+    const ambient = process.env.XOR_MODEL;
+    delete process.env.XOR_MODEL;
+    try {
+      const value = {
+        v: { type: "value", instructions: "Invoice amount?" } as const,
+      };
+      const modelOf = async (
+        extra: Partial<DecisionRequest>,
+      ): Promise<unknown> => sentBody(await xorOutcome(extra)).model;
+      assertEqual(await modelOf({}), "xor-latest", "a plain request");
+      assertEqual(await modelOf({ questions: value }), "xor-omni", "value");
+      assertEqual(
+        await modelOf({ images: [fixtureBytes("red.png")] }),
+        "xor-omni",
+        "an image",
+      );
+      assertEqual(
+        await modelOf({ state: "", audio: wavBytes(1) }),
+        "xor-omni",
+        "audio",
+      );
+      assertEqual(
+        await modelOf({ questions: { c: choice(2, true) } }),
+        "xor-latest",
+        "choice-unknown is read by xor-latest itself",
+      );
+      // A model somebody chose is the one sent.
+      assertEqual(
+        await modelOf({ model: "xor-latest", questions: value }),
+        "xor-latest",
+        "a model named in the call",
+      );
+      const previous = process.env.XOR_MODEL;
+      process.env.XOR_MODEL = "xor-latest";
+      try {
+        assertEqual(
+          await modelOf({ questions: value }),
+          "xor-latest",
+          "a model set by XOR_MODEL",
+        );
+      } finally {
+        if (previous === undefined) {
+          delete process.env.XOR_MODEL;
+        } else {
+          process.env.XOR_MODEL = previous;
+        }
+      }
+      // ~40,000 estimated tokens: inside xor-latest's window, past xor-omni's.
+      const long = "word ".repeat(32_000);
+      const refused = refusedOf(
+        await xorOutcome({ state: long, questions: value }),
+      );
+      assertEqual(refused.kind, "max_tokens_exceeded");
+      assertIncludes(refused.message, "xor-omni");
+      sentBody(await xorOutcome({ state: long }));
+    } finally {
+      if (ambient !== undefined) {
+        process.env.XOR_MODEL = ambient;
+      }
+    }
+  });
+}
 
 async function systemOneBodySection(): Promise<void> {
   logSection("system-one dialect: buildBody");
@@ -3056,6 +3823,13 @@ async function systemOneBodySection(): Promise<void> {
 
 // The raw string the stub received, for a byte-for-byte comparison.
 async function wireBodyFor(
+  entry: DecideCatalogJson,
+  extra: Partial<DecisionRequest>,
+): Promise<string> {
+  return withXorAllowance(() => wireStringOf(entry, extra));
+}
+
+async function wireStringOf(
   entry: DecideCatalogJson,
   extra: Partial<DecisionRequest>,
 ): Promise<string> {
@@ -5160,4 +5934,5 @@ await runSuite(async () => {
   await openaiDecisionsProviderSection();
   await configuredAuthHeaderSection();
   await configuredStateEncodingSection();
+  await xorDecisionsSection();
 });

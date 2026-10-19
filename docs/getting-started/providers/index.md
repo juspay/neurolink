@@ -488,11 +488,11 @@ health sweep.
 
 ### [XOR](xor.md)
 
-**Open-weights decision provider** — the same typed `boolean`/`choice`/`score` answers as Jev, from `xor-latest` (text) and `xor-omni` (images and video), Juspay's Apache-2.0 model, at a deployment or LiteLLM proxy route you configure
+**Open-weights decision provider** — the same typed `boolean`/`choice`/`score` answers as Jev, plus `value` extraction, from `xor-latest` (text) and `xor-omni` (an image and audio), Juspay's Apache-2.0 model, at a deployment or LiteLLM proxy route you configure
 
 - 🧭 Serves `decide` only; built-in features use it when its key and base URL are set and no TypeSafe key, no `AI_GATEWAY_API_KEY` and no Laya key and base URL is
-- 🖼️ Takes up to 8 images or one video with a decision on `xor-omni`, as a Buffer, a local file path or a `data:` URL; TypeSafe and Laya refuse media before any request, and Perplexity refuses a video
-- 📏 Refuses more than about 200,000 estimated tokens of state before any network call
+- 🖼️ Takes one image and one audio clip (the first 30 seconds are heard) with a decision on `xor-omni`, as a Buffer, a local file path or a `data:` URL; a video is refused, because XOR's gateway drops it
+- 📏 Refuses more than 120,000 estimated tokens of state on `xor-latest` (28,000 on `xor-omni`) or more than 128 questions before any network call
 - 🔌 No built-in endpoint: `XOR_BASE_URL` (or `credentials.xor.baseURL`) is the origin of a deployment or of a LiteLLM route to one; requests go to `<base URL>/v1/decisions`
 - 🔑 `XOR_API_KEY` is the key that endpoint accepts; on LiteLLM, the key's team must allow `xor-latest` (and `xor-omni` for media)
 - 📦 Weights and setup: [huggingface.co/juspay/xor](https://huggingface.co/juspay/xor)

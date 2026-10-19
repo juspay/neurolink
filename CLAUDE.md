@@ -114,8 +114,8 @@ failure and is what every internal consumer uses — plus the CLI's
 
 **Decision providers; descriptor order is precedence.** TypeSafe (Jev,
 hosted), Laya (open weights, at a configured base URL — there is no default),
-XOR (open weights that also reads images and video, likewise at a configured base
-URL), SubQ (`subq`, described below), Perplexity (`perplexity-decider`, the hosted Decisions API; it also reads
+XOR (open weights that also reads an image and audio and extracts typed values,
+likewise at a configured base URL), SubQ (`subq`, described below), Perplexity (`perplexity-decider`, the hosted Decisions API; it also reads
 images, no video, at the public `https://api.perplexity.ai`, so a key alone
 configures it), Cloudflare Clef (`cloudflare-clef`, on Workers AI; it also reads
 images, no video, at Cloudflare's own API, so a token and an account id configure
@@ -307,10 +307,27 @@ too generous for non-Latin scripts. TypeSafe's row is `advisory: true` —
 33,000 state tokens, no question-count cap (it bounds a request by tokens) —
 so `decisionLimits()` reports it while the pre-flight check skips it and its
 server keeps refusing; adding a plain (non-advisory) row to a descriptor
-silently turns on local refusal for that provider. XOR declares a conservative
-200,000-token state window, no question cap, and
-`media` of up to 8 images and one video per request (prepared by
-`src/lib/utils/decisionMedia.ts`). Perplexity declares a 100,000-token state
+silently turns on local refusal for that provider. XOR declares what was measured
+through its LiteLLM gateway in October 2026: 120,000 state tokens on `xor-latest`
+and 28,000 on `xor-omni` and any other name (windows of 131,072 and 32,768), 128
+questions, `maxChoiceOptions: 64` (counting `unknown`; 64 plus `unknown` crashed
+the server) and `maxScoreLevels: 10`, and `media` of one image, no video (the
+gateway drops a video without a word, so a blind answer is refused locally) and
+one audio clip (`audio: { maxSeconds: 30 }`: the model hears the first 30 seconds,
+so a longer WAV, FLAC or Ogg is refused; AAC/M4A is refused because it decodes
+to nothing), with a 25 MB body against the server's 24 MiB, all prepared by
+`src/lib/utils/decisionMedia.ts`. Its timeout scales with the state
+(`timeouts.decideMsPerKStateTokens: 150` on top of `decideMs`), and a 5xx
+wrapping the backend's 4xx (`backend 400: …`) is a final `invalid_request`, not a
+retried `server`. `decide.capableModel` sends a request with media or a `value`
+question to `xor-omni` (and checks its 28,000-token window) when nobody chose a
+model — the gateway would otherwise hand it there from `xor-latest` past a
+120,000 check. **`decisionLimits.questionTypes` lists what a provider reads**
+(absent: `boolean`, `choice`, `score`); XOR adds `value` and `choice-unknown` (a
+choice with `unknown: true`). Anything else is refused before any request even on
+an `advisory` row, and `siteDecide` drops such a host question on its own, as it
+does one past `maxChoiceOptions` / `maxScoreLevels`; the check is
+`unsupportedDecisionQuestion` in `utils/decisionLimits.ts`. Perplexity declares a 100,000-token state
 window, 128 questions and `media` of up to 8 images and no video, with a 32 MiB
 body. Measured on a real account in October 2026: the 128-question and 8-image
 caps, the 262,144-token input ceiling (images count toward it, one token for
@@ -331,7 +348,8 @@ still be refused. The
 provider also checks image format and the 2,048-tile cap per image locally,
 because a larger image stalls the API for about a minute before an HTML 504. XOR,
 Perplexity, Cloudflare Clef and OpenAI Decisions are the providers with `media`;
-every other provider, ScaleDown included, refuses media before any request. `maxQuestions` is optional
+XOR alone takes audio and none takes video; every other provider, ScaleDown
+included, refuses media before any request. `maxQuestions` is optional
 in `DecisionLimits` and in the `decisionLimits()` reading: absent means "no count
 cap", never `Infinity`.
 
@@ -376,8 +394,9 @@ where `outer` carries the surrounding request's per-call `credentials`,
 a host-wired `RAGPipeline` or `ClassifierRouter` gets the same treatment. That
 one path runs the host's `decisionHooks` (namespacing host questions as
 `host__N`, capping them at the provider's `maxQuestions` when it declares one
-— Laya, Cloudflare Clef, Perplexity and OpenAI Decisions do; TypeSafe and XOR do
-not, and take every well-formed addition —
+— Laya, XOR, Cloudflare Clef, Perplexity and OpenAI Decisions do; TypeSafe does
+not, and takes every well-formed addition; a host question the provider cannot
+answer is dropped on its own —
 splitting answers back), emits `decision:before` / `decision:after`, and adds `decision.site` +
 `decision.host_question_count` to the `MODEL_DECISION` span. Without hooks or
 listeners the decision payload (state and questions) is unchanged; per-call
@@ -387,7 +406,7 @@ decision provider it runs no hook and emits no event (null, as before hooks
 existed); everything host-facing runs inside one `try`, so a host throw falls
 back to the answers already obtained or to a call with NeuroLink's own
 questions; and every host-facing value is a `structuredClone` — of the state,
-the questions and the result only, never of the request's `images` / `video`,
+the questions and the result only, never of the request's `images` / `video` / `audio`,
 which ride through to the wire as the caller's own Buffers (and the result
 keeps `mediaBytes`), so an XOR request gets the same funnel. The wire call
 dispatches through `this.decide()`, so an override or patch on the public
@@ -396,10 +415,13 @@ expose the pre-flight check's own flattening and estimator
 (`utils/decisionLimits.ts`); `decisionLimits()` reports the model `decide()`
 would send — the one registered for the provider, not a fresh read of
 `LAYA_MODEL`. TypeSafe's descriptor row is `advisory: true` and is reported,
-never enforced. XOR's reading is `{ maxStateTokens: 200000,
-nonAsciiTokensPerChar: 1, media: { maxImages: 8, video: true,
-maxRequestBytes: 8 MiB }, enforcedLocally: true }` with no `maxQuestions` key
-at all — test for the key, never compare against `Infinity`.
+never enforced. XOR's reading on `xor-latest` is `{ maxStateTokens: 120000,
+maxQuestions: 128, questionTypes: [boolean, choice, score, value,
+choice-unknown], maxScoreLevels: 10, maxChoiceOptions: 64,
+nonAsciiTokensPerChar: 1, media: { maxImages: 1, video: false,
+maxRequestBytes: 25000000, audio: { maxSeconds: 30 } }, enforcedLocally: true }`.
+TypeSafe's has no `maxQuestions` key at all — test for the key, never compare
+against `Infinity`.
 
 ### The `transcribe` inference type
 

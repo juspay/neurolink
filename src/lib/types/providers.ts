@@ -2525,7 +2525,13 @@ export type ProviderDescriptor = {
    */
   autoSelectPreference?: number;
   setupUrl?: string;
-  timeouts?: { generateMs?: number; streamMs?: number; decideMs?: number };
+  timeouts?: {
+    generateMs?: number;
+    streamMs?: number;
+    decideMs?: number;
+    /** Added to `decideMs` per 1,000 estimated state tokens. */
+    decideMsPerKStateTokens?: number;
+  };
   /**
    * What a `decide` provider can read. Absent means the provider leaves size
    * checks to its own server (TypeSafe). See {@link DecisionLimits}.

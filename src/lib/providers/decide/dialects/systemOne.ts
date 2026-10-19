@@ -3,7 +3,7 @@ import type {
   DecisionDialect,
   DecisionQuestion,
 } from "../../../types/index.js";
-import { asNumber, asNumberMap, asStringMap, isRecord } from "../guards.js";
+import { asNumber, asNumberMap, asTextMap, isRecord } from "../guards.js";
 
 /**
  * Last-resort confidence, when no transport reported one.
@@ -54,11 +54,12 @@ function parseDecisionAnswer(
           reportedConfidence ??
           deriveConfidence(probabilities),
         probabilities,
+        ...(raw.unknown === true ? { unknown: true } : {}),
       };
     }
     case "score": {
       const score = asNumber(raw.score);
-      const legend = asStringMap(raw.legend);
+      const legend = asTextMap(raw.legend);
       const probabilities = asNumberMap(raw.probabilities);
       if (score === undefined || !legend || !probabilities) {
         return null;
@@ -72,6 +73,22 @@ function parseDecisionAnswer(
           deriveConfidence(probabilities),
         legend,
         probabilities,
+      };
+    }
+    case "value": {
+      const value =
+        raw.value === null || typeof raw.value === "string"
+          ? raw.value
+          : asNumber(raw.value);
+      const confidence = asNumber(raw.confidence) ?? reportedConfidence;
+      if (value === undefined || confidence === undefined) {
+        return null;
+      }
+      return {
+        type: "value",
+        value,
+        confidence,
+        ...(raw.unknown === true ? { unknown: true } : {}),
       };
     }
     default:
@@ -90,6 +107,13 @@ function encodeQuestion(question: DecisionQuestion): Record<string, unknown> {
       instructions: question.instructions,
       ...(question.criteria ? { criteria: question.criteria } : {}),
     };
+  }
+  if (question.type === "choice" && question.unknown !== undefined) {
+    // `unknown` goes out only when it is on: a server that does not know the
+    // field may refuse it even as false. A choice without it is the caller's
+    // own object, as every other question is.
+    const { unknown, ...rest } = question;
+    return unknown ? { ...rest, unknown: true } : rest;
   }
   return question;
 }
@@ -112,6 +136,9 @@ export const systemOneDialect: DecisionDialect = {
         : {}),
       ...(media.video && mediaKeys.videoKey
         ? { [mediaKeys.videoKey]: media.video }
+        : {}),
+      ...(media.audio && mediaKeys.audioKey
+        ? { [mediaKeys.audioKey]: media.audio }
         : {}),
     };
   },

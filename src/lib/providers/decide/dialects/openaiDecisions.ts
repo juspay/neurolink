@@ -48,6 +48,13 @@ function encodeQuestion(question: DecisionQuestion): Record<string, unknown> {
       })),
     };
   }
+  if (question.type === "value") {
+    // Unreachable through decide(): an entry on this dialect cannot list
+    // `value` in its questionTypes, so the pre-flight check refuses it first.
+    throw new Error(
+      "The openai-decisions dialect has no value question; it writes boolean, choice and score questions only.",
+    );
+  }
   // The index is the label so a returned `value` and `label` can never
   // disagree about which level it is; the rubric text rides in `description`.
   return {
@@ -191,6 +198,9 @@ function readAnswer(
   }
   if (question.type === "choice") {
     return raw.type === "choice" ? readChoice(question, raw) : null;
+  }
+  if (question.type === "value") {
+    return null;
   }
   return raw.type === "score" ? readScore(question, raw) : null;
 }

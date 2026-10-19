@@ -10,18 +10,18 @@
     "topModels": ["xor-latest", "xor-omni"],
     "catalog": {
       "xor-latest": {
-        "contextWindow": 250000,
+        "contextWindow": 131072,
         "maxOutputTokens": 256,
         "vision": false,
         "status": "production",
-        "description": "Recommended - XOR text alias; boolean, choice and score questions, 2 to 64 options each"
+        "description": "Recommended - XOR text alias; boolean, choice and score questions over a 131,072-token window. A request with a value question, an image or audio goes to xor-omni when no model was chosen (decide.capableModel)"
       },
       "xor-omni": {
-        "contextWindow": 250000,
+        "contextWindow": 32768,
         "maxOutputTokens": 256,
         "vision": true,
         "status": "production",
-        "description": "XOR multimodal alias; reads images and video alongside the state, for boolean, choice and score questions"
+        "description": "XOR multimodal alias; boolean, choice, score and value questions over a 32,768-token window, plus one image and up to 30 seconds of audio"
       },
       "xor-1.1": {
         "contextWindow": 250000,
@@ -32,11 +32,24 @@
       }
     }
   },
-  "timeouts": { "decideMs": 5000 },
+  "timeouts": { "decideMs": 5000, "decideMsPerKStateTokens": 150 },
   "decisionLimits": {
-    "maxStateTokens": 200000,
+    "maxStateTokens": 28000,
+    "maxQuestions": 128,
+    "questionTypes": ["boolean", "choice", "score", "value", "choice-unknown"],
+    "maxScoreLevels": 10,
+    "maxChoiceOptions": 64,
     "nonAsciiTokensPerChar": 1,
-    "media": { "maxImages": 8, "video": true, "maxRequestBytes": 8388608 }
+    "models": {
+      "xor-latest": { "maxStateTokens": 120000 },
+      "xor-omni": { "maxStateTokens": 28000 }
+    },
+    "media": {
+      "maxImages": 1,
+      "video": false,
+      "maxRequestBytes": 25000000,
+      "audio": { "maxSeconds": 30 }
+    }
   },
   "decide": {
     "dialect": "system-one",
@@ -46,7 +59,8 @@
     "baseURLShape": "origin",
     "endpoint": "{baseURL}/v1/decisions",
     "model": { "placement": "body" },
-    "media": { "imagesKey": "images", "videoKey": "video" },
+    "media": { "imagesKey": "images", "audioKey": "audio" },
+    "capableModel": { "model": "xor-omni", "questionTypes": ["value"] },
     "requestIdHeaders": [
       "x-request-id",
       "x-typesafe-request-id",
@@ -62,6 +76,12 @@
           "statusMin": 500,
           "messagePattern": "(context|prefill|prompt).{0,40}(length|limit|too long|exceed)|(too long|exceeds?).{0,40}(context|tokens)",
           "kind": "max_tokens_exceeded"
+        },
+        {
+          "statusMin": 500,
+          "messagePattern": "backend 4[0-9]{2}",
+          "kind": "invalid_request",
+          "retryable": false
         },
         { "statusMin": 500, "kind": "server" }
       ],
@@ -91,8 +111,8 @@
   },
   "evidence": {
     "rosterVerified": {
-      "date": "2026-10-18",
-      "method": "POST <origin>/v1/decisions with model xor-latest and a 3-option choice question returned HTTP 200 with served model xor-text-2, through NeuroLink's decide(); a 65-option choice question returned HTTP 422 reading 2..64 options, got 65. A 64-option question returned 200 and 77 options returned 422 on both aliases when probed by hand the same day. A successful xor-omni answer, and any image, audio or video request, were not exercised. The figures contextWindow 250000, maxOutputTokens 256, the 200000-token state window and the media limits are carried over from xor-1.1, not re-measured for the aliases; xor-1.1 is kept only as a retired name"
+      "date": "2026-10-19",
+      "method": "Probed POST <origin>/v1/decisions through a LiteLLM gateway with both aliases. xor-latest read a needle at 120,076 input tokens and refused 200,076 as longer than its 131,072-token context; xor-omni refused past 32,768. 128 questions were answered and 256 refused; a choice took 64 options (63 plus unknown; 64 plus unknown crashed with a 500); a score took 10 levels and 11 were refused by the gateway. value answered int, float and pattern-bound strings on xor-omni, and on xor-latest through the gateway's fallback to xor-omni. One image was read (a second was refused with 422) at a fixed ~600 tokens whatever its resolution. Audio as {data, format} was heard in WAV, FLAC, Ogg, Opus and MP3 (an English speech clip identified at 0.9999 in each) at ~25 tokens a second and cut at 30 seconds, keeping the start; M4A/AAC decoded to nothing. A video, sent as a data URL or as {data, format}, returned the same answer as garbage bytes, so the gateway drops it. The body cap was 24 MiB. A malformed image or audio clip and an over-long state returned 502 wrapping the backend's 400"
     },
     "liveMatrix": null,
     "addedInPR": "https://github.com/juspay/neurolink/pull/1984"

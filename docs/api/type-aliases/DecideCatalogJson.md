@@ -94,6 +94,12 @@
 
 > `optional` **decideMs?**: `number`
 
+#### decideMsPerKStateTokens?
+
+> `optional` **decideMsPerKStateTokens?**: `number`
+
+Added to `decideMs` per 1,000 estimated state tokens, for a model whose latency grows with the state.
+
 ---
 
 ### decisionLimits?

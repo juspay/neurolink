@@ -2126,7 +2126,8 @@ function limitCases(entry: DecideCatalogJson): ContractCase[] {
   };
   // The provider falls back to its descriptor's decideMs. An entry that
   // declares none has no value to pin: the base class then supplies a longer
-  // default of its own, which is not this contract's to fix.
+  // default of its own, which is not this contract's to fix. The state here is
+  // far under 1,000 tokens, so decideMsPerKStateTokens adds nothing to it.
   const timeoutCase: ContractCase = {
     name: `DECIDE ${id}: default timeout is decideMs and a caller's timeoutMs wins`,
     run: async (ctx) => {

@@ -6189,22 +6189,34 @@ async function runXorDecide(): Promise<void> {
     },
   );
 
-  // ── X10c: XOR has no question cap, so a large batch goes out ──
-  await xorCase("DECIDE xor: no question cap", async () => {
-    const questions = Object.fromEntries(
-      Array.from({ length: 300 }, (_, i) => [
-        `q${i}`,
-        {
-          type: "boolean" as const,
-          instructions: `Is statement ${i} true?`,
-        },
-      ]),
-    );
-    await withMocks([xorOkRoute], async ({ calls }) => {
-      await decideOne(await createXor(), { questions });
-      expectEq(calls.length, 1, "300 questions in one request");
-    });
-  });
+  // ── X10c: the gateway's 128-question cap: 128 go out, 129 are refused ──
+  await xorCase(
+    "DECIDE xor: 128 questions go out in one request, and 129 are refused before any",
+    async () => {
+      const questionsOf = (n: number) =>
+        Object.fromEntries(
+          Array.from({ length: n }, (_, i) => [
+            `q${i}`,
+            {
+              type: "boolean" as const,
+              instructions: `Is statement ${i} true?`,
+            },
+          ]),
+        );
+      await withMocks([xorOkRoute], async ({ calls }) => {
+        await decideOne(await createXor(), { questions: questionsOf(128) });
+        expectEq(calls.length, 1, "128 questions in one request");
+      });
+      await withMocks([xorOkRoute], async ({ calls }) => {
+        const failure = await captureDecisionFailure(async () =>
+          decideOne(await createXor(), { questions: questionsOf(129) }),
+        );
+        expectEq(failure.kind, "max_tokens_exceeded", "129 refused");
+        expect(failure.message.includes("at most 128"), "names the cap");
+        expectEq(calls.length, 0, "refused before any request");
+      });
+    },
+  );
 
   const XOR_FIXTURES = fileURLToPath(
     new URL("./fixtures/decide/xor/", import.meta.url),
@@ -6214,58 +6226,98 @@ async function runXorDecide(): Promise<void> {
     readFileSync(fixturePath(name));
   const asDataUrl = (mime: string, bytes: Buffer): string =>
     `data:${mime};base64,${bytes.toString("base64")}`;
-  type XorSentBody = { model?: string; images?: string[]; video?: string };
+  type XorSentBody = {
+    model?: string;
+    state?: unknown;
+    images?: string[];
+    video?: string;
+    audio?: { data?: string; format?: string };
+  };
+  // One second of 8-bit mono PCM: the header gives an exact length.
+  const wavOf = (seconds: number): Buffer => {
+    const rate = 8000;
+    const dataBytes = Math.round(seconds * rate);
+    const wav = Buffer.alloc(44 + dataBytes, 0x80);
+    wav.write("RIFF", 0, "latin1");
+    wav.writeUInt32LE(36 + dataBytes, 4);
+    wav.write("WAVEfmt ", 8, "latin1");
+    wav.writeUInt32LE(16, 16);
+    wav.writeUInt16LE(1, 20);
+    wav.writeUInt16LE(1, 22);
+    wav.writeUInt32LE(rate, 24);
+    wav.writeUInt32LE(rate, 28);
+    wav.writeUInt16LE(1, 32);
+    wav.writeUInt16LE(8, 34);
+    wav.write("data", 36, "latin1");
+    wav.writeUInt32LE(dataBytes, 40);
+    return wav;
+  };
 
-  // ── X11: images go out as data URLs, whichever form they came in ──
+  // ── X11: one image goes out as a data URL, whichever form it came in ──
   await xorCase(
-    "DECIDE xor: images from a Buffer, a path and a data URL",
+    "DECIDE xor: an image from a Buffer, a path and a data URL",
     async () => {
       const png = fixtureBytes("red.png");
       const expected = asDataUrl("image/png", png);
-      await withMocks([xorOkRoute], async ({ calls }) => {
-        const result = await decideOne(await createXor(), {
-          images: [png, fixturePath("red.png"), expected],
+      for (const image of [png, fixturePath("red.png"), expected]) {
+        await withMocks([xorOkRoute], async ({ calls }) => {
+          const result = await decideOne(await createXor(), {
+            images: [image],
+          });
+          const body = calls[0].bodyJson as XorSentBody;
+          expectEq(body.images?.length, 1, "one image sent");
+          expectEq(body.images?.[0], expected, "every form encodes the same");
+          expect(!("video" in body), "no video field");
+          expect(!("audio" in body), "no audio field when none was given");
+          expectEq(result.mediaBytes, expected.length, "media bytes reported");
         });
-        const body = calls[0].bodyJson as XorSentBody;
-        expectEq(body.images?.length, 3, "three images sent");
-        expect(
-          body.images?.every((url) => url === expected) === true,
-          "every form encodes identically",
-        );
-        expect(!("video" in body), "no video field when none was given");
-        expectEq(
-          result.mediaBytes,
-          expected.length * 3,
-          "media bytes reported",
-        );
-      });
+      }
     },
   );
 
-  await xorCase("DECIDE xor: a video from a Buffer and a path", async () => {
-    const mp4 = fixtureBytes("red.mp4");
-    const expected = asDataUrl("video/mp4", mp4);
-    for (const video of [mp4, fixturePath("red.mp4")]) {
-      await withMocks([xorOkRoute], async ({ calls }) => {
-        await decideOne(await createXor(), { video });
-        const body = calls[0].bodyJson as XorSentBody;
-        expectEq(body.video, expected, "video sent as a data URL");
-        expect(!("images" in body), "no images field when none was given");
-      });
-    }
-  });
+  // XOR's gateway drops a video and the model answers without it, so the
+  // request is refused rather than answered blind.
+  await xorCase(
+    "DECIDE xor: a video from a Buffer or a path is refused before any request",
+    async () => {
+      for (const video of [fixtureBytes("red.mp4"), fixturePath("red.mp4")]) {
+        await withMocks([xorOkRoute], async ({ calls }) => {
+          const failure = await captureDecisionFailure(async () =>
+            decideOne(await createXor(), { video }),
+          );
+          expectEq(failure.kind, "invalid_request", "video refused");
+          expect(failure.message.includes("does not accept video"), "says why");
+          expectEq(calls.length, 0, "no request");
+        });
+      }
+    },
+  );
 
   await xorCase(
-    "DECIDE xor: images and a video together are sent unchanged",
+    "DECIDE xor: an image and an audio clip go out together, the clip as { data, format }",
     async () => {
+      const wav = wavOf(1);
       await withMocks([xorOkRoute], async ({ calls }) => {
-        await decideOne(await createXor(), {
+        const result = await decideOne(await createXor(), {
+          state: "",
           images: [fixtureBytes("red.png")],
-          video: fixtureBytes("blue.mp4"),
+          audio: wav,
         });
         const body = calls[0].bodyJson as XorSentBody;
         expectEq(body.images?.length, 1, "the image is sent");
-        expect(typeof body.video === "string", "the video is sent");
+        expectEq(body.audio?.format, "wav", "the clip's format");
+        expectEq(
+          body.audio?.data,
+          wav.toString("base64"),
+          "the clip's bytes, as base64 and not a data URL",
+        );
+        expectEq(body.state, "", "an empty state is kept");
+        expectEq(
+          result.mediaBytes,
+          asDataUrl("image/png", fixtureBytes("red.png")).length +
+            wav.toString("base64").length,
+          "media bytes count the image and the clip",
+        );
       });
     },
   );
@@ -6279,7 +6331,7 @@ async function runXorDecide(): Promise<void> {
       const big = join(dir, "big.png");
       writeFileSync(
         big,
-        Buffer.concat([png.subarray(0, 8), Buffer.alloc(9 * 1024 * 1024)]),
+        Buffer.concat([png.subarray(0, 8), Buffer.alloc(26 * 1024 * 1024)]),
       );
       const rows: Array<{
         label: string;
@@ -6287,9 +6339,9 @@ async function runXorDecide(): Promise<void> {
         includes: string;
       }> = [
         {
-          label: "nine images",
-          request: { images: Array.from({ length: 9 }, () => png) },
-          includes: "at most 8",
+          label: "two images",
+          request: { images: [png, png] },
+          includes: "at most 1",
         },
         {
           label: "a remote URL in any case",
@@ -6307,9 +6359,35 @@ async function runXorDecide(): Promise<void> {
           includes: "not a recognised image",
         },
         {
-          label: "image bytes as a video",
+          label: "a video of any kind",
           request: { video: png },
-          includes: "not a recognised video",
+          includes: "does not accept video",
+        },
+        {
+          label: "an M4A clip",
+          request: {
+            audio: Buffer.concat([
+              Buffer.from([0, 0, 0, 0x20]),
+              Buffer.from("ftypM4A ", "latin1"),
+              Buffer.alloc(24),
+            ]),
+          },
+          includes: "AAC or M4A",
+        },
+        {
+          label: "a WAV clip over 30 seconds",
+          request: { audio: wavOf(31) },
+          includes: "the model hears at most 30",
+        },
+        {
+          label: "bytes that are not audio",
+          request: { audio: Buffer.from("not audio at all") },
+          includes: "not a recognised audio format",
+        },
+        {
+          label: "an image data URL as audio",
+          request: { audio: "data:image/png;base64,AAAA" },
+          includes: "not base64 audio",
         },
         {
           label: "an empty Buffer",
@@ -6334,12 +6412,12 @@ async function runXorDecide(): Promise<void> {
         {
           label: "a file over the body limit",
           request: { images: [big] },
-          includes: "at most 8388608",
+          includes: "at most 25000000",
         },
         {
           label: "a body over the limit",
           request: {
-            images: [`data:image/png;base64,${"A".repeat(9 * 1024 * 1024)}`],
+            images: [`data:image/png;base64,${"A".repeat(26 * 1024 * 1024)}`],
           },
           includes: "The request is",
         },
@@ -6399,8 +6477,8 @@ async function runXorDecide(): Promise<void> {
                 failure.message.includes("perplexity-decider"),
               `${name}: names every provider that reads images`,
             );
-            // Perplexity reads images and not video, so a request with a video
-            // is pointed at the provider that does, and at no other.
+            // No provider reads video, so a video refusal points nowhere; XOR
+            // alone reads audio, so an audio refusal points at XOR alone.
             const withVideo = await captureDecisionFailure(() =>
               provider.decide!({
                 state: "short",
@@ -6410,9 +6488,23 @@ async function runXorDecide(): Promise<void> {
             );
             expectEq(withVideo.kind, "invalid_request", `${name}: video kind`);
             expect(
-              withVideo.message.includes("xor") &&
+              !withVideo.message.includes("xor") &&
                 !withVideo.message.includes("perplexity-decider"),
-              `${name}: a video refusal names only the provider that reads video`,
+              `${name}: a video refusal names no provider, since none reads video`,
+            );
+            const withAudio = await captureDecisionFailure(() =>
+              provider.decide!({
+                state: "short",
+                questions: { q: XOR_QUESTIONS.urgent },
+                audio: wavOf(1),
+              }),
+            );
+            expectEq(withAudio.kind, "invalid_request", `${name}: audio kind`);
+            expect(
+              withAudio.message.includes("does not accept audio") &&
+                withAudio.message.includes("xor") &&
+                !withAudio.message.includes("perplexity-decider"),
+              `${name}: an audio refusal names only the provider that reads audio`,
             );
           }
           expectEq(calls.length, 0, "no request from either");
@@ -6481,18 +6573,18 @@ async function runXorDecide(): Promise<void> {
               provider: "xor",
               state: "short",
               questions: { urgent: XOR_QUESTIONS.urgent },
-              images: [png, png],
+              images: [png],
             });
             const span = nl.getSpans().find((s) => s.type === "model.decision");
             const attrs = (span?.attributes ?? {}) as Record<string, unknown>;
             expectEq(
               attrs["decision.images.count"],
-              2,
+              1,
               "image count on the span",
             );
             expectEq(
               attrs["decision.media.bytes"],
-              asDataUrl("image/png", png).length * 2,
+              asDataUrl("image/png", png).length,
               "media bytes on the span",
             );
             expect(
@@ -11396,10 +11488,12 @@ async function runClefMediaHints(): Promise<void> {
     (d) => d.inferenceKinds?.includes("decide") && d.decisionLimits?.media,
   );
   const coveredVideo = new Set<boolean>();
+  const coveredAudio = new Set<boolean>();
   for (const descriptor of descriptors) {
     const limits = descriptor.decisionLimits!;
     const media = limits.media!;
     coveredVideo.add(media.video);
+    coveredAudio.add(media.audio !== undefined);
     await clefCase(
       "DECIDE media limits: request byte hint respects video for " +
         descriptor.name,
@@ -11445,6 +11539,11 @@ async function runClefMediaHints(): Promise<void> {
               media.video,
               "hint follows media.video",
             );
+            expectEq(
+              failure.message.includes("a shorter audio clip"),
+              media.audio !== undefined,
+              "hint follows media.audio",
+            );
             expect(
               failure.message.includes("Send fewer or smaller images"),
               "image hint retained",
@@ -11459,10 +11558,13 @@ async function runClefMediaHints(): Promise<void> {
     );
   }
   await clefCase(
-    "DECIDE media limits: byte hints cover video and image-only providers",
+    "DECIDE media limits: byte hints cover image-only providers and one that also takes audio",
     async () => {
-      expect(coveredVideo.has(true), "loop covered a video provider");
+      // No shipped provider reads video, so its hint is covered by none here.
+      expect(!coveredVideo.has(true), "a provider declares video again");
       expect(coveredVideo.has(false), "loop covered an image-only provider");
+      expect(coveredAudio.has(true), "loop covered an audio provider");
+      expect(coveredAudio.has(false), "loop covered a provider without audio");
     },
   );
   await clefCase(

@@ -55,6 +55,25 @@
       "properties": {
         "maxStateTokens": { "type": "integer", "minimum": 1 },
         "maxQuestions": { "type": "integer", "minimum": 1 },
+        "questionTypes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["boolean", "choice", "score", "value", "choice-unknown"]
+          },
+          "description": "The question types the provider reads; choice-unknown is a choice that sets unknown: true. Absent means boolean, choice and score. openai-decisions may list only boolean, choice and score."
+        },
+        "maxScoreLevels": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Most levels one score question may have."
+        },
+        "maxChoiceOptions": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Most options one choice question may have."
+        },
         "nonAsciiTokensPerChar": { "type": "number", "exclusiveMinimum": 0 },
         "digitTokensPerChar": { "type": "number", "exclusiveMinimum": 0 },
         "symbolTokensPerChar": { "type": "number", "exclusiveMinimum": 0 },
@@ -75,6 +94,19 @@
               "type": "integer",
               "minimum": 1,
               "description": "Ceiling on the encoded request body, in bytes."
+            },
+            "audio": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["maxSeconds"],
+              "description": "One audio clip is accepted. Requires decide.media.audioKey; not valid with openai-decisions.",
+              "properties": {
+                "maxSeconds": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Seconds of audio the model reads; a WAV, FLAC or Ogg clip that runs longer is refused."
+                }
+              }
             }
           }
         },
@@ -154,10 +186,32 @@
           "type": "object",
           "additionalProperties": false,
           "required": ["imagesKey"],
-          "description": "Body keys prepared media is written under, after model, state and questions: imagesKey only when the request carries an image, videoKey only when it carries a video, and the two differ. With dialect system-one it requires decisionLimits.media, and videoKey is required exactly when that allowance's video is true. Not valid with openai-decisions.",
+          "description": "Body keys prepared media is written under, after model, state and questions: imagesKey only when the request carries an image, videoKey only when it carries a video, audioKey only when it carries audio, and all differ. With dialect system-one it requires decisionLimits.media; videoKey is required exactly when that allowance's video is true, and audioKey exactly when it sets audio. Not valid with openai-decisions.",
           "properties": {
             "imagesKey": { "$ref": "#/definitions/decideMediaKey" },
-            "videoKey": { "$ref": "#/definitions/decideMediaKey" }
+            "videoKey": { "$ref": "#/definitions/decideMediaKey" },
+            "audioKey": { "$ref": "#/definitions/decideMediaKey" }
+          }
+        },
+        "capableModel": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["model", "questionTypes"],
+          "description": "A models.catalog key (not the default) the request is sent to instead of the default when the call names no model, no model variable is set, and the request carries media or a question of one of questionTypes; that model's decisionLimits row is the one checked. questionTypes must be listed in decisionLimits.questionTypes.",
+          "properties": {
+            "model": { "type": "string", "minLength": 1 },
+            "questionTypes": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "boolean",
+                  "choice",
+                  "score",
+                  "value",
+                  "choice-unknown"
+                ]
+              }
+            }
           }
         },
         "ambientKeyGuard": {
@@ -570,6 +624,11 @@
           "type": "integer",
           "minimum": 1,
           "description": "Decide entries only: the per-call budget for decide(), in milliseconds. When omitted, the base provider's default timeout applies."
+        },
+        "decideMsPerKStateTokens": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Decide entries only: added to decideMs for every 1,000 estimated state tokens, for a model whose latency grows with the state."
         }
       }
     },
@@ -690,7 +749,9 @@
           "defaultMaxOutputTokens"
         ]
       },
-      "timeouts": { "properties": { "decideMs": false } }
+      "timeouts": {
+        "properties": { "decideMs": false, "decideMsPerKStateTokens": false }
+      }
     }
   },
   "definitions": {

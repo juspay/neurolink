@@ -35,6 +35,32 @@ Absent when the provider has no cap on questions per request.
 
 ---
 
+### questionTypes?
+
+> `optional` **questionTypes?**: readonly [`DecisionQuestionType`](DecisionQuestionType.md)[]
+
+The question types the provider reads. Absent means `boolean`, `choice`
+and `score`; a request asking anything else is refused before any network
+call, whether or not the limits are advisory.
+
+---
+
+### maxScoreLevels?
+
+> `optional` **maxScoreLevels?**: `number`
+
+Most levels one `score` question may have. Absent means no local cap.
+
+---
+
+### maxChoiceOptions?
+
+> `optional` **maxChoiceOptions?**: `number`
+
+Most options one `choice` question may have. Absent means no local cap.
+
+---
+
 ### nonAsciiTokensPerChar?
 
 > `optional` **nonAsciiTokensPerChar?**: `number`

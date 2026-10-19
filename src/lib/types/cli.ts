@@ -1553,6 +1553,8 @@ export type CliDecideArgs = {
   image?: string[];
   /** One video file (or data: URL) for a provider that reads video. */
   video?: string;
+  /** One audio file (or data: URL) for a provider that reads audio. */
+  audio?: string;
   provider?: string;
   model?: string;
   timeout?: number;

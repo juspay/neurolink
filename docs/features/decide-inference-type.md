@@ -16,8 +16,8 @@ A **decision model** takes one `state` plus a map of named, typed questions and
 returns one typed answer per question, all evaluated in a single parallel pass.
 There is no text anywhere in the response, so nothing has to be parsed back out
 of prose. The decide providers are TypeSafe's **Jev**, Convai Innovations'
-open-weights **Laya**, Juspay's open-weights **XOR**, which also reads images and
-video, Subquadratic's hosted **SubQ Snap**, Perplexity's hosted **Decisions**
+open-weights **Laya**, Juspay's open-weights **XOR**, which also reads an image
+and audio and extracts typed values, Subquadratic's hosted **SubQ Snap**, Perplexity's hosted **Decisions**
 API, which also reads images,
 Cloudflare's **Clef** models on Workers AI,
 which also read images, OpenAI's
@@ -39,6 +39,48 @@ hosted **Classify** models, which read text only.
 | `score`   | Rate against an ordered rubric | `score`, `legend`, `probabilities`, `confidence` |
 
 All three mix freely in one call.
+
+### Two more, on XOR: `value`, and `choice` with `unknown`
+
+A provider lists the question types it reads in its `decisionLimits`
+(`questionTypes`); without the list it reads the three above. Asking anything
+else is refused before any request, as a non-retryable `invalid_request`, and a
+host question of such a type is dropped on its own (see
+[`decisionHooks`](#riding-along-decisionhooks)). XOR reads two more:
+
+| Type                          | Question                               | Answer fields                                                           |
+| ----------------------------- | -------------------------------------- | ----------------------------------------------------------------------- |
+| `value`                       | Extract one typed field from the state | `value` (string or number; `null` when absent), `confidence`, `unknown` |
+| `choice` with `unknown: true` | Which option, or none of them?         | as `choice`, plus `unknown: true` when none fits                        |
+
+```ts
+const result = await neurolink.decide({
+  provider: "xor",
+  state: "Invoice INV-2024-0892 for 18,275.50 rupees, due on 15 September.",
+  questions: {
+    amount: { type: "value", dtype: "float", instructions: "Invoice amount?" },
+    ref: {
+      type: "value",
+      instructions: "Invoice reference?",
+      pattern: "INV-[0-9]{4}-[0-9]{4}",
+    },
+    intent: {
+      type: "choice",
+      unknown: true,
+      instructions: "What does the customer want?",
+      criteria: { upgrade: "a higher plan", downgrade: "a lower plan" },
+    },
+  },
+});
+readDecisionValue(result.answers, "amount"); // { value: 18275.5, confidence, unknown: false }
+```
+
+`dtype` is `string` (the default), `int` or `float`; `pattern` is a regular
+expression the extracted text must match. A value the state does not hold comes
+back as `null` with `unknown: true` — an answer, not a missing one.
+`readDecisionValue` returns undefined only for an absent id or another type.
+With `unknown: true` on a `choice`, the option count includes `unknown`, and no
+option may itself be named `unknown`.
 
 **Vocabulary note.** TypeSafe calls the yes/no primitive a `noul` and answers
 it in a field of the same name. The Vercel AI SDK and Pydantic AI both renamed
@@ -103,7 +145,7 @@ configured only with both its key and its base URL. See the
 ```bash
 export XOR_BASE_URL=https://your-proxy.example.com  # required: a deployment, or a proxy route to one
 export XOR_API_KEY=sk-...                           # the key that endpoint accepts
-export XOR_MODEL=xor-latest                         # optional; xor-omni reads images and video
+export XOR_MODEL=xor-latest                         # optional; xor-omni reads an image and audio
 ```
 
 XOR, Juspay's open-weights decision model, has no built-in endpoint either.
@@ -119,7 +161,8 @@ must allow `xor-latest` (and `xor-omni` for media), otherwise the proxy answers 
 Built-in features use the first configured decision provider in the order
 TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef, OpenAI Decisions, ScaleDown. XOR counts as configured only with both its key
 and its base URL, and runs where a caller names it (`provider: "xor"`) or when
-neither TypeSafe nor Laya is configured. It reads images and video; see
+neither TypeSafe nor Laya is configured. It reads one image and up to 30
+seconds of audio, but no video, and answers `value` questions; see
 [Images and video](#images-and-video) and the
 [XOR provider guide](../getting-started/providers/xor.md).
 
@@ -480,7 +523,7 @@ it throws a `ProviderError` whose `cause` carries a typed `kind`
 (`authentication`, `rate_limit`, `max_tokens_exceeded`, …).
 
 **More questions than a provider takes.** A provider that caps the questions in
-one request (Laya and Cloudflare Clef take 64, Perplexity 128, OpenAI Decisions 200) refuses a longer map from `decide()` with `max_tokens_exceeded`, except
+one request (Laya and Cloudflare Clef take 64, Perplexity and XOR 128, OpenAI Decisions 200) refuses a longer map from `decide()` with `max_tokens_exceeded`, except
 OpenAI Decisions, whose row is advisory: its cap is reported and used to split,
 but `decide()` sends a longer map whole and leaves the answer to the server.
 `tryDecide()`, which every built-in consumer calls, splits the map at the cap
@@ -492,7 +535,7 @@ ids. A batch that fails costs only its own questions, which then have no answer
 carries on without that decision); `tryDecide()` returns `null` only when every
 batch failed. The state and any media are sent with each batch, so a split
 request costs the state's tokens once for each batch. A provider with no cap
-(TypeSafe, XOR, SubQ, ScaleDown) always gets one request.
+(TypeSafe, SubQ, ScaleDown) always gets one request.
 
 ### From the CLI
 
@@ -504,19 +547,21 @@ npx @juspay/neurolink decide "Refund request for a damaged item" \
   --questions '{"urgent":{"type":"boolean","instructions":"Is this urgent?"}}'
 ```
 
-To ask about an image or a video, add `--image <path>` (repeatable) or
-`--video <path>`. XOR reads both, Perplexity, Cloudflare Clef and OpenAI Decisions
-read images only, and TypeSafe, Laya, SubQ and ScaleDown read neither:
+To ask about an image, a video or an audio clip, add `--image <path>`
+(repeatable), `--video <path>` or `--audio <path>`. XOR reads one image and
+audio, Perplexity, Cloudflare Clef and OpenAI Decisions read images only,
+TypeSafe, Laya, SubQ and ScaleDown read neither, and no shipped provider reads
+video. With `--audio`, the state may be left out:
 
 ```bash
 npx @juspay/neurolink decide "A product photo from a listing." --provider xor --model xor-omni \
-  --image ./front.png --image ./back.jpg \
+  --image ./front.png \
   --questions '{"color":{"type":"choice","instructions":"What color is the product?","criteria":{"red":"Mostly red","blue":"Mostly blue"}}}'
 ```
 
 See the [CLI command reference](../cli/commands.md#decide) for the full flag
-list, including `--state-file`, `--questions-file`, `--image`, `--video` and
-`--format json`.
+list, including `--state-file`, `--questions-file`, `--image`, `--video`,
+`--audio` and `--format json`.
 
 ### A choice answer is also a ranking
 
@@ -529,25 +574,30 @@ single request. This is the basis for picking from a large catalogue.
 ## Images and video
 
 A decision provider whose descriptor declares media limits reads images, and
-possibly one video, alongside `state`. XOR does, and so do Perplexity, Cloudflare
-Clef and OpenAI Decisions, which declare images only and no video; TypeSafe, Laya, SubQ
-and ScaleDown do not. Two optional fields on the request carry them, for `decide()` and
+possibly one video or one audio clip, alongside `state`. XOR, Perplexity,
+Cloudflare Clef and OpenAI Decisions read images; XOR also reads audio; TypeSafe,
+Laya, SubQ and ScaleDown read none. No shipped provider reads video: XOR's
+gateway drops a video without a word (a solid red clip was answered the same as
+garbage bytes), so NeuroLink refuses one rather than return a blind answer.
+Three optional fields on the request carry media, for `decide()` and
 `tryDecide()` alike:
 
-- `images` — up to 8 images, the limit XOR, Perplexity and OpenAI Decisions each
-  declare (OpenAI's is NeuroLink's own allowance, not a limit OpenAI documents);
-  Cloudflare Clef takes up to 4.
-- `video` — one video, for a provider that declares video (XOR).
+- `images` — up to 8 for Perplexity and OpenAI Decisions (OpenAI's is
+  NeuroLink's own allowance, not a limit OpenAI documents), 4 for Cloudflare
+  Clef, 1 for XOR.
+- `video` — one video, for a provider that declares video (none today).
+- `audio` — one clip, for a provider that declares audio (XOR); see
+  [Audio](#audio) below.
 
-Each image and the video takes the same three input forms:
+Each takes the same three input forms:
 
 - a `Buffer`;
 - a local file path;
-- a `data:image/…;base64,` or `data:video/…;base64,` URL.
+- a `data:image/…`, `data:video/…` or `data:audio/…;base64,` URL.
 
 ```ts
 const result = await neurolink.decide({
-  provider: "xor",
+  provider: "perplexity-decider",
   state: "A product photo from a listing.",
   images: ["./front.png", "./back.jpg"],
   questions: {
@@ -578,14 +628,14 @@ request, as a non-retryable `invalid_request`:
   URL with another scheme;
 - a missing file, a directory, or an empty Buffer or file;
 - something that is not an image or a video;
-- more than 8 images, or more than 4 for Cloudflare Clef;
-- a request body over the provider's limit: 8 MB for XOR, 32 MiB for Perplexity
+- more than 8 images, more than 4 for Cloudflare Clef, or more than 1 for XOR;
+- a request body over the provider's limit: 25 MB for XOR, 32 MiB for Perplexity
   and for OpenAI Decisions (NeuroLink's own number for the latter), 256,000 bytes
   for Cloudflare Clef. The limit applies to the encoded body, so
   the base64 form counts, and a photo usually has to be resized to well under
   190 KB before Clef will take it. A file over it is refused from its size,
   before it is read;
-- a video sent to a provider that declares no video (Perplexity, Cloudflare Clef,
+- a video, which no shipped provider declares (XOR, Perplexity, Cloudflare Clef,
   OpenAI Decisions);
 - an image Perplexity cannot read: one of another type, or over 2,048 tiles of
   32 × 32 pixels, which the API would otherwise hold for about a minute before
@@ -594,11 +644,42 @@ request, as a non-retryable `invalid_request`:
 - any media sent to a provider that declares no media capability (TypeSafe,
   Laya). The message names the providers that accept media.
 
-**Images and a video can be sent together** to XOR (up to 8 images and one
-video), but the model does not reliably tell the two apart.
+### Audio
+
+XOR hears one clip per request, as WAV, FLAC, Ogg (Vorbis or Opus) or MP3,
+identified from its bytes and sent as `{ data, format }`. The state may be empty
+(`state: ""`; the CLI's `--audio` lets you leave it out), and an image may go
+with it.
+
+```ts
+const result = await neurolink.decide({
+  provider: "xor",
+  model: "xor-omni",
+  state: "",
+  audio: "./call.wav",
+  questions: {
+    language: {
+      type: "choice",
+      instructions: "Which language is spoken?",
+      criteria: { english: "English", hindi: "Hindi" },
+    },
+  },
+});
+```
+
+The model hears the **first 30 seconds** and drops the rest without a word, at
+about 25 input tokens a second. So a WAV, FLAC or Ogg (Opus or Vorbis) clip that
+runs longer is refused before any request, its length read from the file; an
+MP3's length is not read, and only its first 30 seconds count. With no model
+named and `XOR_MODEL` unset, a request carrying media or a `value` question goes
+to `xor-omni` and is checked against its window (the catalog's
+`decide.capableModel`). AAC/M4A is refused by name: it was
+measured decoding to nothing while the request was still answered. A WAV without
+a complete `fmt` and `data` chunk is refused too.
 
 The result carries `mediaBytes`, the encoded size of the media sent. The
-`decide` spans carry `decision.images.count` and `decision.media.bytes`, and
+`decide` spans carry `decision.images.count`, `decision.audio.count` and
+`decision.media.bytes`, and
 never any base64. A deployment started without `OPENJEV_IMAGES=1` answers 200
 and silently ignores images, which NeuroLink cannot detect; see the
 [XOR provider guide](../getting-started/providers/xor.md#troubleshooting).
@@ -825,18 +906,18 @@ const neurolink = new NeuroLink({
 
 What the funnel guarantees:
 
-| Concern                 | Behaviour                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Id collisions           | Host questions travel as `host__0`, `host__1`, … on the wire, so they can never collide with `difficulty`, `model`, `server__N`, `msg__N`, …; `onAnswers` maps them back to your ids.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| Malformed questions     | Each is checked at runtime (`isDecisionQuestion`); an invalid one is dropped with a warning, its siblings still go.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| The provider's cap      | Additions are capped at `maxQuestions − NeuroLink's own count`, dropped from the end with a warning. Without this one question too many would refuse the WHOLE request, and NeuroLink's routing would degrade. This is a count cap, and Laya, Clef, Perplexity and OpenAI Decisions all declare one. TypeSafe and XOR cap a request by tokens, not by count: their `decisionLimits()` reading has **no `maxQuestions` key** (absent, never `Infinity`), and every well-formed addition goes on the wire. For TypeSafe (`enforcedLocally: false`) size your questions with `decisionLimits()` and `estimateDecisionStateTokens()` — an over-long host question can still make the request exceed its state-plus-question or combined-request budget, and that refusal is not caught locally. For XOR the reading also carries `media` (8 images, one video, an 8 MiB body), which is the ceiling the questions share with the state and any media. |
-| A throwing or slow hook | Logged at `warn`; the decision proceeds with NeuroLink's own questions. Each hook is bounded by `hookTimeoutMs` (default 2000 ms) because both sit on the request path; the bound must be a finite number from 1 to 2^31 − 1 ms — anything else, `Infinity` included, falls back to the default with one warning, because a timer given such a delay fires immediately. Neither hook can change what NeuroLink does with its own answers — `onAnswers` and the events receive copies.                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| An unreadable return    | A return value from `extendQuestions` that cannot be read or copied (a proxy, a throwing getter, a function-valued field) is treated as a hook failure: logged at `warn`, and the decision proceeds with NeuroLink's own questions. Every question that is accepted travels as a copy, so editing your object after the hook returned changes nothing on the wire.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| A throwing listener     | A `decision:before` / `decision:after` listener that throws is logged at `warn` and the call continues; the events are observe-only, and their `state` / `questions` / `answers` are copies — editing them changes neither the request on the wire nor NeuroLink's own question objects.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| NeuroLink's consumers   | See only their own ids, exactly as without hooks. If anything host-facing throws after the call returned, the consumer still gets its own answers from that call; if it throws before, the call is made with NeuroLink's own questions. A host cannot turn a decision into an exception.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Host-wired consumers    | A `RAGPipeline` or `ClassifierRouter` you constructed with `decide: (o) => neurolink.tryDecide(o)` gets the same treatment — the consumer stamps the site, `tryDecide` honours it. Overriding or patching `decide()` on the instance is honoured too: every site call, `tryDecide` included, dispatches through it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| Question ids            | Your ids are ordinary map keys — `__proto__` or `constructor` come back under exactly that name in `onAnswers` and `hostAnswers`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| No hooks, no provider   | Nothing changes. Without a decision provider — none in the environment, the instance `credentials` or the request's per-call `credentials` — no hook runs and no event fires; `tryDecide` returns `null` exactly as it did before hooks existed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Concern                 | Behaviour                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Id collisions           | Host questions travel as `host__0`, `host__1`, … on the wire, so they can never collide with `difficulty`, `model`, `server__N`, `msg__N`, …; `onAnswers` maps them back to your ids.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Malformed questions     | Each is checked at runtime (`isDecisionQuestion`); an invalid one is dropped with a warning, its siblings still go.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| The provider's cap      | Additions are capped at `maxQuestions − NeuroLink's own count`, dropped from the end with a warning. Without this one question too many would refuse the WHOLE request, and NeuroLink's routing would degrade. This is a count cap, and Laya, XOR (128), Clef, Perplexity and OpenAI Decisions all declare one. TypeSafe caps a request by tokens, not by count: its `decisionLimits()` reading has **no `maxQuestions` key** (absent, never `Infinity`), and every well-formed addition goes on the wire. For TypeSafe (`enforcedLocally: false`) size your questions with `decisionLimits()` and `estimateDecisionStateTokens()` — an over-long host question can still make the request exceed its state-plus-question or combined-request budget, and that refusal is not caught locally. A host question the provider cannot answer — a type outside its `questionTypes`, or a `choice` or `score` past its per-question cap — is dropped on its own, with a warning. |
+| A throwing or slow hook | Logged at `warn`; the decision proceeds with NeuroLink's own questions. Each hook is bounded by `hookTimeoutMs` (default 2000 ms) because both sit on the request path; the bound must be a finite number from 1 to 2^31 − 1 ms — anything else, `Infinity` included, falls back to the default with one warning, because a timer given such a delay fires immediately. Neither hook can change what NeuroLink does with its own answers — `onAnswers` and the events receive copies.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| An unreadable return    | A return value from `extendQuestions` that cannot be read or copied (a proxy, a throwing getter, a function-valued field) is treated as a hook failure: logged at `warn`, and the decision proceeds with NeuroLink's own questions. Every question that is accepted travels as a copy, so editing your object after the hook returned changes nothing on the wire.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| A throwing listener     | A `decision:before` / `decision:after` listener that throws is logged at `warn` and the call continues; the events are observe-only, and their `state` / `questions` / `answers` are copies — editing them changes neither the request on the wire nor NeuroLink's own question objects.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| NeuroLink's consumers   | See only their own ids, exactly as without hooks. If anything host-facing throws after the call returned, the consumer still gets its own answers from that call; if it throws before, the call is made with NeuroLink's own questions. A host cannot turn a decision into an exception.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Host-wired consumers    | A `RAGPipeline` or `ClassifierRouter` you constructed with `decide: (o) => neurolink.tryDecide(o)` gets the same treatment — the consumer stamps the site, `tryDecide` honours it. Overriding or patching `decide()` on the instance is honoured too: every site call, `tryDecide` included, dispatches through it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Question ids            | Your ids are ordinary map keys — `__proto__` or `constructor` come back under exactly that name in `onAnswers` and `hostAnswers`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| No hooks, no provider   | Nothing changes. Without a decision provider — none in the environment, the instance `credentials` or the request's per-call `credentials` — no hook runs and no event fires; `tryDecide` returns `null` exactly as it did before hooks existed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 The two events are observe-only and fire once per site call whether or not it
 produced a result, so a decision path that has stopped working stays visible:
@@ -876,10 +957,14 @@ const limits = neurolink.decisionLimits(); // null with no decision provider
 //   enforcedLocally: true }
 // typesafe → { maxStateTokens: 33000, enforcedLocally: false }
 //   (no maxQuestions key: TypeSafe caps by tokens, not by count)
-// xor → { maxStateTokens: 200000, nonAsciiTokensPerChar: 1,
-//   media: { maxImages: 8, video: true, maxRequestBytes: 8388608 },
+// xor, xor-latest → { maxStateTokens: 120000, maxQuestions: 128,
+//   questionTypes: ["boolean", "choice", "score", "value", "choice-unknown"],
+//   maxScoreLevels: 10, maxChoiceOptions: 64, nonAsciiTokensPerChar: 1,
+//   media: { maxImages: 1, video: false, maxRequestBytes: 25000000,
+//     audio: { maxSeconds: 30 } },
 //   enforcedLocally: true }
-//   (no maxQuestions key either; `media` is absent for the text-only providers)
+//   (28,000 on xor-omni; `media` is absent for the text-only providers, and
+//   `questionTypes` for every provider that reads only the default three)
 // openai-decisions → { maxStateTokens: 922000, maxQuestions: 200,
 //   media: { maxImages: 8, video: false, maxRequestBytes: 33554432 },
 //   enforcedLocally: false }
@@ -900,7 +985,7 @@ if (
 ```
 
 `maxQuestions` is present only for a provider that caps by question count
-(Laya, Cloudflare Clef, Perplexity, OpenAI Decisions); a reading without the
+(Laya, XOR, Cloudflare Clef, Perplexity, OpenAI Decisions); a reading without the
 key has no count cap, and a host should test
 for the key rather than compare against `Infinity`. `media` is present only
 for a provider that reads images or video (XOR, Perplexity, Cloudflare Clef,
@@ -928,17 +1013,19 @@ measured per checkpoint — and refuses anything over the limit locally with
 `max_tokens_exceeded`, before any network call. The estimate errs toward
 refusing.
 
-**XOR shares one prefill between the state, the questions and any media.**
-NeuroLink allows about 200,000 estimated tokens of state (about four characters
-per token for ASCII, one token per character for other scripts) and refuses more
-locally with `max_tokens_exceeded`. That figure is a conservative default under
-the deployment's 250,000-token prefill, which the questions and any images or
-video also draw on; it has not been measured against a live deployment. A
-request that passes the local check can therefore still be refused by the
-server as too long. That arrives as `max_tokens_exceeded` (not retried) when
-the status is 413 or the message says the context was too long, and otherwise as
-`server`, retried once. XOR has no question cap in NeuroLink, and its server takes 2 to 255
-options on a `choice` or `score`.
+**XOR's two models have different windows.** Measured through a LiteLLM gateway
+in October 2026: `xor-latest` reads 131,072 tokens and `xor-omni` 32,768, and
+each refuses a longer input. NeuroLink allows 120,000 and 28,000 estimated
+tokens of state (about four characters per token for ASCII, one token per
+character for other scripts), leaving room for the questions, about 600 tokens
+for an image and about 25 a second of audio, and refuses more locally with
+`max_tokens_exceeded`. Dense text — JSON, digits — runs above the estimate, so a
+state near the limit can still be refused by the server; that arrives as
+`max_tokens_exceeded`, not retried. A request takes up to 128 questions (more is
+split by `tryDecide()`), a `choice` 2 to 64 options counting `unknown`, and a
+`score` 2 to 10 levels; past any of these it is refused before any request. The
+timeout grows with the state: 5 seconds plus 150 ms for every full 1,000
+estimated tokens, because a 120,000-token state took about 18 seconds.
 
 **Perplexity's input ceiling covers more than the state.** Measured on a real
 account in October 2026: the server reads under 262,144 input tokens per request,

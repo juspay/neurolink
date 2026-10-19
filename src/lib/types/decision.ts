@@ -61,6 +61,13 @@ export type DecisionChoiceQuestion = {
   type: "choice";
   instructions: DecisionInput;
   criteria: Readonly<Record<string, DecisionInput | null>>;
+  /**
+   * True adds an option named `unknown` the model picks when none of the
+   * criteria fits; the answer then carries `unknown: true`. Only a provider
+   * whose `decisionLimits.questionTypes` lists `"choice-unknown"` accepts it,
+   * and no criteria key may be named `unknown` alongside it.
+   */
+  unknown?: boolean;
 };
 
 /**
@@ -73,10 +80,30 @@ export type DecisionScoreQuestion = {
   criteria: readonly (DecisionInput | null)[];
 };
 
+/**
+ * Extract one typed field from the state: an amount, a reference, a name. Only
+ * a provider whose `decisionLimits.questionTypes` lists `"value"` accepts it.
+ */
+export type DecisionValueQuestion = {
+  type: "value";
+  instructions: DecisionInput;
+  /** The type of the extracted value. Omitted means `string`. */
+  dtype?: "string" | "int" | "float";
+  /** A regular expression the extracted text must match. */
+  pattern?: string;
+};
+
 export type DecisionQuestion =
   | DecisionBooleanQuestion
   | DecisionChoiceQuestion
-  | DecisionScoreQuestion;
+  | DecisionScoreQuestion
+  | DecisionValueQuestion;
+
+/**
+ * What a provider may be asked, per question. `"choice-unknown"` is a `choice`
+ * question that sets `unknown: true`.
+ */
+export type DecisionQuestionType = DecisionQuestion["type"] | "choice-unknown";
 
 /** Questions keyed by an id you choose; answers return under the same ids. */
 export type DecisionQuestionMap = Readonly<Record<string, DecisionQuestion>>;
@@ -95,23 +122,35 @@ export type DecisionChoiceAnswer = {
   probabilities: Readonly<Record<string, number>>;
   /** Calibrated certainty, 0–1, derived from the distribution. */
   confidence: number;
+  /** True when the question set `unknown` and the model picked it. */
+  unknown?: boolean;
 };
 
 export type DecisionScoreAnswer = {
   type: "score";
   /** Probability-weighted level index; lands between levels. */
   score: number;
-  /** Level index (as a string key) → the description supplied. */
+  /** Level index (as a string key) → the description supplied; a level that was not a string is given as its JSON text. */
   legend: Readonly<Record<string, string>>;
   /** Level index (as a string key) → probability. */
   probabilities: Readonly<Record<string, number>>;
   confidence: number;
 };
 
+export type DecisionValueAnswer = {
+  type: "value";
+  /** The extracted value: a number for `int` / `float`, else a string. Null when the model abstained. */
+  value: string | number | null;
+  confidence: number;
+  /** True when the model found nothing to extract; `value` is then null. */
+  unknown?: boolean;
+};
+
 export type DecisionAnswer =
   | DecisionBooleanAnswer
   | DecisionChoiceAnswer
-  | DecisionScoreAnswer;
+  | DecisionScoreAnswer
+  | DecisionValueAnswer;
 
 export type DecisionAnswerMap = Readonly<Record<string, DecisionAnswer>>;
 
@@ -120,7 +159,7 @@ export type DecisionUsage = {
   outputTokens: number;
 };
 
-/** An image or video as the caller supplies it: raw bytes, a file path, or a data URL. */
+/** An image, video or audio clip as the caller supplies it: raw bytes, a file path, or a data URL. */
 export type DecisionMediaSource = Buffer | string;
 
 export type DecisionRequest = {
@@ -134,6 +173,11 @@ export type DecisionRequest = {
   images?: readonly DecisionMediaSource[];
   /** One video, in the same forms. Sending images as well is allowed. */
   video?: DecisionMediaSource;
+  /**
+   * One audio clip, in the same forms (a `data:audio/…;base64,` URL). Only a
+   * provider whose `decisionLimits.media.audio` is set accepts it.
+   */
+  audio?: DecisionMediaSource;
   /** Overrides the provider's configured model for this call only. */
   model?: string;
   signal?: AbortSignal;
@@ -153,7 +197,7 @@ export type DecisionResult = {
   latencyMs: number;
   /** Server-side time behind the edge; isolates model time from network. */
   upstreamMs?: number;
-  /** Encoded size of the images and video sent. Absent for a text-only request. */
+  /** Encoded size of the images, video and audio sent. Absent for a text-only request. */
   mediaBytes?: number;
 };
 
@@ -174,6 +218,16 @@ export type DecisionLimits = {
   maxStateTokens: number;
   /** Absent when the provider has no cap on questions per request. */
   maxQuestions?: number;
+  /**
+   * The question types the provider reads. Absent means `boolean`, `choice`
+   * and `score`; a request asking anything else is refused before any network
+   * call, whether or not the limits are advisory.
+   */
+  questionTypes?: readonly DecisionQuestionType[];
+  /** Most levels one `score` question may have. Absent means no local cap. */
+  maxScoreLevels?: number;
+  /** Most options one `choice` question may have. Absent means no local cap. */
+  maxChoiceOptions?: number;
   /**
    * Tokens charged per non-ASCII character. The default estimate assumes ~4
    * characters per token, which holds for English and is several times too
@@ -235,9 +289,15 @@ export type DecisionLimitsReading = {
   maxStateTokens: number;
   /**
    * Absent when the provider caps a request by tokens (or bytes) rather
-   * than by question count — TypeSafe and XOR; `Infinity` is never used.
+   * than by question count — TypeSafe; `Infinity` is never used.
    */
   maxQuestions?: number;
+  /** Present only when the descriptor declares it; absent means `boolean`, `choice` and `score`. */
+  questionTypes?: readonly DecisionQuestionType[];
+  /** Most levels one `score` question may have; absent means no local cap. */
+  maxScoreLevels?: number;
+  /** Most options one `choice` question may have; absent means no local cap. */
+  maxChoiceOptions?: number;
   nonAsciiTokensPerChar?: number;
   /** Tokens charged per ASCII digit; see {@link DecisionLimits.digitTokensPerChar}. */
   digitTokensPerChar?: number;
@@ -270,18 +330,38 @@ export type DecisionMediaLimits = {
   video: boolean;
   /** Ceiling on the encoded request body, in bytes. */
   maxRequestBytes: number;
+  /** Whether one audio clip is accepted, and how much of it the model hears. Absent means no audio. */
+  audio?: DecisionAudioLimits;
+};
+
+export type DecisionAudioLimits = {
+  /**
+   * Seconds of audio the model reads. A clip whose length can be read from its
+   * header (WAV, FLAC, Ogg) and runs longer is refused, since the rest would be cut
+   * off without a word.
+   */
+  maxSeconds: number;
 };
 
 /** An image's size in pixels, read from its header. */
 export type DecisionImageDimensions = { width: number; height: number };
 
-/** Media after preparation: everything is a `data:` URL, ready for the wire. */
+/** Media after preparation: images and video are `data:` URLs, ready for the wire. */
 export type DecisionPreparedMedia = {
   images: string[];
   video?: string;
-  /** Encoded size of every URL above. */
+  audio?: DecisionPreparedAudio;
+  /** Encoded size of everything above. */
   bytes: number;
 };
+
+/** An audio clip as the wire takes it: raw base64 and the container it was sniffed as. */
+export type DecisionPreparedAudio = {
+  data: string;
+  format: DecisionAudioFormat;
+};
+
+export type DecisionAudioFormat = "wav" | "flac" | "ogg" | "mp3";
 
 /**
  * Discriminated by a string literal, not a boolean: the package is also
@@ -292,9 +372,9 @@ export type DecisionMediaResult =
   | { status: "prepared"; media: DecisionPreparedMedia | undefined }
   | { status: "refused"; message: string };
 
-export type DecisionMediaKind = "image" | "video";
+export type DecisionMediaKind = "image" | "video" | "audio";
 
-/** One image or video turned into a data URL, or the reason it could not be. Same literal-discriminant rule as above. */
+/** One image, video or audio clip turned into a data URL, or the reason it could not be. Same literal-discriminant rule as above. */
 export type DecisionMediaConversion =
   | { status: "ok"; dataUrl: string }
   | { status: "error"; message: string };
@@ -302,6 +382,16 @@ export type DecisionMediaConversion =
 /** A media file read from disk, or the reason it could not be. */
 export type DecisionMediaFileRead =
   | { status: "ok"; buffer: Buffer }
+  | { status: "error"; message: string };
+
+/**
+ * A caller's media source resolved for one kind: bytes to identify (a Buffer
+ * or a file read from disk), a `data:` URL of that kind as given, or the reason
+ * it is refused.
+ */
+export type DecisionMediaSourceRead =
+  | { status: "buffer"; buffer: Buffer }
+  | { status: "dataUrl"; dataUrl: string }
   | { status: "error"; message: string };
 
 /**
@@ -347,6 +437,11 @@ export type DecisionChoiceReading = {
    * therefore also a ranking — the basis for catalogue selection.
    */
   ranked: readonly { name: string; probability: number }[];
+  /**
+   * True when the question set `unknown` and the model picked it: `choice` is
+   * then `"unknown"`, which is none of the question's own options.
+   */
+  unknown: boolean;
 };
 
 export type DecisionScoreReading = {
@@ -354,6 +449,13 @@ export type DecisionScoreReading = {
   confidence: number;
   legend: Readonly<Record<string, string>>;
   probabilities: Readonly<Record<string, number>>;
+};
+
+export type DecisionValueReading = {
+  value: string | number | null;
+  confidence: number;
+  /** True when the model abstained; `value` is then null. */
+  unknown: boolean;
 };
 
 /**
@@ -602,6 +704,8 @@ export type DecideMedia = {
   imagesKey: string;
   /** Written only when the request carries a video; required exactly when `decisionLimits.media.video` is true. */
   videoKey?: string;
+  /** Written only when the request carries audio, as `{ data, format }`; required exactly when `decisionLimits.media.audio` is set. */
+  audioKey?: string;
 };
 
 /**
@@ -640,6 +744,14 @@ export type DecideAmbientKeyCredentialField = {
   key: string;
   /** The field in that slice. Only `baseURL` is read today. */
   field: "baseURL";
+};
+
+/** See `DecideBlock.capableModel`. */
+export type DecideCapableModel = {
+  /** A key of the entry's `models.catalog`. */
+  model: string;
+  /** Question types that send a request to `model`; media always does. */
+  questionTypes: readonly DecisionQuestionType[];
 };
 
 /** What a dialect lays out as one request body. */

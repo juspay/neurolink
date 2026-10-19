@@ -30,3 +30,14 @@ so a single choice question over N options also **ranks** all N.
 ### criteria
 
 > **criteria**: `Readonly`\<`Record`\<`string`, [`DecisionInput`](DecisionInput.md) \| `null`\>\>
+
+---
+
+### unknown?
+
+> `optional` **unknown?**: `boolean`
+
+True adds an option named `unknown` the model picks when none of the
+criteria fits; the answer then carries `unknown: true`. Only a provider
+whose `decisionLimits.questionTypes` lists `"choice-unknown"` accepts it,
+and no criteria key may be named `unknown` alongside it.

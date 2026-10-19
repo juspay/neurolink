@@ -6,4 +6,4 @@
 
 # Type Alias: DecisionQuestion
 
-> **DecisionQuestion** = [`DecisionBooleanQuestion`](DecisionBooleanQuestion.md) \| [`DecisionChoiceQuestion`](DecisionChoiceQuestion.md) \| [`DecisionScoreQuestion`](DecisionScoreQuestion.md)
+> **DecisionQuestion** = [`DecisionBooleanQuestion`](DecisionBooleanQuestion.md) \| [`DecisionChoiceQuestion`](DecisionChoiceQuestion.md) \| [`DecisionScoreQuestion`](DecisionScoreQuestion.md) \| [`DecisionValueQuestion`](DecisionValueQuestion.md)

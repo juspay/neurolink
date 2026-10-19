@@ -26,3 +26,11 @@ Written only when the request carries at least one image.
 > `optional` **videoKey?**: `string`
 
 Written only when the request carries a video; required exactly when `decisionLimits.media.video` is true.
+
+---
+
+### audioKey?
+
+> `optional` **audioKey?**: `string`
+
+Written only when the request carries audio, as `{ data, format }`; required exactly when `decisionLimits.media.audio` is set.

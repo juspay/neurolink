@@ -36,10 +36,18 @@ const fetchCapture = installFetchCapture();
  *      pnpm run test:decide
  */
 
-import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createServer, type IncomingHttpHeaders } from "node:http";
 import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
@@ -64,6 +72,7 @@ import {
   readDecisionBoolean,
   readDecisionChoice,
   readDecisionScore,
+  readDecisionValue,
   renderCandidate,
   resolveDefaultDecisionProvider,
   resolveHistoryBudget,
@@ -2975,7 +2984,9 @@ await test("16.11 — live: decide --provider laya prints readable text by defau
 });
 
 restoreEnv();
-logSection("17. XOR — a decision provider that also reads images and video");
+logSection(
+  "17. XOR — a decision provider that also reads an image and audio, and extracts values",
+);
 
 await test("17.1 — xor declares decide and only decide, and no generation rank", async () => {
   const xor = PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.XOR);
@@ -3117,11 +3128,13 @@ const XOR_CLI_ENV = {
   TYPESAFE_API_KEY: "apikey_placeholder_for_cli",
   TYPESAFE_BASE_URL: "http://127.0.0.1:9/typesafe",
 };
-await test("17.7 — decide --help lists --image and --video", async () => {
+await test("17.7 — decide --help lists --image, --video and --audio", async () => {
   const result = await runCLI(["decide", "--help"], { timeoutMs: 30_000 });
   assert(
-    result.stdout.includes("--image") && result.stdout.includes("--video"),
-    "the help must list both flags",
+    result.stdout.includes("--image") &&
+      result.stdout.includes("--video") &&
+      result.stdout.includes("--audio"),
+    "the help must list all three flags",
   );
 });
 
@@ -3150,7 +3163,7 @@ await test("17.8 — a positional state after --image is still the state", async
   );
 });
 
-await test("17.9 — nine --image flags ⇒ refused locally, one clean line", async () => {
+await test("17.9 — two --image flags ⇒ refused locally, one clean line", async () => {
   const args = [
     "decide",
     "The state text",
@@ -3159,12 +3172,12 @@ await test("17.9 — nine --image flags ⇒ refused locally, one clean line", as
     "--questions",
     ONE_QUESTION,
   ];
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < 2; i++) {
     args.push("--image", `${XOR_FIXTURE_DIR}red.png`);
   }
   const result = await runCLI(args, { env: XOR_CLI_ENV, timeoutMs: 30_000 });
-  assert(result.exitCode !== 0, "nine images must be refused");
-  assert(result.stderr.includes("at most 8"), "the refusal must say the limit");
+  assert(result.exitCode !== 0, "two images must be refused");
+  assert(result.stderr.includes("at most 1"), "the refusal must say the limit");
   assert(
     !/ECONNREFUSED|network/i.test(result.stderr),
     "the refusal must happen before any request",
@@ -3341,19 +3354,45 @@ await test("17.13 — live: red and blue images are told apart (images are reall
   assert(blue === "blue", "the blue image must answer blue");
 });
 
-await test("17.14 — live: red and blue videos are told apart", async () => {
-  requireXorKey();
-  restoreEnv();
-  const red = await xorColour(
-    { video: `${XOR_FIXTURE_DIR}red.mp4` },
-    "Look at the attached video.",
-  );
-  const blue = await xorColour(
-    { video: `${XOR_FIXTURE_DIR}blue.mp4` },
-    "Look at the attached video.",
-  );
-  assert(red === "red", "the red video must answer red");
-  assert(blue === "blue", "the blue video must answer blue");
+await test("17.14 — a video is refused before any request: XOR's gateway drops video, so an answer would be blind", async () => {
+  try {
+    clearDecisionKeys();
+    const refusal = await new NeuroLink({
+      credentials: {
+        xor: {
+          apiKey: "sk-placeholder-for-video",
+          baseURL: "http://127.0.0.1:9",
+        },
+      },
+    })
+      .decide({
+        provider: "xor",
+        model: XOR_MEDIA_MODEL,
+        state: "Look at the attached video.",
+        questions: XOR_COLOR_QUESTION,
+        video: `${XOR_FIXTURE_DIR}red.mp4`,
+      })
+      .then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+    const cause =
+      refusal instanceof Error
+        ? (refusal as Error & { cause?: { kind?: string } }).cause
+        : undefined;
+    // A network failure would mean the request left: port 9 refuses it.
+    assert(
+      cause?.kind === "invalid_request",
+      "the video must be refused locally as an invalid request",
+    );
+    assert(
+      refusal instanceof Error &&
+        refusal.message.includes("does not accept video"),
+      "the refusal must say XOR does not accept video",
+    );
+  } finally {
+    restoreEnv();
+  }
 });
 
 await test("17.15 — live: decide --provider xor --image --format json is clean JSON", async () => {
@@ -3405,9 +3444,11 @@ await test('17.16 — --video "" ⇒ one clean line, never silently dropped', as
     { env: XOR_CLI_ENV, timeoutMs: 30_000 },
   );
   assert(result.exitCode !== 0, "an empty --video must fail");
+  // XOR reads no video, so the refusal is that, before the value is looked at.
   assert(
-    result.stderr.includes("empty string"),
-    "the failure must say the video is empty",
+    result.stderr.includes("empty string") ||
+      result.stderr.includes("does not accept video"),
+    "the failure must say the video is empty or not accepted",
   );
   assert(
     !/ECONNREFUSED|network/i.test(result.stderr),
@@ -3467,6 +3508,274 @@ await test("17.18 — a bare --video with no value ⇒ refused, never dropped", 
   assert(
     !/ECONNREFUSED|network/i.test(result.stderr),
     "the failure must happen before any request",
+  );
+});
+
+await test("17.24 — two --audio flags ⇒ refused, one clean line", async () => {
+  const result = await runCLI(
+    [
+      "decide",
+      "--provider",
+      "xor",
+      "--audio",
+      "a.wav",
+      "--audio",
+      "b.wav",
+      "--questions",
+      ONE_QUESTION,
+    ],
+    { env: XOR_CLI_ENV, timeoutMs: 30_000 },
+  );
+  assert(result.exitCode !== 0, "two clips must be refused");
+  assert(
+    result.stderr.includes("at most one --audio"),
+    "the refusal must say only one clip is allowed",
+  );
+});
+
+await test("17.25 — --audio with no state: an M4A clip is refused before any request, one clean line", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "nl-decide-audio-"));
+  const clip = join(dir, "clip.m4a");
+  writeFileSync(
+    clip,
+    Buffer.concat([
+      Buffer.from([0, 0, 0, 0x20]),
+      Buffer.from("ftypM4A ", "latin1"),
+      Buffer.alloc(24),
+    ]),
+  );
+  try {
+    const result = await runCLI(
+      [
+        "decide",
+        "--provider",
+        "xor",
+        "--audio",
+        clip,
+        "--questions",
+        ONE_QUESTION,
+      ],
+      { env: XOR_CLI_ENV, timeoutMs: 30_000 },
+    );
+    assert(result.exitCode !== 0, "an M4A clip must be refused");
+    assert(
+      result.stderr.includes("AAC or M4A"),
+      "the refusal must name the format the model cannot decode",
+    );
+    assert(
+      !result.stderr.includes("provide state"),
+      "a clip must stand in for the state",
+    );
+    assert(
+      !/ECONNREFUSED|network/i.test(result.stderr),
+      "the refusal must happen before any request",
+    );
+    assert(
+      !looksLikeStackTrace(result.stdout + result.stderr),
+      "the refusal printed a stack trace",
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+const XOR_INVOICE =
+  "Invoice INV-2024-0892 for 18,275.50 rupees, due on 15 September.";
+
+function rethrowTransientXor(error: unknown): never {
+  throw isTransientXorFailure(error)
+    ? new Error("SKIP: xor returned a transient reply")
+    : error;
+}
+
+await test("17.19 — live: value questions extract a float, a pattern-bound string and an abstained null", async () => {
+  requireXorKey();
+  restoreEnv();
+  const result = await new NeuroLink()
+    .decide({
+      provider: "xor",
+      state: XOR_INVOICE,
+      questions: {
+        amount: {
+          type: "value",
+          dtype: "float",
+          instructions: "What is the invoice amount?",
+        },
+        ref: {
+          type: "value",
+          instructions: "What is the invoice reference?",
+          pattern: "INV-[0-9]{4}-[0-9]{4}",
+        },
+        phone: {
+          type: "value",
+          instructions: "What is the customer's phone number?",
+        },
+      },
+    })
+    .catch(rethrowTransientXor);
+  assert(
+    readDecisionValue(result.answers, "amount")?.value === 18275.5,
+    "the amount must be read as the float on the invoice",
+  );
+  assert(
+    readDecisionValue(result.answers, "ref")?.value === "INV-2024-0892",
+    "the reference must match the pattern and the invoice",
+  );
+  const phone = readDecisionValue(result.answers, "phone");
+  assert(
+    phone !== undefined && phone.value === null && phone.unknown,
+    "a value the state does not hold must come back null and unknown",
+  );
+});
+
+await test("17.20 — live: a choice with unknown picks unknown when no option fits", async () => {
+  requireXorKey();
+  restoreEnv();
+  const result = await new NeuroLink()
+    .decide({
+      provider: "xor",
+      state: "Customer: what is the weather like in Bengaluru today?",
+      questions: {
+        intent: {
+          type: "choice",
+          unknown: true,
+          instructions: "What does the customer want to do with their plan?",
+          criteria: {
+            upgrade: "move to a higher plan",
+            downgrade: "move to a lower plan",
+          },
+        },
+      },
+    })
+    .catch(rethrowTransientXor);
+  const intent = result.answers.intent;
+  assert(
+    intent?.type === "choice" &&
+      intent.choice === "unknown" &&
+      intent.unknown === true,
+    "an off-topic state must be answered unknown",
+  );
+  assert(
+    readDecisionChoice(result.answers, "intent")?.unknown === true,
+    "the choice reader must carry the unknown flag",
+  );
+});
+
+await test("17.21 — live: a score over object levels keeps its legend as JSON text", async () => {
+  requireXorKey();
+  restoreEnv();
+  const result = await new NeuroLink()
+    .decide({
+      provider: "xor",
+      state: "The support was fantastic, thank you so much!",
+      questions: {
+        mood: {
+          type: "score",
+          instructions: "How satisfied is the customer?",
+          criteria: [{ label: "unhappy" }, { label: "happy" }],
+        },
+      },
+    })
+    .catch(rethrowTransientXor);
+  const mood = readDecisionScore(result.answers, "mood");
+  assert(mood !== undefined, "the score answer must not be dropped");
+  assert(
+    mood!.legend["1"] === JSON.stringify({ label: "happy" }),
+    "the legend must carry the level as its JSON text",
+  );
+});
+
+// One second of an 8-bit 440 Hz tone: no fixture file, and its tokens prove the
+// clip reached the model.
+function toneWav(): Buffer {
+  const rate = 8000;
+  const data = Buffer.alloc(rate);
+  for (let i = 0; i < rate; i += 1) {
+    data[i] = Math.round(128 + 100 * Math.sin((2 * Math.PI * 440 * i) / rate));
+  }
+  const header = Buffer.alloc(44);
+  header.write("RIFF", 0, "latin1");
+  header.writeUInt32LE(36 + data.length, 4);
+  header.write("WAVEfmt ", 8, "latin1");
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(1, 22);
+  header.writeUInt32LE(rate, 24);
+  header.writeUInt32LE(rate, 28);
+  header.writeUInt16LE(1, 32);
+  header.writeUInt16LE(8, 34);
+  header.write("data", 36, "latin1");
+  header.writeUInt32LE(data.length, 40);
+  return Buffer.concat([header, data]);
+}
+
+await test("17.22 — live: an audio clip with no state is heard: it costs input tokens a text-only request does not", async () => {
+  requireXorKey();
+  restoreEnv();
+  const nl = new NeuroLink();
+  const questions = {
+    beep: { type: "boolean" as const, instructions: "Is there a beep?" },
+  };
+  const silent = await nl
+    .decide({ provider: "xor", model: XOR_MEDIA_MODEL, state: "", questions })
+    .catch(rethrowTransientXor);
+  const heard = await nl
+    .decide({
+      provider: "xor",
+      model: XOR_MEDIA_MODEL,
+      state: "",
+      questions,
+      audio: toneWav(),
+    })
+    .catch(rethrowTransientXor);
+  assert(
+    heard.answers.beep?.type === "boolean",
+    "the audio request must be answered",
+  );
+  assert(
+    (heard.mediaBytes ?? 0) > 0,
+    "the audio must be counted in mediaBytes",
+  );
+  assert(
+    heard.usage.inputTokens > silent.usage.inputTokens,
+    "the clip must cost input tokens, or it never reached the model",
+  );
+  const counts = nl
+    .getSpans()
+    .filter((span) => span.type === "model.decision")
+    .map(
+      (span) =>
+        (span.attributes as Record<string, unknown>)["decision.audio.count"],
+    );
+  assert(
+    counts.includes(0) && counts.includes(1),
+    "the decision spans must count the clip on the audio request alone",
+  );
+});
+
+await test("17.23 — live: 200 questions through tryDecide come back whole, split at XOR's 128-question cap", async () => {
+  requireXorKey();
+  restoreEnv();
+  const questions: Record<string, DecisionQuestionMap[string]> = {};
+  for (let index = 0; index < 200; index += 1) {
+    questions[`q${index}`] = {
+      type: "boolean",
+      instructions: `Statement ${index}: the order is cancelled?`,
+    };
+  }
+  const result = await new NeuroLink().tryDecide({
+    provider: "xor",
+    state: "Order 45678 has been cancelled and refunded.",
+    questions,
+  });
+  if (result === null) {
+    throw new Error(
+      "SKIP: xor returned no decision (transient or unavailable)",
+    );
+  }
+  assert(
+    Object.keys(result.answers).length === 200,
+    "every one of the 200 questions must be answered",
   );
 });
 
@@ -7070,6 +7379,11 @@ await test("20.22 — xor through the routing site: hooks run, host ids are name
     clearDecisionKeys();
     const image = await readFile(`${XOR_FIXTURE_DIR}red.png`);
     const expectedDataUrl = `data:image/png;base64,${image.toString("base64")}`;
+    // The request carries an image and names no model, so with XOR_MODEL
+    // unset it goes to the model that reads images (decide.capableModel).
+    const expectedModel = process.env.XOR_MODEL
+      ? EXPECTED_XOR_MODEL
+      : "xor-omni";
     const seen: DecisionHookContext[] = [];
     const answered: DecisionHookAnswersContext[] = [];
     const before: DecisionBeforeEvent[] = [];
@@ -7126,8 +7440,8 @@ await test("20.22 — xor through the routing site: hooks run, host ids are name
       "the request must reach xor's route on the per-call credentials",
     );
     assert(
-      request.body.model === EXPECTED_XOR_MODEL,
-      "the body must name the model the registry recorded for xor",
+      request.body.model === expectedModel,
+      "the body must name xor-omni for an image when no model was chosen, else the configured model",
     );
     const wireIds = questionIdsOf(request);
     assert(
@@ -7180,7 +7494,7 @@ await test("20.22 — xor through the routing site: hooks run, host ids are name
       after.length === 1 &&
         after[0]!.site === "routing" &&
         after[0]!.provider === "xor" &&
-        after[0]!.model === EXPECTED_XOR_MODEL &&
+        after[0]!.model === expectedModel &&
         after[0]!.result?.mediaBytes === expectedDataUrl.length &&
         "urgent" in after[0]!.answers &&
         !("host__0" in after[0]!.answers) &&
@@ -7198,7 +7512,7 @@ await test("20.22 — xor through the routing site: hooks run, host ids are name
   }
 });
 
-await test("20.23 — decisionLimits({ provider: 'xor' }): a state window and media limits, no question cap, enforced locally", async () => {
+await test("20.23 — decisionLimits({ provider: 'xor' }): a per-model state window, a 128-question cap, its question types and media limits, enforced locally", async () => {
   try {
     clearDecisionKeys();
     const nl = new NeuroLink();
@@ -7209,23 +7523,40 @@ await test("20.23 — decisionLimits({ provider: 'xor' }): a state window and me
       "the reading must name xor and the model decide() would send",
     );
     assert(
-      reading!.maxStateTokens === 200_000,
-      "xor must read its conservative 200,000-token state window",
+      reading!.maxStateTokens ===
+        (EXPECTED_XOR_MODEL === "xor-latest" ? 120_000 : 28_000),
+      "xor must read the window of the model decide() would send",
     );
     assert(
       reading!.nonAsciiTokensPerChar === 1,
       "xor must charge non-ASCII text at one token per character",
     );
     assert(
-      !("maxQuestions" in reading!),
-      "xor has no question-count cap, so maxQuestions must be absent — not Infinity, not undefined-as-a-key",
+      reading!.maxQuestions === 128,
+      "xor must read its gateway's 128-question cap",
+    );
+    assert(
+      JSON.stringify(reading!.questionTypes) ===
+        JSON.stringify([
+          "boolean",
+          "choice",
+          "score",
+          "value",
+          "choice-unknown",
+        ]),
+      "xor must read value and choice-unknown beside the default types",
+    );
+    assert(
+      reading!.maxScoreLevels === 10 && reading!.maxChoiceOptions === 64,
+      "xor must read its per-question caps",
     );
     assert(
       reading!.media !== undefined &&
-        reading!.media.maxImages === 8 &&
-        reading!.media.video === true &&
-        reading!.media.maxRequestBytes === 8 * 1024 * 1024,
-      "the reading must carry xor's media limits: 8 images, one video, an 8 MiB body",
+        reading!.media.maxImages === 1 &&
+        reading!.media.video === false &&
+        reading!.media.maxRequestBytes === 25_000_000 &&
+        reading!.media.audio?.maxSeconds === 30,
+      "the reading must carry xor's media limits: one image, no video, 30 seconds of audio, a 25 MB body",
     );
     assert(
       reading!.enforcedLocally === true,
@@ -7244,7 +7575,7 @@ await test("20.23 — decisionLimits({ provider: 'xor' }): a state window and me
   }
 });
 
-await test("20.24 — with no question cap, every well-formed host addition goes: 100 for xor, where laya would keep 63", async () => {
+await test("20.24 — within XOR's 128-question cap every well-formed host addition goes: 100 for xor, where laya would keep 63", async () => {
   const fake = await startFakeXor();
   const previousDebug = process.env.NEUROLINK_DEBUG;
   try {
@@ -7290,7 +7621,7 @@ await test("20.24 — with no question cap, every well-formed host addition goes
     assert(
       wireIds.length === HOST_COUNT + 1 &&
         wireIds.filter((id) => id.startsWith("host__")).length === HOST_COUNT,
-      "every host question must reach the wire when the provider caps by tokens, not by count",
+      "every host question must reach the wire while the cap leaves room for it",
     );
     assert(
       hostIds.size === HOST_COUNT && [...hostIds].every((id) => id in many),

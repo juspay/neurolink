@@ -6,4 +6,4 @@
 
 # Type Alias: DecisionMediaKind
 
-> **DecisionMediaKind** = `"image"` \| `"video"`
+> **DecisionMediaKind** = `"image"` \| `"video"` \| `"audio"`

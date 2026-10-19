@@ -28,7 +28,7 @@ Probability-weighted level index; lands between levels.
 
 > **legend**: `Readonly`\<`Record`\<`string`, `string`\>\>
 
-Level index (as a string key) → the description supplied.
+Level index (as a string key) → the description supplied; a level that was not a string is given as its JSON text.
 
 ---
 

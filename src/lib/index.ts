@@ -1145,6 +1145,7 @@ export {
   readDecisionBoolean,
   readDecisionChoice,
   readDecisionScore,
+  readDecisionValue,
   servesInferenceKind,
 } from "./utils/decisionAnswers.js";
 // The estimator the pre-flight refusal uses, and the flattening behind

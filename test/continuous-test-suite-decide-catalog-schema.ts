@@ -852,6 +852,168 @@ async function mediaSection(): Promise<void> {
     setAt(neither, ["decisionLimits", "media"], undefined);
     parseCatalogEntry(neither, "laya.json");
   });
+
+  await test("an audio allowance and decide.media.audioKey go together, the key differs from the others, and maxSeconds is a positive integer", () => {
+    const withAudio = mediaEntryWith(["decisionLimits", "media", "audio"], {
+      maxSeconds: 30,
+    });
+    setAt(withAudio, ["decide", "media", "audioKey"], "audio");
+    deepStrictEqual(parseCatalogEntry(withAudio, "xor.json"), withAudio);
+    const rows: ReadonlyArray<
+      readonly [readonly (string | number)[], unknown, string]
+    > = [
+      [
+        ["decide", "media", "audioKey"],
+        undefined,
+        "decide.media.audioKey is required when decisionLimits.media.audio is set",
+      ],
+      [
+        ["decisionLimits", "media", "audio"],
+        undefined,
+        "decide.media.audioKey must be omitted when decisionLimits.media.audio is not set",
+      ],
+      [
+        ["decide", "media", "audioKey"],
+        "images",
+        "decide.media.audioKey must differ from imagesKey and videoKey",
+      ],
+      [
+        ["decide", "media", "audioKey"],
+        "video",
+        "decide.media.audioKey must differ from imagesKey and videoKey",
+      ],
+      [["decide", "media", "audioKey"], "state", "audioKey"],
+      [["decisionLimits", "media", "audio"], { maxSeconds: 0 }, "maxSeconds"],
+      [["decisionLimits", "media", "audio"], { maxSeconds: 1.5 }, "maxSeconds"],
+      [["decisionLimits", "media", "audio"], {}, "maxSeconds"],
+      [
+        ["decisionLimits", "media", "audio"],
+        { maxSeconds: 30, surprise: 1 },
+        "surprise",
+      ],
+    ];
+    for (const [path, value, needle] of rows) {
+      const entry = structuredClone(withAudio);
+      setAt(entry, path, value);
+      expectRejected(
+        () => parseCatalogEntry(entry, "xor.json"),
+        needle,
+        `${path.join(".")} = ${JSON.stringify(value)}`,
+      );
+    }
+  });
+}
+
+async function questionTypesSection(): Promise<void> {
+  section(
+    "decide entries: questionTypes, per-question caps and the scaled timeout",
+  );
+
+  await test("questionTypes, maxScoreLevels, maxChoiceOptions and decideMsPerKStateTokens parse as XOR declares them", () => {
+    const entry = entryWith(
+      ["decisionLimits", "questionTypes"],
+      ["boolean", "choice", "score", "value", "choice-unknown"],
+    );
+    setAt(entry, ["decisionLimits", "maxScoreLevels"], 10);
+    setAt(entry, ["decisionLimits", "maxChoiceOptions"], 64);
+    setAt(entry, ["timeouts"], {
+      decideMs: 5000,
+      decideMsPerKStateTokens: 150,
+    });
+    deepStrictEqual(parseCatalogEntry(entry, "laya.json"), entry);
+  });
+
+  await test("an unknown or repeated question type, an empty list and a cap below 1 are refused, naming the path", () => {
+    const rows: readonly Rejection[] = [
+      [
+        ["decisionLimits", "questionTypes"],
+        ["boolean", "box"],
+        "questionTypes",
+      ],
+      [
+        ["decisionLimits", "questionTypes"],
+        ["boolean", "boolean"],
+        "decisionLimits.questionTypes lists the same type twice",
+      ],
+      [["decisionLimits", "questionTypes"], [], "questionTypes"],
+      [["decisionLimits", "questionTypes"], "value", "questionTypes"],
+      [["decisionLimits", "maxScoreLevels"], 0, "maxScoreLevels"],
+      [["decisionLimits", "maxChoiceOptions"], 2.5, "maxChoiceOptions"],
+      [["timeouts", "decideMsPerKStateTokens"], 0, "decideMsPerKStateTokens"],
+      [
+        ["timeouts", "decideMsPerKStateTokens"],
+        "150",
+        "decideMsPerKStateTokens",
+      ],
+    ];
+    for (const [path, value, needle] of rows) {
+      expectRejected(
+        () => parseCatalogEntry(entryWith(path, value), "laya.json"),
+        needle,
+        `${path.join(".")} = ${JSON.stringify(value)}`,
+      );
+    }
+  });
+
+  await test("decide.capableModel names another catalog model and only types the entry reads", () => {
+    // Laya's default is typed-decisions; english is another key of its catalog.
+    const capable = entryWith(["decide", "capableModel"], {
+      model: "english",
+      questionTypes: ["choice"],
+    });
+    deepStrictEqual(parseCatalogEntry(capable, "laya.json"), capable);
+    const rows: readonly Rejection[] = [
+      [
+        ["decide", "capableModel"],
+        { model: "no-such-model", questionTypes: [] },
+        "decide.capableModel.model must be a key of models.catalog",
+      ],
+      [
+        ["decide", "capableModel"],
+        { model: "typed-decisions", questionTypes: [] },
+        "decide.capableModel.model must differ from models.default",
+      ],
+      [
+        ["decide", "capableModel"],
+        { model: "english", questionTypes: ["value"] },
+        "decide.capableModel.questionTypes lists value, which decisionLimits.questionTypes does not",
+      ],
+      [["decide", "capableModel"], { model: "english" }, "questionTypes"],
+      [
+        ["decide", "capableModel"],
+        { model: "english", questionTypes: [], extra: 1 },
+        "extra",
+      ],
+    ];
+    for (const [path, value, needle] of rows) {
+      expectRejected(
+        () => parseCatalogEntry(entryWith(path, value), "laya.json"),
+        needle,
+        `${path.join(".")} = ${JSON.stringify(value)}`,
+      );
+    }
+  });
+
+  await test("the mirror declares the new keys, so the editor accepts what the schema does", () => {
+    const entry = entryWith(["decisionLimits", "questionTypes"], ["value"]);
+    setAt(entry, ["decisionLimits", "maxScoreLevels"], 10);
+    setAt(entry, ["decisionLimits", "maxChoiceOptions"], 64);
+    setAt(entry, ["timeouts"], {
+      decideMs: 5000,
+      decideMsPerKStateTokens: 150,
+    });
+    deepStrictEqual(undeclaredKeys(entry, mirror, ""), []);
+    const audio = mediaEntryWith(["decisionLimits", "media", "audio"], {
+      maxSeconds: 30,
+    });
+    setAt(audio, ["decide", "media", "audioKey"], "audio");
+    deepStrictEqual(undeclaredKeys(audio, mirror, ""), []);
+    const capable = entryWith(["decide", "capableModel"], {
+      model: "english",
+      questionTypes: ["choice"],
+    });
+    deepStrictEqual(undeclaredKeys(capable, mirror, ""), []);
+  });
 }
 
 const OPENAI_DIALECT = "dialect openai-decisions";
@@ -889,6 +1051,21 @@ const openaiRejections: readonly Rejection[] = [
     ["decide", "model"],
     { placement: "body-unless-alias", alias: "gpt-6-luna" },
     `decide.model.placement: decide.model.placement must be body with ${OPENAI_DIALECT}`,
+  ],
+  [
+    ["decisionLimits", "media", "audio"],
+    { maxSeconds: 30 },
+    `decisionLimits.media.audio: decisionLimits.media.audio is not valid with ${OPENAI_DIALECT}`,
+  ],
+  [
+    ["decisionLimits", "questionTypes"],
+    ["boolean", "value"],
+    `decisionLimits.questionTypes.1: decisionLimits.questionTypes cannot list value with ${OPENAI_DIALECT}`,
+  ],
+  [
+    ["decisionLimits", "questionTypes"],
+    ["choice-unknown"],
+    `decisionLimits.questionTypes.0: decisionLimits.questionTypes cannot list choice-unknown with ${OPENAI_DIALECT}`,
   ],
 ];
 
@@ -2456,6 +2633,7 @@ async function mirrorSection(): Promise<void> {
     deepStrictEqual(keys.required, ["imagesKey"]);
     assert(keys.additionalProperties === false, "decide.media is open");
     deepStrictEqual(Object.keys(keys.properties ?? {}).sort(), [
+      "audioKey",
       "imagesKey",
       "videoKey",
     ]);
@@ -2487,12 +2665,12 @@ async function mirrorSection(): Promise<void> {
 
     // Both key properties share one definition; the schema must agree with it
     // on every sample, in both directions.
-    const refs = ["imagesKey", "videoKey"].map(
+    const refs = ["imagesKey", "videoKey", "audioKey"].map(
       (name) => keys.properties?.[name]?.$ref,
     );
     assert(
-      refs[0] !== undefined && refs[0] === refs[1],
-      "the two keys do not share one definition",
+      refs[0] !== undefined && refs[0] === refs[1] && refs[0] === refs[2],
+      "the three keys do not share one definition",
     );
     const definition = root.definitions[(refs[0] ?? "").split("/").pop() ?? ""];
     const pattern = new RegExp(definition?.pattern ?? "(?!)");
@@ -2669,6 +2847,7 @@ await runSuite(async () => {
   await decideFieldRulesSection();
   await decideAuthAndStateSection();
   await mediaSection();
+  await questionTypesSection();
   await openaiDecisionsSection();
   await ambientKeyGuardSection();
   await messagePatternSection();

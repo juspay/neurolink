@@ -36,7 +36,7 @@ import type {
 } from "../../lib/types/index.js";
 import { logger } from "../../lib/utils/logger.js";
 
-const VALID_QUESTION_TYPES = new Set(["boolean", "choice", "score"]);
+const VALID_QUESTION_TYPES = new Set(["boolean", "choice", "score", "value"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -157,6 +157,10 @@ function formatAnswerLine(id: string, answers: DecisionAnswerMap): string {
     }
     case "score":
       return `${id}: score ${formatNumber(answer.score)}, confidence ${formatNumber(answer.confidence)}`;
+    case "value":
+      return answer.value === null
+        ? `${id}: no value found, confidence ${formatNumber(answer.confidence)}`
+        : `${id}: value ${JSON.stringify(answer.value)}, confidence ${formatNumber(answer.confidence)}`;
     default:
       return `${id}: (unrecognised answer type)`;
   }
@@ -237,12 +241,19 @@ export const decideCommand: CommandModule<object, CliDecideArgs> = {
         array: true,
         nargs: 1,
         describe:
-          "Image for the model to read: a file path or a data: URL. Repeat for several (XOR, Perplexity and OpenAI Decisions take up to 8, Cloudflare Clef up to 4)",
+          "Image for the model to read: a file path or a data: URL. Repeat for several (Perplexity and OpenAI Decisions take up to 8, Cloudflare Clef up to 4, XOR 1)",
       })
       .option("video", {
         type: "string",
         nargs: 1,
-        describe: "One video for the model to read: a file path or a data: URL",
+        describe:
+          "One video for the model to read: a file path or a data: URL. No current decision provider reads video, so it is refused before any request",
+      })
+      .option("audio", {
+        type: "string",
+        nargs: 1,
+        describe:
+          "One audio clip for the model to hear: a WAV, FLAC, Ogg or MP3 file path or a data: URL (XOR with its xor-omni model; the first 30 seconds are heard). State may then be omitted",
       })
       .option("timeout", {
         type: "number",
@@ -273,6 +284,10 @@ export const decideCommand: CommandModule<object, CliDecideArgs> = {
       .example(
         '$0 decide "What color is this?" --provider xor --model xor-omni --image ./photo.png --questions \'{"color":{"type":"choice","instructions":"What color is the image?","criteria":{"red":"red","blue":"blue"}}}\'',
         "Ask about an image (XOR with its xor-omni model, Perplexity, Cloudflare Clef and OpenAI Decisions read images)",
+      )
+      .example(
+        '$0 decide "Invoice INV-2024-0892 for 18,275 rupees" --provider xor --model xor-omni --questions \'{"amount":{"type":"value","dtype":"int","instructions":"Invoice amount?"}}\'',
+        "Extract a typed value (XOR)",
       ) as Argv<CliDecideArgs>,
 
   handler: async (argv: ArgumentsCamelCase<CliDecideArgs>): Promise<void> => {
@@ -326,11 +341,16 @@ export const decideCommand: CommandModule<object, CliDecideArgs> = {
       logger.error(chalk.red("Error: pass at most one --video."));
       process.exit(1);
     }
+    const audios = ([] as string[]).concat(argv.audio ?? []);
+    if (audios.length > 1) {
+      logger.error(chalk.red("Error: pass at most one --audio."));
+      process.exit(1);
+    }
 
     if (!isDecisionQuestionMap(parsedQuestions)) {
       logger.error(
         chalk.red(
-          'Error: questions must be a non-empty object of { type: "boolean" | "choice" | "score", ... }.',
+          'Error: questions must be a non-empty object of { type: "boolean" | "choice" | "score" | "value", ... }.',
         ),
       );
       process.exit(1);
@@ -348,6 +368,10 @@ export const decideCommand: CommandModule<object, CliDecideArgs> = {
       process.exit(1);
     }
 
+    // An audio clip can be the whole input.
+    if (state === undefined && audios.length === 1) {
+      state = "";
+    }
     if (state === undefined) {
       logger.error(
         chalk.red(
@@ -370,6 +394,7 @@ export const decideCommand: CommandModule<object, CliDecideArgs> = {
         timeoutMs: argv.timeout,
         ...(argv.image && argv.image.length > 0 ? { images: argv.image } : {}),
         ...(videos.length === 1 ? { video: videos[0] } : {}),
+        ...(audios.length === 1 ? { audio: audios[0] } : {}),
       });
 
       spinner?.succeed("Decision complete");

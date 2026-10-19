@@ -17,6 +17,7 @@ import type {
   DecisionQuestion,
   DecisionResult,
   DecisionScoreReading,
+  DecisionValueReading,
   ProviderDescriptor,
 } from "../types/index.js";
 import { DEFAULT_INFERENCE_KINDS } from "../types/index.js";
@@ -54,7 +55,13 @@ export function readDecisionChoice(
   const ranked = Object.entries(probabilities)
     .map(([name, probability]) => ({ name, probability }))
     .sort((a, b) => b.probability - a.probability);
-  return { choice, confidence, probabilities, ranked };
+  return {
+    choice,
+    confidence,
+    probabilities,
+    ranked,
+    unknown: answer.unknown === true,
+  };
 }
 
 export function readDecisionScore(
@@ -67,6 +74,26 @@ export function readDecisionScore(
   }
   const { score, confidence, legend, probabilities } = answer;
   return { score, confidence, legend, probabilities };
+}
+
+/**
+ * Read an extracted value. `value` is null and `unknown` true when the model
+ * found nothing to extract, which is an answer, not a missing one: undefined
+ * still means the id is absent or the answer was another type.
+ */
+export function readDecisionValue(
+  answers: DecisionAnswerMap,
+  id: string,
+): DecisionValueReading | undefined {
+  const answer = answers[id];
+  if (answer?.type !== "value") {
+    return undefined;
+  }
+  return {
+    value: answer.value,
+    confidence: answer.confidence,
+    unknown: answer.unknown === true || answer.value === null,
+  };
 }
 
 /**
@@ -185,6 +212,15 @@ export function stripHostAnswers(
 const isRecordValue = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+function compilesAsRegex(pattern: string): boolean {
+  try {
+    new RegExp(pattern);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Whether `value` is something a decision model accepts as content: a
  * string, number or boolean, or an array or plain object of the same.
@@ -253,7 +289,19 @@ function isWellFormedDecisionQuestion(value: unknown): boolean {
         Object.keys(value.criteria).length >= 2 &&
         Object.values(value.criteria).every(
           (rubric) => rubric === null || isDecisionInput(rubric),
-        )
+        ) &&
+        (value.unknown === undefined || typeof value.unknown === "boolean")
+      );
+    case "value":
+      return (
+        (value.dtype === undefined ||
+          value.dtype === "string" ||
+          value.dtype === "int" ||
+          value.dtype === "float") &&
+        (value.pattern === undefined ||
+          (typeof value.pattern === "string" &&
+            value.pattern.length > 0 &&
+            compilesAsRegex(value.pattern)))
       );
     case "score":
       return (

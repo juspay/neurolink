@@ -1016,16 +1016,21 @@ export function resolveDefaultDecisionProvider(
 }
 
 /**
- * Names of the decision providers that accept images, or, with `video`, the
- * ones that accept video too: a hint that names a provider which would refuse
- * the same request is worse than none.
+ * Names of the decision providers that accept images, or, with `video` or
+ * `audio`, the ones that accept that too: a hint that names a provider which
+ * would refuse the same request is worse than none.
  */
 export function listMediaDecisionProviders(needs?: {
   video?: boolean;
+  audio?: boolean;
 }): string[] {
   return DECISION_PROVIDERS.filter((descriptor) => {
     const media = descriptor.decisionLimits?.media;
-    return media !== undefined && (!needs?.video || media.video);
+    return (
+      media !== undefined &&
+      (!needs?.video || media.video) &&
+      (!needs?.audio || media.audio !== undefined)
+    );
   }).map((descriptor) => descriptor.name);
 }
 

@@ -2805,14 +2805,18 @@ await test("a message-pattern rule is judged on the message as well as the statu
     "context length on a 500",
     "context length behind a gateway",
     "validation array with a context-length message",
+    "context length from the backend behind the gateway",
   ]);
-  // Rows that reach the plain rule: a 5xx whose message the pattern rejects.
+  // Rows that are a 5xx whose message the pattern rejects: they reach the plain
+  // rule, or the backend-refusal rule after it.
   const declining = named([
     "engine failure",
     "bad gateway",
     "gateway text",
     "upstream connect timeout",
     "context length after the match window",
+    "backend refusal behind the gateway",
+    "backend refusal on a 500",
   ]);
   const withBodies = (
     bodies: Readonly<Record<string, unknown>>,
@@ -2843,7 +2847,7 @@ await test("a message-pattern rule is judged on the message as well as the statu
   await judgeScenarios(
     [
       {
-        // The three bodies still declare max_tokens_exceeded, so a harness that
+        // The four bodies still declare max_tokens_exceeded, so a harness that
         // reads the status alone sees the pattern rule reached by them.
         what: "bodies that reach the pattern rule by status but whose message does not match it",
         entry: XOR_ENTRY,
@@ -2854,6 +2858,9 @@ await test("a message-pattern rule is judged on the message as well as the statu
           },
           "validation array with a context-length message": {
             detail: [{ loc: ["body", "state"], msg: "invalid" }],
+          },
+          "context length from the backend behind the gateway": {
+            error: { message: "bad gateway" },
           },
         }),
         red: [patternCase, bodyCase("context length on a 500")],

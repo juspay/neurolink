@@ -41,7 +41,31 @@ call, instead of discovering the cap when the whole request is refused.
 > `optional` **maxQuestions?**: `number`
 
 Absent when the provider caps a request by tokens (or bytes) rather
-than by question count — TypeSafe and XOR; `Infinity` is never used.
+than by question count — TypeSafe; `Infinity` is never used.
+
+---
+
+### questionTypes?
+
+> `optional` **questionTypes?**: readonly [`DecisionQuestionType`](DecisionQuestionType.md)[]
+
+Present only when the descriptor declares it; absent means `boolean`, `choice` and `score`.
+
+---
+
+### maxScoreLevels?
+
+> `optional` **maxScoreLevels?**: `number`
+
+Most levels one `score` question may have; absent means no local cap.
+
+---
+
+### maxChoiceOptions?
+
+> `optional` **maxChoiceOptions?**: `number`
+
+Most options one `choice` question may have; absent means no local cap.
 
 ---
 

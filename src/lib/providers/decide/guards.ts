@@ -32,3 +32,26 @@ export const asStringMap = (v: unknown): Record<string, string> | undefined => {
   }
   return out;
 };
+
+/**
+ * A map whose values are shown as text: a string as is, anything else a JSON
+ * value can hold as its JSON text. A score legend echoes each level as the
+ * caller gave it, and a level may be a number or an object.
+ */
+export const asTextMap = (v: unknown): Record<string, string> | undefined => {
+  if (!isRecord(v)) {
+    return undefined;
+  }
+  const out: Record<string, string> = {};
+  for (const [k, raw] of Object.entries(v)) {
+    if (typeof raw === "string") {
+      out[k] = raw;
+      continue;
+    }
+    if (raw === undefined || typeof raw === "function") {
+      return undefined;
+    }
+    out[k] = JSON.stringify(raw);
+  }
+  return out;
+};

@@ -482,6 +482,60 @@
         "retryable": false,
         "messageIncludes": ["XOR request failed with HTTP 400"]
       }
+    },
+    {
+      "label": "backend refusal behind the gateway",
+      "provenance": "stand-in",
+      "status": 502,
+      "body": {
+        "error": {
+          "message": "litellm.APIError: Decisions upstream returned HTTP 502: {\"error\": \"backend 400: {\\\"error\\\":{\\\"message\\\":\\\"Failed to load image: cannot identify image file\\\",\\\"type\\\":\\\"BadRequestError\\\",\\\"param\\\":null,\\\"code\\\":400}}\"}",
+          "type": null,
+          "param": null,
+          "code": "502"
+        }
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["backend 400", "Failed to load image"]
+      }
+    },
+    {
+      "label": "backend refusal on a 500",
+      "provenance": "stand-in",
+      "status": 500,
+      "body": {
+        "error": {
+          "message": "Decisions upstream returned HTTP 500: backend 422: question type is not enabled on this deployment",
+          "type": null,
+          "param": null,
+          "code": "500"
+        }
+      },
+      "expect": {
+        "kind": "invalid_request",
+        "retryable": false,
+        "messageIncludes": ["backend 422"]
+      }
+    },
+    {
+      "label": "context length from the backend behind the gateway",
+      "provenance": "stand-in",
+      "status": 502,
+      "body": {
+        "error": {
+          "message": "litellm.APIError: Decisions upstream returned HTTP 502: {\"error\": \"backend 400: The input (200076 tokens) is longer than the model's context length (131072 tokens).\"}",
+          "type": null,
+          "param": null,
+          "code": "502"
+        }
+      },
+      "expect": {
+        "kind": "max_tokens_exceeded",
+        "retryable": false,
+        "messageIncludes": ["context length"]
+      }
     }
   ]
 }
