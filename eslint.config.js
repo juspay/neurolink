@@ -538,6 +538,10 @@ export default [
             // circular-$ref/strict-flag degrade reason — none reproducible
             // from a live provider call on demand.
             "test/continuous-test-suite-codex-outbound-tool-fidelity.ts",
+            // parseRetryAfterMs, parseRetryAfterHeaderValue, parseRateLimitResetValue,
+            // and parseDurationMs need deterministic tests with synthetic header strings,
+            // mixed duration units, and clock-relative dates that live calls cannot provide.
+            "test/continuous-test-suite-retry-after-parsing.ts",
 
             // Isolated rolling workers inject startup stalls and crashes while
             // the built restart CLI and real streaming sockets are exercised.
