@@ -43,34 +43,66 @@
  * image type is still refused without echoing it, that base64 of an impossible
  * length or with inconsistent padding is refused locally rather than wrapped,
  * that a path in `data` is never read (a string of base64 characters of a
- * decodable length is taken for bytes, anything else is refused as before),
- * and that the 20-image limit counts converted images.
+ * decodable length is wrapped like any other bytes, and then refused because the
+ * bytes are not an image; anything else is refused as before), and that the
+ * 20-image limit counts converted images.
+ *
+ * Inline bytes are verified, not trusted. Every `data:` image is decoded
+ * strictly from base64 and its bytes must be a recognised image, whatever the
+ * client declared:
+ *   - PNG, JPEG, WebP and GIF reach the stub byte for byte under their own type,
+ *     through every door (a `data:` URI, a Claude base64 source, Gemini raw
+ *     base64), and the URL-safe and unpadded alphabets reach it as standard base64;
+ *   - bytes declared as the wrong type (a JPEG as `image/png`, a type that is not
+ *     an image at all) reach the stub under the type they have;
+ *   - text, a path, HTML, PDF, SVG, ZIP, a non-image ISO-BMFF file, NULs and
+ *     every signature cut short are refused with `invalid_image_data` before any
+ *     stream starts, without echoing the data, and never reach the stub;
+ *   - a `data:` URI that is not base64, has no payload or carries an impossible
+ *     length, alphabet or padding is refused the same way;
+ *   - HEIC, HEIF, AVIF, BMP, TIFF, ICO and JPEG 2000 are accepted: the SDK
+ *     converts them to PNG when sharp or ffmpeg can read the file (for every
+ *     provider, Google included) and otherwise sends the original bytes under
+ *     their detected type, so what the stub receives is the SDK's PNG or the
+ *     original bytes under their type. The fixtures are not decodable files, so
+ *     here it is the second.
+ *
+ * An image slot that carries nothing is refused, never skipped. Each door's
+ * empty inline payload (a Claude `base64` source or a Gemini `inlineData` of an
+ * image type whose `data` is empty or absent) is `invalid_image_data`, and an
+ * empty URL (OpenAI `image_url.url`, Claude `url` source) is
+ * `invalid_image_reference`, streaming and not, while the same request without
+ * the empty image is served. A Gemini part with no `inlineData`, or one that
+ * declares no image type, and a Claude block whose source is neither base64 nor
+ * a URL, are left out as before.
  *
  * Two controls make the negatives mean something. The URL listener is proven
  * to count a connection before any zero is read, and the stub is proven to
  * receive a canary the proxy was handed legitimately (as a `data:` URI) before
  * "the stub never saw the canary" is read as a result.
  *
- * One case reaches past the refusals: a client that disconnects while an
- * `https://` image is still downloading must stop the download. A second proxy
- * is started with `HTTPS_PROXY` pointing at a loopback CONNECT proxy that
- * tunnels to a local TLS origin which accepts the request and never answers
- * (behind a proxy only the URL text is vetted, so a public-looking name passes
- * and nothing is resolved or contacted; the origin's throwaway certificate,
- * generated with `openssl`, is trusted only by that child through
- * `NODE_EXTRA_CA_CERTS`). The case waits for the origin to receive the
- * request, which proves the download is in flight, drops the client, and
- * requires the origin's connection to close well inside `safeDownload`'s 60 s
- * timeout.
+ * Downloads go through a second proxy started with `HTTPS_PROXY` pointing at a
+ * loopback CONNECT proxy that tunnels to a local TLS origin (behind a proxy only
+ * the URL text is vetted, so a public-looking name passes and nothing is
+ * resolved or contacted; the origin's throwaway certificate, generated with
+ * `openssl`, is trusted only by that child through `NODE_EXTRA_CA_CERTS`). The
+ * origin answers named paths:
+ *   - an image reaches the stub byte for byte, and a JPEG served as `image/png`
+ *     reaches it as `image/jpeg`;
+ *   - a page, text served as `image/png` and an empty body are refused with
+ *     `invalid_image_data`, and the stub never sees them;
+ *   - a client that disconnects while a download is in flight must stop it: the
+ *     origin accepts the request and never answers, the case waits for the origin
+ *     to receive it, drops the client, and requires the origin's connection to
+ *     close well inside `safeDownload`'s 60 s timeout.
  *
- * What this suite cannot reach: a *successful* https download, which needs a
- * publicly routable https host, and a redirect to a private address, which
- * needs the same. `safeDownload` itself (address pinning, redirect refusal,
- * size cap) is the helper the agent routes and the transcription route already
- * rely on, covered by test/continuous-test-suite-agent-input-guard.ts. For the
- * same reason the signal check *between* two references (stop before starting
- * the next one) has no deterministic case here: it needs a download that
- * finishes.
+ * What this suite cannot reach: a redirect to a private address, which needs a
+ * publicly routable https host. `safeDownload` itself (address pinning,
+ * redirect refusal, size cap) is the helper the agent routes and the
+ * transcription route already rely on, covered by
+ * test/continuous-test-suite-agent-input-guard.ts. The signal check *between*
+ * two references (stop before starting the next one) has no deterministic case
+ * here either: it needs a download that finishes just before the client goes.
  *
  * Point the suite at another build with NEUROLINK_PROXY_IMAGE_INPUT_CLI to
  * prove the security cases fail against one without the guard.
@@ -145,6 +177,98 @@ const PNG_BYTES = Buffer.from(
 );
 const PNG_MAGIC = PNG_BYTES.subarray(0, 8);
 
+// Real 1x1 images of the other three formats every provider takes. macOS `sips`
+// and `file` read each of them; only their signature matters to the proxy.
+const JPEG_BYTES = Buffer.from(
+  "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=",
+  "base64",
+);
+const WEBP_BYTES = Buffer.from(
+  "UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==",
+  "base64",
+);
+const GIF_BYTES = Buffer.from(
+  "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+  "base64",
+);
+
+// What the SDK accepts as input but no provider takes as it is (BMP, TIFF, ICO,
+// JPEG 2000, AVIF) or only Google does (HEIC, HEIF). Only the opening bytes are
+// a real file's, so the SDK's converter cannot decode them and falls back to
+// sending them unchanged; a decoder that can is told apart by the PNG it makes.
+const filler = (length: number): Buffer =>
+  Buffer.alloc(length, 0x20 + (length % 64));
+const ftypBox = (brand: string, compatible: readonly string[]): Buffer => {
+  const box = Buffer.alloc(16 + 4 * compatible.length);
+  box.writeUInt32BE(box.length, 0);
+  box.write("ftyp", 4, "latin1");
+  box.write(brand, 8, "latin1");
+  compatible.forEach((entry, index) =>
+    box.write(entry, 16 + 4 * index, "latin1"),
+  );
+  return Buffer.concat([box, filler(48)]);
+};
+const bmpBytes = (): Buffer => {
+  const dib = Buffer.alloc(40);
+  dib.writeUInt32LE(40, 0);
+  dib.writeInt32LE(1, 4);
+  dib.writeInt32LE(1, 8);
+  dib.writeUInt16LE(1, 12);
+  dib.writeUInt16LE(24, 14);
+  dib.writeUInt32LE(4, 20);
+  const file = Buffer.alloc(14);
+  file.write("BM", 0, "latin1");
+  file.writeUInt32LE(14 + 40 + 4, 2);
+  file.writeUInt32LE(14 + 40, 10);
+  return Buffer.concat([file, dib, Buffer.from([0xff, 0x00, 0x00, 0x00])]);
+};
+const icoBytes = (): Buffer => {
+  const header = Buffer.from([0, 0, 1, 0, 1, 0]);
+  const entry = Buffer.from([1, 1, 0, 0, 1, 0, 32, 0, 4, 0, 0, 0, 22, 0, 0, 0]);
+  return Buffer.concat([header, entry, filler(16)]);
+};
+const CONVERTIBLE_IMAGES: ReadonlyArray<{
+  name: string;
+  type: string;
+  bytes: Buffer;
+}> = [
+  {
+    name: "HEIC",
+    type: "image/heic",
+    bytes: ftypBox("heic", ["mif1", "heic"]),
+  },
+  {
+    name: "HEIF",
+    type: "image/heif",
+    bytes: ftypBox("mif1", ["mif1", "heic"]),
+  },
+  {
+    name: "AVIF",
+    type: "image/avif",
+    bytes: ftypBox("avif", ["mif1", "avif"]),
+  },
+  { name: "BMP", type: "image/bmp", bytes: bmpBytes() },
+  {
+    name: "TIFF",
+    type: "image/tiff",
+    bytes: Buffer.concat([
+      Buffer.from([0x49, 0x49, 0x2a, 0x00, 8, 0, 0, 0]),
+      filler(32),
+    ]),
+  },
+  { name: "ICO", type: "image/x-icon", bytes: icoBytes() },
+  {
+    name: "JPEG 2000",
+    type: "image/jp2",
+    bytes: Buffer.concat([
+      Buffer.from([
+        0, 0, 0, 0x0c, 0x6a, 0x50, 0x20, 0x20, 0x0d, 0x0a, 0x87, 0x0a,
+      ]),
+      filler(32),
+    ]),
+  },
+];
+
 const token = (): string => `CANARY_${randomBytes(12).toString("hex")}`;
 
 // What the Gemini parser takes for raw base64: Google's JSON `bytes` fields hold
@@ -179,6 +303,8 @@ const canaries = {
   noext: { token: token(), file: join(FILES, "canary-secret-noext") },
   dataUri: { token: token() },
   rawBase64: { token: token() },
+  nonImage: { token: token() },
+  served: { token: token() },
   prompt: { token: token(), file: join(FILES, "mentioned-in-prompt.txt") },
   // Relative to the proxy's cwd and made of letters only, so it reads as base64
   // wherever the temp directory happens to be.
@@ -290,17 +416,33 @@ listenerServer.on("connection", (socket) => {
   socket.on("error", () => undefined);
 });
 
-// ------------------------------------------------------------ held origin
-// A CONNECT proxy that tunnels to a local TLS origin which reads the request
-// and never answers, so a download routed through it stays in flight until
-// something cancels it. Built by the case that needs it.
+// ------------------------------------------------------------ TLS origin
+// A CONNECT proxy that tunnels to a local TLS origin. The origin answers the
+// named paths below and reads `/hold.png` without ever answering, so that
+// download stays in flight until something cancels it. Built by the first case
+// that needs it, and shared by the rest.
 type HeldRequest = { url: string; closed: boolean };
 const heldRequests: HeldRequest[] = [];
+const servedPaths: string[] = [];
 const heldConnects: string[] = [];
 const heldLog: string[] = [];
 const HELD_HOST = "images.example.com";
 let heldOrigin: HttpsServer | undefined;
 let heldTunnel: HttpServer | undefined;
+
+// A JPEG that the origin labels `image/png`, and text it labels as an image.
+const SERVED_TEXT = Buffer.from(`not an image ${canaries.served.token}`);
+const SERVED: Record<string, { type: string; body: Buffer }> = {
+  "/ok.png": { type: "image/png", body: PNG_BYTES },
+  "/photo.jpg": { type: "image/jpeg", body: JPEG_BYTES },
+  "/mislabelled.png": { type: "image/png", body: JPEG_BYTES },
+  "/page.html": {
+    type: "text/html",
+    body: Buffer.from(`<html>${canaries.served.token}</html>`),
+  },
+  "/text.png": { type: "image/png", body: SERVED_TEXT },
+  "/empty.png": { type: "image/png", body: Buffer.alloc(0) },
+};
 
 const listen = (server: HttpServer): Promise<number> =>
   new Promise((resolvePort) => {
@@ -548,8 +690,20 @@ async function startHeldOrigin(): Promise<{
   }
   const origin = createHttpsServer(
     { key: readFileSync(key), cert: readFileSync(certFile) },
-    (req) => {
-      const held: HeldRequest = { url: req.url ?? "", closed: false };
+    (req, res) => {
+      const url = req.url ?? "";
+      const served = SERVED[url];
+      if (served !== undefined) {
+        servedPaths.push(url);
+        res.writeHead(200, {
+          "content-type": served.type,
+          "content-length": served.body.length,
+          connection: "close",
+        });
+        res.end(served.body);
+        return;
+      }
+      const held: HeldRequest = { url, closed: false };
       heldRequests.push(held);
       req.socket.once("close", () => {
         held.closed = true;
@@ -572,6 +726,23 @@ async function startHeldOrigin(): Promise<{
   return { proxyUrl: `http://127.0.0.1:${port}`, certFile };
 }
 
+/** The second proxy, whose https downloads go through the tunnel above. */
+let tlsProxy: Promise<number> | undefined;
+const ensureTlsProxy = (stubPort: number): Promise<number> =>
+  (tlsProxy ??= (async () => {
+    const { proxyUrl, certFile } = await startHeldOrigin();
+    const port = await freePort();
+    heldProxy = await launchProxy(
+      childEnv(stubPort, HOME_HELD, {
+        HTTPS_PROXY: proxyUrl,
+        NODE_EXTRA_CA_CERTS: certFile,
+      }),
+      { main: port },
+      heldLog,
+    );
+    return port;
+  })());
+
 // ----------------------------------------------------------------------- cases
 type Reply = { status: number; text: string; contentType: string };
 
@@ -582,12 +753,25 @@ function buildRequest(
   options: {
     port?: number;
     asBase64Source?: boolean;
+    /** Claude base64 source only: the block's `media_type`. */
+    mediaType?: string;
     /** Gemini only: the part's `mimeType`; `null` leaves the field out. */
     mimeType?: string | null;
+    /**
+     * The image part as the door's wire format spells it (an OpenAI `image_url`
+     * part, a Claude `image` block, a Gemini `inlineData` part), sent next to
+     * the text instead of one built from `reference`. `null` sends the text
+     * alone: the same request with no image slot at all.
+     */
+    imagePart?: unknown;
   } = {},
 ): { url: string; body: unknown } {
   const base = `http://127.0.0.1:${options.port ?? mainPort}`;
   const text = "describe the image";
+  const withImage = (textPart: unknown, part: unknown): unknown[] =>
+    options.imagePart === null
+      ? [textPart]
+      : [textPart, options.imagePart ?? part];
   if (door === "openai") {
     return {
       url: `${base}/v1/chat/completions`,
@@ -600,10 +784,10 @@ function buildRequest(
             content:
               reference === undefined
                 ? "hello"
-                : [
+                : withImage(
                     { type: "text", text },
                     { type: "image_url", image_url: { url: reference } },
-                  ],
+                  ),
           },
         ],
       },
@@ -613,7 +797,11 @@ function buildRequest(
     const base64 = reference?.match(/^data:[^;]+;base64,(.+)$/)?.[1];
     const source =
       options.asBase64Source && base64
-        ? { type: "base64", media_type: "image/png", data: base64 }
+        ? {
+            type: "base64",
+            media_type: options.mediaType ?? "image/png",
+            data: base64,
+          }
         : { type: "url", url: reference };
     return {
       url: `${base}/v1/messages`,
@@ -627,10 +815,7 @@ function buildRequest(
             content:
               reference === undefined
                 ? "hello"
-                : [
-                    { type: "text", text },
-                    { type: "image", source },
-                  ],
+                : withImage({ type: "text", text }, { type: "image", source }),
           },
         ],
       },
@@ -648,7 +833,7 @@ function buildRequest(
           parts:
             reference === undefined
               ? [{ text: "hello" }]
-              : [
+              : withImage(
                   { text },
                   {
                     inlineData: {
@@ -656,7 +841,7 @@ function buildRequest(
                       data: reference,
                     },
                   },
-                ],
+                ),
         },
       ],
     },
@@ -671,7 +856,9 @@ async function send(
     port?: number;
     shareToken?: string;
     asBase64Source?: boolean;
+    mediaType?: string;
     mimeType?: string | null;
+    imagePart?: unknown;
   } = {},
 ): Promise<Reply> {
   const { url, body } = buildRequest(door, reference, stream, options);
@@ -727,17 +914,28 @@ const stubSaw = (needle: string, from = 0): boolean =>
   stubRequests.slice(from).some((r) => bodyHolds(r.raw, needle));
 
 /** Every `data:image/...` string in the chat bodies the stub received. */
-function stubImageBytes(from: number): Buffer[] {
-  const out: Buffer[] = [];
+function stubImages(from: number): Array<{ mimeType: string; bytes: Buffer }> {
+  const out: Array<{ mimeType: string; bytes: Buffer }> = [];
   for (const record of stubRequests.slice(from)) {
     for (const match of record.raw.matchAll(
-      /data:image\/[a-z+.-]+;base64,([A-Za-z0-9+/=]+)/g,
+      /data:(image\/[a-z0-9+.-]+);base64,([A-Za-z0-9+/=]+)/g,
     )) {
-      out.push(Buffer.from(match[1], "base64"));
+      out.push({
+        mimeType: match[1],
+        bytes: Buffer.from(match[2], "base64"),
+      });
     }
   }
   return out;
 }
+
+const stubImageBytes = (from: number): Buffer[] =>
+  stubImages(from).map((image) => image.bytes);
+
+const describeImages = (from: number): string =>
+  JSON.stringify(
+    stubImages(from).map((image) => [image.mimeType, image.bytes.length]),
+  );
 
 /** The refusal the door must answer, in its own error format. */
 function assertRefusal(door: Door, reply: Reply, context: string): void {
@@ -1216,6 +1414,12 @@ await runSuite(async () => {
             canaries.relative.file,
             null,
           ],
+          [
+            "absolute path made only of base64 characters",
+            canaries.nonImage,
+            "/var/tmp/photo",
+            "image/png",
+          ],
         ] as const;
         assert(
           takenForBytes(canaries.relative.file) &&
@@ -1233,14 +1437,17 @@ await runSuite(async () => {
           );
           if (mimeType === "image/png" && takenForBytes(reference)) {
             // Base64 characters only: the client sent bytes, whatever else they
-            // spell. They are decoded as such and the file is not opened.
-            assertEqual(seen.result.status, 200, `${name}: taken for bytes`);
-            assertEqual(seen.chatPosts, 1, `${name}: reached the stub once`);
+            // spell. They are wrapped and decoded as such, the file is not
+            // opened, and the decoded text is no image, so it is refused as data.
+            assertEqual(seen.chatPosts, 0, `${name}: nothing reached the stub`);
+            assertRefusal("gemini", seen.result, `gemini ${label} ${name}`);
             assert(
-              stubImageBytes(seen.stubFrom).some((got) =>
-                got.equals(Buffer.from(reference, "base64")),
-              ),
-              `${name}: the stub got the decoded text, not the file`,
+              seen.result.text.includes("invalid_image_data"),
+              `${name}: refused as invalid_image_data`,
+            );
+            assert(
+              !seen.result.text.includes(reference),
+              `${name}: the answer must not echo the data`,
             );
           } else {
             assertEqual(seen.chatPosts, 0, `${name}: nothing reached the stub`);
@@ -1307,6 +1514,544 @@ await runSuite(async () => {
         "refused with the size/count code",
       );
     });
+
+    // -------------------------------------------------- inline image bytes
+    // An inline image is judged by its bytes. Each door has its own way to say
+    // "these base64 bytes are an image of this type": a data: URI (OpenAI), a
+    // base64 source with a media_type (Claude), raw base64 next to a mimeType
+    // (Gemini). `sendInline` speaks all three.
+    const inlineRequest = (
+      door: Door,
+      payload: string,
+      declared: string,
+    ): { reference: string; options: Parameters<typeof send>[3] } => {
+      if (door === "gemini") {
+        return { reference: payload, options: { mimeType: declared } };
+      }
+      const reference = `data:${declared};base64,${payload}`;
+      return door === "openai"
+        ? { reference, options: {} }
+        : { reference, options: { asBase64Source: true, mediaType: declared } };
+    };
+    const sendInline = (
+      door: Door,
+      payload: string,
+      declared: string,
+      stream: boolean,
+      extra: Parameters<typeof send>[3] = {},
+    ): Promise<Reply> => {
+      const { reference, options } = inlineRequest(door, payload, declared);
+      return send(door, reference, stream, { ...options, ...extra });
+    };
+
+    /** The stub must hold exactly `bytes`, labelled `type`. */
+    const assertArrived = (
+      from: number,
+      bytes: Buffer,
+      type: string,
+      context: string,
+    ): void => {
+      assert(
+        stubImages(from).some(
+          (image) => image.mimeType === type && image.bytes.equals(bytes),
+        ),
+        `${context}: the stub must receive these exact bytes as ${type}, got ${describeImages(from)}`,
+      );
+    };
+
+    /** A refusal as data, before any stream, with nothing echoed. */
+    const assertRefusedAsData = (
+      door: Door,
+      reply: Reply,
+      context: string,
+      echoes: readonly string[],
+    ): void => {
+      assertRefusal(door, reply, context);
+      assert(
+        reply.text.includes("invalid_image_data"),
+        `${context}: refused as invalid_image_data, got ${reply.text.slice(0, 160)}`,
+      );
+      for (const echo of echoes) {
+        assert(
+          echo.length > 0 && !reply.text.includes(echo),
+          `${context}: the answer must not echo the data`,
+        );
+      }
+    };
+
+    const FORMATS = [
+      { name: "PNG", type: "image/png", bytes: PNG_BYTES },
+      { name: "JPEG", type: "image/jpeg", bytes: JPEG_BYTES },
+      { name: "WebP", type: "image/webp", bytes: WEBP_BYTES },
+      { name: "GIF", type: "image/gif", bytes: GIF_BYTES },
+    ] as const;
+
+    await test("control: the real images are images, and the sample non-images are not", () => {
+      assertEqual(
+        PNG_BYTES.subarray(0, 4).toString("latin1"),
+        "\x89PNG",
+        "PNG",
+      );
+      assertEqual(JPEG_BYTES.subarray(0, 3).toString("hex"), "ffd8ff", "JPEG");
+      assertEqual(
+        WEBP_BYTES.subarray(8, 12).toString("latin1"),
+        "WEBP",
+        "WebP",
+      );
+      assertEqual(GIF_BYTES.subarray(0, 6).toString("latin1"), "GIF89a", "GIF");
+      for (const { name, bytes } of CONVERTIBLE_IMAGES) {
+        assert(bytes.length >= 22, `${name}: a fixture long enough to be one`);
+      }
+    });
+
+    for (const door of DOORS) {
+      for (const { stream, label } of modes) {
+        await test(`${door} ${label}: PNG, JPEG, WebP and GIF reach the stub byte for byte under their own type`, async () => {
+          for (const { name, type, bytes } of FORMATS) {
+            const seen = await observed(() =>
+              sendInline(door, bytes.toString("base64"), type, stream),
+            );
+            assertEqual(seen.result.status, 200, `${name}: answered 200`);
+            assertEqual(seen.chatPosts, 1, `${name}: reached the stub once`);
+            assertArrived(seen.stubFrom, bytes, type, name);
+          }
+        });
+
+        await test(`${door} ${label}: bytes declared as the wrong type reach the stub under the type they have`, async () => {
+          const cases: Array<readonly [string, Buffer, string, string]> = [
+            ["JPEG declared image/png", JPEG_BYTES, "image/png", "image/jpeg"],
+            ["PNG declared image/jpeg", PNG_BYTES, "image/jpeg", "image/png"],
+            ["WebP declared image/gif", WEBP_BYTES, "image/gif", "image/webp"],
+            ["GIF declared image/jpg", GIF_BYTES, "image/jpg", "image/gif"],
+            ["PNG declared in upper case", PNG_BYTES, "IMAGE/PNG", "image/png"],
+            // Gemini only wraps a value that carries an image type; the other
+            // two doors take any declared type and judge the bytes.
+            ...(door === "gemini"
+              ? []
+              : ([
+                  [
+                    "PNG declared application/octet-stream",
+                    PNG_BYTES,
+                    "application/octet-stream",
+                    "image/png",
+                  ],
+                  [
+                    "JPEG declared text/plain",
+                    JPEG_BYTES,
+                    "text/plain",
+                    "image/jpeg",
+                  ],
+                ] as const)),
+          ];
+          for (const [name, bytes, declared, expected] of cases) {
+            const seen = await observed(() =>
+              sendInline(door, bytes.toString("base64"), declared, stream),
+            );
+            assertEqual(seen.result.status, 200, `${name}: answered 200`);
+            assertEqual(seen.chatPosts, 1, `${name}: reached the stub once`);
+            assertArrived(seen.stubFrom, bytes, expected, name);
+            if (declared.toLowerCase() !== expected) {
+              assert(
+                !stubImages(seen.stubFrom).some(
+                  (image) => image.mimeType === declared.toLowerCase(),
+                ),
+                `${name}: the declared type must not reach the stub`,
+              );
+            }
+          }
+        });
+
+        await test(`${door} ${label}: HEIC, HEIF, AVIF, BMP, TIFF, ICO and JPEG 2000 are accepted, not refused`, async () => {
+          for (const { name, type, bytes } of CONVERTIBLE_IMAGES) {
+            const seen = await observed(() =>
+              sendInline(door, bytes.toString("base64"), type, stream),
+            );
+            assertEqual(seen.result.status, 200, `${name}: answered 200`);
+            assertEqual(seen.chatPosts, 1, `${name}: reached the stub once`);
+            // The SDK converts these to PNG when a decoder can read them and
+            // sends the original bytes when it cannot: either is the SDK doing
+            // its job, and neither is the proxy refusing a format.
+            const images = stubImages(seen.stubFrom);
+            assert(
+              images.some(
+                (image) =>
+                  (image.mimeType === type && image.bytes.equals(bytes)) ||
+                  (image.mimeType === "image/png" &&
+                    image.bytes.subarray(0, 8).equals(PNG_MAGIC)),
+              ),
+              `${name}: the stub must receive the original bytes as ${type} or a PNG made from them, got ${describeImages(seen.stubFrom)}`,
+            );
+          }
+        });
+
+        await test(`${door} ${label}: bytes that are not a recognised image are refused as invalid_image_data and never reach the stub`, async () => {
+          const notImages: Array<readonly [string, Buffer]> = [
+            ["text", Buffer.from(`not an image ${canaries.nonImage.token}`)],
+            ["a path", Buffer.from(canaries.png.file)],
+            [
+              "an unreadable relative path",
+              Buffer.from(canaries.relative.file),
+            ],
+            ["HTML", Buffer.from(`<html>${canaries.nonImage.token}</html>`)],
+            ["PDF", Buffer.from(`%PDF-1.7\n${canaries.nonImage.token}\n%%EOF`)],
+            [
+              "SVG",
+              Buffer.from(
+                `<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><!-- ${canaries.nonImage.token} --></svg>`,
+              ),
+            ],
+            ["ZIP", Buffer.concat([Buffer.from("PK\x03\x04"), filler(64)])],
+            ["MP4 (ISO-BMFF that is not an image)", ftypBox("mp42", ["isom"])],
+            [
+              "text beginning BM",
+              Buffer.from("BM is not a bitmap, it is a sentence"),
+            ],
+            ["NUL bytes", Buffer.alloc(64)],
+            ["letters GIF without a version", Buffer.from("GIF\0\0\0\0\0\0")],
+            ["PNG signature cut to 4 bytes", PNG_BYTES.subarray(0, 4)],
+            ["PNG signature cut to 7 bytes", PNG_BYTES.subarray(0, 7)],
+            ["JPEG cut to 2 bytes", JPEG_BYTES.subarray(0, 2)],
+            ["GIF header cut to 5 bytes", GIF_BYTES.subarray(0, 5)],
+            ["WebP cut to 11 bytes", WEBP_BYTES.subarray(0, 11)],
+            ["one byte", Buffer.from([0x89])],
+          ];
+          const chatBefore = chatPosts().length;
+          const stubFrom = stubRequests.length;
+          for (const [name, bytes] of notImages) {
+            const payload = bytes.toString("base64");
+            const reply = await sendInline(door, payload, "image/png", stream);
+            assertRefusedAsData(door, reply, `${door} ${label} ${name}`, [
+              payload,
+              canaries.nonImage.token,
+            ]);
+          }
+          // Anything dispatched after an answer would land here.
+          await sleep(250);
+          assertEqual(
+            chatPosts().length - chatBefore,
+            0,
+            "no refused image reached the stub",
+          );
+          assert(
+            !stubSaw(canaries.nonImage.token, stubFrom),
+            "no refused image's bytes reached the stub",
+          );
+        });
+      }
+    }
+
+    await test("control: the stub receives the canary of an image the proxy was handed legitimately", async () => {
+      const bytes = Buffer.concat([
+        PNG_BYTES,
+        Buffer.from(canaries.nonImage.token),
+      ]);
+      const seen = await observed(() =>
+        sendInline("openai", bytes.toString("base64"), "image/png", false),
+      );
+      assertEqual(
+        seen.result.status,
+        200,
+        "an image carrying the canary is served",
+      );
+      assert(
+        stubSaw(canaries.nonImage.token, seen.stubFrom),
+        "canary detection works, so its absence above means something",
+      );
+    });
+
+    await test("a data: URI of the wrong shape is refused as invalid_image_data, on every door", async () => {
+      const png = PNG_BYTES.toString("base64");
+      const shapes: Array<readonly [string, string]> = [
+        ["not base64 (percent-encoded)", "data:image/png,%89PNG%0D%0A%1A%0A"],
+        ["no comma", "data:image/png;base64"],
+        ["no payload", "data:image/png;base64,"],
+        ["no payload, no type", "data:;base64,"],
+        ["characters outside the alphabet", "data:image/png;base64,@@@@@@@@"],
+        [
+          "a space in the payload",
+          `data:image/png;base64,${png.slice(0, 8)} ${png.slice(8)}`,
+        ],
+        [
+          "a newline in the payload",
+          `data:image/png;base64,${png.slice(0, 8)}\n${png.slice(8)}`,
+        ],
+        [
+          "one character over a multiple of four",
+          "data:image/png;base64,iVBOR",
+        ],
+        [
+          "`=` inside the payload",
+          `data:image/png;base64,${png.slice(0, 8)}=${png.slice(8)}`,
+        ],
+        [
+          "`=` where none belongs",
+          `data:image/png;base64,${png.replace(/=+$/, "")}====`,
+        ],
+        ["a comma before ;base64", `data:image/png,x;base64,${png}`],
+      ];
+      for (const door of DOORS) {
+        for (const stream of [false, true]) {
+          const chatBefore = chatPosts().length;
+          for (const [name, uri] of shapes) {
+            const reply = await send(door, uri, stream);
+            assertRefusedAsData(
+              door,
+              reply,
+              `${door} ${name}`,
+              [uri.slice(uri.indexOf(",") + 1)].filter(
+                (echo) => echo.length > 7,
+              ),
+            );
+          }
+          await sleep(250);
+          assertEqual(
+            chatPosts().length - chatBefore,
+            0,
+            `${door}: no malformed data: URI reached the stub`,
+          );
+        }
+      }
+    });
+
+    await test("a data: URI in the URL-safe or unpadded alphabet, or with header parameters, reaches the stub as standard padded base64", async () => {
+      for (const [name, uri] of [
+        [
+          "URL-safe",
+          `data:image/png;base64,${geminiUrlSafeBytes.toString("base64url")}`,
+        ],
+        [
+          "unpadded",
+          `data:image/png;base64,${geminiBytes.toString("base64").replace(/=+$/, "")}`,
+        ],
+        [
+          "header parameters",
+          `data:image/png;charset=utf-8;name=a.png;base64,${geminiBytes.toString("base64")}`,
+        ],
+        ["no declared type", `data:;base64,${geminiBytes.toString("base64")}`],
+      ] as const) {
+        const bytes = name === "URL-safe" ? geminiUrlSafeBytes : geminiBytes;
+        for (const door of ["openai", "claude"] as const) {
+          const seen = await observed(() => send(door, uri, false));
+          assertEqual(seen.result.status, 200, `${door} ${name}: answered 200`);
+          assertEqual(
+            seen.chatPosts,
+            1,
+            `${door} ${name}: reached the stub once`,
+          );
+          assertArrived(seen.stubFrom, bytes, "image/png", `${door} ${name}`);
+          assert(
+            stubSaw(canaries.rawBase64.token, seen.stubFrom),
+            `${door} ${name}: the client's own bytes arrived`,
+          );
+        }
+      }
+    });
+
+    // ----------------------------------------------------- empty image slots
+    // An image slot that carries nothing is still an image slot. Skipping it
+    // while translating would send the rest of the request upstream as though
+    // the client had attached no picture, and the refusal the proxy documents
+    // would never be answered. Each door spells "an image with no bytes" in its
+    // own way, and each must reach the vetter:
+    //   - an empty inline payload is `invalid_image_data` (the same answer the
+    //     OpenAI door already gives to `data:image/png;base64,`);
+    //   - an empty URL is `invalid_image_reference`, on the OpenAI and Claude
+    //     doors alike (Gemini has no URL form here).
+    type EmptySlot = {
+      name: string;
+      part: unknown;
+      code: "invalid_image_data" | "invalid_image_reference";
+    };
+    const emptySlots = (door: Door): readonly EmptySlot[] => {
+      if (door === "openai") {
+        return [
+          {
+            name: 'an image_url with url ""',
+            part: { type: "image_url", image_url: { url: "" } },
+            code: "invalid_image_reference",
+          },
+          {
+            name: "an image_url with no url",
+            part: { type: "image_url", image_url: {} },
+            code: "invalid_image_reference",
+          },
+          {
+            name: "an image_url data: URI with no payload",
+            part: {
+              type: "image_url",
+              image_url: { url: "data:image/png;base64," },
+            },
+            code: "invalid_image_data",
+          },
+        ];
+      }
+      if (door === "gemini") {
+        return [
+          {
+            name: 'an image/png inlineData with data ""',
+            part: { inlineData: { mimeType: "image/png", data: "" } },
+            code: "invalid_image_data",
+          },
+          {
+            name: "an image/jpeg inlineData with no data",
+            part: { inlineData: { mimeType: "image/jpeg" } },
+            code: "invalid_image_data",
+          },
+          {
+            name: "an image/png inlineData with data null",
+            part: { inlineData: { mimeType: "image/png", data: null } },
+            code: "invalid_image_data",
+          },
+          {
+            name: "an image/png inlineData with data a number",
+            part: { inlineData: { mimeType: "image/png", data: 12345 } },
+            code: "invalid_image_data",
+          },
+        ];
+      }
+      return [
+        {
+          name: 'a base64 source with data ""',
+          part: {
+            type: "image",
+            source: { type: "base64", media_type: "image/png", data: "" },
+          },
+          code: "invalid_image_data",
+        },
+        {
+          name: "a base64 source with no data",
+          part: {
+            type: "image",
+            source: { type: "base64", media_type: "image/jpeg" },
+          },
+          code: "invalid_image_data",
+        },
+        {
+          name: "a base64 source with neither media_type nor data",
+          part: { type: "image", source: { type: "base64" } },
+          code: "invalid_image_data",
+        },
+        {
+          name: 'a url source with url ""',
+          part: { type: "image", source: { type: "url", url: "" } },
+          code: "invalid_image_reference",
+        },
+        {
+          name: "a url source with no url",
+          part: { type: "image", source: { type: "url" } },
+          code: "invalid_image_reference",
+        },
+      ];
+    };
+
+    for (const door of DOORS) {
+      for (const { stream, label } of modes) {
+        await test(`${door} ${label}: an empty image slot is refused, not skipped, and the request never reaches the stub`, async () => {
+          // Preconditions: the same request without the empty image, and with a
+          // real one, are served. Without them a refusal could be the request
+          // being unservable rather than the empty image being vetted.
+          const without = await observed(() =>
+            send(door, "", stream, { imagePart: null }),
+          );
+          assertEqual(
+            without.result.status,
+            200,
+            "the request without the empty image is served",
+          );
+          assertEqual(
+            without.chatPosts,
+            1,
+            "the request without the empty image reaches the stub once",
+          );
+          assertEqual(
+            stubImages(without.stubFrom).length,
+            0,
+            "the request without the empty image carries no image upstream",
+          );
+          const real = await observed(() =>
+            sendInline(door, PNG_BYTES.toString("base64"), "image/png", stream),
+          );
+          assertEqual(real.result.status, 200, "a real image is served");
+          assertEqual(real.chatPosts, 1, "a real image reaches the stub once");
+
+          // Every slot is judged, so one that is skipped does not hide another.
+          const chatBefore = chatPosts().length;
+          const unrefused: string[] = [];
+          for (const { name, part, code } of emptySlots(door)) {
+            const reply = await send(door, "", stream, { imagePart: part });
+            try {
+              assertRefusal(door, reply, name);
+              assert(
+                reply.text.includes(code),
+                `${name}: refused as ${code}, got ${reply.text.slice(0, 160)}`,
+              );
+            } catch (error) {
+              unrefused.push(
+                error instanceof Error ? error.message : String(error),
+              );
+            }
+          }
+          assertEqual(
+            unrefused.length,
+            0,
+            `${door} ${label}: every empty image slot is refused, but: ${unrefused.join("; ")}`,
+          );
+          // Anything dispatched after an answer would land here.
+          await sleep(250);
+          assertEqual(
+            chatPosts().length - chatBefore,
+            0,
+            `${door} ${label}: no empty image slot reached the stub`,
+          );
+        });
+      }
+    }
+
+    // What is not an image slot is left as it always was: a Gemini part without
+    // an inlineData, or with one that declares no image type, and a Claude
+    // block whose source is neither a base64 payload nor a URL, carry nothing
+    // to refuse, and the request goes on without them.
+    for (const door of ["gemini", "claude", "claude-fallback"] as const) {
+      const parts: Array<readonly [string, unknown]> =
+        door === "gemini"
+          ? [
+              ["a part with no inlineData", {}],
+              ["an inlineData with no type and no data", { inlineData: {} }],
+              [
+                "an empty inlineData with no image type",
+                { inlineData: { data: "" } },
+              ],
+              [
+                "an empty audio inlineData",
+                { inlineData: { mimeType: "audio/wav", data: "" } },
+              ],
+            ]
+          : [
+              [
+                "an image block whose source is neither base64 nor a url",
+                {
+                  type: "image",
+                  source: { type: "file", file_id: "file_unused" },
+                },
+              ],
+            ];
+      for (const { stream, label } of modes) {
+        await test(`${door} ${label}: a part that is not an image slot is still left out, and the request is served`, async () => {
+          for (const [name, part] of parts) {
+            const seen = await observed(() =>
+              send(door, "", stream, { imagePart: part }),
+            );
+            assertEqual(seen.result.status, 200, `${name}: answered 200`);
+            assertEqual(seen.chatPosts, 1, `${name}: reached the stub once`);
+            assertEqual(
+              stubImages(seen.stubFrom).length,
+              0,
+              `${name}: no image went upstream`,
+            );
+          }
+        });
+      }
+    }
 
     // ------------------------------------------------------------- bounds
     await test("a request with more images than the proxy accepts is refused whole", async () => {
@@ -1453,21 +2198,70 @@ await runSuite(async () => {
       });
     }
 
+    // --------------------------------------------------- downloaded bytes
+    // A download is judged by its bytes too: the origin answers `200` for a
+    // page, for text it calls `image/png` and for nothing at all, and none of
+    // those may be sent on as a picture. Each case first proves that the origin
+    // served the path, so a refusal is about what was served.
+    for (const door of DOORS) {
+      for (const { stream, label } of modes) {
+        await test(`${door} ${label}: a downloaded image reaches the stub byte for byte, under the type its bytes have`, async () => {
+          const heldMain = await ensureTlsProxy(stubPort);
+          for (const [path, bytes, type] of [
+            ["/ok.png", PNG_BYTES, "image/png"],
+            ["/photo.jpg", JPEG_BYTES, "image/jpeg"],
+            // The origin says image/png; the bytes are a JPEG.
+            ["/mislabelled.png", JPEG_BYTES, "image/jpeg"],
+          ] as const) {
+            const servedBefore = servedPaths.length;
+            const seen = await observed(() =>
+              send(door, `https://${HELD_HOST}${path}`, stream, {
+                port: heldMain,
+              }),
+            );
+            assert(
+              servedPaths.slice(servedBefore).includes(path),
+              `${path}: the origin served the download`,
+            );
+            assertEqual(seen.result.status, 200, `${path}: answered 200`);
+            assertEqual(seen.chatPosts, 1, `${path}: reached the stub once`);
+            assertArrived(seen.stubFrom, bytes, type, path);
+          }
+        });
+
+        await test(`${door} ${label}: a download that is not an image is refused as invalid_image_data and never reaches the stub`, async () => {
+          const heldMain = await ensureTlsProxy(stubPort);
+          for (const path of ["/page.html", "/text.png", "/empty.png"]) {
+            const servedBefore = servedPaths.length;
+            const seen = await observed(() =>
+              send(door, `https://${HELD_HOST}${path}`, stream, {
+                port: heldMain,
+              }),
+            );
+            assert(
+              servedPaths.slice(servedBefore).includes(path),
+              `${path}: the origin served the download`,
+            );
+            assertEqual(seen.chatPosts, 0, `${path}: nothing reached the stub`);
+            assertRefusedAsData(door, seen.result, `${door} ${label} ${path}`, [
+              canaries.served.token,
+              HELD_HOST,
+            ]);
+            assert(
+              !stubSaw(canaries.served.token, seen.stubFrom),
+              `${path}: the served bytes never reached the stub`,
+            );
+          }
+        });
+      }
+    }
+
     // ------------------------------------------------------- cancellation
     // The proxy waits for a download before it contacts any provider, so a
     // client that has gone must not leave one running. A second proxy sends its
     // https downloads through a CONNECT proxy to an origin that never answers.
     await test("a client that disconnects mid-download stops the https download", async () => {
-      const { proxyUrl, certFile } = await startHeldOrigin();
-      const heldMain = await freePort();
-      heldProxy = await launchProxy(
-        childEnv(stubPort, HOME_HELD, {
-          HTTPS_PROXY: proxyUrl,
-          NODE_EXTRA_CA_CERTS: certFile,
-        }),
-        { main: heldMain },
-        heldLog,
-      );
+      const heldMain = await ensureTlsProxy(stubPort);
       const post = (url: string, signal?: AbortSignal): Promise<Response> =>
         fetch(`http://127.0.0.1:${heldMain}/v1/chat/completions`, {
           method: "POST",

@@ -133,15 +133,18 @@ export function parseClaudeRequest(body: ClaudeRequest): ParsedClaudeRequest {
           textParts.push(block.text);
         } else if (block.type === "image") {
           if (isLatestUserMsg) {
-            // Current turn: extract full URI to top-level images for the pipeline
-            let imageUri = "";
-            if (block.source.type === "base64" && block.source.data) {
+            // Current turn: extract full URI to top-level images for the pipeline.
+            // An empty payload or URL is kept (as `data:<type>;base64,` or ""),
+            // never skipped: the image vetter refuses it, so a request that
+            // names a picture and supplies none is not sent on without it.
+            let imageUri: string | undefined;
+            if (block.source.type === "base64") {
               const mediaType = block.source.media_type || "image/png";
-              imageUri = `data:${mediaType};base64,${block.source.data}`;
-            } else if (block.source.type === "url" && block.source.url) {
-              imageUri = block.source.url;
+              imageUri = `data:${mediaType};base64,${block.source.data ?? ""}`;
+            } else if (block.source.type === "url") {
+              imageUri = block.source.url ?? "";
             }
-            if (imageUri) {
+            if (imageUri !== undefined) {
               images.push(imageUri);
             }
           } else {
