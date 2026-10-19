@@ -90,6 +90,7 @@ import {
   countAnthropicCacheMarkers,
 } from "../../utils/anthropicCacheBreakpoints.js";
 import type {
+  AnthropicThinkingParam,
   SageMakerAsLanguageModel,
   VertexAnthropicMessage,
 } from "../../types/index.js";
@@ -677,6 +678,87 @@ const relaxForcedToolChoice = (
       ? { disable_parallel_tool_use: choice.disable_parallel_tool_use }
       : {}),
   };
+};
+
+/**
+ * Whether `messages` ends with tool results answering an assistant message
+ * whose content does not open with a thinking block.
+ */
+const continuesToolTurnWithoutThinking = (
+  messages: readonly Anthropic.Messages.MessageParam[],
+): boolean => {
+  const last = messages[messages.length - 1];
+  const previous = messages[messages.length - 2];
+  if (
+    last?.role !== "user" ||
+    !Array.isArray(last.content) ||
+    !last.content.some((block) => block.type === "tool_result") ||
+    previous?.role !== "assistant" ||
+    !Array.isArray(previous.content)
+  ) {
+    return false;
+  }
+  const first = previous.content[0];
+  return first?.type !== "thinking" && first?.type !== "redacted_thinking";
+};
+
+/**
+ * Make an extended-thinking block fit the request it rides on.
+ *
+ * - A `tool_choice` that forces tool use (`any`, or a named `tool`) cannot be
+ *   sent with thinking on: Anthropic answers "Thinking may not be enabled when
+ *   tool_choice forces tool use." with a 400. The forced choice wins and
+ *   thinking is omitted, as on the Vertex schema path and in oauthFetch.ts.
+ *   `none` and `auto` do not force tool use and leave thinking alone.
+ * - `budget_tokens` must be at least 1024 and below `max_tokens`. As on the
+ *   Vertex path, it is clamped to leave 1024 tokens for the answer, and
+ *   thinking is omitted when no budget of at least 1024 fits.
+ *
+ * - Thinking cannot be switched on partway through a tool-use turn: when the
+ *   request continues one (it ends with tool results) and the assistant
+ *   message that called the tools does not start with a thinking block,
+ *   Anthropic requires one and rejects the request. That is what follows a
+ *   forced first step, where thinking was omitted, so it stays omitted until
+ *   the turn ends.
+ *
+ * `{ type: "disabled" }` and an absent block pass through unchanged. Every
+ * omission is logged, since the caller asked for thinking.
+ */
+const fitThinkingToRequest = (
+  thinking: AnthropicThinkingParam | undefined,
+  toolChoice: Anthropic.Messages.MessageCreateParams["tool_choice"],
+  maxTokens: number,
+  messages: readonly Anthropic.Messages.MessageParam[],
+): AnthropicThinkingParam | undefined => {
+  if (thinking?.type !== "enabled") {
+    return thinking;
+  }
+  if (toolChoice?.type === "any" || toolChoice?.type === "tool") {
+    logger.warn(
+      `[anthropic] Omitting extended thinking: tool_choice "${toolChoice.type}" forces tool use, which Anthropic rejects alongside thinking`,
+    );
+    return undefined;
+  }
+  if (continuesToolTurnWithoutThinking(messages)) {
+    logger.warn(
+      "[anthropic] Omitting extended thinking: this request continues a tool call made without thinking, and Anthropic does not allow thinking to start mid-turn",
+    );
+    return undefined;
+  }
+  const budget = Math.min(thinking.budget_tokens, maxTokens - 1024);
+  if (budget < 1024) {
+    logger.warn(
+      `[anthropic] Omitting extended thinking: max_tokens ${maxTokens} leaves no room for a thinking budget of at least 1024 tokens plus an answer`,
+    );
+    return undefined;
+  }
+  if (budget !== thinking.budget_tokens) {
+    logger.debug(
+      `[anthropic] Clamping thinking budget_tokens ${thinking.budget_tokens} to ${budget} so it stays below max_tokens ${maxTokens}`,
+    );
+    return { type: "enabled", budget_tokens: budget };
+  }
+  return thinking;
 };
 
 /** Map Anthropic stop_reason onto the V3 unified finish reason. */
@@ -1535,11 +1617,20 @@ export class AnthropicProvider extends BaseProvider {
           }
         }
 
-        // Extended thinking passthrough (providerOptions.anthropic.thinking).
-        const thinking = options.providerOptions?.anthropic?.thinking as
-          | { type: "enabled"; budget_tokens: number }
-          | { type: "disabled" }
-          | undefined;
+        // Extended thinking passthrough (providerOptions.anthropic.thinking),
+        // fitted to the forced tool_choice and max_tokens above.
+        const maxTokens = resolveClaudeMaxTokens(
+          modelId,
+          options.maxOutputTokens,
+        );
+        const thinking = fitThinkingToRequest(
+          options.providerOptions?.anthropic?.thinking as
+            | AnthropicThinkingParam
+            | undefined,
+          toolChoice,
+          maxTokens,
+          messages,
+        );
         // `disabled` is sent so a model that thinks by default (claude-sonnet-5
         // does, unasked) is told not to, but it fixes nothing about sampling: only a
         // block that turns thinking ON makes Anthropic reject temperature.
@@ -1598,7 +1689,7 @@ export class AnthropicProvider extends BaseProvider {
         const params: Anthropic.Messages.MessageCreateParamsNonStreaming = {
           model: modelId,
           messages: cachedMessages,
-          max_tokens: resolveClaudeMaxTokens(modelId, options.maxOutputTokens),
+          max_tokens: maxTokens,
           ...(system ? { system } : {}),
           // Extended thinking fixes sampling: Anthropic rejects any
           // temperature but 1 while `thinking` is set, and does not honour
@@ -2316,8 +2407,9 @@ export class AnthropicProvider extends BaseProvider {
 
     // Extended thinking: enabled when the caller supplies an explicit token
     // budget (mirrors the previous experimental_thinking gating). Thinking
-    // deltas stream out on the `reasoning` chunk channel.
-    const thinking =
+    // deltas stream out on the `reasoning` chunk channel. Fitted per step in
+    // buildParams, since the step's tool_choice decides whether it may be sent.
+    const requestedThinking: AnthropicThinkingParam | undefined =
       options.thinkingConfig?.enabled && options.thinkingConfig.budgetTokens
         ? {
             type: "enabled" as const,
@@ -2326,8 +2418,6 @@ export class AnthropicProvider extends BaseProvider {
         : options.thinkingConfig?.type === "disabled"
           ? { type: "disabled" as const }
           : undefined;
-    // See the generate path: `disabled` is sent, but only ON constrains sampling.
-    const thinkingOn = thinking?.type === "enabled";
 
     const maxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
     const channel = createStreamChannel<{
@@ -2577,6 +2667,15 @@ export class AnthropicProvider extends BaseProvider {
             : {},
           "anthropic.executeStream",
         );
+        const maxTokens = resolveClaudeMaxTokens(modelId, options.maxTokens);
+        const thinking = fitThinkingToRequest(
+          requestedThinking,
+          anthropicToolChoice,
+          maxTokens,
+          conversation,
+        );
+        // See the generate path: `disabled` is sent, but only ON constrains sampling.
+        const thinkingOn = thinking?.type === "enabled";
         if (thinkingOn && streamSamplingParams.temperature !== undefined) {
           logger.debug(
             "[anthropic] extended thinking is enabled, so temperature is omitted on the stream path — Anthropic rejects any temperature but 1 while thinking is set",
@@ -2585,7 +2684,7 @@ export class AnthropicProvider extends BaseProvider {
         return {
           model: modelId,
           messages: cachedConversation,
-          max_tokens: resolveClaudeMaxTokens(modelId, options.maxTokens),
+          max_tokens: maxTokens,
           // No `stream: true` here: executeStep sets it when it calls
           // messages.create, so declaring it made the caller assert a literal
           // the adapter immediately overwrites — and forced this whole params

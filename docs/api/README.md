@@ -2178,6 +2178,7 @@ console.log(result.content);
 - [ProviderCapabilities](type-aliases/ProviderCapabilities.md)
 - [AIModelProviderConfig](type-aliases/AIModelProviderConfig.md)
 - [IndividualProviderConfig](type-aliases/IndividualProviderConfig.md)
+- [AnthropicThinkingParam](type-aliases/AnthropicThinkingParam.md)
 - [AnthropicProviderConfig](type-aliases/AnthropicProviderConfig.md)
 - [ProviderConfigOptions](type-aliases/ProviderConfigOptions.md)
 - [OpenAICompatCredentials](type-aliases/OpenAICompatCredentials.md)

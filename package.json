@@ -108,6 +108,7 @@
     "test:anthropic-streaming-retry": "pnpm exec tsx test/continuous-test-suite-anthropic-streaming-retry.ts",
     "test:anthropic-silent-truncation": "pnpm exec tsx test/continuous-test-suite-anthropic-silent-truncation.ts",
     "test:anthropic-thinking-disabled": "pnpm exec tsx test/continuous-test-suite-anthropic-thinking-disabled.ts",
+    "test:anthropic-thinking-forced-tool": "pnpm exec tsx test/continuous-test-suite-anthropic-thinking-forced-tool.ts",
     "test:cache-cost-accounting": "pnpm exec tsx test/continuous-test-suite-cache-cost-accounting.ts",
     "test:agent:cost": "pnpm exec tsx test/continuous-test-suite-agent-cost.ts",
     "test:adjust-body-after-400": "pnpm exec tsx test/continuous-test-suite-adjust-body-after-400.ts",
