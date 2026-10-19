@@ -352,7 +352,7 @@ emitter.on("hitl:confirmation-request", (event) => {
           modifiedArguments: modifiedArgs,
           metadata: {
             timestamp: new Date().toISOString(),
-            responseTime: Date.now() - event.payload.metadata.timestamp,
+            responseTime: Date.now() - Date.parse(event.payload.metadata.timestamp),
             userId: getCurrentUserId(),
           },
         },
@@ -367,7 +367,7 @@ emitter.on("hitl:confirmation-request", (event) => {
           reason,
           metadata: {
             timestamp: new Date().toISOString(),
-            responseTime: Date.now() - event.payload.metadata.timestamp,
+            responseTime: Date.now() - Date.parse(event.payload.metadata.timestamp),
             userId: getCurrentUserId(),
           },
         },

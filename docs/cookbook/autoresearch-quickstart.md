@@ -57,7 +57,7 @@ async function runOneExperiment() {
     timeoutMs: 120_000,
   });
   // Attach the emitter and listeners before initialize(), which emits
-  // autoresearch:initialized (or autoresearch:resumed) itself
+  // autoresearch:initialized itself (resume() emits autoresearch:resumed)
   const emitter = neurolink.getEventEmitter();
   worker.setEmitter(emitter);
   emitter.on("autoresearch:experiment-started", (e) => {
