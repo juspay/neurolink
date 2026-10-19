@@ -6,6 +6,7 @@ import { timingSafeEqualString } from "./tokenCompare.js";
 import { CartesiaStream } from "../../adapters/tts/cartesiaHandler.js";
 import { NeuroLink } from "../../neurolink.js";
 import { logger } from "../../utils/logger.js";
+import { assertWebSocketProxyPolicy } from "../../proxy/proxyFetch.js";
 import { tryImport } from "../../utils/tryImport.js";
 import { withTimeout } from "../../utils/async/withTimeout.js";
 import type {
@@ -684,6 +685,12 @@ async function handleVoiceConnection(
   }
 
   function connectSoniox() {
+    try {
+      assertWebSocketProxyPolicy(SONIOX_URL, "Soniox STT");
+    } catch (err) {
+      logger.error("[SONIOX] Not connecting:", (err as Error).message);
+      return;
+    }
     const ws = new WebSocket(SONIOX_URL);
     s.sonioxWs = ws;
 

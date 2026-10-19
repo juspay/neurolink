@@ -1,6 +1,7 @@
 import WebSocket from "ws";
 import { EventEmitter } from "events";
 import { logger } from "../../utils/logger.js";
+import { assertWebSocketProxyPolicy } from "../../proxy/proxyFetch.js";
 import { withTimeout } from "../../utils/async/withTimeout.js";
 import type { CartesiaMessage } from "../../types/index.js";
 
@@ -27,7 +28,9 @@ export class CartesiaStream extends EventEmitter {
     if (!apiKey) {
       throw new Error("CARTESIA_API_KEY is not set in environment");
     }
-    this.ws = new WebSocket(getCartesiaWsUrl(), {
+    const wsUrl = getCartesiaWsUrl();
+    assertWebSocketProxyPolicy(wsUrl, "Cartesia TTS");
+    this.ws = new WebSocket(wsUrl, {
       headers: { "X-API-Key": apiKey },
     });
 

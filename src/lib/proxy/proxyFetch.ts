@@ -1,6 +1,9 @@
 /**
  * Enhanced proxy-aware fetch implementation for AI SDK providers
- * Supports HTTP/HTTPS, SOCKS4/5, authentication, and NO_PROXY bypass
+ * Supports HTTP/HTTPS proxies, authentication, and NO_PROXY bypass.
+ * SOCKS proxy URLs are recognized but not supported: a request that selects
+ * one falls back to a direct connection, or fails under strict mode
+ * (NEUROLINK_PROXY_STRICT, or `createProxyFetch({ strict: true })`).
  * Lightweight implementation extracted from research of major proxy packages
  */
 
@@ -15,6 +18,7 @@ import type {
   GoogleGenAIHttpOptions,
   ParsedProxyConfig,
   ProxyEnvironmentSnapshot,
+  ProxyFetchOptions,
 } from "../types/index.js";
 import { createHash } from "node:crypto";
 import { TRANSIENT_NETWORK_CODES } from "../constants/networkErrorCodes.js";
@@ -349,9 +353,11 @@ function getDefaultPort(protocol: string): number {
       return 8080;
     case "https:":
       return 8080;
+    case "socks:":
     case "socks4:":
-      return 1080;
+    case "socks4a:":
     case "socks5:":
+    case "socks5h:":
       return 1080;
     default:
       return 8080;
@@ -418,11 +424,15 @@ async function createProxyAgent(proxyUrl: string): Promise<ProxyAgent> {
     }
 
     case "socks4:":
-    case "socks5:": {
-      // SOCKS proxy support is not included in the build to avoid optional dependencies
+    case "socks4a:":
+    case "socks5:":
+    case "socks5h:":
+    case "socks:": {
+      // No SOCKS client ships with the package, and installing one does not
+      // change that: this module never loads it.
       throw new Error(
-        `SOCKS proxy support requires 'proxy-agent' package. ` +
-          `Install it with: npm install proxy-agent`,
+        `SOCKS proxies (${parsed.protocol}//) are not supported. ` +
+          `Use an HTTP(S) proxy, or an HTTP-to-SOCKS bridge in front of the SOCKS proxy`,
       );
     }
 
@@ -469,6 +479,53 @@ export async function getProxyDispatcherForUrl(
 ): Promise<ProxyAgent | null> {
   const proxyUrl = selectProxyUrl(targetUrl);
   return proxyUrl ? getOrCreateProxyAgent(proxyUrl) : null;
+}
+
+/**
+ * Whether NEUROLINK_PROXY_STRICT asks for "proxy or nothing": `true`, `1`,
+ * `yes` or `on` (any case). Any other value, or none, keeps the default of
+ * retrying a failed proxy attempt over a direct connection.
+ */
+export function isProxyStrictMode(): boolean {
+  return /^(true|1|yes|on)$/i.test(
+    process.env.NEUROLINK_PROXY_STRICT?.trim() ?? "",
+  );
+}
+
+/**
+ * The WebSocket clients (`ws`) are built without a proxy agent, so they always
+ * connect directly. Call this before opening one: when a proxy is configured
+ * for `wsUrl` (and NO_PROXY does not exempt it), strict mode refuses the
+ * connection, and otherwise a warning says the socket bypasses the proxy.
+ * `label` names the client in the message; the URL itself is never logged,
+ * since some carry an API key in the query string.
+ */
+export function assertWebSocketProxyPolicy(wsUrl: string, label: string): void {
+  let host: string;
+  let httpEquivalent: string;
+  try {
+    const url = new URL(wsUrl);
+    host = url.host;
+    url.protocol =
+      url.protocol === "wss:" || url.protocol === "https:" ? "https:" : "http:";
+    url.search = "";
+    httpEquivalent = url.toString();
+  } catch {
+    return;
+  }
+  if (!selectProxyUrl(httpEquivalent)) {
+    return;
+  }
+  if (isProxyStrictMode()) {
+    throw new Error(
+      `[Proxy] ${label} WebSocket to ${host} cannot be sent through the configured proxy, ` +
+        `and NEUROLINK_PROXY_STRICT forbids a direct connection`,
+    );
+  }
+  logger.warn(
+    `[Proxy] ${label} WebSocket to ${host} connects directly: WebSocket clients do not use the configured proxy. ` +
+      `Set NEUROLINK_PROXY_STRICT=true to refuse the connection instead.`,
+  );
 }
 
 function sanitizeProxyUrl(url: string | undefined): string {
@@ -544,6 +601,7 @@ async function executeProxiedFetch(
   input: RequestInfo | URL,
   init: RequestInit | undefined,
   proxyEnv: ProxyEnvironmentSnapshot,
+  strict: boolean,
 ): Promise<Response> {
   const { httpsProxy, httpProxy, allProxy, socksProxy, noProxy } = proxyEnv;
   init = injectTraceContext(input, init);
@@ -683,11 +741,25 @@ async function executeProxiedFetch(
       requestId,
       error: errorMessage,
       errorType: error instanceof Error ? error.constructor.name : typeof error,
-      willFallback: true,
+      willFallback: !strict,
       timestamp: new Date().toISOString(),
     });
+    if (strict) {
+      let host = "[unknown-host]";
+      try {
+        host = new URL(targetUrl).host;
+      } catch {
+        // keep the placeholder
+      }
+      logger.warn(
+        `[Proxy Fetch] Request to ${host} through the proxy failed (${errorMessage}); strict proxy mode is on, so it is not retried over a direct connection`,
+      );
+      // The original error, unwrapped: callers classify it (abort, transient
+      // network codes on `cause`) exactly as they would any fetch failure.
+      throw error;
+    }
     logger.warn(
-      `[Proxy Fetch] Enhanced proxy failed (${errorMessage}), falling back to direct connection`,
+      `[Proxy Fetch] Enhanced proxy failed (${errorMessage}), falling back to direct connection. Set NEUROLINK_PROXY_STRICT=true to fail instead.`,
     );
   }
 
@@ -746,20 +818,28 @@ async function executeProxiedFetch(
 
 function createProxiedFetchHandler(
   proxyEnv: ProxyEnvironmentSnapshot,
+  strict: boolean,
 ): typeof fetch {
   return async (
     input: RequestInfo | URL,
     init?: RequestInit,
-  ): Promise<Response> => executeProxiedFetch(input, init, proxyEnv);
+  ): Promise<Response> => executeProxiedFetch(input, init, proxyEnv, strict);
 }
 
 // ==================== ENHANCED PROXY FETCH FUNCTION ====================
 
 /**
  * Create a proxy-aware fetch function with enhanced capabilities
- * Supports HTTP/HTTPS, SOCKS4/5, authentication, and NO_PROXY bypass
+ * Supports HTTP/HTTPS proxies, authentication, and NO_PROXY bypass.
+ *
+ * By default a request whose proxy attempt fails is retried once over a
+ * direct connection, with a warning. Strict mode (`options.strict`, or
+ * NEUROLINK_PROXY_STRICT when the option is omitted) fails it instead. Strict
+ * mode never blocks a request NO_PROXY exempts, or one sent while no proxy is
+ * configured: those go direct by design.
  */
-export function createProxyFetch(): typeof fetch {
+export function createProxyFetch(options?: ProxyFetchOptions): typeof fetch {
+  const strict = options?.strict ?? isProxyStrictMode();
   // Detect ALL proxy-related environment variables
   const httpsProxy = process.env.HTTPS_PROXY || process.env.https_proxy;
   const httpProxy = process.env.HTTP_PROXY || process.env.http_proxy;
@@ -814,8 +894,9 @@ export function createProxyFetch(): typeof fetch {
   logger.debug(`[Proxy Fetch] ALL_PROXY: ${sanitizeProxyUrl(allProxy)}`);
   logger.debug(`[Proxy Fetch] SOCKS_PROXY: ${sanitizeProxyUrl(socksProxy)}`);
   logger.debug(`[Proxy Fetch] NO_PROXY: ${noProxy || "not set"}`);
+  logger.debug(`[Proxy Fetch] Strict mode: ${strict}`);
 
-  return createProxiedFetchHandler(proxyEnv);
+  return createProxiedFetchHandler(proxyEnv, strict);
 }
 
 /**
@@ -859,11 +940,12 @@ export function getProxyStatus() {
     allProxy: maskProxyUrl(allProxy),
     socksProxy: maskProxyUrl(socksProxy),
     noProxy: noProxy || null,
+    strict: isProxyStrictMode(),
     method: "enhanced-proxy-agent",
     capabilities: [
       "HTTP/HTTPS Proxy",
-      "SOCKS4/SOCKS5 Proxy",
       "Proxy Authentication",
+      "Strict (fail-closed) Mode",
       "NO_PROXY Bypass",
       "CIDR Range Matching",
       "Wildcard Domain Matching",

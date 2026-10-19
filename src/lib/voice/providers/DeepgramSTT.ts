@@ -7,6 +7,7 @@
  */
 
 import { logger } from "../../utils/logger.js";
+import { assertWebSocketProxyPolicy } from "../../proxy/proxyFetch.js";
 import { STTError } from "../errors.js";
 import type {
   TTSAudioFormat,
@@ -483,6 +484,7 @@ export class DeepgramSTT implements STTHandler {
     params.set("interim_results", "true");
 
     const wsUrl = `${this.wsBaseUrl}/listen?${params.toString()}`;
+    assertWebSocketProxyPolicy(wsUrl, "Deepgram STT");
 
     // Create WebSocket connection
     const WebSocket = (await import("ws")).default;

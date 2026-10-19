@@ -2475,6 +2475,7 @@ console.log(result.content);
 - [ProxyEnvLoadResult](type-aliases/ProxyEnvLoadResult.md)
 - [ProxyEnvOptions](type-aliases/ProxyEnvOptions.md)
 - [ProxyEnvironmentSnapshot](type-aliases/ProxyEnvironmentSnapshot.md)
+- [ProxyFetchOptions](type-aliases/ProxyFetchOptions.md)
 - [QuietStatus](type-aliases/QuietStatus.md)
 - [ProxyActivitySnapshot](type-aliases/ProxyActivitySnapshot.md)
 - [ProxyRuntimeActivity](type-aliases/ProxyRuntimeActivity.md)
