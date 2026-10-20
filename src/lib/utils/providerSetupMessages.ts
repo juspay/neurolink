@@ -32,7 +32,7 @@ export function getProviderSetupMessage(
       envVars: [
         'ANTHROPIC_API_KEY="sk-ant-api03-your-anthropic-key"',
         "# Optional:",
-        `ANTHROPIC_MODEL="${AnthropicModels.CLAUDE_3_5_SONNET}"`,
+        `ANTHROPIC_MODEL="${AnthropicModels.CLAUDE_SONNET_4_6}"`,
       ],
     },
     "google-ai": {

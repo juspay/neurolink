@@ -54,7 +54,7 @@ export async function handleAnthropicSetup(
         if (hasModel) {
           logger.always(`   Model: ${process.env.ANTHROPIC_MODEL}`);
         } else {
-          logger.always("   Model: claude-3-5-sonnet-20241022 (default)");
+          logger.always("   Model: claude-sonnet-4-6 (default)");
         }
       } else {
         logger.always(chalk.yellow("⚠️  Anthropic setup incomplete"));
@@ -74,7 +74,7 @@ export async function handleAnthropicSetup(
       if (hasModel) {
         logger.always(`   Model: ${process.env.ANTHROPIC_MODEL}`);
       } else {
-        logger.always("   Model: claude-3-5-sonnet-20241022 (default)");
+        logger.always("   Model: claude-sonnet-4-6 (default)");
       }
 
       if (options.interactive) {
@@ -278,7 +278,7 @@ function displayCurrentStatus(hasApiKey: boolean, hasModel: boolean): void {
   } else {
     logger.always(
       chalk.yellow(
-        "⚠ ANTHROPIC_MODEL not set (will use claude-3-5-sonnet-20241022 default)",
+        "⚠ ANTHROPIC_MODEL not set (will use claude-sonnet-4-6 default)",
       ),
     );
   }
