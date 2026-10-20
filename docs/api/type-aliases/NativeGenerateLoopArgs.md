@@ -89,7 +89,10 @@ Tool declarations in the v3 shape doGenerate already knows how to convert.
 
 > **toolsRecord**: `Record`\<`string`, [`Tool`](Tool.md)\>
 
-Registered tools, used to execute a call the model asks for.
+Registered tools, used to execute a call the model asks for. Typed
+`Record<string, Tool>`; it was `Record<string, unknown>` before discovery
+learned to declare tools that join it mid-turn, so a caller that builds
+this record from loosely typed tools now needs a cast to `Tool`.
 
 ---
 

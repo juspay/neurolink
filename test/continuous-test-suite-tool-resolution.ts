@@ -541,6 +541,64 @@ async function main() {
     }
   });
 
+  await test('discoveryScope "all": a registered tool search_tools loaded stays in full on the next turn of the same session, and a different session still has it deferred', async () => {
+    const server = await startScriptedChatServer([
+      toolCall("call_search", "search_tools", { query: "orders_lookup" }),
+      chatCompletion({ content: "loaded" }),
+      chatCompletion({ content: "again" }),
+      chatCompletion({ content: "other session" }),
+    ]);
+    const nl = new NeuroLink({
+      tools: { discovery: true, discoveryScope: "all" },
+    });
+    for (const name of REGISTERED_TOOLS) {
+      nl.registerTool(name, {
+        name,
+        description: `The ${name} tool.`,
+        inputSchema: { type: "object", properties: {}, required: [] },
+        execute: async () => ({ ok: true }),
+      });
+    }
+    const turn = (sessionId: string) =>
+      nl.generate({
+        input: { text: "find the orders tool" },
+        provider: "openai",
+        model: "gpt-4o-mini",
+        disableInternalFallback: true,
+        credentials: mockOpenAICredentials(server),
+        context: { sessionId },
+      });
+    try {
+      await turn("pinned-session");
+      await turn("pinned-session");
+      await turn("other-session");
+      const requestToolNames = server.getAllRequestBodies().map((raw) => {
+        const body = JSON.parse(raw) as {
+          tools?: Array<{ function?: { name?: string } }>;
+        };
+        return (body.tools ?? []).map((entry) => entry.function?.name ?? "");
+      });
+      assertEqual(requestToolNames.length, 4, "requests sent");
+      // Request 0 opens turn 1, 1 follows the search, 2 opens the second turn
+      // of the same session, 3 opens a turn of another session.
+      if (requestToolNames[0].includes("orders_lookup")) {
+        throw new Error("orders_lookup was not deferred before the search");
+      }
+      if (!requestToolNames[2].includes("orders_lookup")) {
+        throw new Error("the pinned orders_lookup was deferred again");
+      }
+      if (requestToolNames[2].includes("sales_report")) {
+        throw new Error("sales_report was sent in full on the pinned turn");
+      }
+      if (requestToolNames[3].includes("orders_lookup")) {
+        throw new Error("the pin leaked into a different session");
+      }
+    } finally {
+      await nl.shutdown();
+      await server.close();
+    }
+  });
+
   logSection("Part 5 — Mid-turn hydration parity (native loops)");
 
   await runSuite();
