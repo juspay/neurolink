@@ -74,7 +74,7 @@ const ConfigSchema: z.ZodType<CliNeuroLinkConfig> = z.object({
       anthropic: z
         .object({
           apiKey: z.string().optional(),
-          model: z.string().default("claude-3-5-sonnet-20241022"),
+          model: z.string().default("claude-sonnet-4-6"),
         })
         .optional(),
       azure: z
