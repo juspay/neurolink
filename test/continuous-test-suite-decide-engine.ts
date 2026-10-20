@@ -952,6 +952,121 @@ async function errorMessageSection(): Promise<void> {
     );
   });
 
+  await test("a rule's hint follows the message after a dash, names the key variable, and belongs to that rule alone", async () => {
+    const spec: DecideErrors = {
+      rules: [
+        {
+          status: 402,
+          kind: "invalid_request",
+          hint: "Check {apiKeyEnvVar} first.",
+        },
+        { status: 422, kind: "invalid_request" },
+      ],
+      default: "invalid_request",
+      bodyShapes: [{ path: "detail" }],
+    };
+    const hinted = (status: number, payload: unknown): DecisionError =>
+      classifyDecisionError(spec, {
+        status,
+        payload,
+        requestId: undefined,
+        label: "Acme",
+        apiKey: "k-secret",
+        apiKeyEnvVar: "ACME_API_KEY",
+      });
+    const withHint = (text: string): string =>
+      `${text} — Check ACME_API_KEY first.`;
+    assertEqual(
+      hinted(402, { detail: "Insufficient credits" }).message,
+      withHint("Insufficient credits"),
+    );
+    assertEqual(hinted(422, { detail: "bad" }).message, "bad");
+    assertEqual(hinted(429, { detail: "slow" }).message, "slow");
+    // The fallback text takes the hint too, and the kind and retry flag stay
+    // the rule's.
+    const bare = hinted(402, null);
+    assertEqual(bare.message, withHint("Acme request failed with HTTP 402"));
+    assertEqual(bare.kind, "invalid_request");
+    assertEqual(bare.retryable, false);
+    assertEqual(bare.status, 402);
+    assertEqual(
+      classifyDecisionError(spec, {
+        status: 402,
+        payload: { detail: "x" },
+        requestId: undefined,
+        label: "Acme",
+        apiKey: "k-secret",
+      }).message,
+      "x — Check the API key variable first.",
+    );
+  });
+
+  await test("the key is removed from the hint as well, each part once", async () => {
+    const spec: DecideErrors = {
+      rules: [
+        {
+          status: 402,
+          kind: "invalid_request",
+          hint: "Check {apiKeyEnvVar} first.",
+        },
+      ],
+      default: "invalid_request",
+      bodyShapes: [{ path: "detail" }],
+    };
+    // Redaction matches inside "[redacted]" for a key such as "e", so neither
+    // part may go through it twice.
+    const got = classifyDecisionError(spec, {
+      status: 402,
+      payload: { detail: "Insufficient credits" },
+      requestId: undefined,
+      label: "Acme",
+      apiKey: "e",
+      apiKeyEnvVar: "ACME_API_KEY",
+    });
+    assertEqual(
+      got.message,
+      "Insuffici[redacted]nt cr[redacted]dits — Ch[redacted]ck ACME_API_KEY first.",
+    );
+    const named = classifyDecisionError(spec, {
+      status: 402,
+      payload: { detail: "Insufficient credits" },
+      requestId: undefined,
+      label: "Acme",
+      apiKey: "first",
+      apiKeyEnvVar: "ACME_API_KEY",
+    });
+    assertEqual(
+      named.message,
+      "Insufficient credits — Check ACME_API_KEY [redacted].",
+    );
+  });
+
+  await test("a rule's messagePattern is judged on the body's message, not on the hint", async () => {
+    const spec: DecideErrors = {
+      rules: [
+        {
+          status: 402,
+          messagePattern: "first",
+          kind: "authentication",
+          hint: "Check {apiKeyEnvVar} first.",
+        },
+        { status: 402, kind: "invalid_request" },
+      ],
+      default: "invalid_request",
+      bodyShapes: [{ path: "detail" }],
+    };
+    const got = classifyDecisionError(spec, {
+      status: 402,
+      payload: { detail: "Insufficient credits" },
+      requestId: undefined,
+      label: "Acme",
+      apiKey: "k",
+      apiKeyEnvVar: "ACME_API_KEY",
+    });
+    assertEqual(got.kind, "invalid_request");
+    assertEqual(got.message, "Insufficient credits");
+  });
+
   await test("removes LiteLLM's key echo, sk- keys, long hex runs and data URLs", async () => {
     const echo =
       "Authentication Error. Received API Key = sk-live-123, Key Hash (Token) =abc";

@@ -316,6 +316,14 @@ export type DecideErrorRule = {
   messagePattern?: string;
   kind: DecisionErrorKind;
   retryable?: boolean;
+  /**
+   * Text added after the error message, behind a dash, when this rule is the
+   * one that matches. For a status the vendor uses for more than one cause,
+   * where the body's own words name only one of them. `{apiKeyEnvVar}` is the
+   * only placeholder. A `messagePattern` is judged on the message without it,
+   * and the key is removed from it as from the message.
+   */
+  hint?: string;
 };
 
 export type DecideBodyShape = {

@@ -24,6 +24,7 @@
       }
     }
   },
+  "timeouts": { "decideMs": 30000 },
   "decide": {
     "dialect": "system-one",
     "order": 8,
@@ -35,14 +36,27 @@
     "errors": {
       "rules": [
         { "status": 401, "kind": "authentication" },
-        { "status": [402, 422], "kind": "invalid_request" },
+        {
+          "status": 402,
+          "kind": "invalid_request",
+          "hint": "ScaleDown answers HTTP 402 both when the account has no credit left and when it does not recognise the API key; check {apiKeyEnvVar} first."
+        },
+        { "status": 422, "kind": "invalid_request" },
         { "status": 429, "kind": "rate_limit" },
         { "status": 502, "kind": "server" },
         { "status": 504, "kind": "timeout" },
         { "statusMin": 500, "kind": "server" }
       ],
       "default": "invalid_request",
-      "bodyShapes": [{ "path": "detail.message" }, { "path": "detail" }]
+      "bodyShapes": [
+        { "path": "detail.message" },
+        { "path": "detail" },
+        {
+          "path": "detail",
+          "isArray": true,
+          "formatter": "fastapi-validation"
+        }
+      ]
     }
   },
   "setup": {
@@ -54,7 +68,7 @@
       "1. Create an account and an API key, following https://docs.scaledown.ai",
       "2. Set {apiKeyEnvVar} in your .env file",
       "3. ScaleDown's documentation says the key goes in an x-api-key header rather than Authorization: Bearer, and NeuroLink sends it that way",
-      "4. ScaleDown's documentation says a request made with no credit left returns HTTP 402"
+      "4. ScaleDown's documentation says a request made with no credit left returns HTTP 402; a live test on 2026-10-20 saw it return 402 for an unrecognised key as well, so check {apiKeyEnvVar} before adding credit"
     ]
   },
   "evidence": {

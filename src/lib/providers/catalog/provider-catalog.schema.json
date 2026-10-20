@@ -311,7 +311,13 @@
                     "description": "The rule also needs the error message to match this case-insensitive regular expression (first 2,000 characters, key removed). Bounded: outside a character class no unescaped *, + or {n,}, no quantifier on a group, no count above 255, and the counts side by side multiply to at most 4,096 ways (each ? is 2, each {n,m} is m-n+1)."
                   },
                   "kind": { "$ref": "#/definitions/decisionErrorKind" },
-                  "retryable": { "type": "boolean" }
+                  "retryable": { "type": "boolean" },
+                  "hint": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "description": "Text added after the error message, behind a dash, when this rule matches. For a status the vendor uses for more than one cause. {apiKeyEnvVar} is the only placeholder."
+                  }
                 }
               }
             },

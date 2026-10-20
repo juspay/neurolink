@@ -1768,6 +1768,73 @@ async function messagePatternSection(): Promise<void> {
   });
 }
 
+const HINT_AT = ["decide", "errors", "rules", 0, "hint"] as const;
+const HINT_MAX = 300;
+
+const hintRejections: readonly Rejection[] = [
+  [HINT_AT, "", "hint"],
+  [HINT_AT, "x".repeat(HINT_MAX + 1), "hint"],
+  [HINT_AT, 5, "hint"],
+  [HINT_AT, null, "hint"],
+  [HINT_AT, true, "hint"],
+  [HINT_AT, ["a"], "hint"],
+  [HINT_AT, {}, "hint"],
+  [HINT_AT, "Check {apiKey} first.", "{apiKeyEnvVar} placeholder"],
+  [HINT_AT, "Check {apiKeyEnvVar first.", "{apiKeyEnvVar} placeholder"],
+  [HINT_AT, "Check apiKeyEnvVar} first.", "{apiKeyEnvVar} placeholder"],
+  [HINT_AT, "Check {{apiKeyEnvVar}} first.", "{apiKeyEnvVar} placeholder"],
+  [HINT_AT, "Check {} first.", "{apiKeyEnvVar} placeholder"],
+];
+
+const hintAcceptances: readonly string[] = [
+  "Check {apiKeyEnvVar} first.",
+  "{apiKeyEnvVar} and {apiKeyEnvVar} again",
+  "A hint with no placeholder.",
+  "x".repeat(HINT_MAX),
+];
+
+async function errorHintSection(): Promise<void> {
+  section("decide entries: error rule hint");
+
+  await test("an empty, over-long, non-string or unknown-placeholder hint is rejected, with the key in the message", () => {
+    for (const [path, value, needle] of hintRejections) {
+      const entry = entryWith(path, value);
+      expectRejected(
+        () => parseCatalogEntry(entry, "laya.json"),
+        needle,
+        `${path.join(".")} = ${JSON.stringify(value)}`,
+      );
+    }
+  });
+
+  await test("a hint, with or without {apiKeyEnvVar}, is accepted and survives parsing unchanged", () => {
+    for (const hint of hintAcceptances) {
+      const entry = entryWith(HINT_AT, hint);
+      deepStrictEqual(parseCatalogEntry(entry, "laya.json"), entry);
+    }
+  });
+
+  await test("a hint sits on one rule and does not make two rules on the same status collide", () => {
+    const entry = entryWith(
+      ["decide", "errors", "rules"],
+      [
+        { status: 402, kind: "invalid_request", hint: "Check {apiKeyEnvVar}." },
+        { status: 422, kind: "invalid_request" },
+      ],
+    );
+    deepStrictEqual(parseCatalogEntry(entry, "laya.json"), entry);
+  });
+
+  await test("Laya's entry carries no hint, and parsing does not add one", () => {
+    const parsed = parseCatalogEntry(structuredClone(LAYA_ENTRY), "laya.json");
+    assert(
+      isDecideCatalogEntry(parsed) &&
+        parsed.decide.errors.rules.every((rule) => !("hint" in rule)),
+      "a Laya rule gained a hint",
+    );
+  });
+}
+
 const crossRejections: readonly Rejection[] = [
   [["decide", "model", "alias"], undefined, "is required when placement"],
   [
@@ -2851,6 +2918,7 @@ await runSuite(async () => {
   await openaiDecisionsSection();
   await ambientKeyGuardSection();
   await messagePatternSection();
+  await errorHintSection();
   await decideCrossRulesSection();
   await defaultModelWindowSection();
   await unsupportedWireSection();

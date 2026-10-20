@@ -15577,6 +15577,178 @@ async function runScaleDownDecide(): Promise<void> {
     }
 
     await scaledownCase(
+      "DECIDE scaledown: a 402 keeps its kind and its text, and adds that ScaleDown also answers 402 for a key it does not recognise, naming the variable",
+      async () => {
+        resetScaleDownEnv();
+        await withMocks(
+          [
+            scaledownRoute({
+              status: 402,
+              json: { detail: `Insufficient credits (sent ${key})` },
+            }),
+          ],
+          async ({ calls }) => {
+            const failure = await capturePerplexityFailure(async () =>
+              ask(fresh()),
+            );
+            expectEq(failure.kind, "invalid_request", "the kind is kept");
+            expectEq(failure.status, 402, "the status is kept");
+            expectEq(failure.retryable, false, "not retried");
+            expect(
+              failure.message.includes("Insufficient credits"),
+              "ScaleDown's own text comes first",
+            );
+            expect(
+              failure.message.includes("does not recognise the API key"),
+              "a 402 can also mean an unrecognised key",
+            );
+            expect(
+              failure.message.includes(keyEnv),
+              "the variable to check is named",
+            );
+            expect(!failure.message.includes(key), "the key is not repeated");
+            expectEq(posts(calls).length, 1, "requests sent");
+          },
+        );
+        for (const status of [401, 422, 429, 502]) {
+          await withMocks(
+            [scaledownRoute({ status, json: { detail: "stand-in" } })],
+            async () => {
+              const failure = await capturePerplexityFailure(async () =>
+                ask(fresh()),
+              );
+              expect(
+                !failure.message.includes(keyEnv) &&
+                  !failure.message.includes("does not recognise"),
+                `HTTP ${status} carries no 402 note`,
+              );
+            },
+          );
+        }
+      },
+    );
+
+    // ScaleDown's own 422 bodies, recorded in a live test on 20 Oct 2026: the
+    // reason is in `detail` as a list, and each item echoes the request.
+    const recordedUnknownModel = {
+      detail: [
+        {
+          type: "value_error",
+          loc: ["body"],
+          msg: "Value error, Unsupported model 'classify-2'. Supported: classify, classify-1.",
+          input: {
+            model: "classify-2",
+            state: "We were billed twice for March. Please refund it today.",
+            questions: {
+              team: { type: "choice", instructions: "Which team?" },
+            },
+          },
+          ctx: { error: {} },
+        },
+      ],
+    };
+    const elevenLevels = Array.from({ length: 11 }, (_, i) => `level ${i + 1}`);
+    const recordedElevenLevels = {
+      detail: [
+        {
+          type: "literal_error",
+          loc: ["body", "questions", "sev", "ChoiceQuestion", "type"],
+          msg: "Input should be 'choice'",
+          input: "score",
+          ctx: { expected: "'choice'" },
+        },
+        {
+          type: "dict_type",
+          loc: ["body", "questions", "sev", "ChoiceQuestion", "criteria"],
+          msg: "Input should be a valid dictionary",
+          input: elevenLevels,
+        },
+        {
+          type: "literal_error",
+          loc: ["body", "questions", "sev", "NoulQuestion", "type"],
+          msg: "Input should be 'noul'",
+          input: "score",
+          ctx: { expected: "'noul'" },
+        },
+        {
+          type: "value_error",
+          loc: [
+            "body",
+            "questions",
+            "sev",
+            "function-after[require_criteria_range(), ScoreQuestion]",
+          ],
+          msg: "Value error, 'criteria' must have between 2 and 10 levels, got 11",
+          input: {
+            type: "score",
+            instructions: "How severe?",
+            criteria: elevenLevels,
+          },
+          ctx: { error: {} },
+        },
+      ],
+    };
+    for (const row of [
+      {
+        name: "an unknown model",
+        body: recordedUnknownModel,
+        reason:
+          "Unsupported model 'classify-2'. Supported: classify, classify-1.",
+        echoed: ["We were billed twice", "Which team?"],
+      },
+      {
+        name: "a score question with 11 levels",
+        body: recordedElevenLevels,
+        reason: "'criteria' must have between 2 and 10 levels, got 11",
+        echoed: ["level 1", "level 11", "How severe?"],
+      },
+    ]) {
+      await scaledownCase(
+        `DECIDE scaledown: a 422 for ${row.name} shows ScaleDown's reason from the detail list and none of the request it echoes`,
+        async () => {
+          resetScaleDownEnv();
+          await withMocks(
+            [scaledownRoute({ status: 422, json: row.body })],
+            async ({ calls }) => {
+              const failure = await capturePerplexityFailure(async () =>
+                ask(fresh()),
+              );
+              expectEq(failure.kind, "invalid_request", "the kind is kept");
+              expectEq(failure.status, 422, "the status is kept");
+              expectEq(failure.retryable, false, "not retried");
+              expect(
+                failure.message.includes(row.reason),
+                `the reason is in the message: ${failure.message}`,
+              );
+              for (const echoed of row.echoed) {
+                expect(
+                  !failure.message.includes(echoed),
+                  `the echoed request text "${echoed}" is not repeated`,
+                );
+              }
+              expectEq(posts(calls).length, 1, "requests sent");
+            },
+          );
+        },
+      );
+    }
+
+    await scaledownCase(
+      "DECIDE scaledown: the entry declares its own 30,000 ms decide timeout",
+      async () => {
+        const { PROVIDER_DESCRIPTORS_BY_NAME } =
+          await import("../dist/factories/providerDescriptors.js");
+        expectEq(
+          [...PROVIDER_DESCRIPTORS_BY_NAME.values()].find(
+            (d) => d.name === provider,
+          )?.timeouts?.decideMs,
+          30_000,
+          "the declared decide timeout",
+        );
+      },
+    );
+
+    await scaledownCase(
       "DECIDE scaledown: a 502 or a 429 followed by a good reply is retried into an answer, with the same x-api-key",
       async () => {
         for (const status of [502, 429]) {

@@ -91,9 +91,10 @@ export function classifyDecisionError(
     requestId: string | undefined;
     label: string;
     apiKey: string;
+    apiKeyEnvVar?: string;
   },
 ): DecisionError {
-  const { status, payload, requestId, label, apiKey } = input;
+  const { status, payload, requestId, label, apiKey, apiKeyEnvVar } = input;
   // Redacted once, here: it stands in for a shape's text that redaction
   // empties, and the label is catalog data a key can match. Redaction is not
   // idempotent for a key such as "e" (it matches inside "[redacted]"), so the
@@ -112,12 +113,22 @@ export function classifyDecisionError(
   );
   const ruleKind = rule?.kind ?? spec.default;
   const ruleRetryable = rule?.retryable ?? isRetryableByDefault(ruleKind);
+  // Added after the rule is chosen, so a pattern never has to allow for it,
+  // and redacted on its own, once, for the same reason as the fallback above.
+  const hinted = rule?.hint
+    ? `${message} — ${redactCredentials(
+        rule.hint
+          .split("{apiKeyEnvVar}")
+          .join(apiKeyEnvVar ?? "the API key variable"),
+        apiKey,
+      )}`
+    : message;
   const build = (
     kind: DecisionErrorKind,
     retryable: boolean,
   ): DecisionError => ({
     kind,
-    message,
+    message: hinted,
     status,
     requestId,
     retryable,

@@ -365,8 +365,10 @@ optional keys in the entry's `decide` block say this to the shared engine,
 behaves as before. The provider guide has the
 [request](../getting-started/providers/scaledown.md#how-a-request-is-sent) and the
 [billing note](../getting-started/providers/scaledown.md#choice-options-and-billing):
-a `choice` question is scored once per option, so input tokens grow with options
-times state length.
+ScaleDown's documentation says a `choice` question is scored once per option, but
+the input tokens charged in a live test did not grow with options times state
+length (the same 20,000-character state cost 2,966, 3,024 and 3,137 tokens at 3, 6
+and 12 options); how ScaleDown counts them is not known.
 
 **Much about the endpoint is not measured**, including its context size, latency,
 rate limits and the maximum number of options, questions and levels; the guide
@@ -390,6 +392,7 @@ or the budget, which an admin can fix, so the instance is not disabled. For
 Perplexity only a 401 is that case: a 413 or a 400 over the model's context length
 is `max_tokens_exceeded`, a 429 is `rate_limit` (retried once), and any other 4xx
 is a non-retried `invalid_request`. For ScaleDown only a 401 is that case: a 402
+(no credit left, or a key ScaleDown does not recognise; the message says both)
 and a 422 are non-retried `invalid_request`s (the same instance works again once
 the cause is fixed), a 429 is `rate_limit` and a 502 or other 5xx is `server`
 (each retried once), and a 504 that ScaleDown sends is `timeout` and is not
@@ -709,10 +712,10 @@ API):
 > 64 questions (measured 2026-10-03). A 64-question request with the same
 > questions and a shorter state took 1.5 s on `clef-flash` and 2.3 s on `clef` on 2026-10-04; see
 > [its latency section](../getting-started/providers/cloudflare-clef.md#latency-and-the-timeout).
-> `openai-decisions` has not been timed: its latency is not measured. Nor has
-> `scaledown`: its latency is not measured, and a `choice` question is scored
-> once per option, so a request with many options may need a larger `timeoutMs`
-> than the 5-second default; see
+> `openai-decisions` has not been timed: its latency is not measured. `scaledown`
+> has been timed only lightly: 265-token requests took 0.3 to 9.8 s on
+> 2026-10-20, and a `choice` question is scored once per option, so a request
+> with many options may need a larger `timeoutMs` than its 30-second default; see
 > [its timeouts note](../getting-started/providers/scaledown.md#timeouts).
 
 On TypeSafe, 400 questions cost ~70 ms more than one. **Concurrent requests, by

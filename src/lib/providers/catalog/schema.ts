@@ -535,6 +535,14 @@ const decideMessagePatternSchema = z
       "messagePattern must be bounded: an unescaped * or +, an open-ended {n,}, a {n,m} count above 255, or any quantifier on a group, outside a character class, can backtrack catastrophically on an error message. Put ?, or {n,m} up to 255, only on a plain character, a character class or an escape, and keep the counts side by side to 4096 ways in all (each ? is 2, each {n,m} is m-n+1)",
   });
 
+const decideErrorHintSchema = z
+  .string()
+  .min(1)
+  .max(300)
+  .refine((hint) => !/[{}]/.test(hint.split("{apiKeyEnvVar}").join("")), {
+    message: "hint may only use the {apiKeyEnvVar} placeholder",
+  });
+
 const decideErrorRuleSchema = z.strictObject({
   status: z
     .union([decideStatusSchema, z.array(decideStatusSchema).min(1)])
@@ -543,6 +551,7 @@ const decideErrorRuleSchema = z.strictObject({
   messagePattern: decideMessagePatternSchema.optional(),
   kind: decideErrorKindSchema,
   retryable: z.boolean().optional(),
+  hint: decideErrorHintSchema.optional(),
 });
 
 const UNSAFE_PATH_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);

@@ -48,3 +48,15 @@ m-n+1).
 ### retryable?
 
 > `optional` **retryable?**: `boolean`
+
+---
+
+### hint?
+
+> `optional` **hint?**: `string`
+
+Text added after the error message, behind a dash, when this rule is the
+one that matches. For a status the vendor uses for more than one cause,
+where the body's own words name only one of them. `{apiKeyEnvVar}` is the
+only placeholder. A `messagePattern` is judged on the message without it,
+and the key is removed from it as from the message.

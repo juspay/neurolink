@@ -20,6 +20,9 @@ models. It emits no text at all.
 > 200 replies in NeuroLink's tests are stand-ins written from the documented
 > shape, and the error texts in the mocked tests are the ones the marketing
 > session reported.
+> The passages on the 402, the 422, the default timeout and the billing of
+> options also use a live test of this provider that the marketing session ran on
+> 2026-10-20 (301 `decide()` calls, 295 answered); each says so where it does.
 > Each item that nobody measured is listed under
 > [Not measured](#not-measured).
 
@@ -49,7 +52,7 @@ alone configures it: there is no base URL to set.
 | Questions per request | no cap declared                                                                                                                                                                     |
 | State window          | none declared, so nothing is refused locally on size; ScaleDown's input ceiling is not measured                                                                                     |
 | Media                 | none. Images and video attached to a `decide()` call are refused before any request; see [Images and video](#images-and-video)                                                      |
-| Default timeout       | 5 seconds per attempt; `timeoutMs` or `--timeout` replaces it; see [Timeouts](#timeouts)                                                                                            |
+| Default timeout       | 30 seconds per attempt, declared in the entry; `timeoutMs` or `--timeout` replaces it; see [Timeouts](#timeouts)                                                                    |
 | Cost                  | priced per input token, input only; see [Cost](#cost) for the rate, its source and its date                                                                                         |
 | Precedence            | the last of the eight: used automatically only when none of TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef or OpenAI Decisions is configured                                |
 | Status                | NeuroLink lists both models as `preview`                                                                                                                                            |
@@ -63,7 +66,8 @@ alone configures it: there is no base URL to set.
 Create an account and an API key by following
 [ScaleDown's documentation](https://docs.scaledown.ai). Sign-up gives a free
 allowance; its expiry is not established. ScaleDown's documentation says a
-request made with no credit left returns HTTP 402.
+request made with no credit left returns HTTP 402, and a live test saw it return
+402 for a key it does not recognise too (see [Errors](#errors)).
 
 ### 2. Configure
 
@@ -181,7 +185,9 @@ answer's distribution instead. Whether ScaleDown's confidence is calibrated is
 not established, so tune a threshold on it against your own labelled data.
 
 ScaleDown's documentation describes a `score` question's `criteria` as an ordered
-list of 2 to 10 level descriptions. NeuroLink does not enforce that.
+list of 2 to 10 level descriptions. NeuroLink does not enforce that; ScaleDown
+does: a list of 11 levels was refused with HTTP 422 in the live test of
+2026-10-20 (`'criteria' must have between 2 and 10 levels, got 11`).
 
 ### How the state is sent
 
@@ -218,11 +224,29 @@ This is a catalog setting, `decide.stateEncoding`: see
 ### Choice options and billing
 
 ScaleDown's documentation says every option of a `choice` question is scored by
-a separate internal call, so the input tokens a request is charged for grow with
-the number of options times the length of the state. The marketing session
-reported two data points on 2026-10-15, **not measured here**: about 1,829 input
-tokens for a 20-option choice and about 13,059 for a 255-option choice, each on a
-one-sentence state.
+a separate internal call. The input tokens a request was charged for did not
+grow with the number of options times the length of the state when that was
+measured. In the live test of 2026-10-20 one `choice` question, whose options
+each had a description of about 20 characters, was sent three times with the
+same 20,000-character state:
+
+| Options | Input tokens charged | If charged as options times state length, scaled from 3 options |
+| ------- | -------------------- | --------------------------------------------------------------- |
+| 3       | 2,966                | 2,966                                                           |
+| 6       | 3,024                | 5,932                                                           |
+| 12      | 3,137                | 11,864                                                          |
+
+That is the state once, plus about 19 tokens for each option added to the three
+(58 for three more, 171 for nine more). The same 12 options on a 55-character
+state were charged 436 tokens.
+
+**Not known:** how ScaleDown counts these tokens, and so what the internal call
+per option adds to the count; whether the amount per option depends on the text
+of the options, the number of questions or the model; and whether the count holds
+beyond 12 options or 20,000 characters. The marketing session's figures from
+2026-10-15, about 1,829 input tokens for a 20-option choice and about 13,059 for
+a 255-option choice, each on a one-sentence state, were not measured again and
+are not reconciled with the line above.
 
 NeuroLink declares no cap on options. A probe by the marketing session saw a
 255-option choice answered and a 300-option choice refused with HTTP 502; the
@@ -310,14 +334,24 @@ carries media is always refused for the media. To decide over images today, use
 
 ## Timeouts
 
-The default is 5,000 ms per attempt (the shared decide default,
-`DEFAULT_DECISION_TIMEOUT_MS`). A choice question is scored once per option, and
-the marketing session saw one ScaleDown 504 (`Endpoint request timed out`) after
-about 29 seconds. ScaleDown's own latency is not measured here, so a caller with
-many options or a long state should pass `timeoutMs`.
+The default is 30,000 ms per attempt. The entry declares it (`timeouts.decideMs`
+in `scaledown.json`). It is not the 5,000 ms of `DEFAULT_DECISION_TIMEOUT_MS`:
+that constant comes after the provider's own default timeout, which is 30,000 ms
+on the provider base class, so it is never reached. A provider that wants a
+shorter limit declares one, as TypeSafe, Laya and XOR declare 5,000 ms.
+
+30 seconds is not derived from a measurement of ScaleDown, but a 5-second limit
+would have cut answers off. In the live test of 2026-10-20, with no `timeoutMs`, 10 identical
+265-token requests were answered in 0.3 to 9.8 s, and two of them (6.1 s and
+9.8 s) took longer than 5 s. A choice question is scored once per option, and the
+marketing session saw one ScaleDown 504 (`Endpoint request timed out`) after
+about 29 seconds. ScaleDown's own latency is otherwise not measured here, so a
+caller with many options or a long state should pass `timeoutMs`.
 
 A 504 that ScaleDown sends is classified `timeout` and is not retried. A timeout
-raised by NeuroLink's own clock is retried once.
+raised by NeuroLink's own clock is retried once, so a request that never answers
+fails after about twice the limit (a loopback stand-in, not ScaleDown, that did
+not answer in 30 s was cut off at 30,000 ms and retried, 60.4 s in all).
 
 ---
 
@@ -344,33 +378,56 @@ ScaleDown's documentation lists HTTP 402 (insufficient credits), 422 (invalid),
 2026-10-15, a 429 `Max queue length has been reached` (no rate-limit headers; it
 cleared after a few seconds) and a 504 `Endpoint request timed out`, and each
 was answered when it retried by hand. NeuroLink shows the `detail` text of an
-error body, whether it is a plain string or an object with a `message`. A body in
-any other form, such as a `detail` that is an array, gives only
+error body, whether it is a plain string, an object with a `message`, or a list
+of validation errors. A list, which is the form both 422 bodies took in the live
+test of 2026-10-20, is shown as `Request failed validation — <where>: <reason>`,
+for up to five entries and without the `input` each entry echoes back (that is
+the request, state included). A body in any other form gives only
 `ScaleDown request failed with HTTP <status>`; the kind and the retry behaviour
 do not change.
 
-| Reply                                                | Kind                                                               | Retried   |
-| ---------------------------------------------------- | ------------------------------------------------------------------ | --------- |
-| 401                                                  | `authentication` — the provider instance stops retrying            | no        |
-| 402                                                  | `invalid_request` — the account has no credit                      | no        |
-| 422                                                  | `invalid_request`, with ScaleDown's reason when the body shows one | no        |
-| 429                                                  | `rate_limit`                                                       | yes, once |
-| 502                                                  | `server`                                                           | yes, once |
-| 504                                                  | `timeout`                                                          | no        |
-| other 5xx                                            | `server`                                                           | yes, once |
-| any other status                                     | `invalid_request`                                                  | no        |
-| no response within the timeout                       | `timeout`                                                          | yes, once |
-| the request fails before any reply (DNS, connection) | `network`                                                          | yes, once |
-| a blank string state (local)                         | `invalid_request`, with no network call                            | no        |
-| an image or a video (local)                          | `invalid_request`, with no network call                            | no        |
-| no key configured (local)                            | `authentication`, with no network call                             | no        |
+| Reply                                                | Kind                                                                      | Retried   |
+| ---------------------------------------------------- | ------------------------------------------------------------------------- | --------- |
+| 401                                                  | `authentication` — the provider instance stops retrying                   | no        |
+| 402                                                  | `invalid_request` — no credit left, or a key ScaleDown does not recognise | no        |
+| 422                                                  | `invalid_request`, with ScaleDown's reason when the body shows one        | no        |
+| 429                                                  | `rate_limit`                                                              | yes, once |
+| 502                                                  | `server`                                                                  | yes, once |
+| 504                                                  | `timeout`                                                                 | no        |
+| other 5xx                                            | `server`                                                                  | yes, once |
+| any other status                                     | `invalid_request`                                                         | no        |
+| no response within the timeout                       | `timeout`                                                                 | yes, once |
+| the request fails before any reply (DNS, connection) | `network`                                                                 | yes, once |
+| a blank string state (local)                         | `invalid_request`, with no network call                                   | no        |
+| an image or a video (local)                          | `invalid_request`, with no network call                                   | no        |
+| no key configured (local)                            | `authentication`, with no network call                                    | no        |
+
+**A 402 does not tell an empty account from an unrecognised key.** In the live
+test of 2026-10-20 a made-up key was answered HTTP 402
+`{"detail":"Insufficient credits"}` both times it was tried, and a real key was
+answered 200 immediately before and after each try, so the account had credit.
+ScaleDown documents the same status for an account with no credit left, and the
+body text is the same, so the status cannot say which it is. NeuroLink keeps the
+kind `invalid_request` and adds the ambiguity to the message:
+
+```text
+Insufficient credits — ScaleDown answers HTTP 402 both when the account has no credit left and when it does not recognise the API key; check SCALEDOWN_API_KEY first.
+```
+
+It does not call a 402 `authentication`: that would stop a provider instance you
+keep, and an empty account is fixed by adding credit, not by changing the key.
+The 401 the marketing session saw on 2026-10-15
+(`x-api-key header is required`) answered a request that sent the key as a Bearer
+token, so it carried no `x-api-key` header; NeuroLink always sends that header,
+and a missing key is refused before any request.
 
 Only a 401 stops the instance, because a bad key does not fix itself: after the
 first rejection that instance sends no more requests, and a new `NeuroLink`
 instance asks again. Because `neurolink.decide()` and `neurolink.tryDecide()`
 build a fresh provider for every call, the latch holds only for a provider
 instance you keep, not across public calls. A 402 and a 422 do not latch: after
-you add credit or fix the request, the same instance works again.
+you add credit, correct the key or fix the request, the same instance works
+again.
 
 An error message never carries the API key. Before the message of an error reply
 reaches a log or an error, NeuroLink removes the configured key (if ScaleDown
@@ -402,14 +459,16 @@ request was made to ScaleDown for this project.
    entry uses for a model that returns no text. Neither is a ScaleDown statement,
    and the entry declares no `decisionLimits`, so nothing is refused locally on
    the size of a state.
-2. **Latency**, for any size of state or number of options. The 5-second default
-   is the shared decide default, not a measurement of ScaleDown.
+2. **Latency**, for any size of state or number of options. The 30-second default
+   is declared in the entry, not derived from a measurement of ScaleDown. The live
+   test of 2026-10-20 saw 265-token requests answered in 0.3 to 9.8 s and states of
+   20,000 to 150,000 characters (3 options) answered in under 1.3 s.
 3. **Rate limits.** A 429 `Max queue length has been reached`, with no
    rate-limit headers, was seen by the marketing session on 2026-10-15; no limit
    is mapped.
-4. **The maximum number of options in a `choice`, of questions per request, and
-   of levels in a `score`**, and what ScaleDown does with a list longer than the
-   2 to 10 levels its documentation describes.
+4. **The maximum number of options in a `choice`, and of questions per request.**
+   (A `score` with 11 levels was refused with HTTP 422 and one with 3 was
+   answered; the rest of the range was not probed.)
 5. **Whether `classify` moves** to a newer model, and what that would change in an
    answer.
 6. **Accuracy** of its answers against any other decide provider, and whether its
@@ -429,14 +488,19 @@ request was made to ScaleDown for this project.
   model name other than `classify` or `classify-1` answered HTTP 422; a state with
   no `text` or `document` answered HTTP 422; the 255-option and 300-option choice
   requests above; the 429 and the 504 above.
+- **Live test by the marketing session, 2026-10-20:** 301 `decide()` calls
+  through this provider (295 answered). It found the 402 for an unrecognised key,
+  the list-shaped 422 body, the default timeout and the billing of options
+  described above. Its two 422 bodies and the 402 text are what the mocked tests
+  for those cases use.
 - **In this project:** the whole behaviour of the entry is tested against stand-in
-  replies: the mocked provider suite (the request headers, body and URL, every
-  status above, the state rules, the order), the decide provider contract
-  (`test/fixtures/decide/scaledown/contract.json`, whose rows are all stand-ins
-  and none claims to have been seen live), and a CLI run against a local
-  server on 127.0.0.1. None of them reaches ScaleDown.
-- **Not captured:** any real reply from ScaleDown. The catalog entry records no
-  live matrix.
+  replies, except for the bodies just named: the mocked provider suite (the
+  request headers, body and URL, every status above, the state rules, the order),
+  the decide provider contract (`test/fixtures/decide/scaledown/contract.json`,
+  whose rows are all stand-ins and none claims to have been seen live), and a CLI
+  run against a local server on 127.0.0.1. None of them reaches ScaleDown.
+- **Not recorded in the catalog entry:** a live matrix. `evidence.liveMatrix` is
+  still empty.
 
 ---
 
@@ -448,10 +512,16 @@ request was made to ScaleDown for this project.
   the key. `neurolink.decide()` builds a fresh provider for every call, so the
   next call asks again; only a provider instance you keep stops sending after a
   rejection.
-- **A 402** — ScaleDown's documentation says this means no credit is left. Add
-  credit and call again; the same instance works again.
-- **A 422** — ScaleDown refused the request. The message carries its reason when the
-  body shows one; a model name other than `classify` or `classify-1` is one cause.
+- **A 402** — either no credit is left or ScaleDown does not recognise the key:
+  both arrive as HTTP 402 `Insufficient credits`, and the message says so. Check
+  `SCALEDOWN_API_KEY` (or the key you passed in `credentials.scaledown.apiKey`)
+  first, then the balance. Fix whichever it is and call again; the same instance
+  works again.
+- **A 422** — ScaleDown refused the request, and the message carries its reason.
+  Two were recorded: a model name other than `classify` or `classify-1`, and a
+  `score` question with more than 10 levels. For a `score` question the reason
+  is the last of several entries; the ones before it are ScaleDown rejecting the
+  other question types.
 - **`ScaleDown needs non-blank state text`** — the state was an empty string or
   only whitespace. Nothing was sent.
 - **`ScaleDown does not accept images or video`** — ScaleDown reads text only. Use

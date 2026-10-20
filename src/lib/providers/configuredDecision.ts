@@ -200,6 +200,7 @@ export class ConfiguredDecisionProvider extends SystemOneDecisionProvider {
       requestId,
       label: this.entry.displayName,
       apiKey: this.apiKey,
+      apiKeyEnvVar: catalogEnvVar(this.entry, "apiKey"),
     });
   }
 
