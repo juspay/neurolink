@@ -92,7 +92,8 @@ import type {
 import iconv from "iconv-lite";
 import { Readable, Transform } from "node:stream";
 import { PDFProcessor } from "../src/lib/utils/pdfProcessor.js";
-import { PDF_LIMITS } from "../src/lib/core/constants.js";
+import { PDF_LIMITS, PROVIDER_CONFIG } from "../src/lib/core/constants.js";
+import { ModelRouter as UtilsModelRouter } from "../src/lib/utils/modelRouter.js";
 import { CLICommandFactory } from "../src/cli/factories/commandFactory.js";
 import { SIZE_LIMITS_BYTES } from "../src/lib/processors/config/sizeLimits.js";
 import { directAgentTools } from "../src/lib/agent/directTools.js";
@@ -12139,6 +12140,19 @@ exit 127
       return (
         md ===
         "[text](https://example.com/path)![Alt](https://example.com/pic.png)"
+      );
+    },
+  },
+  // ---------- Vertex defaults ----------
+  {
+    name: "Vertex defaults: no default points at gemini-2.5-flash, retired on Vertex on 2026-10-20",
+    category: "vertex-default-model",
+    fn: async () => {
+      const route = UtilsModelRouter.route("hi", { forceTaskType: "fast" });
+      return (
+        PROVIDER_CONFIG.evaluation.model === "gemini-3.8-flash" &&
+        route.provider === "vertex" &&
+        route.model === "gemini-3.8-flash"
       );
     },
   },

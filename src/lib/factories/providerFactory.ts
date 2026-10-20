@@ -158,8 +158,8 @@ export class ProviderFactory {
       if (!model) {
         // Check for provider-specific environment variables
         if (resolvedProviderName.toLowerCase().includes("vertex")) {
-          // Use gemini-2.5-flash as default - latest GA model with best price-performance
-          model = process.env.VERTEX_MODEL || "gemini-2.5-flash";
+          // Use gemini-3.8-flash as default - gemini-2.5-flash retired on Vertex on 2026-10-20
+          model = process.env.VERTEX_MODEL || "gemini-3.8-flash";
         } else if (resolvedProviderName.toLowerCase().includes("bedrock")) {
           model = process.env.BEDROCK_MODEL || process.env.BEDROCK_MODEL_ID;
         }

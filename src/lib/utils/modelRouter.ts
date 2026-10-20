@@ -28,7 +28,7 @@ const MODEL_CONFIGS = {
   fast: {
     primary: {
       provider: "vertex",
-      model: "gemini-2.5-flash",
+      model: "gemini-3.8-flash",
       capabilities: ["speed", "general", "code", "basic-reasoning"],
       avgResponseTime: 800,
       costPerToken: 0.0001,

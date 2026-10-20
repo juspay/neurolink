@@ -26,7 +26,7 @@ import type { ModelMessage } from "../../types/index.js";
 // Shared config
 // ---------------------------------------------------------------------------
 
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "gemini-3.8-flash";
 const DEFAULT_LOCATION = "us-central1";
 
 /**

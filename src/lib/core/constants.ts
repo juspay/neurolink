@@ -206,7 +206,7 @@ export const DEFAULT_DOCUMENTATION_MAX_TOKENS = 12000; // For documentation gene
 export const PROVIDER_CONFIG = {
   evaluation: {
     maxTokens: DEFAULT_EVALUATION_MAX_TOKENS,
-    model: "gemini-2.5-flash",
+    model: "gemini-3.8-flash",
     temperature: 0.3, // Lower temperature for consistent evaluation
   },
   analysis: {
