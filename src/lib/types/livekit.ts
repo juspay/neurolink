@@ -10,6 +10,7 @@
  * See docs/features/livekit-voice-agent.md.
  */
 
+import type { EventEmitter } from "node:events";
 import type { NeuroLinkEvents, TypedEventEmitter } from "./common.js";
 import type { StreamOptions, StreamResult } from "./stream.js";
 import type {
@@ -481,6 +482,26 @@ export type RealtimeLlm = {
   readonly model: string;
   label: () => string;
   close: () => Promise<void>;
+};
+
+/**
+ * A session of the xAI plugin as far as the xai model's watcher needs it: an
+ * event emitter (the plugin republishes every server event as
+ * `openai_server_event_received`) that can be closed.
+ */
+export type XaiObservedSession = EventEmitter & {
+  close: () => Promise<void>;
+};
+
+/**
+ * Token counts of one xAI response. xAI sends them at the top level of
+ * `response.done`; the plugin reads `response.usage`, which xAI leaves empty.
+ */
+export type XaiResponseUsage = {
+  inputTokens: number;
+  inputAudioTokens: number;
+  outputTokens: number;
+  outputAudioTokens: number;
 };
 
 /**

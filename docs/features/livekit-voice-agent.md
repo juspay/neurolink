@@ -701,16 +701,36 @@ through LiveKit's xAI plugin.
 
 ### Status
 
-- **Tested against a stub WebSocket server only.** The stub listens on
-  `127.0.0.1`. It shows what the LiveKit xAI plugin sends to whatever it is
-  pointed at, and how this package reads the OpenAI-style events it is given.
-  It shows nothing about how xAI answers.
-- **No request has been made to xAI by this project.** No xAI key was available
-  when the backend was written.
-- **Not established here:** behaviour against the live service, latency,
-  accuracy, and every xAI benchmark. Nothing in this section says the xai
-  backend works with the real service. Treat it as untested against xAI until
-  someone runs a call with a real key.
+Run against the live xAI service on 2026-10-20 with synthetic speech (a
+text-to-speech voice, not a person), inside a recorded budget: 21 WebSocket
+sessions, about 95 seconds connected, under US$0.20. Plugin version 1.4.6. What
+that showed:
+
+- **It works through the plugin.** A greeting, a text turn, a spoken turn
+  answered in voice, a function call with its continuation, a seeded history and
+  two voices all completed with no error event.
+- **`grok-voice-3.0` is accepted and honoured:** `session.created` names it.
+- **First audio** arrived 985 ms after a text turn (counted from
+  `response.create`) and 1,229 ms after a spoken turn (counted from
+  `input_audio_buffer.speech_stopped`). One sample each, from one network
+  location, so neither is a distribution.
+- **Price:** xAI's own pages list USD 0.08 per minute. That is a list price; no
+  invoice was checked.
+- **Function calling works** for one function tool with a flat object schema.
+  Tool names with underscores and the `$schema` and `additionalProperties`
+  fields the sanitizer leaves in were accepted.
+- **The plugin's `session.update` layout is accepted** and its voice and
+  turn-detection settings take effect. The service's echo of the turn detection
+  leaves out `threshold` and `interrupt_response`; whether it ignores them was
+  not measured.
+- **Seeded history is accepted:** a user and an assistant message sent before the
+  first turn were used by the model.
+
+The same run found the differences from OpenAI that the sections below handle:
+repeated final transcripts, usage reported in another place, an unknown model or
+voice accepted without an error, and a wrong key that crashes the plugin's
+socket. It did **not** cover a full agent in a LiveKit room, interruption, or
+calls longer than a few seconds; see [Still unmeasured](#still-unmeasured).
 
 ### Choosing the backend
 
@@ -726,8 +746,8 @@ XAI_REALTIME_ALLOW_INSECURE=    # optional; "true" allows a ws:// base URL to a 
 | Variable                                                                          | Backend | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | --------------------------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `VOICE_REALTIME_BACKEND`                                                          | both    | `gemini` or `xai`. Any other value throws at startup, naming the variable and the two choices and repeating nothing from the environment.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `VOICE_LIVE_MODEL`                                                                | both    | Realtime model id. Default `gemini-live-2.5-flash` for gemini, `grok-voice-3.0` for xai.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| `VOICE_S2S_VOICE`                                                                 | both    | Voice name. Voices differ between the two models: set it for the backend you chose, or leave it blank (the xAI plugin then uses `ara`).                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `VOICE_LIVE_MODEL`                                                                | both    | Realtime model id. Default `gemini-live-2.5-flash` for gemini, `grok-voice-3.0` for xai. xAI does not reject an id it does not know: it runs a default model and says nothing, so a typo changes nothing. The xai backend logs a `realtime.xai.modelMismatch` warning when `session.created` names another model than the one asked for.                                                                                                                                                                                                                                               |
+| `VOICE_S2S_VOICE`                                                                 | both    | Voice name. Voices differ between the two models: set it for the backend you chose, or leave it blank (the xAI plugin then uses `ara`). xAI does not reject a voice it does not know either, and nothing is logged for one; `GET https://api.x.ai/v1/tts/voices` (with the key as a Bearer token) lists the valid ids.                                                                                                                                                                                                                                                                 |
 | `XAI_API_KEY`                                                                     | xai     | Required. Read by the plugin from the environment and shared with the xAI chat provider, which reads the same variable. Never part of the config object and never logged.                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `XAI_REALTIME_BASE_URL`                                                           | xai     | `ws://` or `wss://` URL of the realtime endpoint, for a gateway or a test server. Unset keeps the plugin's own default, `wss://api.x.ai/v1`. A `ws://` URL is accepted only for `localhost`, an address in `127.0.0.0/8` or `[::1]`; to any other host it throws unless `XAI_REALTIME_ALLOW_INSECURE=true` is set. Anything else that is not a `ws://` or `wss://` URL throws too. Both errors are raised at startup and do not repeat the value. The URL is checked whatever the backend, so a bad value stops a gemini deployment too. A caller's `xaiBaseURL` gets the same checks. |
 | `XAI_REALTIME_ALLOW_INSECURE`                                                     | xai     | Set to `true` to allow a `ws://` base URL (from `XAI_REALTIME_BASE_URL` or `xaiBaseURL`) to a host other than loopback. **With it set, `XAI_API_KEY` travels in cleartext to that host**, readable by anything on the path. Leave it unset unless the network between the worker and that host is one you control. Only `true` (any case) counts; any other value, or none, leaves the refusal in place.                                                                                                                                                                               |
@@ -769,23 +789,54 @@ run after it.
 
 ### What the xai backend does
 
-The LiveKit xAI plugin extends the OpenAI realtime model. Against a stub it
-connects to `<base URL>/realtime?model=<id>` with `Authorization: Bearer
-<XAI_API_KEY>` (the key is never put in the URL) and its first event is a
-`session.update` that carries the model, the voice, `output_modalities:
-["audio"]`, server-side voice-activity detection (threshold 0.5, 300 ms prefix
-padding, 200 ms silence, response creation and interruption on) and an input
-transcription setting. The plugin's default endpoint is `wss://api.x.ai/v1`.
+The LiveKit xAI plugin extends the OpenAI realtime model. It connects to
+`<base URL>/realtime?model=<id>` with `Authorization: Bearer <XAI_API_KEY>` (the
+key is never put in the URL) and its first event is a `session.update` that
+carries the model, the voice, `output_modalities: ["audio"]`, server-side
+voice-activity detection (threshold 0.5, 300 ms prefix padding, 200 ms silence,
+response creation and interruption on). The plugin's default endpoint is
+`wss://api.x.ai/v1`. xAI documents a flatter layout than the plugin sends and
+accepts the plugin's anyway.
 
-Two things in that list are the plugin's and are not verified against xAI:
+Four places where the live service differs from what the plugin assumes, and
+what this package does about each:
 
-- the plugin sends `gpt-4o-mini-transcribe`, an OpenAI model name, as the input
-  transcription model;
-- the plugin's own default model is `grok-voice-think-fast-1.0`. NeuroLink
-  defaults to `grok-voice-3.0`, the flagship id xAI's documentation lists
-  (together with the alias `grok-voice-latest` and a deprecated
-  `grok-voice-2.0`). The plugin passes the id through; whether the service
-  accepts it through the plugin has not been tested.
+- **Input transcription is left out of the layout.** The plugin's default is
+  `{ model: "gpt-4o-mini-transcribe" }`, an OpenAI model name. xAI accepts it,
+  and then answers one spoken utterance with five `completed` transcripts of
+  growing text (20, 36, 58, 58 and 58 characters for one 58-character sentence)
+  plus three `updated` ones. Any `transcription` key does this, including xAI's
+  own `grok-transcribe`. The plugin turns each `completed` event into a final
+  user transcript, so the turn recorder stored 234 characters: the sentence
+  repeated. The factory therefore builds the model with
+  `inputAudioTranscription: undefined`, the one place it erases a plugin
+  default on purpose; the plugin then sends no `transcription` key and xAI sends
+  one `completed` transcript per utterance. Transcription itself stays on.
+- **Usage is in another place.** xAI sends the token counts at the top level of
+  `response.done` and leaves `response.usage`, where the plugin reads, an empty
+  object, so the plugin's own metrics are zero for every response. The xai
+  model reads the top-level counts (and `response.usage` when the top level has
+  none) and logs `realtime.usage` with the same six fields the Gemini backend
+  logs. A response that reports nothing, such as a cancelled one, logs nothing.
+  `billable_audio_seconds`, which xAI also reports, is not logged; see the price
+  note below.
+- **An unknown model id or voice is accepted without an error.** A made-up model
+  id connects and runs as `grok-voice-3.0`. So do the plugin's own default,
+  `grok-voice-think-fast-1.0`, and the alias `grok-voice-latest`;
+  `grok-voice-2.0` came back as itself. The xai model compares the model named
+  in `session.created` with the one it asked for and logs a
+  `realtime.xai.modelMismatch` warning when they differ. It does not fail the
+  call, and an alias triggers it too. A made-up voice produced no error and a
+  coarse pitch estimate matching the default voice `ara`; nothing is logged for
+  one, so check ids against `GET https://api.x.ai/v1/tts/voices` (28 voices when
+  measured).
+- **A wrong key is refused with HTTP 400, not 401,** at the WebSocket upgrade,
+  and the plugin opens its socket with no `error` listener, so the refusal is an
+  uncaught exception. See [Troubleshooting](#troubleshooting).
+
+NeuroLink defaults to `grok-voice-3.0`, the flagship id xAI's documentation
+lists (together with the alias `grok-voice-latest` and a deprecated
+`grok-voice-2.0`); the measurement above is why it stays the default.
 
 **A missing key stops the call before it connects.** If `XAI_API_KEY` is unset
 the plugin falls back to `OPENAI_API_KEY`, and a stub server showed that
@@ -798,28 +849,36 @@ therefore refuses an unset, empty or whitespace-only key: it throws
 
 ### How each part of the agent behaves on xai
 
-| Part                                                               | On xai                                                                                                                                                                                                                            |
-| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Vertex ADC and `GEMINI_API_KEY` clearing                           | Not run. The xai backend never touches the Gemini environment.                                                                                                                                                                    |
-| Data-channel event bridge, HITL, room context                      | Unchanged. They work on the LiveKit room and the agent session, not on a model.                                                                                                                                                   |
-| Session events (user transcript, assistant text, turn done, usage) | Unchanged code. Against a stub, OpenAI-style transcript and usage events reach the shapes the agent reads.                                                                                                                        |
-| MCP tool bridge and schema sanitizer                               | Unchanged. The sanitizer produces plain JSON Schema (the OpenAI-style API takes full JSON Schema), and the plugin forwards it as is. Keeping it is the safer choice: it drops `$ref` and unions that xAI has not been tried with. |
-| Conversation memory (recording and seeding)                        | Recording is shared by both backends. Each remembered turn is traced with the model id and the backend's provider: `vertex` for gemini, `xai` for xai. Whether xAI accepts the seeded history items is unknown.                   |
-| `realtime.config` and `realtime.room.joined` logs                  | Name the backend. The Vertex project, location and modality are printed for gemini only; for xai the base URL is reduced to a yes/no.                                                                                             |
+| Part                                                               | On xai                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Vertex ADC and `GEMINI_API_KEY` clearing                           | Not run. The xai backend never touches the Gemini environment.                                                                                                                                                                                                                                   |
+| Data-channel event bridge, HITL, room context                      | Unchanged. They work on the LiveKit room and the agent session, not on a model.                                                                                                                                                                                                                  |
+| Session events (user transcript, assistant text, turn done, usage) | Unchanged code, with one difference. The user transcript, assistant text and turn events reach the shapes the agent reads. Usage does not come through the plugin's metrics (they are zero on xai); the xai model logs `realtime.usage` itself and the agent skips the plugin's metrics for xai. |
+| MCP tool bridge and schema sanitizer                               | Unchanged. The sanitizer produces plain JSON Schema (the OpenAI-style API takes full JSON Schema), and the plugin forwards it as is. Keeping it is the safer choice: it drops `$ref` and unions that xAI has not been tried with.                                                                |
+| Conversation memory (recording and seeding)                        | Recording is shared by both backends. Each remembered turn is traced with the model id and the backend's provider: `vertex` for gemini, `xai` for xai. xAI accepted seeded history items in the live run (the model was driven directly, not in a room).                                         |
+| `realtime.config` and `realtime.room.joined` logs                  | Name the backend. The Vertex project, location and modality are printed for gemini only; for xai the base URL is reduced to a yes/no.                                                                                                                                                            |
 
-xAI's announced list price for Grok Voice is USD 0.08 per minute (source:
-https://x.ai/news/grok-voice-3, read 2026-10-14/15). That is xAI's figure, not
-something NeuroLink measured.
+xAI's list price for Grok Voice is USD 0.08 per minute (source:
+https://x.ai/news/grok-voice-3, and xAI's voice documentation, read 2026-10-20).
+That is xAI's figure, not something NeuroLink measured against an invoice. xAI
+reports `usage.billable_audio_seconds` on each `response.done`. In each of the
+four recorded sessions with more than one response it rose from one response to
+the next (for example 1, 3, 9, 11, 12), so it is a running total for the
+session and not a per-response figure: adding the values up over-counts. How it
+is computed was not established.
 
-### Still unknown without a real key
+### Still unmeasured
 
-Whether xAI accepts the model ids above through the plugin; whether it accepts
-the input transcription setting; whether it accepts the sanitized tool schemas
-and underscore tool names; the event names and ordering xAI really sends (the
-plugin line pinned here, 1.4.6, predates later xAI-specific handling in newer
-plugin releases); whether the seeded history is accepted; and how interruption,
-truncation and tool calls behave. A live smoke test with a key supplied by the
-owner is the missing step.
+A full agent inside a LiveKit room: a `voice.AgentSession` with the event
+bridge, human confirmations and MCP tools going through the model (the model was
+driven directly, without a room). Interruption and truncation
+(`conversation.item.truncate`, `response.cancel`). Reconnection, the plugin's
+20-minute session cap, idle timeouts and calls longer than a few seconds.
+Parallel and server-side tools, and tool schemas with `$ref` or unions (the
+sanitizer removes those). Latency beyond the two single samples above. Accuracy
+with human speech and accents. The real charge in xAI's console. The results
+above are for plugin 1.4.6, which predates later xAI-specific handling in newer
+plugin releases.
 
 ### Troubleshooting
 
@@ -837,6 +896,25 @@ owner is the missing step.
 - A call that will not start on the xai backend: confirm that `VOICE_LIVE_MODEL`
   and `VOICE_S2S_VOICE` hold xAI values and not leftover Gemini ones, since both
   variables are shared.
+- `xAI refused the realtime connection with HTTP 400` (in the log as
+  `realtime.xai.connectRefused`), or `Unexpected server response: 400` in a
+  stack trace: a wrong, revoked or expired `XAI_API_KEY`. xAI answers a wrong
+  key with HTTP 400 at the WebSocket upgrade, not 401. The plugin opens its
+  socket with no `error` listener, so the refusal is an uncaught exception, and
+  a Node process with no handler for it exits with code 1. This package cannot
+  stop that. What it does before the exception takes effect is log the
+  classified error and emit it as an unrecoverable `error` on the model session;
+  the LiveKit agent session forwards that to the handler the agent entry already
+  has, which logs `realtime.session.error` and publishes `status: error` (read
+  from the LiveKit source; not run inside a room). With
+  `installVoiceWorkerProcessGuards()` installed in the process, the exception is
+  logged and a job child exits one second later instead. Only the connection
+  attempt is covered, and every session still connecting in the process is told,
+  because the crash carries no socket and ends the process for all of them: a crash after the connection is made is left to the
+  process, and the real fix is an `error` listener in the plugin's socket code.
+- A `realtime.xai.modelMismatch` warning: `VOICE_LIVE_MODEL` names an id xAI does
+  not run (a typo, or a retired id), or an alias such as `grok-voice-latest`.
+  The call goes on with the model named in `served`.
 
 ---
 

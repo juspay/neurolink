@@ -1563,6 +1563,8 @@ console.log(result.content);
 - [LiveKitServerCredentials](type-aliases/LiveKitServerCredentials.md)
 - [RealtimeVoiceBackend](type-aliases/RealtimeVoiceBackend.md)
 - [RealtimeLlm](type-aliases/RealtimeLlm.md)
+- [XaiObservedSession](type-aliases/XaiObservedSession.md)
+- [XaiResponseUsage](type-aliases/XaiResponseUsage.md)
 - [RealtimeVoiceConfig](type-aliases/RealtimeVoiceConfig.md)
 - [RealtimeVoiceLogEntry](type-aliases/RealtimeVoiceLogEntry.md)
 - [RealtimeVoiceLogContext](type-aliases/RealtimeVoiceLogContext.md)

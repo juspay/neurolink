@@ -8,14 +8,15 @@
  * `@google/genai` are imported dynamically so the core package does not require
  * them unless the realtime agent is used.
  *
- * The xai backend has only been exercised against a stub WebSocket server. It
- * has never talked to the real xAI service.
+ * The xai backend was run against the real xAI service on 2026-10-20; what that
+ * showed, and what is still unmeasured, is in the document below.
  *
  * See docs/features/livekit-voice-agent.md.
  */
 
 import type { RealtimeLlm, RealtimeVoiceConfig } from "../../types/index.js";
 import { requireWebSocketUrl } from "./config.js";
+import { observeXaiSession } from "./xaiSessionWatch.js";
 
 /**
  * Fail early, naming the variable, when `XAI_API_KEY` is blank or absent.
@@ -83,18 +84,37 @@ async function createXaiRealtimeLlm(
   // own defaults, so a key holding `undefined` would erase the default: a
   // missing `baseURL` would send the xAI key to OPENAI_BASE_URL or
   // api.openai.com, and no `apiKey` option is passed at all because the plugin
-  // reads XAI_API_KEY itself. The plugin forwards `baseURL` although its
-  // declared option type leaves it out.
+  // reads XAI_API_KEY itself. The plugin forwards `baseURL` and
+  // `inputAudioTranscription` although its declared option type leaves them out.
+  //
+  // `inputAudioTranscription` is the one key set to `undefined` on purpose, to
+  // erase the plugin's OpenAI default of `gpt-4o-mini-transcribe`. With it xAI
+  // answered one spoken utterance with five "completed" transcripts, which the
+  // turn recorder stored as one user message with the utterance repeated;
+  // without it xAI sends one. `undefined`, unlike `null`, keeps the plugin's
+  // user-transcription capability on, and JSON.stringify leaves the key out of
+  // the `session.update` it sends.
   const modelOptions: NonNullable<
     ConstructorParameters<typeof xai.realtime.RealtimeModel>[0]
-  > & { baseURL?: string } = { model: cfg.model };
+  > & { baseURL?: string; inputAudioTranscription?: undefined } = {
+    model: cfg.model,
+    inputAudioTranscription: undefined,
+  };
   if (cfg.voice) {
     modelOptions.voice = cfg.voice;
   }
   if (cfg.xaiBaseURL) {
     modelOptions.baseURL = cfg.xaiBaseURL;
   }
-  return new xai.realtime.RealtimeModel(modelOptions);
+
+  class ObservedXaiRealtimeModel extends xai.realtime.RealtimeModel {
+    session() {
+      const session = super.session();
+      observeXaiSession(session, cfg.model);
+      return session;
+    }
+  }
+  return new ObservedXaiRealtimeModel(modelOptions);
 }
 
 /**

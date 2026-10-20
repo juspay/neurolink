@@ -7,14 +7,15 @@
  * LiveKit's xAI plugin instead. This suite covers the backend choice, the model
  * factory and the agent wiring around it.
  *
- * WHAT THIS SUITE DOES NOT PROVE. No xAI key exists in this setup, so nothing
- * here has talked to the real xAI service and nothing here may be read as
- * evidence that the xAI backend works against it. The xAI cases run against a
- * stub WebSocket server on 127.0.0.1 and show what the LiveKit plugin sends to
- * whatever it is pointed at. Whether xAI accepts those events, the model ids
- * (`grok-voice-3.0` is taken from xAI's documentation) or the OpenAI
- * transcription model name the plugin sends by default is UNKNOWN until someone
- * runs a call with a real key.
+ * WHAT THIS SUITE DOES NOT PROVE. It never talks to the real xAI service, so
+ * nothing here is evidence that the xai backend works against it. The xAI cases
+ * run against a stub WebSocket server on 127.0.0.1 and show what the LiveKit
+ * plugin sends to whatever it is pointed at, and how this package reads the
+ * events it is given. What the live service does (model ids, the session
+ * layout, input transcription, usage, a refused key) was measured separately
+ * with a real key on 2026-10-20; docs/features/livekit-voice-agent.md records
+ * the results and what is still unmeasured. The stub events below reproduce the
+ * shapes that run recorded, they are not a substitute for it.
  *
  * DETERMINISM (CLAUDE.md rule 15). Every case here is something a live call
  * cannot give: a fixed environment and config object, a recorded plugin
@@ -77,6 +78,12 @@ const RECORDER = join(
   "test",
   "fixtures",
   "realtimeVoiceRecorder.mjs",
+);
+const REFUSED_UPGRADE = join(
+  REPO_ROOT,
+  "test",
+  "fixtures",
+  "realtimeRefusedUpgrade.mjs",
 );
 
 // Not credentials: arbitrary strings with no provider's key shape. They are
@@ -845,9 +852,11 @@ const outcomeSchema = z.object({
 });
 type Outcome = z.infer<typeof outcomeSchema>;
 
-async function record(
+/** Run a fixture script in a child with the suite's variables cleared and `vars` set; returns the JSON after its `RESULT ` line. */
+async function runFixture(
+  script: string,
   vars: Readonly<Record<string, string | undefined>>,
-): Promise<{ outcome: Outcome; raw: string }> {
+): Promise<{ result: unknown; raw: string }> {
   const env: NodeJS.ProcessEnv = { ...process.env };
   for (const name of SUITE_ENV) {
     delete env[name];
@@ -857,17 +866,26 @@ async function record(
       env[name] = value;
     }
   }
-  const result = await runCommand(process.execPath, [RECORDER], {
+  const output = await runCommand(process.execPath, [script], {
     cwd: REPO_ROOT,
     env,
     timeoutMs: scaleTimeoutMs(60_000),
   });
   const line = required(
-    result.stdout.split("\n").find((entry) => entry.startsWith("RESULT ")),
-    "the recorder child printed no result",
+    output.stdout.split("\n").find((entry) => entry.startsWith("RESULT ")),
+    "the fixture child printed no result",
   );
-  const outcome = outcomeSchema.parse(JSON.parse(line.slice("RESULT ".length)));
-  return { outcome, raw: result.stdout + result.stderr };
+  return {
+    result: JSON.parse(line.slice("RESULT ".length)),
+    raw: output.stdout + output.stderr,
+  };
+}
+
+async function record(
+  vars: Readonly<Record<string, string | undefined>>,
+): Promise<{ outcome: Outcome; raw: string }> {
+  const { result, raw } = await runFixture(RECORDER, vars);
+  return { outcome: outcomeSchema.parse(result), raw };
 }
 
 const sortedKeys = (keys: readonly string[]): string[] => [...keys].sort();
@@ -1027,7 +1045,7 @@ async function xaiFactorySection(): Promise<void> {
     }
   });
 
-  await test("xai factory: the plugin is handed the model alone when no voice or base URL is set, and never a key", async () => {
+  await test("xai factory: the plugin is handed the model and an erased input transcription when no voice or base URL is set, and never a key", async () => {
     const { outcome, raw } = await record({
       VOICE_REALTIME_BACKEND: "xai",
       XAI_API_KEY: STUB_BEARER,
@@ -1041,7 +1059,13 @@ async function xaiFactorySection(): Promise<void> {
     );
     const [call] = outcome.recorded;
     assert(call.plugin === "xai", "the xai factory did not use the xai plugin");
-    assertSame(sortedKeys(call.keys), ["model"], "xai default option keys");
+    // The key is passed holding `undefined`, which is what erases the plugin's
+    // OpenAI transcription default. JSON drops it, so it shows in `keys` only.
+    assertSame(
+      sortedKeys(call.keys),
+      ["inputAudioTranscription", "model"],
+      "xai default option keys",
+    );
     assertSame(
       call.options,
       { model: XAI_DEFAULT_MODEL },
@@ -1068,7 +1092,7 @@ async function xaiFactorySection(): Promise<void> {
     const [call] = outcome.recorded;
     assertSame(
       sortedKeys(call?.keys ?? []),
-      ["baseURL", "model", "voice"],
+      ["baseURL", "inputAudioTranscription", "model", "voice"],
       "xai full option keys",
     );
     assertSame(
@@ -1291,12 +1315,14 @@ async function startMcpStub(
   };
 }
 
-const answerSessionUpdate = (): ((event: Json, send: StubSend) => void) => {
+const answerSessionUpdate = (
+  session: Json = {},
+): ((event: Json, send: StubSend) => void) => {
   let created = false;
   return (event, send) => {
     if (event.type === "session.update" && !created) {
       created = true;
-      send({ type: "session.created", event_id: "evt_stub_1", session: {} });
+      send({ type: "session.created", event_id: "evt_stub_1", session });
     }
   };
 };
@@ -1380,13 +1406,14 @@ async function xaiStubSection(): Promise<void> {
           },
           "turn detection",
         );
-        // The plugin sends OpenAI's transcription model name unchanged. Whether
-        // xAI accepts it is not known; the value is pinned so a plugin bump
-        // that changes it is noticed.
-        assertSame(
-          field(session, "audio", "input", "transcription"),
-          { model: "gpt-4o-mini-transcribe" },
-          "input transcription",
+        // With the plugin's default (`gpt-4o-mini-transcribe`, an OpenAI model
+        // name) xAI answered one spoken utterance with five "completed"
+        // transcripts. Without the key it sent one, so the factory leaves the
+        // key out of the layout altogether.
+        const input = field(session, "audio", "input");
+        assert(
+          isRecord(input) && !("transcription" in input),
+          "the session.update carries an audio.input.transcription key",
         );
         assert(
           errors.length === 0,
@@ -1822,6 +1849,323 @@ async function xaiStubSection(): Promise<void> {
       },
     );
   });
+
+  // xAI puts the usage of a response at the top level of response.done and
+  // leaves response.usage an empty object (recorded live, 2026-10-20), so the
+  // plugin's own metrics are all zero on this backend.
+  await test("xai plugin against a stub: usage at the top level of response.done is logged as realtime.usage in the shape the Gemini backend logs, and a report without token counts logs nothing", async () => {
+    const consoleLines = collectConsole();
+    try {
+      await withXaiSession(
+        { NEUROLINK_DEBUG: "true" },
+        answerSessionUpdate(),
+        async ({ stub, session }) => {
+          await waitFor(() => stub.events.length > 0, "the first client event");
+          const done: string[] = [];
+          session.on("openai_server_event_received", (event: unknown) => {
+            if (field(event, "type") === "response.done") {
+              done.push(String(field(event, "response", "id")));
+            }
+          });
+          stub.send({
+            type: "response.done",
+            response: { id: "resp_top", status: "completed", usage: {} },
+            usage: {
+              input_tokens: 220,
+              input_token_details: {
+                text_tokens: 16,
+                audio_tokens: 204,
+                grok_tokens: 0,
+              },
+              output_tokens: 242,
+              output_token_details: {
+                text_tokens: 18,
+                audio_tokens: 224,
+                grok_tokens: 0,
+              },
+              total_tokens: 462,
+              output_audio_seconds: 4.48,
+              billable_audio_seconds: 9,
+            },
+          });
+          stub.send({
+            type: "response.done",
+            response: {
+              id: "resp_nested",
+              status: "completed",
+              usage: {
+                input_tokens: 10,
+                output_tokens: 4,
+                input_token_details: { audio_tokens: 6, text_tokens: 4 },
+                output_token_details: { audio_tokens: 3, text_tokens: 1 },
+              },
+            },
+          });
+          stub.send({
+            type: "response.done",
+            response: { id: "resp_empty", status: "cancelled", usage: {} },
+            usage: {},
+          });
+          // Seconds are reported for a response that had no tokens to count;
+          // that is not a usage record, and logging it would read as zeros.
+          stub.send({
+            type: "response.done",
+            response: { id: "resp_seconds", status: "cancelled", usage: {} },
+            usage: { output_audio_seconds: 1.5, billable_audio_seconds: 2 },
+          });
+          await waitFor(() => done.length === 4, "the four response.done");
+        },
+      );
+    } finally {
+      consoleLines.stop();
+    }
+    const logged = logDataAll(consoleLines.lines, "realtime.usage");
+    assert(
+      logged.length === 2,
+      "the usage of the two responses that carried some was not logged exactly once each",
+    );
+    assertSame(
+      logged[0],
+      {
+        inputTokens: 220,
+        inputAudioTokens: 204,
+        inputTextTokens: 16,
+        outputTokens: 242,
+        outputAudioTokens: 224,
+        outputTextTokens: 18,
+      },
+      "usage read from the top level",
+    );
+    assertSame(
+      logged[1],
+      {
+        inputTokens: 10,
+        inputAudioTokens: 6,
+        inputTextTokens: 4,
+        outputTokens: 4,
+        outputAudioTokens: 3,
+        outputTextTokens: 1,
+      },
+      "usage read from response.usage when the top level has none",
+    );
+  });
+
+  // The service accepts any model id and runs a default for one it does not
+  // know (a made-up id, and the aliases `grok-voice-latest` and the plugin's own
+  // `grok-voice-think-fast-1.0`, all came back as `grok-voice-3.0`).
+  await test("xai plugin against a stub: a session.created that names another model than the one asked for is warned about, and an equal or absent model is not", async () => {
+    const run = async (
+      requested: string | undefined,
+      created: Json,
+    ): Promise<string[]> => {
+      const consoleLines = collectConsole();
+      try {
+        await withXaiSession(
+          {
+            NEUROLINK_DEBUG: "true",
+            ...(requested === undefined ? {} : { VOICE_LIVE_MODEL: requested }),
+          },
+          answerSessionUpdate(created),
+          async ({ stub }) => {
+            await waitFor(
+              () => stub.events.length > 0,
+              "the first client event",
+            );
+            // Frames arrive in order, so once the usage of this response is
+            // logged the session.created before it has been read.
+            stub.send({
+              type: "response.done",
+              response: { id: "fence", status: "completed", usage: {} },
+              usage: { input_tokens: 1, output_tokens: 1 },
+            });
+            await waitFor(
+              () =>
+                consoleLines.lines.some((line) =>
+                  line.includes("realtime.usage"),
+                ),
+              "the fence response",
+            );
+          },
+        );
+      } finally {
+        consoleLines.stop();
+      }
+      return consoleLines.lines;
+    };
+
+    const mismatch = await run("grok-voice-nonexistent-9.9", {
+      model: XAI_DEFAULT_MODEL,
+    });
+    const [warning] = logDataAll(mismatch, "realtime.xai.modelMismatch");
+    assert(
+      warning !== undefined,
+      "no warning for a model other than the one asked for",
+    );
+    assertSame(
+      [field(warning, "requested"), field(warning, "served")],
+      ["grok-voice-nonexistent-9.9", XAI_DEFAULT_MODEL],
+      "the warning names both models",
+    );
+
+    for (const [label, created] of [
+      ["the model asked for", { model: XAI_DEFAULT_MODEL }],
+      ["no model at all", {}],
+    ] as const) {
+      const lines = await run(undefined, created);
+      assert(
+        !lines.some((line) => line.includes("realtime.xai.modelMismatch")),
+        `a warning was written for ${label}`,
+      );
+    }
+  });
+
+  await test("xai session: the refused-upgrade watch ends once the connection is made or the session is closed, and a matching crash after that is left alone", async () => {
+    const monitors = (): number =>
+      process.listenerCount("uncaughtExceptionMonitor");
+    const baseline = monitors();
+    const refusal = new Error("Unexpected server response: 400");
+
+    let whileConnecting = -1;
+    let afterConnect = -1;
+    let errorsAfterCrash = -1;
+    await withXaiSession(
+      {},
+      answerSessionUpdate(),
+      async ({ stub, errors }) => {
+        whileConnecting = monitors();
+        await waitFor(() => stub.events.length > 0, "the first client event");
+        // session.created follows the first client event, and the watch ends
+        // when it is read.
+        await waitFor(
+          () => monitors() === baseline,
+          "the watch to end once the connection was made",
+        );
+        afterConnect = monitors();
+        // `process.emit` has no overload for this event, so go through the
+        // emitter type; a crash is announced to monitors exactly this way.
+        const emitter: NodeJS.EventEmitter = process;
+        emitter.emit("uncaughtExceptionMonitor", refusal, "uncaughtException");
+        errorsAfterCrash = errors.length;
+      },
+    );
+    assertSame(
+      [whileConnecting, afterConnect, monitors()],
+      [baseline + 1, baseline, baseline],
+      "watches while connecting, once connected and after the session closed",
+    );
+    assert(
+      errorsAfterCrash === 0,
+      "a crash after the connection was made was reported as a refused upgrade",
+    );
+
+    // A server that never answers keeps the watch on until the session closes.
+    let whileWaiting = -1;
+    await withXaiSession(
+      {},
+      () => undefined,
+      async ({ stub }) => {
+        await waitFor(() => stub.events.length > 0, "the first client event");
+        whileWaiting = monitors();
+      },
+    );
+    assertSame(
+      [whileWaiting, monitors()],
+      [baseline + 1, baseline],
+      "watches while no answer came and after the session closed",
+    );
+  });
+}
+
+const refusedUpgradeSchema = z.object({
+  errors: z.array(
+    z.object({
+      type: z.string(),
+      recoverable: z.boolean(),
+      label: z.string(),
+      message: z.string().nullable(),
+    }),
+  ),
+  errorsAfterUnrelatedCrash: z.number(),
+  uncaught: z.array(z.string()),
+  monitorsBefore: z.number(),
+  monitorsWhileWaiting: z.number(),
+  monitorsAfter: z.number(),
+});
+
+/** A WebSocket server that answers every upgrade with HTTP 400, the way xAI answers a wrong key. */
+async function startRefusingStub(): Promise<{
+  url: string;
+  close: () => Promise<void>;
+}> {
+  const server = new WebSocketServer({
+    host: "127.0.0.1",
+    port: 0,
+    verifyClient: (_info, callback) => callback(false, 400, "Bad Request"),
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once("listening", resolve);
+    server.once("error", reject);
+  });
+  const address = server.address();
+  if (address === null || typeof address === "string") {
+    throw new Error("the refusing stub has no port");
+  }
+  return {
+    url: `ws://127.0.0.1:${address.port}/v1`,
+    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+  };
+}
+
+async function xaiRefusedUpgradeSection(): Promise<void> {
+  // The plugin opens its socket with no 'error' listener, so a refused upgrade
+  // is an uncaught exception, and a process without a handler for it exits. The
+  // child absorbs that the way a worker's process guards do; what is under test
+  // is what this package did with the crash before that.
+  await test("xai plugin against a server that refuses the upgrade with HTTP 400: the session reports one classified, unrecoverable error that names the key and not its value, and an unrelated crash is not taken for it", async () => {
+    const stub = await startRefusingStub();
+    try {
+      const { result, raw } = await runFixture(REFUSED_UPGRADE, {
+        VOICE_REALTIME_BACKEND: "xai",
+        XAI_API_KEY: STUB_BEARER,
+        XAI_REALTIME_BASE_URL: stub.url,
+      });
+      const outcome = refusedUpgradeSchema.parse(result);
+      assert(
+        outcome.uncaught.includes("Unexpected server response: 400"),
+        "the plugin no longer leaves a refused upgrade as an uncaught exception, so this case no longer describes it",
+      );
+      assert(
+        outcome.errorsAfterUnrelatedCrash === 0,
+        "an unrelated crash was reported as a refused upgrade",
+      );
+      assert(
+        outcome.errors.length === 1,
+        "the session did not report exactly one error for the refused upgrade",
+      );
+      const [error] = outcome.errors;
+      assertSame(
+        [error.type, error.recoverable],
+        ["realtime_model_error", false],
+        "the shape of the reported error",
+      );
+      const message = error.message ?? "";
+      assert(
+        message.includes("HTTP 400") && message.includes("XAI_API_KEY"),
+        "the error does not name the status and the key variable",
+      );
+      assert(
+        !raw.includes(STUB_BEARER),
+        "the xai key reached the child's output",
+      );
+      assertSame(
+        [outcome.monitorsWhileWaiting, outcome.monitorsAfter],
+        [outcome.monitorsBefore + 1, outcome.monitorsBefore],
+        "the watch is on while the connection is made and off after the refusal",
+      );
+    } finally {
+      await stub.close();
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1865,9 +2209,8 @@ function fakeContext(stopAfter: "connect" | "lifecycle"): {
   };
 }
 
-async function captureConsole<T>(
-  body: () => Promise<T>,
-): Promise<{ lines: string[]; error: unknown }> {
+/** Collect what is written to the console until `stop`; `lines` fills while it runs, so a case can wait on it. */
+function collectConsole(): { lines: string[]; stop: () => void } {
   const lines: string[] = [];
   const names = ["log", "info", "warn", "error", "debug"] as const;
   const originals = names.map((name) => console[name]);
@@ -1880,15 +2223,27 @@ async function captureConsole<T>(
       );
     };
   }
+  return {
+    lines,
+    stop: () => {
+      names.forEach((name, index) => {
+        console[name] = originals[index];
+      });
+    },
+  };
+}
+
+async function captureConsole<T>(
+  body: () => Promise<T>,
+): Promise<{ lines: string[]; error: unknown }> {
+  const { lines, stop } = collectConsole();
   let error: unknown;
   try {
     await body();
   } catch (caught) {
     error = caught;
   } finally {
-    names.forEach((name, index) => {
-      console[name] = originals[index];
-    });
+    stop();
   }
   return { lines, error };
 }
@@ -1905,6 +2260,21 @@ function logData(lines: readonly string[], message: string): Json {
     throw new Error(`the ${message} log data is not an object`);
   }
   return parsed;
+}
+
+/** The data of every log line that carries `message`, in the order written. */
+function logDataAll(lines: readonly string[], message: string): Json[] {
+  return lines
+    .filter((entry) => entry.includes(message))
+    .map((line) => {
+      const start = line.indexOf("{", line.indexOf(message));
+      assert(start >= 0, `the ${message} log line carries no data`);
+      const parsed: unknown = JSON.parse(line.slice(start));
+      if (!isRecord(parsed)) {
+        throw new Error(`the ${message} log data is not an object`);
+      }
+      return parsed;
+    });
 }
 
 const ADC_FIELDS = {
@@ -2241,6 +2611,7 @@ await configSection();
 await geminiFactorySection();
 await xaiFactorySection();
 await xaiStubSection();
+await xaiRefusedUpgradeSection();
 await agentSection();
 
 await runSuite();

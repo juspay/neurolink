@@ -368,7 +368,9 @@ export function defineRealtimeVoiceAgent(
 
     session.on(voice.AgentSessionEventTypes.MetricsCollected, (ev) => {
       const metrics = ev.metrics;
-      if (metrics.type !== "realtime_model_metrics") {
+      // xAI leaves `response.usage` empty, which is where the plugin reads, so
+      // its metrics are zero; the xai model logs `realtime.usage` itself.
+      if (!isGemini || metrics.type !== "realtime_model_metrics") {
         return;
       }
       const inAudio = metrics.inputTokenDetails.audioTokens;
