@@ -13,4 +13,4 @@ Balanced Adaptive Workflow
 Balances speed, cost, and quality:
 
 1. Standard tier (parallel): GPT-4o-mini + Gemini Flash
-2. Premium tier (parallel): GPT-4o + Claude 3.5 if standard uncertain
+2. Premium tier (parallel): GPT-4o + Claude Sonnet 4.6 if standard uncertain

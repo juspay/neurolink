@@ -72,7 +72,7 @@ export const QUALITY_MAX_WORKFLOW: WorkflowConfig = {
         },
         {
           provider: AIProviderName.GOOGLE_AI,
-          model: "gemini-2.0-flash",
+          model: "gemini-3.8-flash",
           label: "Gemini Flash",
           temperature: 0.7,
           timeout: 10000,
@@ -99,8 +99,8 @@ export const QUALITY_MAX_WORKFLOW: WorkflowConfig = {
         },
         {
           provider: AIProviderName.ANTHROPIC,
-          model: "claude-3-5-sonnet-20241022",
-          label: "Claude 3.5 Sonnet",
+          model: "claude-sonnet-4-6",
+          label: "Claude Sonnet 4.6",
           temperature: 0.7,
           systemPrompt:
             "Think deeply and provide nuanced, well-reasoned responses.",
@@ -119,8 +119,8 @@ export const QUALITY_MAX_WORKFLOW: WorkflowConfig = {
       models: [
         {
           provider: AIProviderName.ANTHROPIC,
-          model: "claude-3-5-sonnet-20241022",
-          label: "Claude 3.5 Sonnet Expert",
+          model: "claude-sonnet-4-6",
+          label: "Claude Sonnet 4.6 Expert",
           temperature: 0.6, // Lower temp for consistency
           systemPrompt:
             "You are an expert. Provide the highest quality, most accurate response possible. Be thorough, precise, and authoritative.",
@@ -174,7 +174,7 @@ export const QUALITY_MAX_WORKFLOW: WorkflowConfig = {
  *
  * Optimizes for speed with quality fallback:
  * 1. Fast tier: Single fast model (GPT-4o-mini)
- * 2. Balanced tier: If fast fails, use Gemini 2.0
+ * 2. Balanced tier: If fast fails, use Gemini 3.8 Flash
  * 3. Quality tier: If both fail, use GPT-4o
  */
 export const SPEED_FIRST_WORKFLOW: WorkflowConfig = {
@@ -213,7 +213,7 @@ export const SPEED_FIRST_WORKFLOW: WorkflowConfig = {
       models: [
         {
           provider: AIProviderName.GOOGLE_AI,
-          model: "gemini-2.0-flash",
+          model: "gemini-3.8-flash",
           temperature: 0.7,
           timeout: 10000,
         },
@@ -270,7 +270,7 @@ export const SPEED_FIRST_WORKFLOW: WorkflowConfig = {
  *
  * Balances speed, cost, and quality:
  * 1. Standard tier (parallel): GPT-4o-mini + Gemini Flash
- * 2. Premium tier (parallel): GPT-4o + Claude 3.5 if standard uncertain
+ * 2. Premium tier (parallel): GPT-4o + Claude Sonnet 4.6 if standard uncertain
  */
 export const BALANCED_ADAPTIVE_WORKFLOW: WorkflowConfig = {
   id: "balanced-adaptive",
@@ -299,7 +299,7 @@ export const BALANCED_ADAPTIVE_WORKFLOW: WorkflowConfig = {
         },
         {
           provider: AIProviderName.GOOGLE_AI,
-          model: "gemini-2.0-flash",
+          model: "gemini-3.8-flash",
           temperature: 0.7,
         },
       ],
@@ -320,7 +320,7 @@ export const BALANCED_ADAPTIVE_WORKFLOW: WorkflowConfig = {
         },
         {
           provider: AIProviderName.ANTHROPIC,
-          model: "claude-3-5-sonnet-20241022",
+          model: "claude-sonnet-4-6",
           temperature: 0.7,
         },
       ],

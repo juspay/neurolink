@@ -12,5 +12,5 @@ Multi-Judge-3 Workflow (Lighter Version)
 
 3 models with 2 judges (more cost-effective):
 
-- GPT-4o, Claude 3.5, Gemini 2.0
-- Judged by GPT-4o and Claude 3.5
+- GPT-4o, Claude Sonnet 4.6, Gemini 3.8
+- Judged by GPT-4o and Claude Sonnet 4.6

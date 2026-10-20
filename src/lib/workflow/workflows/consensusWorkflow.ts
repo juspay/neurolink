@@ -21,8 +21,8 @@ import type { WorkflowConfig } from "../../types/index.js";
  *
  * Uses 3 high-quality models in parallel:
  * - GPT-4o (OpenAI) - Strong reasoning
- * - Claude 3.5 Sonnet (Anthropic) - Thoughtful analysis
- * - Gemini 2.0 Flash (Google) - Fast and capable
+ * - Claude Sonnet 4.6 (Anthropic) - Thoughtful analysis
+ * - Gemini 3.8 Flash (Google) - Fast and capable
  *
  * Judge: GPT-4o evaluates on accuracy, clarity, and completeness
  *
@@ -59,15 +59,15 @@ export const CONSENSUS_3_WORKFLOW: WorkflowConfig = {
     },
     {
       provider: AIProviderName.ANTHROPIC,
-      model: "claude-3-5-sonnet-20241022",
-      label: "Claude 3.5 Sonnet",
+      model: "claude-sonnet-4-6",
+      label: "Claude Sonnet 4.6",
       weight: 1.0,
       temperature: 0.7,
     },
     {
       provider: AIProviderName.GOOGLE_AI,
-      model: "gemini-2.0-flash",
-      label: "Gemini 2.0 Flash",
+      model: "gemini-3.8-flash",
+      label: "Gemini 3.8 Flash",
       weight: 1.0,
       temperature: 0.7,
     },
@@ -141,8 +141,8 @@ export function createConsensus3WithPrompt(
  *
  * Uses faster/cheaper models with same consensus approach:
  * - GPT-4o-mini
- * - Claude 3 Haiku
- * - Gemini 2.0 Flash
+ * - Claude Haiku 4.5
+ * - Gemini 3.8 Flash
  */
 export const CONSENSUS_3_FAST_WORKFLOW: WorkflowConfig = {
   id: "consensus-3-fast",
@@ -161,15 +161,15 @@ export const CONSENSUS_3_FAST_WORKFLOW: WorkflowConfig = {
     },
     {
       provider: AIProviderName.ANTHROPIC,
-      model: "claude-3-haiku-20240307",
-      label: "Claude 3 Haiku",
+      model: "claude-haiku-4-5-20251001",
+      label: "Claude Haiku 4.5",
       weight: 1.0,
       temperature: 0.7,
     },
     {
       provider: AIProviderName.GOOGLE_AI,
-      model: "gemini-2.0-flash",
-      label: "Gemini 2.0 Flash",
+      model: "gemini-3.8-flash",
+      label: "Gemini 3.8 Flash",
       weight: 1.0,
       temperature: 0.7,
     },

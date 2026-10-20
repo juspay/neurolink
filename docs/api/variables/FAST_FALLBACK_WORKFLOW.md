@@ -13,8 +13,8 @@ Fast-Fallback Workflow Configuration
 Uses layer-based execution with sequential groups:
 
 1. Fast tier: GPT-4o-mini (try first)
-2. Mid tier: Gemini 2.0 Flash (if fast fails)
-3. Premium tier: GPT-4o or Claude 3.5 Sonnet (last resort)
+2. Mid tier: Gemini 3.8 Flash (if fast fails)
+3. Premium tier: GPT-4o or Claude Sonnet 4.6 (last resort)
 
 Each group runs sequentially - only proceeds if previous fails
 
