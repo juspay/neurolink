@@ -541,6 +541,10 @@ export default [
             // process with fetch stubbed to the captured error shape; the
             // isolation helper blocks every provider host.
             "test/continuous-test-suite-proxy-connect-retry.ts",
+            // Proxy selection and direct-fallback behavior need a synthetic
+            // hostname that cannot be reached except through a local proxy;
+            // the built CLI cannot target that endpoint without live credentials.
+            "test/continuous-test-suite-proxy-egress.ts",
             // Internal agentic-loop-engine primitives (streamChannel,
             // nativeToolFormat, loopEngine) have no exported surface: none of
             // src/lib/core/{streamChannel,nativeToolFormat,loopEngine}.ts is

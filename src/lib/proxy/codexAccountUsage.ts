@@ -17,6 +17,7 @@ import {
   resolveCodexAccountId,
 } from "../auth/codexOAuth.js";
 import { logger } from "../utils/logger.js";
+import { fetchProxyAware } from "./proxyFetch.js";
 import type {
   AccountQuota,
   AccountQuotaWindow,
@@ -277,7 +278,7 @@ export async function fetchCodexAccountUsage(
   }
   const accountId = resolveCodexAccountId(account.token);
   try {
-    const response = await fetch(CODEX_USAGE_URL, {
+    const response = await fetchProxyAware(CODEX_USAGE_URL, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${account.token}`,

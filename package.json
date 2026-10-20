@@ -229,6 +229,7 @@
     "test:local-usage": "pnpm exec tsx test/continuous-test-suite-local-usage.ts",
     "test:dynamic": "pnpm exec tsx test/continuous-test-suite-dynamic.ts",
     "test:proxy": "pnpm exec tsx test/continuous-test-suite-proxy.ts",
+    "test:proxy-egress": "pnpm exec tsx test/continuous-test-suite-proxy-egress.ts",
     "test:proxy-connect-retry": "pnpm exec tsx test/continuous-test-suite-proxy-connect-retry.ts",
     "test:proxy-reliability": "node scripts/run-proxy-reliability.mjs",
     "test:proxy-telemetry": "pnpm exec tsx test/continuous-test-suite-proxy-telemetry.ts",

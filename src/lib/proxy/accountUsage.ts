@@ -28,6 +28,7 @@ import {
   persistTokens,
 } from "./tokenRefresh.js";
 import { isAccountAllowed } from "./accountSelection.js";
+import { fetchProxyAware } from "./proxyFetch.js";
 import type {
   AccountAllowlist,
   AccountQuota,
@@ -83,7 +84,7 @@ async function requestUsage(
   token: string,
 ): Promise<{ response?: Response; networkError?: string }> {
   try {
-    const response = await fetch(ANTHROPIC_USAGE_URL, {
+    const response = await fetchProxyAware(ANTHROPIC_USAGE_URL, {
       method: "GET",
       headers: {
         authorization: `Bearer ${token}`,

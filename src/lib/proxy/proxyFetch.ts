@@ -9,12 +9,13 @@ import { getPropagatedAttributesFromContext } from "@langfuse/core";
 import { LangfuseOtelSpanAttributes } from "@langfuse/tracing";
 import { SpanStatusCode, propagation, context } from "@opentelemetry/api";
 import { tracers } from "../telemetry/tracers.js";
-import type { ProxyAgent } from "undici";
+import type { Dispatcher, ProxyAgent } from "undici";
 import { shouldBypassProxy } from "./utils/noProxyUtils.js";
 import type {
   GoogleGenAIHttpOptions,
   ParsedProxyConfig,
   ProxyEnvironmentSnapshot,
+  ProxyTimeouts,
 } from "../types/index.js";
 import { createHash } from "node:crypto";
 import { TRANSIENT_NETWORK_CODES } from "../constants/networkErrorCodes.js";
@@ -399,7 +400,10 @@ function selectProxyUrl(targetUrl: string): string | null {
 /**
  * Create appropriate proxy agent based on protocol
  */
-async function createProxyAgent(proxyUrl: string): Promise<ProxyAgent> {
+async function createProxyAgent(
+  proxyUrl: string,
+  timeouts: ProxyTimeouts = {},
+): Promise<ProxyAgent> {
   const parsed = parseProxyUrl(proxyUrl);
 
   logger.debug("[Proxy] Creating proxy agent", {
@@ -414,7 +418,7 @@ async function createProxyAgent(proxyUrl: string): Promise<ProxyAgent> {
     case "https:": {
       // Use existing undici ProxyAgent for HTTP/HTTPS
       const { ProxyAgent } = await import("undici");
-      return new ProxyAgent(proxyUrl);
+      return new ProxyAgent({ uri: proxyUrl, ...timeouts });
     }
 
     case "socks4:":
@@ -433,10 +437,13 @@ async function createProxyAgent(proxyUrl: string): Promise<ProxyAgent> {
 
 /**
  * One ProxyAgent per proxy URL for the whole process, so connections to the
- * proxy are pooled and an agent is not rebuilt per request. The cache key is
- * a hash of the masked URL: credentials never sit in the map.
+ * proxy are pooled and an agent is not rebuilt per request. Hashing the full
+ * URL keeps credentials out of map keys without mixing distinct proxy logins.
  */
-async function getOrCreateProxyAgent(proxyUrl: string): Promise<ProxyAgent> {
+async function getOrCreateProxyAgent(
+  proxyUrl: string,
+  timeouts: ProxyTimeouts = {},
+): Promise<ProxyAgent> {
   const globalWithCache = globalThis as {
     __NL_PROXY_AGENT_CACHE__?: Map<string, ProxyAgent>;
   };
@@ -446,10 +453,11 @@ async function getOrCreateProxyAgent(proxyUrl: string): Promise<ProxyAgent> {
   const agentCache: Map<string, ProxyAgent> =
     globalWithCache.__NL_PROXY_AGENT_CACHE__;
   const cacheKey = createHash("sha256")
-    .update(maskProxyUrl(proxyUrl) ?? proxyUrl)
+    .update(proxyUrl)
+    .update(JSON.stringify(timeouts))
     .digest("hex");
   const dispatcher =
-    agentCache.get(cacheKey) || (await createProxyAgent(proxyUrl));
+    agentCache.get(cacheKey) || (await createProxyAgent(proxyUrl, timeouts));
   agentCache.set(cacheKey, dispatcher);
   return dispatcher;
 }
@@ -466,9 +474,44 @@ async function getOrCreateProxyAgent(proxyUrl: string): Promise<ProxyAgent> {
  */
 export async function getProxyDispatcherForUrl(
   targetUrl: string,
+  timeouts: ProxyTimeouts = {},
 ): Promise<ProxyAgent | null> {
   const proxyUrl = selectProxyUrl(targetUrl);
-  return proxyUrl ? getOrCreateProxyAgent(proxyUrl) : null;
+  return proxyUrl ? getOrCreateProxyAgent(proxyUrl, timeouts) : null;
+}
+
+/**
+ * Fetch for the proxy command's own outbound requests. A configured proxy is
+ * mandatory for its target: a failed proxy connection must never retry direct.
+ * The optional dispatcher preserves callers' direct-connection tuning.
+ */
+export async function fetchProxyAware(
+  url: string | URL,
+  init?: RequestInit,
+  directDispatcher?: Dispatcher,
+  proxyTimeouts?: ProxyTimeouts,
+): Promise<Response> {
+  const proxyDispatcher = await getProxyDispatcherForUrl(
+    url.toString(),
+    proxyTimeouts,
+  );
+  if (!proxyDispatcher) {
+    return fetch(
+      url,
+      directDispatcher
+        ? ({ ...init, dispatcher: directDispatcher } as RequestInit)
+        : init,
+    );
+  }
+
+  const { fetch: undiciFetch } = await import("undici");
+  // Undici and lib.dom describe the same runtime Response with different
+  // iterator types.
+  const response = (await undiciFetch(url, {
+    ...init,
+    dispatcher: proxyDispatcher,
+  } as import("undici").RequestInit)) as Response | import("undici").Response;
+  return response as Response;
 }
 
 function sanitizeProxyUrl(url: string | undefined): string {

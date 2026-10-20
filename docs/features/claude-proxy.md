@@ -86,6 +86,13 @@ neurolink proxy start
 # Step 5: Restart Claude Code to pick up the new ANTHROPIC_BASE_URL
 ```
 
+For deployments that require an outbound HTTP proxy, set `HTTPS_PROXY` and/or
+`HTTP_PROXY` in the environment of the `neurolink proxy` process before starting
+it. `ALL_PROXY` is used when no scheme-specific proxy is set, and `NO_PROXY`
+bypasses the proxy for matching hosts. These settings cover Anthropic, Codex,
+and Vertex passthrough forwards, OAuth requests, and quota polling. When a
+configured proxy fails, these requests fail instead of retrying directly.
+
 ### Restart the serving worker
 
 ```bash

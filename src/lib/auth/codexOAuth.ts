@@ -14,6 +14,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { logger } from "../utils/logger.js";
+import { fetchProxyAware } from "../proxy/proxyFetch.js";
 import type {
   CodexAuthFile,
   CodexImportedCredential,
@@ -194,7 +195,7 @@ export async function refreshCodexToken(
     scope: CODEX_DEFAULT_SCOPES.join(" "),
   });
 
-  const response = await fetch(CODEX_TOKEN_URL, {
+  const response = await fetchProxyAware(CODEX_TOKEN_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",

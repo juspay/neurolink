@@ -135,6 +135,7 @@ import type {
 import { raceWithAbort } from "../../utils/async/withTimeout.js";
 import { sanitizeForLog } from "../../utils/logSanitize.js";
 import { logger } from "../../utils/logger.js";
+import { fetchProxyAware } from "../../proxy/proxyFetch.js";
 
 const CODEX_UPSTREAM_TIMEOUT_MS = 15 * 60 * 1000; // 15 min, matches Claude path
 const DEFAULT_TRANSIENT_COOLDOWN_MS = 60_000;
@@ -2396,7 +2397,7 @@ async function executeCodexResponsesRequest(
             upstreamUrl: CODEX_RESPONSES_URL,
           });
           state.budgetDispatched = true;
-          upstream = await fetch(CODEX_RESPONSES_URL, {
+          upstream = await fetchProxyAware(CODEX_RESPONSES_URL, {
             method: "POST",
             headers: upstreamHeaders,
             body: state.bodyStr,
@@ -2598,7 +2599,7 @@ async function handleCodexModelsRequest(ctx: ServerContext): Promise<Response> {
     for (;;) {
       let upstream: Response;
       try {
-        upstream = await fetch(url, {
+        upstream = await fetchProxyAware(url, {
           method: "GET",
           headers: buildCodexUpstreamHeaders(ctx.headers ?? {}, account),
           // Bound the upstream call, as the responses route does. Without a

@@ -30,7 +30,7 @@ import {
 } from "../../models/anthropicModels.js";
 import type { NeuroLink } from "../../neurolink.js";
 import { createOAuthFetch } from "../../proxy/oauthFetch.js";
-import { createProxyFetch } from "../../proxy/proxyFetch.js";
+import { createProxyFetch, fetchProxyAware } from "../../proxy/proxyFetch.js";
 import {
   getCapturedLimitSnapshot,
   getCapturedResponseHeaders,
@@ -1181,7 +1181,7 @@ export class AnthropicProvider extends BaseProvider {
       // cosmetic choice. If Anthropic ever publishes a separate UA for
       // third-party OAuth clients, switch to that. See `auth/anthropicOAuth.ts`
       // for the source of `CLAUDE_CLI_USER_AGENT` / `CLAUDE_CODE_CLIENT_ID`.
-      const response = await fetch(ANTHROPIC_TOKEN_URL, {
+      const response = await fetchProxyAware(ANTHROPIC_TOKEN_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",

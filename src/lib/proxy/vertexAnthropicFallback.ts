@@ -19,7 +19,7 @@ import {
   claudeDisabledThinkingReplacement,
   modelSupportsForcedToolChoice,
 } from "../models/modelRegistry.js";
-import { isTransientNetworkError } from "./proxyFetch.js";
+import { fetchProxyAware, isTransientNetworkError } from "./proxyFetch.js";
 import { readCacheCreation1hTokens } from "./proxyTokenUsage.js";
 import type {
   VertexAccessTokenProvider,
@@ -669,7 +669,7 @@ export async function dispatchVertexAnthropicPassthrough(
     model: request.model,
     stream,
   });
-  return fetch(url, {
+  return fetchProxyAware(url, {
     method: "POST",
     headers: {
       authorization: `Bearer ${token}`,

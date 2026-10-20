@@ -1,8 +1,8 @@
 /**
  * Tuned global undici dispatcher for the proxy's upstream forwards.
  *
- * The Claude passthrough (`claudeProxyRoutes.ts`) forwards every request to
- * Anthropic via the global `fetch` → undici global dispatcher. undici keep-alives
+ * Direct proxy-command fetches use the global `fetch` → undici global
+ * dispatcher. Undici keeps connections alive
  * by default, but with a ~4s idle timeout: between Claude Code turns (the user
  * reads output, a tool runs, the model thinks) the idle socket closes, so the
  * next request opens a brand-new TCP connection. Under sustained use that is a

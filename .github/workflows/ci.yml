@@ -693,6 +693,7 @@ jobs:
           pnpm run test:mcp:infra
           pnpm run test:mcp:spans
           pnpm run test:mcp:stdio-lifecycle
+          pnpm run test:proxy-egress
           pnpm run test:proxy-connect-retry
           pnpm run test:proxy-restart
           pnpm run test:tool-routing
