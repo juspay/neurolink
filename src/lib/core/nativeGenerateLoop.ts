@@ -17,6 +17,7 @@
 import { observeGeneration } from "../telemetry/observation.js";
 import { StepSpans, withGeneration } from "../telemetry/withSpan.js";
 import { logger } from "../utils/logger.js";
+import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
 import type {
   FinishReason,
   GenerationRecord,
@@ -449,6 +450,39 @@ export const resolveToolInputSchema = (
   typeof schema === "function" ? resolveToolInputSchema(schema()) : schema;
 
 /**
+ * The provider-neutral declaration of one tool: the shape every provider's
+ * `doGenerate` already converts to its own wire format. The loop uses it for
+ * the tools discovery loads mid-turn, and the providers that run the loop use
+ * it for their initial declarations, so a tool is declared the same way
+ * whether it is there at the start or joins later.
+ */
+export const toNativeToolDeclaration = (name: string, tool: Tool) => ({
+  type: "function" as const,
+  name,
+  description: tool.description ?? "",
+  inputSchema: declaredInputSchema(name, tool),
+});
+
+// A lazy schema that throws must not take the whole request down: SageMaker and
+// Anthropic declared any function-valued schema as the empty object schema
+// before the lazy form was resolved here, so a broken one falls back to that.
+function declaredInputSchema(name: string, tool: Tool): object {
+  const empty = { type: "object", properties: {} };
+  if (!tool.inputSchema) {
+    return empty;
+  }
+  try {
+    return convertZodToJsonSchema(resolveToolInputSchema(tool.inputSchema));
+  } catch (error) {
+    logger.warn(
+      `[nativeGenerateLoop] input schema of tool "${name}" could not be resolved; declaring it with an empty object schema`,
+      { error: error instanceof Error ? error.message : String(error) },
+    );
+    return empty;
+  }
+}
+
+/**
  * Validate parsed input against the tool's own schema when it exposes one.
  *
  * `generateText` validated tool input before dispatch; the native loop did
@@ -644,9 +678,12 @@ async function runGenerateSteps(
     | { text: string; finishReason: string; rawFinishReason?: string }
     | undefined;
   const hasTools = Boolean(args.tools && args.tools.length > 0);
-  // The declarations actually sent. Starts as the caller's list and grows when
-  // a tool joins toolsRecord mid-turn (discovery loads tools into it).
-  const liveTools = args.tools ? [...args.tools] : undefined;
+  // The declarations actually sent. It is the caller's own array and grows in
+  // place when a tool joins toolsRecord mid-turn (discovery loads tools into
+  // it), so anything the caller sized from it, such as the context guard's
+  // fixed-overhead estimate, counts the new tools too.
+  const liveTools = args.tools;
+  const declare = args.declareTool ?? toNativeToolDeclaration;
   const declaredNames = declaredToolRecord(args.tools);
   // Completed-step records for `prepareStep`; one per step that returned.
   const stepRecords: StepResult<Record<string, Tool>>[] = [];
@@ -654,11 +691,11 @@ async function runGenerateSteps(
   for (let step = 0; step < args.maxSteps; step++) {
     steps = step + 1;
     stepSpans.begin(steps);
-    if (liveTools && args.declareTool) {
+    if (liveTools) {
       const loaded: string[] = [];
       for (const name of Object.keys(args.toolsRecord)) {
         if (!declaredNames[name]) {
-          liveTools.push(args.declareTool(name, args.toolsRecord[name]));
+          liveTools.push(declare(name, args.toolsRecord[name]));
           declaredNames[name] = true;
           loaded.push(name);
         }

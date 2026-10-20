@@ -2069,11 +2069,12 @@ export type NativeGenerateLoopArgs = {
    */
   toolsRecord: Record<string, Tool>;
   /**
-   * Builds the v3 declaration for one tool. When set, every step declares any
-   * tool that joined `toolsRecord` mid-turn (discovery's search_tools loads
-   * tools into it), so the model can call what it just loaded. Only the
-   * OpenAI-compatible `generate()` path supplies it; the other providers that
-   * run this loop do not declare a tool `search_tools` loaded mid-turn.
+   * Builds the declaration for a tool that joined `toolsRecord` mid-turn
+   * (discovery's search_tools loads tools into it). Optional: by default the
+   * loop declares such a tool in the provider-neutral shape every provider's
+   * `doGenerate` converts (`toNativeToolDeclaration`), for every provider that
+   * runs this loop. Set it only to declare in another shape. The loop appends
+   * the declarations to `tools` in place.
    */
   declareTool?: (name: string, tool: Tool) => Record<string, unknown>;
   /** The turn's resolved tool choice, applied per step via `resolveStepToolChoice`. */

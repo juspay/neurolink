@@ -30,6 +30,7 @@ import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import {
   hasNativeDoGenerate,
   runNativeGenerateLoop,
+  toNativeToolDeclaration,
 } from "../core/nativeGenerateLoop.js";
 import { generationName } from "../telemetry/observationNames.js";
 import { observeGeneration } from "../telemetry/observation.js";
@@ -285,17 +286,9 @@ export class AmazonSageMakerProvider extends BaseProvider {
     const toolsRecord = shouldUseTools
       ? (options.tools as Record<string, Tool>) || {}
       : {};
-    const v3Tools = Object.entries(toolsRecord).map(([name, t]) => {
-      const tool = t as { description?: string; inputSchema?: unknown };
-      return {
-        type: "function" as const,
-        name,
-        description: tool.description ?? "",
-        inputSchema: (tool.inputSchema
-          ? convertZodToJsonSchema(tool.inputSchema as ZodUnknownSchema)
-          : { type: "object", properties: {} }) as Record<string, unknown>,
-      };
-    });
+    const v3Tools = Object.entries(toolsRecord).map(([name, t]) =>
+      toNativeToolDeclaration(name, t),
+    );
 
     // Structured output was dropped entirely on this path: the schema never
     // reached the request, and nothing downstream re-imposed it, so a caller
