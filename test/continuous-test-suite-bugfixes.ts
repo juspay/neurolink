@@ -70,11 +70,13 @@ import {
   dedupeColumnNames,
 } from "../src/lib/utils/csvProcessor.js";
 import { htmlToMarkdown } from "../src/lib/utils/htmlToMarkdown.js";
+import { getProviderSetupMessage } from "../src/lib/utils/providerSetupMessages.js";
 import { formatMediaDuration } from "../src/lib/utils/mediaDuration.js";
 import { decodeBuffer } from "../src/lib/utils/textEncoding.js";
 import { CSVLoader } from "../src/lib/rag/document/loaders.js";
 import {
   AIProviderName,
+  AnthropicModels,
   OpenRouterModels,
   ErrorCategory,
 } from "../src/lib/constants/enums.js";
@@ -12139,6 +12141,21 @@ exit 127
       return (
         md ===
         "[text](https://example.com/path)![Alt](https://example.com/pic.png)"
+      );
+    },
+  },
+  // ---------- Provider setup guidance ----------
+  {
+    name: "getProviderSetupMessage: the Anthropic example model is not a retired one",
+    category: "provider-setup-messages",
+    fn: async () => {
+      const message = getProviderSetupMessage("anthropic", [
+        "ANTHROPIC_API_KEY",
+      ]);
+      return (
+        message.includes(
+          `ANTHROPIC_MODEL="${AnthropicModels.CLAUDE_SONNET_4_6}"`,
+        ) && !message.includes(AnthropicModels.CLAUDE_3_5_SONNET)
       );
     },
   },
