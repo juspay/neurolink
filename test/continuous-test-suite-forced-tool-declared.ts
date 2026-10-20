@@ -479,4 +479,73 @@ void runSuite(async () => {
     );
     assertEqual(offered.warnings.length, 0);
   });
+
+  // validateToolInput reads `safeParse` off the tool's input schema. A schema
+  // that is not an object (a host's hand-built tool, or a lazy schema that
+  // resolves to a primitive) used to throw a TypeError on the `in` check and
+  // take the whole turn down; the tool has no validator to ask, so it runs.
+  for (const [label, inputSchema] of [
+    ["a string", "not-a-schema"],
+    ["a number", 7],
+    ["a lazy schema that resolves to a string", () => "not-a-schema"],
+  ] as const) {
+    await test(`generate loop: a tool whose input schema is ${label} runs instead of crashing the turn`, async () => {
+      let executed = 0;
+      const rejected: string[] = [];
+      const record = Object.create(null) as Record<string, unknown>;
+      record.probe_tool = {
+        description: "probe",
+        inputSchema,
+        execute: async () => {
+          executed += 1;
+          return { ok: true };
+        },
+      };
+      let call = 0;
+      const doGenerate = async () =>
+        call++ === 0
+          ? {
+              content: [
+                {
+                  type: "tool-call",
+                  toolCallId: "call-1",
+                  toolName: "probe_tool",
+                  input: '{"query":"x"}',
+                },
+              ],
+              finishReason: { unified: "tool-calls" },
+              usage: { inputTokens: { total: 1 }, outputTokens: { total: 1 } },
+            }
+          : {
+              content: [{ type: "text", text: "done" }],
+              finishReason: { unified: "stop" },
+              usage: { inputTokens: { total: 1 }, outputTokens: { total: 1 } },
+            };
+      await runNativeGenerateLoop(
+        {
+          provider: "probe",
+          doGenerate,
+          conversation: [{ role: "user", content: "hi" }],
+          tools: [
+            {
+              type: "function",
+              name: "probe_tool",
+              description: "probe",
+              inputSchema: { type: "object", properties: {} },
+            },
+          ],
+          toolsRecord: record as Record<string, Tool>,
+          onRejectedToolCall: (name) => {
+            rejected.push(name);
+          },
+          modelId: "test-model",
+          maxSteps: 3,
+          runStep: (invoke) => invoke(),
+        },
+        [],
+      );
+      assertEqual(executed, 1, "the tool ran once");
+      assertEqual(rejected.length, 0, "the call was not rejected");
+    });
+  }
 });
