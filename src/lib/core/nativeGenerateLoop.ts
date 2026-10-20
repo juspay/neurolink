@@ -466,6 +466,7 @@ const validateToolInput = (
     : undefined;
   if (
     !schema ||
+    typeof schema !== "object" ||
     !("safeParse" in schema) ||
     typeof schema.safeParse !== "function"
   ) {

@@ -58,6 +58,13 @@ tools, per-call whitelists (`toolFilter`/`enabledToolNames`), forced
 full. Note: the instance-level `include` list deliberately does NOT
 force tools hot — it scopes the catalog, and discovery defers within
 that scope (a scoped-but-large catalog is exactly where deferral pays).
+
+What the model and your listeners see once discovery is on: the
+`search_tools` description ends with an instruction to check the catalog
+before saying a task cannot be done; each `search_tools` call emits
+`tool:start` and `tool:end` (paired by `executionId`) and is traced and
+observed like any other tool call; and the events of every wrapped
+external tool carry an `executionId`.
 Default: false.
 
 ---
@@ -71,7 +78,12 @@ Which tools `discovery` may defer.
 - `"external"`: tools of servers attached with `addExternalMCPServer`.
 - `"all"`: every tool in the request's record except the built-in tools,
   so tools registered with `registerTool`/`registerTools` and in-process
-  MCP tools are deferred as well.
+  MCP tools are deferred as well. That includes the tools NeuroLink
+  registers for its own features through `registerTool()`, such as
+  `retrieve_context` (memory retrieval), the skills tools, and the tools
+  of `registerTaskTools`, `registerDelegationTools`,
+  `registerBackgroundCommandTools` and `registerGitTools`. Name them in
+  `discoveryAlwaysVisible` to keep them in full.
   Per-call tools, per-call whitelists, forced `toolChoice` tools and
   already-discovered tools stay hot in both scopes. Ignored unless
   `discovery` is true.

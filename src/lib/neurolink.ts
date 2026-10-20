@@ -340,6 +340,7 @@ import { SpanSerializer } from "./observability/utils/spanSerializer.js";
 import { endSpanWhenDropped, withSpan } from "./telemetry/withSpan.js";
 import { getActiveTraceContext } from "./telemetry/traceContext.js";
 import { calculateCost } from "./utils/pricing.js";
+import { createToolExecutionId } from "./utils/toolExecutionId.js";
 import {
   acquireTelemetry,
   ensureTelemetry,
@@ -14284,7 +14285,7 @@ Current user's request: ${currentInput}`;
     input: unknown,
     startTime: number = Date.now(),
   ): string {
-    const executionId = `${toolName}-${startTime}-${Math.random().toString(36).substr(2, 9)}`;
+    const executionId = createToolExecutionId(toolName, startTime);
 
     // Create execution context for tracking
     const context: ToolExecutionContext = {

@@ -21,6 +21,7 @@ import { logger } from "../../utils/logger.js";
 import { TOOL_EVENTS_WRAPPED } from "../../types/index.js";
 import { getKeyCount } from "../../utils/transformationUtils.js";
 import { extractIsErrorText } from "../../utils/toolResultStatus.js";
+import { createToolExecutionId } from "../../utils/toolExecutionId.js";
 import { convertJsonSchemaToZod } from "../../utils/schemaConversion.js";
 import {
   generateToolOutputPreview,
@@ -670,9 +671,7 @@ export class ToolsManager {
       // listener can pair this start with its end.
       const eventIds = {
         ...idField,
-        executionId: `${toolName}-${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2, 11)}`,
+        executionId: createToolExecutionId(toolName),
       };
       return withSpan(
         {
