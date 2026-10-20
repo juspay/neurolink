@@ -119,6 +119,29 @@ await test("Multi-judge workflow ensemble no longer includes retired gemini-1.5-
   );
 });
 
+await test("Workflow presets no longer pin retired models", async () => {
+  const retired: Array<[string, string]> = [
+    ["gemini-2.0-flash", "shut down 2026-06-01"],
+    ["claude-3-5-sonnet", "retired from the Claude API"],
+    ["claude-3-haiku", "retired 2026-04-20"],
+    ["gpt-3.5-turbo", "shut down 2026-10-23"],
+  ];
+  for (const file of [
+    "adaptiveWorkflow.ts",
+    "consensusWorkflow.ts",
+    "fallbackWorkflow.ts",
+    "multiJudgeWorkflow.ts",
+  ]) {
+    const content = read(`workflow/workflows/${file}`);
+    for (const [model, why] of retired) {
+      assert(
+        !content.includes(model),
+        `${file} must not pin ${model} (${why})`,
+      );
+    }
+  }
+});
+
 await test("LiteLLM provider default and fallback list are current, not stale/retired", async () => {
   const content = read("providers/litellm/client.ts");
   assert(

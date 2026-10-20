@@ -13,5 +13,5 @@ Consensus-3 Fast (Lower Cost, Faster)
 Uses faster/cheaper models with same consensus approach:
 
 - GPT-4o-mini
-- Claude 3 Haiku
-- Gemini 2.0 Flash
+- Claude Haiku 4.5
+- Gemini 3.8 Flash

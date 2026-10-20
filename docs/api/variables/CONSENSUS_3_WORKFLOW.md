@@ -13,8 +13,8 @@ Consensus-3 Workflow Configuration
 Uses 3 high-quality models in parallel:
 
 - GPT-4o (OpenAI) - Strong reasoning
-- Claude 3.5 Sonnet (Anthropic) - Thoughtful analysis
-- Gemini 2.0 Flash (Google) - Fast and capable
+- Claude Sonnet 4.6 (Anthropic) - Thoughtful analysis
+- Gemini 3.8 Flash (Google) - Fast and capable
 
 Judge: GPT-4o evaluates on accuracy, clarity, and completeness
 

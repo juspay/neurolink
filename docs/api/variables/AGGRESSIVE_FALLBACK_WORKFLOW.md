@@ -13,6 +13,6 @@ Aggressive Fallback Workflow
 More aggressive fallback with parallel premium tier:
 
 1. Fast tier: GPT-4o-mini (sequential)
-2. Premium tier: GPT-4o + Claude 3.5 (parallel, both execute)
+2. Premium tier: GPT-4o + Claude Sonnet 4.6 (parallel, both execute)
 
 Guarantees high quality if fast tier fails

@@ -14,15 +14,15 @@ Uses 5 models across different providers:
 
 - GPT-4o (OpenAI)
 - GPT-4o-mini (OpenAI)
-- Claude 3.5 Sonnet (Anthropic)
-- Claude 3 Haiku (Anthropic)
-- Gemini 2.0 Flash (Google)
+- Claude Sonnet 4.6 (Anthropic)
+- Claude Haiku 4.5 (Anthropic)
+- Gemini 3.8 Flash (Google)
 
 3 independent judges vote:
 
 - GPT-4o evaluates accuracy & clarity
-- Claude 3.5 Sonnet evaluates reasoning & depth
-- Gemini 2.0 Flash evaluates completeness & coherence
+- Claude Sonnet 4.6 evaluates reasoning & depth
+- Gemini 3.8 Flash evaluates completeness & coherence
 
 Scores are averaged across all judges for final selection
 

@@ -21,8 +21,8 @@ import type { WorkflowConfig } from "../../types/index.js";
  *
  * Uses layer-based execution with sequential groups:
  * 1. Fast tier: GPT-4o-mini (try first)
- * 2. Mid tier: Gemini 2.0 Flash (if fast fails)
- * 3. Premium tier: GPT-4o or Claude 3.5 Sonnet (last resort)
+ * 2. Mid tier: Gemini 3.8 Flash (if fast fails)
+ * 3. Premium tier: GPT-4o or Claude Sonnet 4.6 (last resort)
  *
  * Each group runs sequentially - only proceeds if previous fails
  *
@@ -81,8 +81,8 @@ export const FAST_FALLBACK_WORKFLOW: WorkflowConfig = {
       models: [
         {
           provider: AIProviderName.GOOGLE_AI,
-          model: "gemini-2.0-flash",
-          label: "Gemini 2.0 Flash",
+          model: "gemini-3.8-flash",
+          label: "Gemini 3.8 Flash",
           temperature: 0.7,
           timeout: 15000, // 15 second timeout
         },
@@ -150,7 +150,7 @@ export const FAST_FALLBACK_WORKFLOW: WorkflowConfig = {
  *
  * More aggressive fallback with parallel premium tier:
  * 1. Fast tier: GPT-4o-mini (sequential)
- * 2. Premium tier: GPT-4o + Claude 3.5 (parallel, both execute)
+ * 2. Premium tier: GPT-4o + Claude Sonnet 4.6 (parallel, both execute)
  *
  * Guarantees high quality if fast tier fails
  */
@@ -197,8 +197,8 @@ export const AGGRESSIVE_FALLBACK_WORKFLOW: WorkflowConfig = {
         },
         {
           provider: AIProviderName.ANTHROPIC,
-          model: "claude-3-5-sonnet-20241022",
-          label: "Claude 3.5 Sonnet",
+          model: "claude-sonnet-4-6",
+          label: "Claude Sonnet 4.6",
           temperature: 0.7,
         },
       ],
