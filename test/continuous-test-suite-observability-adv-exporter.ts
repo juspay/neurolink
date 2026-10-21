@@ -18,7 +18,9 @@
  *        touched by the caller's mask or redactIO, as in the released build
  *   A04  non-object metadata (the bare metadata keys) is left as the released
  *        build left it; keyed metadata entries are masked
- *   A05  a credential inside an object key is redacted, exactly once
+ *   A05  an object key and a {name, value} entry are recorded as the released
+ *        build recorded them (the masker reads values and text, not keys); a
+ *        KEY=value line is still redacted exactly once
  *   A06  a span keeps its exported ancestor behind ended non-exported ones
  *   A07  a 2xx body that is not an object is a full success
  *   A08  partialSuccess.rejectedSpans is validated
@@ -1317,13 +1319,13 @@ void runSuite(async () => {
   );
 
   // ----------------------------------------------------------------- A05
-  section("A05 credential inside an object key");
+  section("A05 object keys and {name, value} entries, as released");
 
   const keyedUrl = `https://api.example.com/v1/items?api_key=${URL_SECRET}`;
 
   await proof(
     "A05",
-    "a credential in an object key of a tool_result is masked in observation.input and trace.input",
+    "an object key of a tool_result is recorded as the released build recorded it, in observation.input and trace.input",
     () =>
       withRig({}, async (rig) => {
         const span = rig.tracer("provider").startSpan("provider.generate");
@@ -1362,17 +1364,17 @@ void runSuite(async () => {
         const input = attrOf(sent?.attributes, INPUT) ?? "";
         const traceInput = attrOf(sent?.attributes, TRACE_INPUT) ?? "";
         return (
+          input.includes(keyedUrl) &&
+          traceInput.includes(keyedUrl) &&
           input.includes("api.example.com/v1/items") &&
-          traceInput.includes("api.example.com/v1/items") &&
-          !input.includes(URL_SECRET) &&
-          !traceInput.includes(URL_SECRET)
+          traceInput.includes("api.example.com/v1/items")
         );
       }),
   );
 
   await proof(
     "A05",
-    "a credential in an object key of a tool output is masked",
+    "an object key of a tool output is recorded as the released build recorded it",
     () =>
       withRig({}, async (rig) => {
         const span = rig.tracer("mcp").startSpan("tool.fetch");
@@ -1382,13 +1384,13 @@ void runSuite(async () => {
         span.end();
         await rig.flush();
         const output = attrOf(rig.wire()[0]?.attributes, OUTPUT) ?? "";
-        return output.includes("h.example/x") && !output.includes(URL_SECRET);
+        return output.includes(`h.example/x?access_token=${URL_SECRET}`);
       }),
   );
 
   await proof(
     "A05",
-    "an attribute built earlier from a credential key is masked when handed to observe()",
+    "an attribute built earlier from a credential-looking key is handed to observe() unchanged",
     () =>
       withRig({}, async (rig) => {
         const earlier = spanContentAttribute({
@@ -1400,16 +1402,15 @@ void runSuite(async () => {
         span.end();
         await rig.flush();
         const sent = rig.wire()[0];
-        return [INPUT, TRACE_INPUT].every((key) => {
-          const value = attrOf(sent?.attributes, key) ?? "";
-          return value.includes("password=") && !value.includes(URL_SECRET);
-        });
+        return [INPUT, TRACE_INPUT].every(
+          (key) => attrOf(sent?.attributes, key) === earlier,
+        );
       }),
   );
 
   await proof(
     "A05",
-    "a {name, value} pair that names a credential has its value masked",
+    "a {name, value} pair that names a credential is recorded as the released build recorded it",
     () =>
       withRig({}, async (rig) => {
         const span = rig.tracer("mcp").startSpan("tool.call");
@@ -1422,7 +1423,7 @@ void runSuite(async () => {
         span.end();
         await rig.flush();
         const input = attrOf(rig.wire()[0]?.attributes, INPUT) ?? "";
-        return input.includes("api_key") && !input.includes(URL_SECRET);
+        return input.includes("api_key") && input.includes(URL_SECRET);
       }),
   );
 

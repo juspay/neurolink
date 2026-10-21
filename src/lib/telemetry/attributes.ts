@@ -278,35 +278,6 @@ function redactText(text: string): string {
   return redacted;
 }
 
-// A name that says how many, how long or what kind of thing rather than
-// holding the credential (`max_tokens`, `password_policy`, `credential_type`).
-const MEASUREMENT_ENTRY_NAME =
-  /(?:^|_)tokens$|_(?:policy|type|algorithm|count|limit)$/;
-const NUMERIC_TEXT = /^\s*\d+(?:\.\d+)?\s*$/;
-
-function snakeCased(name: string): string {
-  return name
-    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-    .replace(/[\s.-]+/g, "_")
-    .toLowerCase();
-}
-
-// Headers, environment variables and form fields are often lists of
-// `{ name, value }` or `{ key, value }` entries; when the name is a credential
-// the value is one, exactly as if it were stored under that key. A setting
-// that merely mentions a credential, or a purely numeric value, is not one.
-function credentialEntryName(node: object): string | undefined {
-  const name =
-    "name" in node ? node.name : "key" in node ? node.key : undefined;
-  if (typeof name !== "string" || !("value" in node) || !isSensitiveKey(name)) {
-    return undefined;
-  }
-  const isSetting =
-    MEASUREMENT_ENTRY_NAME.test(snakeCased(name)) ||
-    (typeof node.value === "string" && NUMERIC_TEXT.test(node.value));
-  return isSetting ? undefined : name;
-}
-
 function redactNode(value: unknown, ancestors: WeakSet<object>): unknown {
   if (typeof value === "string") {
     return redactText(describeDataUrls(value));
@@ -331,29 +302,19 @@ function redactNode(value: unknown, ancestors: WeakSet<object>): unknown {
     // No prototype, so a key named __proto__ is data rather than an assignment.
     const redacted: Record<string, unknown> = Object.create(null);
     const mimeType = declaredMimeType(value);
-    const entryName = credentialEntryName(value);
     for (const [key, entry] of Object.entries(value)) {
-      // A key can carry a credential too, such as a URL with an api_key
-      // parameter used as a map key.
-      const safeKey = redactText(key);
-      const sensitiveName =
-        key === "value" && entryName !== undefined
-          ? entryName
-          : isSensitiveKey(key)
-            ? key
-            : undefined;
       if (
-        sensitiveName !== undefined &&
+        isSensitiveKey(key) &&
         (typeof entry === "string" ||
           (typeof entry === "object" && entry !== null))
       ) {
-        redacted[safeKey] = redactSensitiveEntry(sensitiveName, entry);
+        redacted[key] = redactSensitiveEntry(key, entry);
         continue;
       }
       const placeholder = isBinaryKey(key)
         ? binaryPlaceholder(entry, mimeType)
         : undefined;
-      redacted[safeKey] = placeholder ?? redactNode(entry, ancestors);
+      redacted[key] = placeholder ?? redactNode(entry, ancestors);
     }
     return redacted;
   } finally {
@@ -362,7 +323,7 @@ function redactNode(value: unknown, ancestors: WeakSet<object>): unknown {
 }
 
 /**
- * @description Returns a copy of a value with credentials masked: values under keys such as `access_token`, `password`, `authorization` or `set-cookie`, the value of a `{ name, value }` or `{ key, value }` entry whose name is such a key, bearer tokens, and `name=value` credentials inside text and inside object keys. Purely numeric values after a credential-looking name (e.g. `max_tokens: 4096`) are left alone, and so is an entry whose name ends in `tokens`, `policy`, `type`, `algorithm`, `count` or `limit` (a setting, not a credential).
+ * @description Returns a copy of a value with credentials masked: values under keys such as `access_token`, `password`, `authorization` or `set-cookie`, bearer tokens, and `name=value` credentials inside text. Purely numeric values after a credential-looking name (e.g. `max_tokens: 4096`) are left alone.
  * @param value {JsonValue | object} - Content to redact; objects and arrays are walked recursively.
  * @returns {JsonValue | object} A redacted copy, serializing exactly as the input when nothing in it is sensitive.
  * @throws {Error} When the value cannot be walked; tracing callers use `spanContentAttribute`, which turns that into an omitted value.

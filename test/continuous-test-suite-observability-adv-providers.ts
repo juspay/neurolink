@@ -40,7 +40,8 @@
  *         wrapper spans a default exporter never shows
  *   BT08  an upstream error of 45,000 characters that echoes a key, longer
  *         than any real one
- *   BT10  fixed `{ name, value }` entries, credential and not
+ *   BT10  `{ name, value }` entries are recorded as released: the name does not
+ *         make the value a credential; text patterns inside it are still masked
  *   BT11  fixed long strings, checked against the released rule written out
  *         here as the oracle
  *   BT12  Gemini usage metadata with more cached tokens than prompt tokens
@@ -2076,7 +2077,7 @@ await check(
 // ---------------------------------------------------------------------------
 
 section(
-  "BT10 { name, value } and { key, value } entries mask only credentials",
+  "BT10 { name, value } and { key, value } entries are recorded as released",
 );
 
 const NOT_CREDENTIAL_ENTRIES: Array<[string, Record<string, unknown>]> = [
@@ -2151,24 +2152,30 @@ for (const [label, entry] of NOT_CREDENTIAL_ENTRIES) {
   );
 }
 
+// The released masker reads keys and text, not the name of an entry: the value
+// of `{ name: "password", value: "hunter2" }` is recorded as it was. What it
+// does mask is a text pattern inside the value (a bare provider key, a bearer
+// token, a KEY=value assignment).
 for (const [label, entry, fragment] of CREDENTIAL_ENTRIES) {
   await check(
     "BT10",
-    `the credential entry ${label} still has its value masked`,
+    `the entry ${label} is recorded as the released build recorded it`,
     () => {
       const recorded = spanContentAttribute(entry);
-      assert(!recorded.includes(fragment), `${label} leaked: ${recorded}`);
-      assert(
-        recorded.includes("[REDACTED]"),
-        `${label} not masked: ${recorded}`,
-      );
+      const hasTextPattern = /^(sk-|Bearer )/.test(String(entry.value));
+      if (hasTextPattern) {
+        assert(!recorded.includes(fragment), `${label} text pattern leaked`);
+        assert(recorded.includes("[REDACTED]"), `${label} not masked`);
+      } else {
+        assertEqual(recorded, JSON.stringify(entry), label);
+      }
     },
   );
 }
 
 await check(
   "BT10",
-  "in a headers list the credential is masked and the neighbouring settings are not",
+  "in a headers list a bearer token is masked by its text pattern and every other value is recorded as it was",
   () => {
     const recorded = JSON.parse(
       spanContentAttribute([
@@ -2179,6 +2186,7 @@ await check(
       ]),
     ) as Array<{ name: string; value: string }>;
     assert(!recorded[0].value.includes("abcdefghijklmnop"), "bearer leaked");
+    assertEqual(recorded[0].value, "Bearer [REDACTED]", "bearer text pattern");
     assertEqual(recorded[1].value, "4096", "max_tokens");
     assertEqual(recorded[2].value, "application/json", "content type");
     assertEqual(recorded[3].value, "min length 8", "password_policy");
