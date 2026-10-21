@@ -115,6 +115,7 @@
     "test:forced-tool-declared": "pnpm exec tsx test/continuous-test-suite-forced-tool-declared.ts",
     "test:span-content-redaction": "pnpm exec tsx test/continuous-test-suite-span-content-redaction.ts",
     "test:voice-turn-memory": "pnpm exec tsx test/continuous-test-suite-voice-turn-memory.ts",
+    "test:redis-atomic-expiry": "pnpm exec tsx test/continuous-test-suite-redis-atomic-expiry.ts",
     "test:realtime-voice": "pnpm exec tsx test/continuous-test-suite-realtime-voice.ts",
     "test:error-classification-e2e": "pnpm exec tsx test/continuous-test-suite-error-classification-e2e.ts",
     "test:error-classifier-contract": "pnpm exec tsx test/continuous-test-suite-error-classifier-contract.ts",

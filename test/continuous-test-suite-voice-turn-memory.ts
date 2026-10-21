@@ -138,6 +138,14 @@ class FakeRedis {
         });
         return transaction;
       },
+      sAdd: (key: string, member: string) => {
+        operations.push(() => {
+          const members = this.sets.get(key) ?? new Set<string>();
+          members.add(member);
+          this.sets.set(key, members);
+        });
+        return transaction;
+      },
       expire: () => transaction,
       exec: async () => {
         operations.forEach((operation) => operation());

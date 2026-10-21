@@ -391,6 +391,16 @@ export default [
             // LiveKit is driven with synthetic events. Its header states the
             // exception in full.
             "test/continuous-test-suite-voice-turn-memory.ts",
+            // The window between a Redis SET (or SADD) and its separate
+            // EXPIRE is one round trip wide and closes by itself, so no live
+            // run observes it or dies inside it. What is asserted is a key's
+            // TTL read back after the connection is cut right behind the
+            // write, at internal write-backs (background title, summarization,
+            // agentic-loop report, the per-user session index) that no caller
+            // can aim at. Offline against an in-process stand-in that models
+            // TTL semantics; the real-server cases SKIP when nothing answers.
+            // Its header states the exception in full.
+            "test/continuous-test-suite-redis-atomic-expiry.ts",
             // Chunk boundaries and reranker ordering are exact outcomes;
             // generate({ rag }) only ever shows the model's answer.
             "test/continuous-test-suite-rag.ts",

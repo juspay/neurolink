@@ -492,6 +492,49 @@ export async function isRedisHealthy(client: RedisClient): Promise<boolean> {
 }
 
 /**
+ * SET a string key together with its expiry, as a single command.
+ *
+ * A plain SET clears any TTL the key had, so SET followed by a separate
+ * EXPIRE leaves a window — and a dropped connection inside it — in which the
+ * key has no expiry at all and never ages out. A `ttlSeconds` of zero or less
+ * means "no expiry", exactly as the two-command form treated it.
+ */
+export async function setWithTtl(
+  client: RedisClient,
+  key: string,
+  value: string,
+  ttlSeconds: number,
+): Promise<void> {
+  if (ttlSeconds > 0) {
+    await client.set(key, value, {
+      expiration: { type: "EX", value: ttlSeconds },
+    });
+    return;
+  }
+  await client.set(key, value);
+}
+
+/**
+ * SADD a member and give the set its expiry in one MULTI/EXEC.
+ *
+ * SADD on a missing key creates it without a TTL, so a separate EXPIRE leaves
+ * the same unbounded-lifetime window as SET followed by EXPIRE. A
+ * `ttlSeconds` of zero or less adds the member and sets no expiry.
+ */
+export async function addToSetWithTtl(
+  client: RedisClient,
+  key: string,
+  member: string,
+  ttlSeconds: number,
+): Promise<void> {
+  if (ttlSeconds > 0) {
+    await client.multi().sAdd(key, member).expire(key, ttlSeconds).exec();
+    return;
+  }
+  await client.sAdd(key, member);
+}
+
+/**
  * Scan Redis keys matching a pattern without blocking the server
  * This is a non-blocking alternative to the KEYS command
  *

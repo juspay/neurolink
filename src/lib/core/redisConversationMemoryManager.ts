@@ -43,6 +43,7 @@ import {
 } from "../utils/conversationTurnIdentity.js";
 import { extractIsErrorText } from "../utils/toolResultStatus.js";
 import {
+  addToSetWithTtl,
   createRedisClient,
   deserializeConversation,
   encodeStoredMessages,
@@ -59,6 +60,7 @@ import {
   releasePooledRedisClient,
   scanKeys,
   serializeConversation,
+  setWithTtl,
 } from "../utils/redis.js";
 
 const redisTracer = tracers.redis;
@@ -404,11 +406,12 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
 
     try {
       const userSessionsKey = getUserSessionsKey(this.redisConfig, userId);
-      await this.redisClient.sAdd(userSessionsKey, sessionId);
-
-      if (this.redisConfig.ttl > 0) {
-        await this.redisClient.expire(userSessionsKey, this.redisConfig.ttl);
-      }
+      await addToSetWithTtl(
+        this.redisClient,
+        userSessionsKey,
+        sessionId,
+        this.redisConfig.ttl,
+      );
     } catch (error) {
       logger.error(
         "[RedisConversationMemoryManager] Failed to add session to user set",
@@ -645,14 +648,11 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
 
                     const serializedData =
                       serializeConversation(updatedConversation);
-                    await this.redisClient?.set(
-                      updatedRedisKey,
-                      serializedData,
-                    );
-
-                    if (this.redisConfig.ttl > 0) {
-                      await this.redisClient?.expire(
+                    if (this.redisClient) {
+                      await setWithTtl(
+                        this.redisClient,
                         updatedRedisKey,
+                        serializedData,
                         this.redisConfig.ttl,
                       );
                     }
@@ -945,10 +945,12 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
               )
                 ? serializeConversationMetadata(latestConversation)
                 : serializeConversation(latestConversation);
-              await this.redisClient.set(redisKey, freshSerialized);
-              if (this.redisConfig.ttl > 0) {
-                await this.redisClient.expire(redisKey, this.redisConfig.ttl);
-              }
+              await setWithTtl(
+                this.redisClient,
+                redisKey,
+                freshSerialized,
+                this.redisConfig.ttl,
+              );
             }
           }
         }
@@ -2409,14 +2411,15 @@ User message: "${userMessage}"`;
       const serializedData = usesSplitMessageStorage(conversation)
         ? serializeConversationMetadata(conversation)
         : serializeConversation(conversation);
-      await withTimeout(this.redisClient.set(redisKey, serializedData), 5000);
-
-      if (this.redisConfig.ttl > 0) {
-        await withTimeout(
-          this.redisClient.expire(redisKey, this.redisConfig.ttl),
-          5000,
-        );
-      }
+      await withTimeout(
+        setWithTtl(
+          this.redisClient,
+          redisKey,
+          serializedData,
+          this.redisConfig.ttl,
+        ),
+        5000,
+      );
 
       logger.info(
         "[RedisConversationMemoryManager] Successfully updated agentic loop report",

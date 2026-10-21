@@ -242,9 +242,14 @@ export class RedisSessionStorage implements SessionManagerStorage {
         JSON.stringify(session),
       );
 
-      // Track user's sessions
-      await client.sAdd(this.userSessionsKey(session.user.id), session.id);
-      await client.expire(this.userSessionsKey(session.user.id), this.ttl);
+      // Track user's sessions. SADD creates a missing set without a TTL, so
+      // the expiry rides in the same MULTI rather than a command of its own.
+      const userSessionsKey = this.userSessionsKey(session.user.id);
+      await client
+        .multi()
+        .sAdd(userSessionsKey, session.id)
+        .expire(userSessionsKey, this.ttl)
+        .exec();
     } catch (error) {
       logger.error("Redis session set error:", error);
       throw error;
