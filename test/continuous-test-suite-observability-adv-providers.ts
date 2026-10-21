@@ -77,6 +77,8 @@ import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 import { assert, assertEqual, defineSuite } from "./helpers/harness.js";
 
 process.env.NEUROLINK_SKIP_MCP = "true";
+// A shell that sets the opt-in must not change what the released-behaviour checks see.
+delete process.env.NEUROLINK_MASK_CREDENTIAL_ENTRIES;
 
 // A span left open is invisible to an exporter, so open spans are counted at
 // the processor: started and not yet ended.
@@ -2082,6 +2084,13 @@ section(
 
 const NOT_CREDENTIAL_ENTRIES: Array<[string, Record<string, unknown>]> = [
   ["tokens", { name: "tokens", value: "hello" }],
+  ["completion_tokens", { name: "completion_tokens", value: "7 of them" }],
+  ["total_tokens", { key: "total_tokens", value: "about 19" }],
+  ["max_completion_tokens", { name: "max_completion_tokens", value: "many" }],
+  [
+    "cache_read_input_tokens",
+    { name: "cache_read_input_tokens", value: "a few hundred" },
+  ],
   ["max_tokens", { name: "max_tokens", value: "4096" }],
   ["prompt_tokens", { name: "prompt_tokens", value: "12 of them" }],
   ["maxTokens (camel case)", { name: "maxTokens", value: "a few" }],
@@ -2130,6 +2139,38 @@ const CREDENTIAL_ENTRIES: Array<[string, Record<string, unknown>, string]> = [
   ],
   ["token", { name: "token", value: "abc.def.ghi" }, "abc.def.ghi"],
   [
+    "access_tokens",
+    { name: "access_tokens", value: "abc.def.ghi" },
+    "abc.def.ghi",
+  ],
+  [
+    "refresh_tokens",
+    { name: "refresh_tokens", value: "rt-0123456789abcdef" },
+    "rt-0123456789",
+  ],
+  [
+    "session_tokens",
+    { key: "session_tokens", value: "sess-9f8e7d6c5b4a" },
+    "sess-9f8e7d6c",
+  ],
+  [
+    "id_tokens",
+    { name: "id_tokens", value: "eyJhbGciOi.payload" },
+    "eyJhbGciOi",
+  ],
+  [
+    "auth_tokens",
+    { name: "auth_tokens", value: "a1b2c3d4e5f6" },
+    "a1b2c3d4e5f6",
+  ],
+  ["password (numeric)", { name: "password", value: "123456" }, "123456"],
+  ["api_key (numeric)", { key: "api_key", value: "9876543210" }, "9876543210"],
+  [
+    "pin-style secret (numeric)",
+    { name: "client_secret", value: "4821" },
+    "4821",
+  ],
+  [
     "private_key",
     { name: "private_key", value: "MIIEvQIBADANBg" },
     "MIIEvQIBADANBg",
@@ -2172,6 +2213,65 @@ for (const [label, entry, fragment] of CREDENTIAL_ENTRIES) {
     },
   );
 }
+
+// With NEUROLINK_MASK_CREDENTIAL_ENTRIES=true the entry's name decides, and
+// only credentials are masked.
+function withMaskEntriesOn<T>(fn: () => T): T {
+  const previous = process.env.NEUROLINK_MASK_CREDENTIAL_ENTRIES;
+  process.env.NEUROLINK_MASK_CREDENTIAL_ENTRIES = "true";
+  try {
+    return fn();
+  } finally {
+    if (previous === undefined) {
+      delete process.env.NEUROLINK_MASK_CREDENTIAL_ENTRIES;
+    } else {
+      process.env.NEUROLINK_MASK_CREDENTIAL_ENTRIES = previous;
+    }
+  }
+}
+
+for (const [label, entry] of NOT_CREDENTIAL_ENTRIES) {
+  await check(
+    "BT10",
+    `with the opt-in on, the entry ${label} is still recorded as it was`,
+    () => {
+      assertEqual(
+        withMaskEntriesOn(() => spanContentAttribute(entry)),
+        JSON.stringify(entry),
+        label,
+      );
+    },
+  );
+}
+
+for (const [label, entry, fragment] of CREDENTIAL_ENTRIES) {
+  await check(
+    "BT10",
+    `with the opt-in on, the credential entry ${label} has its value masked`,
+    () => {
+      const recorded = withMaskEntriesOn(() => spanContentAttribute(entry));
+      assert(!recorded.includes(fragment), `${label} leaked`);
+      assert(recorded.includes("[REDACTED]"), `${label} not masked`);
+    },
+  );
+}
+
+await check(
+  "BT10",
+  "with the opt-in on, a 160 KB entry name is classified in linear time and its value is masked",
+  () => {
+    // A key comes from content (a tool argument can carry any key), so the
+    // name check must not backtrack: "_max" repeated used to cost seconds.
+    const hostile = `secret${"_max".repeat(40_000)}_x`;
+    const started = performance.now();
+    const recorded = withMaskEntriesOn(() =>
+      spanContentAttribute({ name: hostile, value: "VALUE-xyz1234567" }),
+    );
+    const elapsedMs = performance.now() - started;
+    assert(!recorded.includes("VALUE-xyz1234567"), "the value leaked");
+    assert(elapsedMs < 2_000, "the name check took over two seconds");
+  },
+);
 
 await check(
   "BT10",

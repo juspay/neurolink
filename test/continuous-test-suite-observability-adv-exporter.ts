@@ -29,6 +29,9 @@
  *   A10  a span that ends during shutdown() is delivered or counted
  *   A11  Retry-After is honoured on 429 and 503, capped
  *   A12  an exporter whose last batch Langfuse took none of reads unhealthy
+ *   A14  NEUROLINK_MASK_CREDENTIAL_ENTRIES=true masks {name, value} entries
+ *        and credentials in object keys, read at call time; unset or any
+ *        other value leaves the released rules
  *   V01  a mask or redactIO does not reach the status message of any exporter
  *   V02  partialSuccess rejections are counted
  *
@@ -480,6 +483,8 @@ const hostProvider = new NodeTracerProvider({
 });
 hostProvider.register();
 process.env.NEUROLINK_SKIP_MCP = "true";
+// A shell that sets the opt-in must not change what the released-behaviour checks see.
+delete process.env.NEUROLINK_MASK_CREDENTIAL_ENTRIES;
 
 type Upstream = { baseURL: string; close: () => Promise<void> };
 
@@ -1448,6 +1453,146 @@ void runSuite(async () => {
         return input === JSON.stringify(content);
       }),
   );
+
+  // ---------------------------------------------------------------- A14
+  section("A14 NEUROLINK_MASK_CREDENTIAL_ENTRIES");
+
+  const MASK_ENTRIES = "NEUROLINK_MASK_CREDENTIAL_ENTRIES";
+  async function withMaskEntries<T>(
+    value: string | undefined,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const previous = process.env[MASK_ENTRIES];
+    if (value === undefined) {
+      delete process.env[MASK_ENTRIES];
+    } else {
+      process.env[MASK_ENTRIES] = value;
+    }
+    try {
+      return await fn();
+    } finally {
+      if (previous === undefined) {
+        delete process.env[MASK_ENTRIES];
+      } else {
+        process.env[MASK_ENTRIES] = previous;
+      }
+    }
+  }
+  const credentialPairs = {
+    env: [{ name: "api_key", value: URL_SECRET }],
+    headers: [{ key: "Authorization", value: `Basic ${URL_SECRET}` }],
+  };
+  const sentInput = (content: unknown, key: string) =>
+    withRig({}, async (rig) => {
+      const span = rig.tracer("mcp").startSpan("tool.call");
+      observe(
+        span,
+        "tool",
+        key === INPUT ? { input: content } : { output: content },
+      );
+      span.end();
+      await rig.flush();
+      return attrOf(rig.wire()[0]?.attributes, key) ?? "";
+    });
+
+  await proof(
+    "A14",
+    "with the variable set to true, a {name, value} pair that names a credential has its value masked, read at call time",
+    () =>
+      withMaskEntries("true", async () => {
+        const input = await sentInput(credentialPairs, INPUT);
+        return input.includes("api_key") && !input.includes(URL_SECRET);
+      }),
+  );
+
+  await proof(
+    "A14",
+    "with the variable set (any casing, padded), a credential inside an object key is masked and the rest of the key kept",
+    () =>
+      withMaskEntries(" TRUE ", async () => {
+        const output = await sentInput(
+          { [`https://h.example/x?access_token=${URL_SECRET}`]: "ok" },
+          OUTPUT,
+        );
+        return output.includes("h.example/x") && !output.includes(URL_SECRET);
+      }),
+  );
+
+  await proof(
+    "A14",
+    "with the variable set, a numeric credential in a {name, value} entry is masked like the same credential under a key",
+    () =>
+      withMaskEntries("true", async () => {
+        const pin = "4821907";
+        const entry = await sentInput(
+          { fields: [{ name: "password", value: pin }] },
+          INPUT,
+        );
+        const keyed = await sentInput({ password: pin }, INPUT);
+        return (
+          !entry.includes(pin) &&
+          entry.includes("[REDACTED]") &&
+          !keyed.includes(pin)
+        );
+      }),
+  );
+
+  await proof(
+    "A14",
+    "with the variable set, an entry named access_tokens or refresh_tokens is masked like the same names under a key, while max_tokens and prompt_tokens stay readable",
+    () =>
+      withMaskEntries("true", async () => {
+        const jwt = "eyJhbGciOiJIUzI1.payloadpart.signaturepart";
+        const entry = await sentInput(
+          {
+            fields: [
+              { name: "access_tokens", value: jwt },
+              { name: "refresh_tokens", value: jwt },
+              { name: "max_tokens", value: "4096 or so" },
+              { name: "prompt_tokens", value: "12 of them" },
+            ],
+          },
+          INPUT,
+        );
+        const keyed = await sentInput({ access_tokens: jwt }, INPUT);
+        return (
+          !entry.includes(jwt) &&
+          !keyed.includes(jwt) &&
+          entry.includes("4096 or so") &&
+          entry.includes("12 of them")
+        );
+      }),
+  );
+
+  await proof(
+    "A14",
+    "with the variable set, keys and {name, value} pairs that name no credential are unchanged",
+    () =>
+      withMaskEntries("true", async () => {
+        const content = {
+          "https://example.com/a?page=2": { status: 200 },
+          settings: [
+            { name: "model", value: "gpt-4o" },
+            { name: "max_tokens", value: 4096 },
+            { name: "password_policy", value: "min length 8" },
+            { key: "region", value: "us-east-1" },
+          ],
+        };
+        return (await sentInput(content, INPUT)) === JSON.stringify(content);
+      }),
+  );
+
+  for (const off of [undefined, "", "false", "1", "yes", "on"]) {
+    await proof(
+      "A14",
+      `with the variable ${off === undefined ? "unset" : `set to "${off}"`} nothing is masked beyond the released rules`,
+      () =>
+        withMaskEntries(off, async () => {
+          const input = await sentInput(credentialPairs, INPUT);
+          return input.includes(URL_SECRET);
+        }),
+    );
+  }
 
   await proof(
     "A05",
