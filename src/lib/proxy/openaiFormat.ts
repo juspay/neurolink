@@ -22,8 +22,10 @@ import type {
   OpenAIErrorResponse,
   OpenAIStreamChunk,
   OpenAIToolCall,
+  OpenAIUsage,
   ParsedOpenAIRequest,
   StreamLifecycleState,
+  TokenUsage,
 } from "../types/index.js";
 import { normalizeJsonSchemaObject } from "../utils/schemaConversion.js";
 import { applyClaudeRequestCacheBreakpoints } from "../utils/anthropicCacheBreakpoints.js";
@@ -245,9 +247,27 @@ function mapFinishReason(
   }
 }
 
-/**
- * Serialize a NeuroLink GenerateResult into an OpenAI Chat Completions response.
- */
+/** Add cache to the prompt total; reasoning is already part of completion. */
+function toOpenAIUsage(usage: TokenUsage | undefined): OpenAIUsage {
+  const promptTokens =
+    (usage?.input ?? 0) +
+    (usage?.cacheReadTokens ?? 0) +
+    (usage?.cacheCreationTokens ?? 0);
+  const completionTokens = usage?.output ?? 0;
+  return {
+    prompt_tokens: promptTokens,
+    completion_tokens: completionTokens,
+    total_tokens: usage?.total ?? promptTokens + completionTokens,
+    ...(usage?.cacheReadTokens !== undefined && {
+      prompt_tokens_details: { cached_tokens: usage.cacheReadTokens },
+    }),
+    ...(usage?.reasoning !== undefined && {
+      completion_tokens_details: { reasoning_tokens: usage.reasoning },
+    }),
+  };
+}
+
+/** Serialize a NeuroLink GenerateResult into an OpenAI Chat Completions response. */
 export function serializeOpenAIResponse(
   result: InternalResult,
   requestModel: string,
@@ -291,11 +311,7 @@ export function serializeOpenAIResponse(
         finish_reason: mapFinishReason(inferredFinishReason),
       },
     ],
-    usage: {
-      prompt_tokens: result.usage?.input ?? 0,
-      completion_tokens: result.usage?.output ?? 0,
-      total_tokens: result.usage?.total ?? 0,
-    },
+    usage: toOpenAIUsage(result.usage),
   };
 }
 
@@ -530,10 +546,7 @@ export class OpenAIStreamSerializer {
   /**
    * Finalize the stream: emit finish_reason chunk, then `data: [DONE]`.
    */
-  *finish(
-    finishReason?: string,
-    usage?: { input: number; output: number; total: number },
-  ): Generator<string> {
+  *finish(finishReason?: string, usage?: TokenUsage): Generator<string> {
     if (this.state === "idle") {
       yield* this.start();
     }
@@ -543,13 +556,7 @@ export class OpenAIStreamSerializer {
     }
 
     const mappedReason = mapFinishReason(finishReason) ?? "stop";
-    const usagePayload = usage
-      ? {
-          prompt_tokens: usage.input,
-          completion_tokens: usage.output,
-          total_tokens: usage.total,
-        }
-      : undefined;
+    const usagePayload = usage ? toOpenAIUsage(usage) : undefined;
 
     yield formatOpenAISSE(this.makeChunk({}, mappedReason, usagePayload));
     yield "data: [DONE]\n\n";

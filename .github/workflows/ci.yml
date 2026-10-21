@@ -246,6 +246,10 @@ jobs:
           fi
           echo "✅ docs/api matches the source it documents."
 
+      - name: Check proxy usage accounting
+        if: matrix.group == 'validate'
+        run: pnpm run test:proxy-usage
+
       # Provider-catalog codegen freshness — the per-provider JSON in
       # src/lib/providers/catalog/*.json is the source of truth; the enums,
       # credential keys, and catalog index it drives must never drift from it.

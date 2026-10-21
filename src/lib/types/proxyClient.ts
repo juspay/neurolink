@@ -284,6 +284,8 @@ export type ProxyLedgerEntry = {
   model: string;
   provider?: string;
   inputTokens: number;
+  /** Native Codex input includes cache reads and writes. */
+  inputIncludesCachedTokens: boolean;
   outputTokens: number;
   cacheReadTokens: number;
   cacheCreationTokens: number;
