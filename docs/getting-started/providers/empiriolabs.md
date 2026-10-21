@@ -6,8 +6,16 @@ keywords: empiriolabs, empiriolabs ai, openai-compatible, tier 2, provider setup
 
 # EmpirioLabs AI Provider Guide
 
-EmpirioLabs AI is a **Tier-2 catalog provider**: OpenAI-wire-compatible with no
-behavioural quirks, so its entire integration is one JSON file
+[EmpirioLabs AI](https://empiriolabs.ai) is a specialized AI inference and
+integration provider. It hosts open-source models on GPU infrastructure it
+manages, runs optimized endpoints for proprietary models, helps teams ship their
+own models, and offers on-demand GPU Cloud instances and hosted AI agents. Its
+model catalog spans text, image, audio, video, transcription, embedding,
+reranking, research and 3D models. API reference and guides are in the
+[EmpirioLabs AI docs](https://docs.empiriolabs.ai).
+
+In NeuroLink, EmpirioLabs AI is a **Tier-2 catalog provider**: it speaks the OpenAI wire
+format, so its entire integration is one JSON file
 (`src/lib/providers/catalog/empiriolabs.json`) rather than hand-written code.
 That file is the source of truth for everything on this page.
 
@@ -155,7 +163,7 @@ against real responses, per
 
 ## Documented quirks worth knowing (not catalog quirks)
 
-- **Implicit system prompt**: EmpirioLabs docs say every chat model has a
+- **Implicit system prompt**: EmpirioLabs AI docs say every chat model has a
   built-in identity message that is prepended automatically when your
   request has no `system`/`developer` role message. Supplying your own
   system message fully replaces it (no merging). This doesn't require a
