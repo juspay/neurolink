@@ -75,17 +75,7 @@ Claude and OpenAI stream serializers from the unified translation engine.
 
 ##### usage
 
-###### input
-
-`number`
-
-###### output
-
-`number`
-
-###### total
-
-`number`
+[`TokenUsage`](TokenUsage.md)
 
 #### Returns
 

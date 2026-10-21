@@ -3,6 +3,7 @@ import type {
   ProxyTokenBudgetSnapshot,
 } from "./proxyBudget.js";
 import type { CodexRuntimeAccount } from "./codex.js";
+import type { TokenUsage } from "./analytics.js";
 import type { JsonObject, JsonValue } from "./common.js";
 import type {
   ProxyContextEvidence,
@@ -310,14 +311,7 @@ export type InternalResult = {
   finishReason?: string;
   /** Thinking/reasoning text from provider (Anthropic thinking blocks, Gemini thought parts) */
   reasoning?: string;
-  usage?: {
-    input: number;
-    output: number;
-    total: number;
-    cacheCreationTokens?: number;
-    cacheReadTokens?: number;
-    reasoning?: number;
-  };
+  usage?: TokenUsage;
   toolCalls?: Array<{
     toolCallId: string;
     toolName: string;
@@ -4062,10 +4056,7 @@ export type StreamSerializerAdapter = {
   start(): Iterable<string>;
   pushDelta(text: string): Iterable<string>;
   pushToolUse(id: string, name: string, input: unknown): Iterable<string>;
-  finish(
-    finishReason: string,
-    usage: { input: number; output: number; total: number },
-  ): Iterable<string>;
+  finish(finishReason: string, usage: TokenUsage): Iterable<string>;
   emitError(message: string): Iterable<string>;
 };
 
@@ -4152,6 +4143,8 @@ export type OpenAIUsage = {
   prompt_tokens: number;
   completion_tokens: number;
   total_tokens: number;
+  prompt_tokens_details?: { cached_tokens: number };
+  completion_tokens_details?: { reasoning_tokens: number };
 };
 
 /** OpenAI non-streaming response. */

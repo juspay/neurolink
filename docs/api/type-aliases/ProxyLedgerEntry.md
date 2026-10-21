@@ -61,6 +61,14 @@ Derived calling CLI; see CliAccountUsageTotals.byClient.
 
 ---
 
+### inputIncludesCachedTokens
+
+> **inputIncludesCachedTokens**: `boolean`
+
+Native Codex input includes cache reads and writes.
+
+---
+
 ### outputTokens
 
 > **outputTokens**: `number`

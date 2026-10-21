@@ -27,3 +27,23 @@ OpenAI usage counters.
 ### total_tokens
 
 > **total_tokens**: `number`
+
+---
+
+### prompt_tokens_details?
+
+> `optional` **prompt_tokens_details?**: `object`
+
+#### cached_tokens
+
+> **cached_tokens**: `number`
+
+---
+
+### completion_tokens_details?
+
+> `optional` **completion_tokens_details?**: `object`
+
+#### reasoning_tokens
+
+> **reasoning_tokens**: `number`
