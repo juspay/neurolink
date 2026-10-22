@@ -11,7 +11,11 @@
 //   node <fixture> busy <spawn-log>          normal server that also holds a
 //                                            timer, so its stdin closing does
 //                                            not end it (a heartbeat, a pool,
-//                                            a file watcher)
+//                                            a file watcher); creates
+//                                            <spawn-log>.eof when its stdin
+//                                            ends, so a host can tell that the
+//                                            SDK has started closing it
+//   node <fixture> stubborn <spawn-log>      busy, and also ignores SIGTERM
 //   node <fixture> stall-handshake <spawn-log>
 //                                            busy, but never answers
 //                                            tools/list; creates
@@ -76,8 +80,13 @@ server.registerTool(
   },
 );
 
-if (mode === "busy" || mode === "stall-handshake") {
+if (mode === "busy" || mode === "stubborn" || mode === "stall-handshake") {
   setInterval(() => {}, 1000);
+  process.stdin.on("end", () => writeFileSync(`${spawnLog}.eof`, ""));
+}
+
+if (mode === "stubborn") {
+  process.on("SIGTERM", () => {});
 }
 
 if (mode === "stall-handshake") {

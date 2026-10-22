@@ -114,30 +114,112 @@ const stderrTails = new WeakMap<Transport, StderrTail>();
  * has exited, so a server the manager closed is not signalled again.
  */
 const liveStdioTransports = new Set<Transport>();
+
+/**
+ * Children of transports whose `close()` has started and whose process has
+ * not yet closed.
+ *
+ * `close()` drops its reference to the child before it does anything else, so
+ * from then on `transport.pid` reads null, and a transport in that state is
+ * invisible to the set above. The close lasts up to four seconds for a server
+ * that ignores EOF and SIGTERM (`stdin.end()`, 2s, SIGTERM, 2s, SIGKILL). A
+ * host that calls `process.exit()` inside that window never reaches the SDK's
+ * escalation, so the exit hook signals the child held here.
+ *
+ * The child is held as a `ChildProcess` and signalled with `child.kill()`,
+ * never as a pid handed to `process.kill()`. Node clears the child's handle in
+ * the same callback in which libuv reaps it, and `kill()` signals only through
+ * that handle, so it does nothing for a child that has exited. The kernel
+ * cannot reuse a pid before the reap, which means this can never reach a
+ * process that merely inherited the number. A child leaves this set when it
+ * exits or closes, whichever comes first.
+ */
+const closingStdioChildren = new Set<ChildProcess>();
 let stdioExitHookInstalled = false;
+let stdioChildProcessClass: typeof ChildProcess | undefined;
+
+/**
+ * The SDK exposes no handle on the child; `pid` and `stderr` are its whole
+ * public surface. `_process` is private, so it is read through `Reflect.get`
+ * and used only if it is a real `ChildProcess`. An SDK release that renames or
+ * reshapes it yields undefined here.
+ */
+const stdioChildOf = (
+  transport: Transport,
+  childProcessClass: typeof ChildProcess,
+): ChildProcess | undefined => {
+  const candidate: unknown = Reflect.get(transport, "_process");
+  return candidate instanceof childProcessClass ? candidate : undefined;
+};
 
 /**
  * Synchronous on purpose: it is the one thing that can run inside the
- * `exit` event, and SIGTERM is delivered by the kernel even though this
+ * `exit` event, and signals are delivered by the kernel even though this
  * process is already on its way out.
+ *
+ * A live server is signalled through `child.kill()` whenever its transport
+ * still holds the child, for the reason given on `closingStdioChildren`:
+ * between a child's exit and its `close` event `transport.pid` still reads the
+ * old number, which the kernel may already have handed to another process.
+ * `transport.pid` remains only for an SDK that no longer exposes the child.
+ *
+ * A server whose close() was already under way gets SIGKILL. The SDK had
+ * committed to stopping it and would have escalated to SIGKILL within four
+ * seconds; the `exit` event cannot wait for that, so a server that ignores
+ * SIGTERM would otherwise be left running.
  */
 export const terminateLiveStdioServers = (): void => {
   for (const transport of liveStdioTransports) {
-    if ("pid" in transport && typeof transport.pid === "number") {
-      try {
+    const child =
+      stdioChildProcessClass && stdioChildOf(transport, stdioChildProcessClass);
+    try {
+      if (child) {
+        child.kill("SIGTERM");
+      } else if ("pid" in transport && typeof transport.pid === "number") {
         process.kill(transport.pid, "SIGTERM");
-      } catch {
-        // Already gone.
       }
+    } catch {
+      // Already gone.
+    }
+  }
+  for (const child of closingStdioChildren) {
+    try {
+      child.kill("SIGKILL");
+    } catch {
+      // Already gone.
     }
   }
 };
 
-const trackStdioTransport = (transport: Transport): void => {
+/**
+ * Without the child, an SDK release that hides it leaves the close window as
+ * open as it was before this set existed.
+ */
+const holdChildWhileClosing = (
+  transport: Transport,
+  childProcessClass: typeof ChildProcess,
+): void => {
+  const child = stdioChildOf(transport, childProcessClass);
+  if (!child || child.exitCode !== null || child.signalCode !== null) {
+    return;
+  }
+  closingStdioChildren.add(child);
+  const release = (): void => {
+    closingStdioChildren.delete(child);
+  };
+  child.once("exit", release);
+  child.once("close", release);
+};
+
+const trackStdioTransport = (
+  transport: Transport,
+  childProcessClass: typeof ChildProcess,
+): void => {
   if (!stdioExitHookInstalled) {
     stdioExitHookInstalled = true;
     process.on("exit", terminateLiveStdioServers);
   }
+  stdioChildProcessClass = childProcessClass;
   liveStdioTransports.add(transport);
   // Client.connect() chains an onclose that is already set rather than
   // replacing it, and the manager listens on client.onclose, so this one
@@ -145,6 +227,13 @@ const trackStdioTransport = (transport: Transport): void => {
   // the transport.
   transport.onclose = () => {
     liveStdioTransports.delete(transport);
+  };
+  // The child has to be read before close() starts, which is the last moment
+  // the transport still has it.
+  const closeTransport = transport.close.bind(transport);
+  transport.close = async (): Promise<void> => {
+    holdChildWhileClosing(transport, childProcessClass);
+    await closeTransport();
   };
 };
 
@@ -496,6 +585,8 @@ export class MCPClientFactory {
 
     const { StdioClientTransport } =
       await import("@modelcontextprotocol/sdk/client/stdio.js");
+    const { ChildProcess: childProcessClass } =
+      await import("node:child_process");
     const transport = new StdioClientTransport({
       command: config.command,
       args: config.args || [],
@@ -511,7 +602,7 @@ export class MCPClientFactory {
       stderr: "pipe",
     });
 
-    trackStdioTransport(transport);
+    trackStdioTransport(transport, childProcessClass);
 
     const tail = new StderrTail();
     stderrTails.set(transport, tail);

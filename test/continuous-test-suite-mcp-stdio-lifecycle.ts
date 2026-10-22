@@ -443,7 +443,7 @@ await test("shutdown leaves no server process behind", async () => {
 });
 
 // ============================================================
-// A host that leaves while a server is starting, handshaking or connected
+// A host that leaves while a server is starting, handshaking, connected or closing
 // ============================================================
 
 type HostKind =
@@ -451,7 +451,9 @@ type HostKind =
   | "listening"
   | "connected-listening"
   | "connected-busy"
-  | "handshaking-busy";
+  | "handshaking-busy"
+  | "closing-busy"
+  | "closing-stubborn";
 
 type HostRun = {
   childPid: number;
@@ -585,13 +587,22 @@ for (const exitPath of ["exit", "sigterm"] as const) {
 
 // `connected-listening` is the control for the cases below it, for the same
 // reason `listening` is above. `handshaking-busy` is the window between
-// `connect()` returning and the manager recording the client.
+// `connect()` returning and the manager recording the client. `closing-busy`
+// is the window after the SDK has started closing a server that ignores EOF:
+// the transport has already forgotten its child, so its pid reads null.
+// `closing-stubborn` is the same window with a server that ignores SIGTERM.
 for (const [childKind, exitPath, description] of [
   ["connected-listening", "exit", "a connected stdio server that exits on EOF"],
   ["connected-busy", "exit", "a connected stdio server that ignores EOF"],
   ["connected-busy", "sigterm", "a connected stdio server that ignores EOF"],
   ["handshaking-busy", "exit", "a stdio server that is mid-handshake"],
   ["handshaking-busy", "sigterm", "a stdio server that is mid-handshake"],
+  ["closing-busy", "exit", "a stdio server whose close is still in flight"],
+  [
+    "closing-stubborn",
+    "exit",
+    "a stdio server whose close is still in flight and that ignores SIGTERM",
+  ],
 ] as const) {
   await test(`${description} does not outlive a host that leaves by ${exitPath}`, async () => {
     await expectServerEndsWithHost(childKind, exitPath);

@@ -17,6 +17,11 @@
 //   handshaking-busy     a busy server that has answered initialize but not
 //                        tools/list, so the host leaves after connect() has
 //                        returned and before the manager has recorded the client
+//   closing-busy         a connected busy server that the host has started to
+//                        shut down without awaiting; the host leaves once the
+//                        server has seen its stdin close, so the SDK's close()
+//                        is still waiting for the process to end
+//   closing-stubborn     closing-busy with a server that also ignores SIGTERM
 //
 // how the host leaves
 //   exit         process.exit(0), which runs no beforeExit handler
@@ -45,8 +50,13 @@ const serverArgs = {
   "connected-listening": [serverFixture, "serve", pidFile],
   "connected-busy": [serverFixture, "busy", pidFile],
   "handshaking-busy": [serverFixture, "stall-handshake", pidFile],
+  "closing-busy": [serverFixture, "busy", pidFile],
+  "closing-stubborn": [serverFixture, "stubborn", pidFile],
 }[childKind];
+const closing =
+  childKind === "closing-busy" || childKind === "closing-stubborn";
 const listingFile = `${pidFile}.listing`;
+const eofFile = `${pidFile}.eof`;
 
 writeFileSync(
   join(workDir, ".mcp-config.json"),
@@ -67,13 +77,16 @@ const dist = resolve(fixtureDir, "..", "..", "dist", "index.js");
 const { NeuroLink } = await import(pathToFileURL(dist).href);
 const sdk = new NeuroLink({ conversationMemory: { enabled: false } });
 
-const awaitsConnection = childKind.startsWith("connected-");
+const awaitsConnection = childKind.startsWith("connected-") || closing;
 let connected = false;
 if (awaitsConnection) {
   const status = await sdk.getMCPStatus();
   connected = status.externalMCPConnectedCount > 0;
 } else {
   void sdk.getMCPStatus().catch(() => {});
+}
+if (closing && connected) {
+  void sdk.shutdownExternalMCPServers().catch(() => {});
 }
 
 const readChildPid = () => {
@@ -85,9 +98,10 @@ const readChildPid = () => {
 };
 const waitingForHandshake = () =>
   childKind === "handshaking-busy" && !existsSync(listingFile);
+const waitingForClose = () => closing && !existsSync(eofFile);
 const deadline = Date.now() + 20_000;
 while (
-  (readChildPid() === 0 || waitingForHandshake()) &&
+  (readChildPid() === 0 || waitingForHandshake() || waitingForClose()) &&
   Date.now() < deadline
 ) {
   await new Promise((resolveTick) => setTimeout(resolveTick, 50));
@@ -105,7 +119,9 @@ const childAlive = (() => {
   }
 })();
 const ready =
-  childPid > 0 && (awaitsConnection ? connected : !waitingForHandshake());
+  childPid > 0 &&
+  (awaitsConnection ? connected : !waitingForHandshake()) &&
+  !waitingForClose();
 console.log(`CHILD ${childPid} alive=${childAlive} ready=${ready}`);
 
 if (exitPath === "exit") {
