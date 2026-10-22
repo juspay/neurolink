@@ -21,6 +21,7 @@ import "dotenv/config";
  * Run: pnpm run build && pnpm run test:mcp:stdio-lifecycle
  */
 
+import { spawn } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -46,6 +47,12 @@ const FIXTURE = join(
   dirname(fileURLToPath(import.meta.url)),
   "fixtures",
   "mcp-stdio-lifecycle-server.mjs",
+);
+
+const ORPHAN_HOST = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "mcp-startup-orphan-host.mjs",
 );
 
 const sleep = (ms: number): Promise<void> =>
@@ -434,5 +441,112 @@ await test("shutdown leaves no server process behind", async () => {
     await h.cleanup();
   }
 });
+
+// ============================================================
+// A host that leaves while a server is still starting
+// ============================================================
+
+type HostRun = {
+  childPid: number;
+  childAliveWhenHostLeft: boolean;
+  code: number | null;
+  signal: NodeJS.Signals | null;
+};
+
+/**
+ * Runs the host fixture to completion and reports how it ended. The host
+ * points the built SDK at a server that never speaks MCP, so its handshake is
+ * still pending when the host leaves.
+ */
+async function runOrphanHost(
+  childKind: "deaf" | "listening",
+  exitPath: "exit" | "sigterm",
+  workDir: string,
+): Promise<HostRun> {
+  const host = spawn(
+    process.execPath,
+    [ORPHAN_HOST, childKind, exitPath, workDir],
+    {
+      // HOME moves with the work dir so the host never reads or writes the
+      // developer's own configuration.
+      env: { ...process.env, HOME: workDir },
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  let stdout = "";
+  let stderr = "";
+  host.stdout.on("data", (chunk: Buffer) => {
+    stdout += chunk.toString();
+  });
+  host.stderr.on("data", (chunk: Buffer) => {
+    stderr += chunk.toString();
+  });
+  const ended = await new Promise<{
+    code: number | null;
+    signal: NodeJS.Signals | null;
+  }>((resolve, reject) => {
+    const guard = setTimeout(() => {
+      host.kill("SIGKILL");
+      reject(
+        new Error(
+          `host fixture did not end within 45s (stdout ${JSON.stringify(stdout)}, stderr ${stderr.length} bytes)`,
+        ),
+      );
+    }, 45_000);
+    host.once("close", (code, signal) => {
+      clearTimeout(guard);
+      resolve({ code, signal });
+    });
+  });
+  const reported = /^CHILD (\d+) alive=(true|false)$/m.exec(stdout);
+  if (reported === null) {
+    throw new Error(
+      `host fixture never reported its server (stdout ${JSON.stringify(stdout)}, stderr ${stderr.length} bytes)`,
+    );
+  }
+  return {
+    childPid: Number(reported[1]),
+    childAliveWhenHostLeft: reported[2] === "true",
+    ...ended,
+  };
+}
+
+for (const exitPath of ["exit", "sigterm"] as const) {
+  for (const childKind of ["listening", "deaf"] as const) {
+    // `listening` is the control: it exits when its stdin closes, so it must
+    // be gone with or without the fix. It proves the suite can see a server
+    // go, which is what makes a `deaf` pass mean something.
+    await test(`a ${childKind} stdio server still starting does not outlive a host that leaves by ${exitPath}`, async () => {
+      const workDir = mkdtempSync(join(tmpdir(), "nl-startup-orphan-"));
+      let childPid = 0;
+      try {
+        const run = await runOrphanHost(childKind, exitPath, workDir);
+        childPid = run.childPid;
+        assert(
+          run.childPid > 0 && run.childAliveWhenHostLeft,
+          "the server was not running when the host left, so its survival proves nothing",
+        );
+        if (exitPath === "sigterm") {
+          assert(
+            run.signal === "SIGTERM",
+            `the host was meant to be ended by SIGTERM but closed with code ${run.code} signal ${run.signal}`,
+          );
+        } else {
+          assert(run.code === 0, `the host exited with code ${run.code}`);
+        }
+        await waitFor(
+          () => !isAlive(run.childPid),
+          5_000,
+          `the ${childKind} server ${run.childPid} to exit after its host left`,
+        );
+      } finally {
+        if (childPid > 0 && isAlive(childPid)) {
+          process.kill(childPid, "SIGKILL");
+        }
+        rmSync(workDir, { recursive: true, force: true });
+      }
+    });
+  }
+}
 
 await runSuite();

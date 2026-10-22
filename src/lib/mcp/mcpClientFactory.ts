@@ -99,6 +99,50 @@ class StderrTail {
 const stderrTails = new WeakMap<Transport, StderrTail>();
 
 /**
+ * Stdio servers that have been spawned but have not yet answered `initialize`.
+ *
+ * Nothing that cleans up at exit can reach one: the manager learns of a client
+ * and its transport only when `connect()` returns, and `process.exit()` runs
+ * no async handler anyway. It is also the state a server is least likely to
+ * notice its host going away, because `npx -y <pkg>` does not read its stdin
+ * until the package has downloaded. Once a server has answered it is an
+ * ordinary MCP server again and ends when its stdin closes, so it leaves this
+ * set and the shutdown paths that already exist keep ownership of it.
+ */
+const startingStdioTransports = new Set<Transport>();
+let startingStdioExitHookInstalled = false;
+
+/**
+ * Synchronous on purpose: it is the one thing that can run inside the
+ * `exit` event, and SIGTERM is delivered by the kernel even though this
+ * process is already on its way out.
+ */
+export const terminateStartingStdioServers = (): void => {
+  for (const transport of startingStdioTransports) {
+    if ("pid" in transport && typeof transport.pid === "number") {
+      try {
+        process.kill(transport.pid, "SIGTERM");
+      } catch {
+        // Already gone.
+      }
+    }
+  }
+};
+
+const trackStartingStdioTransport = (transport: Transport): void => {
+  if (!startingStdioExitHookInstalled) {
+    startingStdioExitHookInstalled = true;
+    process.on("exit", terminateStartingStdioServers);
+  }
+  startingStdioTransports.add(transport);
+  // Client.connect() chains an onclose that is already set rather than
+  // replacing it, and a spawn that fails still closes the transport.
+  transport.onclose = () => {
+    startingStdioTransports.delete(transport);
+  };
+};
+
+/**
  * MCPClientFactory
  * Factory class for creating MCP clients with different transports
  */
@@ -334,6 +378,7 @@ export class MCPClientFactory {
         timeout,
         `Client connection timeout for ${config.id}`,
       );
+      startingStdioTransports.delete(transport);
 
       // Perform handshake to get server capabilities
       const serverCapabilities = await this.performHandshake(client, timeout);
@@ -460,6 +505,8 @@ export class MCPClientFactory {
       cwd: config.cwd,
       stderr: "pipe",
     });
+
+    trackStartingStdioTransport(transport);
 
     const tail = new StderrTail();
     stderrTails.set(transport, tail);
