@@ -50,6 +50,10 @@ COPY --from=build /app/dist ./dist
 COPY docs/assets/dashboards ./docs/assets/dashboards
 COPY docs-site/mcp-server/*.js docs-site/mcp-server/*.d.ts ./docs-site/mcp-server/
 COPY docs-site/static/search-index.json ./docs-site/static/search-index.json
+# Whistle (local STT) and Silero (the streaming speech detector) load from here;
+# without them a pod downloads both at first use, or falls back to the energy gate.
+COPY models/whistle ./models/whistle
+COPY models/silero-vad ./models/silero-vad
 COPY scripts/observability ./scripts/observability
 # Never runs as root. HOME holds the CLI's state file (~/.neurolink).
 USER node
