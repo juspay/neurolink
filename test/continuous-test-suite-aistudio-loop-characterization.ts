@@ -1,4 +1,6 @@
 #!/usr/bin/env tsx
+import "./helpers/credentialFreeEnv.js";
+import "./helpers/emptyWorkingDirectory.js";
 import "dotenv/config";
 
 /**
