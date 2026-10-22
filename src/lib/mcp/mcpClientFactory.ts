@@ -99,26 +99,30 @@ class StderrTail {
 const stderrTails = new WeakMap<Transport, StderrTail>();
 
 /**
- * Stdio servers that have been spawned but have not yet answered `initialize`.
+ * Stdio servers this process has spawned and has not yet seen close.
  *
- * Nothing that cleans up at exit can reach one: the manager learns of a client
- * and its transport only when `connect()` returns, and `process.exit()` runs
- * no async handler anyway. It is also the state a server is least likely to
- * notice its host going away, because `npx -y <pkg>` does not read its stdin
- * until the package has downloaded. Once a server has answered it is an
- * ordinary MCP server again and ends when its stdin closes, so it leaves this
- * set and the shutdown paths that already exist keep ownership of it.
+ * A transport is tracked from creation to close, not only until the server
+ * answers `initialize`, because two things leave a server running with nothing
+ * to stop it. Until the manager records the client, which happens only after
+ * `connect()` and the handshake, no shutdown path knows the server exists, and
+ * `npx -y <pkg>` does not read its stdin until the package has downloaded.
+ * After that, a server holding a timer, a connection pool or a file watcher
+ * ignores its stdin closing, and `process.exit()` runs neither `beforeExit`
+ * nor the manager's async shutdown.
+ *
+ * `transport.close()` takes a transport out through `onclose` once the child
+ * has exited, so a server the manager closed is not signalled again.
  */
-const startingStdioTransports = new Set<Transport>();
-let startingStdioExitHookInstalled = false;
+const liveStdioTransports = new Set<Transport>();
+let stdioExitHookInstalled = false;
 
 /**
  * Synchronous on purpose: it is the one thing that can run inside the
  * `exit` event, and SIGTERM is delivered by the kernel even though this
  * process is already on its way out.
  */
-export const terminateStartingStdioServers = (): void => {
-  for (const transport of startingStdioTransports) {
+export const terminateLiveStdioServers = (): void => {
+  for (const transport of liveStdioTransports) {
     if ("pid" in transport && typeof transport.pid === "number") {
       try {
         process.kill(transport.pid, "SIGTERM");
@@ -129,16 +133,18 @@ export const terminateStartingStdioServers = (): void => {
   }
 };
 
-const trackStartingStdioTransport = (transport: Transport): void => {
-  if (!startingStdioExitHookInstalled) {
-    startingStdioExitHookInstalled = true;
-    process.on("exit", terminateStartingStdioServers);
+const trackStdioTransport = (transport: Transport): void => {
+  if (!stdioExitHookInstalled) {
+    stdioExitHookInstalled = true;
+    process.on("exit", terminateLiveStdioServers);
   }
-  startingStdioTransports.add(transport);
+  liveStdioTransports.add(transport);
   // Client.connect() chains an onclose that is already set rather than
-  // replacing it, and a spawn that fails still closes the transport.
+  // replacing it, and the manager listens on client.onclose, so this one
+  // survives for the life of the connection. A spawn that fails still closes
+  // the transport.
   transport.onclose = () => {
-    startingStdioTransports.delete(transport);
+    liveStdioTransports.delete(transport);
   };
 };
 
@@ -378,7 +384,6 @@ export class MCPClientFactory {
         timeout,
         `Client connection timeout for ${config.id}`,
       );
-      startingStdioTransports.delete(transport);
 
       // Perform handshake to get server capabilities
       const serverCapabilities = await this.performHandshake(client, timeout);
@@ -506,7 +511,7 @@ export class MCPClientFactory {
       stderr: "pipe",
     });
 
-    trackStartingStdioTransport(transport);
+    trackStdioTransport(transport);
 
     const tail = new StderrTail();
     stderrTails.set(transport, tail);

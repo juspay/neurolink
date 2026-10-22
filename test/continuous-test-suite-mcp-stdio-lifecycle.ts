@@ -443,23 +443,31 @@ await test("shutdown leaves no server process behind", async () => {
 });
 
 // ============================================================
-// A host that leaves while a server is still starting
+// A host that leaves while a server is starting, handshaking or connected
 // ============================================================
+
+type HostKind =
+  | "deaf"
+  | "listening"
+  | "connected-listening"
+  | "connected-busy"
+  | "handshaking-busy";
 
 type HostRun = {
   childPid: number;
   childAliveWhenHostLeft: boolean;
+  ready: boolean;
   code: number | null;
   signal: NodeJS.Signals | null;
 };
 
 /**
  * Runs the host fixture to completion and reports how it ended. The host
- * points the built SDK at a server that never speaks MCP, so its handshake is
- * still pending when the host leaves.
+ * points the built SDK at one server and leaves while that server is in the
+ * state `childKind` names, see the fixture for each.
  */
 async function runOrphanHost(
-  childKind: "deaf" | "listening",
+  childKind: HostKind,
   exitPath: "exit" | "sigterm",
   workDir: string,
 ): Promise<HostRun> {
@@ -498,7 +506,9 @@ async function runOrphanHost(
       resolve({ code, signal });
     });
   });
-  const reported = /^CHILD (\d+) alive=(true|false)$/m.exec(stdout);
+  const reported = /^CHILD (\d+) alive=(true|false) ready=(true|false)$/m.exec(
+    stdout,
+  );
   if (reported === null) {
     throw new Error(
       `host fixture never reported its server (stdout ${JSON.stringify(stdout)}, stderr ${stderr.length} bytes)`,
@@ -507,8 +517,59 @@ async function runOrphanHost(
   return {
     childPid: Number(reported[1]),
     childAliveWhenHostLeft: reported[2] === "true",
+    ready: reported[3] === "true",
     ...ended,
   };
+}
+
+/**
+ * A server that is alive when its host leaves must be gone shortly after. The
+ * survivor is killed in `finally`, so a failing case does not leak a process
+ * into the next one.
+ */
+async function expectServerEndsWithHost(
+  childKind: HostKind,
+  exitPath: "exit" | "sigterm",
+): Promise<void> {
+  const workDir = mkdtempSync(join(tmpdir(), "nl-startup-orphan-"));
+  let childPid = 0;
+  try {
+    const run = await runOrphanHost(childKind, exitPath, workDir);
+    childPid = run.childPid;
+    assert(
+      run.childPid > 0 && run.childAliveWhenHostLeft && run.ready,
+      "the server was not running and in the intended state when the host left, so its survival proves nothing",
+    );
+    if (exitPath === "sigterm") {
+      assert(
+        run.signal === "SIGTERM",
+        `the host was meant to be ended by SIGTERM but closed with code ${run.code} signal ${run.signal}`,
+      );
+    } else {
+      assert(run.code === 0, `the host exited with code ${run.code}`);
+    }
+    await waitFor(
+      () => !isAlive(run.childPid),
+      5_000,
+      `the ${childKind} server ${run.childPid} to exit after its host left`,
+    );
+  } finally {
+    // A host that fails before it reports leaves `childPid` at 0, but the
+    // server wrote its own pid into the work dir when it started.
+    const survivor = childPid > 0 ? childPid : readServerPid(workDir);
+    if (survivor > 0 && isAlive(survivor)) {
+      process.kill(survivor, "SIGKILL");
+    }
+    rmSync(workDir, { recursive: true, force: true });
+  }
+}
+
+function readServerPid(workDir: string): number {
+  try {
+    return Number(readFileSync(join(workDir, "child.pid"), "utf8")) || 0;
+  } catch {
+    return 0;
+  }
 }
 
 for (const exitPath of ["exit", "sigterm"] as const) {
@@ -517,36 +578,24 @@ for (const exitPath of ["exit", "sigterm"] as const) {
     // be gone with or without the fix. It proves the suite can see a server
     // go, which is what makes a `deaf` pass mean something.
     await test(`a ${childKind} stdio server still starting does not outlive a host that leaves by ${exitPath}`, async () => {
-      const workDir = mkdtempSync(join(tmpdir(), "nl-startup-orphan-"));
-      let childPid = 0;
-      try {
-        const run = await runOrphanHost(childKind, exitPath, workDir);
-        childPid = run.childPid;
-        assert(
-          run.childPid > 0 && run.childAliveWhenHostLeft,
-          "the server was not running when the host left, so its survival proves nothing",
-        );
-        if (exitPath === "sigterm") {
-          assert(
-            run.signal === "SIGTERM",
-            `the host was meant to be ended by SIGTERM but closed with code ${run.code} signal ${run.signal}`,
-          );
-        } else {
-          assert(run.code === 0, `the host exited with code ${run.code}`);
-        }
-        await waitFor(
-          () => !isAlive(run.childPid),
-          5_000,
-          `the ${childKind} server ${run.childPid} to exit after its host left`,
-        );
-      } finally {
-        if (childPid > 0 && isAlive(childPid)) {
-          process.kill(childPid, "SIGKILL");
-        }
-        rmSync(workDir, { recursive: true, force: true });
-      }
+      await expectServerEndsWithHost(childKind, exitPath);
     });
   }
+}
+
+// `connected-listening` is the control for the cases below it, for the same
+// reason `listening` is above. `handshaking-busy` is the window between
+// `connect()` returning and the manager recording the client.
+for (const [childKind, exitPath, description] of [
+  ["connected-listening", "exit", "a connected stdio server that exits on EOF"],
+  ["connected-busy", "exit", "a connected stdio server that ignores EOF"],
+  ["connected-busy", "sigterm", "a connected stdio server that ignores EOF"],
+  ["handshaking-busy", "exit", "a stdio server that is mid-handshake"],
+  ["handshaking-busy", "sigterm", "a stdio server that is mid-handshake"],
+] as const) {
+  await test(`${description} does not outlive a host that leaves by ${exitPath}`, async () => {
+    await expectServerEndsWithHost(childKind, exitPath);
+  });
 }
 
 await runSuite();

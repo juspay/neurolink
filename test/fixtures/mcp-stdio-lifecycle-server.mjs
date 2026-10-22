@@ -8,9 +8,18 @@
 //                                            can count how often it was spawned
 //   node <fixture> die-on-start <spawn-log>  writes a traceback to stderr and
 //                                            exits 2 before speaking MCP
-import { appendFileSync } from "node:fs";
+//   node <fixture> busy <spawn-log>          normal server that also holds a
+//                                            timer, so its stdin closing does
+//                                            not end it (a heartbeat, a pool,
+//                                            a file watcher)
+//   node <fixture> stall-handshake <spawn-log>
+//                                            busy, but never answers
+//                                            tools/list; creates
+//                                            <spawn-log>.listing when asked
+import { appendFileSync, writeFileSync } from "node:fs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
 const [, , mode = "serve", spawnLog] = process.argv;
@@ -66,5 +75,17 @@ server.registerTool(
     return text("crashing");
   },
 );
+
+if (mode === "busy" || mode === "stall-handshake") {
+  setInterval(() => {}, 1000);
+}
+
+if (mode === "stall-handshake") {
+  server.server.removeRequestHandler("tools/list");
+  server.server.setRequestHandler(ListToolsRequestSchema, () => {
+    writeFileSync(`${spawnLog}.listing`, "");
+    return new Promise(() => {});
+  });
+}
 
 await server.connect(new StdioServerTransport());

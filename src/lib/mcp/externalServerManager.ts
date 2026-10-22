@@ -13,7 +13,7 @@ import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { mcpLogger } from "../utils/logger.js";
 import {
   MCPClientFactory,
-  terminateStartingStdioServers,
+  terminateLiveStdioServers,
 } from "./mcpClientFactory.js";
 import { ToolDiscoveryService } from "./toolDiscoveryService.js";
 import { toolRegistry } from "./toolRegistry.js";
@@ -460,9 +460,9 @@ const shutdownOnSignal = (signal: NodeJS.Signals): void => {
     // re-raise and nowhere else.
     if (!hadOtherListeners) {
       process.removeListener(signal, shutdownOnSignal);
-      // Dying of a signal runs no `exit` handler, and the cleanup above cannot
-      // reach a server whose handshake is still pending.
-      terminateStartingStdioServers();
+      // Dying of a signal runs no `exit` handler, and the cleanup above reaches
+      // only the servers a manager has recorded and that close when asked.
+      terminateLiveStdioServers();
       process.kill(process.pid, signal);
     }
   });
