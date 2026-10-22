@@ -79,8 +79,9 @@ export class AIProviderFactory {
   /**
    * A provider whose descriptor declares `inferenceKinds` of exactly `["decide"]`
    * names its own model (its registered default reads its own variable), so a
-   * chat provider's model variable has no claim on it. Exactly `["decide"]`: a
-   * provider that also serves text keeps its chat-model fallbacks.
+   * chat provider's model variable has no claim on it, nor does the chat model
+   * registry. Exactly `["decide"]`: a provider that also serves text keeps its
+   * chat-model fallbacks.
    */
   private static isDecisionOnly(providerName: string): boolean {
     const canonical = PROVIDER_ALIAS_INDEX.get(providerName.toLowerCase());
@@ -212,6 +213,18 @@ export class AIProviderFactory {
         resolvedModelName: resolvedModelName || "none",
         reason:
           "Model already resolved from environment variables or explicit parameter",
+      });
+      return resolvedModelName;
+    }
+
+    // The registry lists chat providers, and a decision-only provider reads its
+    // own model setting, so loading it for one can only cost: it is awaited (up
+    // to the 10 s init timeout), tries a local port, then GitHub, then a file,
+    // and is tried again by the next call when every source fails.
+    if (this.isDecisionOnly(providerName)) {
+      logger.debug(`[${functionTag}] Skipping dynamic model resolution`, {
+        resolvedModelName: resolvedModelName || "none",
+        reason: `${providerName} serves decisions only and reads its own model setting`,
       });
       return resolvedModelName;
     }

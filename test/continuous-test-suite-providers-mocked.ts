@@ -15881,6 +15881,176 @@ async function runScaleDownDecide(): Promise<void> {
   }
 }
 
+// ───────────────────────────────────────────────────────────────────────
+// Section: a decision does not load the model registry
+// ───────────────────────────────────────────────────────────────────────
+
+/**
+ * For a provider created with no model named, the factory loads a model
+ * registry to look up a default: http://localhost:3001, then
+ * raw.githubusercontent.com, then ./config/models.json. The registry lists
+ * chat providers only, and a decision-only provider reads its own model
+ * setting, so a decision has no use for it. Every `decide()` call that named
+ * no model nevertheless made a HEAD and a GET to the local port and a GET to
+ * GitHub before it reached the provider. Every request here is fetch-mocked.
+ */
+const MODEL_REGISTRY_HOSTS = ["localhost:3001", "raw.githubusercontent.com"];
+
+const registryRequests = (
+  calls: ReturnType<typeof installMockFetch>["calls"],
+) =>
+  calls.filter((call) => MODEL_REGISTRY_HOSTS.includes(new URL(call.url).host));
+
+/**
+ * The registry is not asked for again for five minutes once it has loaded, and
+ * an earlier section may have loaded it from ./config/models.json, the last of
+ * its sources. Rewinding the clock makes the next factory call due, as the
+ * first call of a fresh process is.
+ */
+async function makeModelRegistryDue(): Promise<void> {
+  const { dynamicModelProvider } = await import("../dist/index.js");
+  (dynamicModelProvider as unknown as { lastFetch: number }).lastFetch = 0;
+  expect(
+    dynamicModelProvider.needsRefresh(),
+    "the registry is due for a refresh",
+  );
+}
+
+async function runDecideRegistryLookups(): Promise<void> {
+  const { NeuroLink, AIProviderFactory, DECISION_PROVIDERS } =
+    await import("../dist/index.js");
+  const registryCase = perplexityCase;
+  const ambient = [
+    "MODEL_CONFIG_URL",
+    "MODEL_CONFIG_GITHUB_REPO",
+    "MODEL_CONFIG_GITHUB_BRANCH",
+    "OPENAI_MODEL",
+  ].map((name) => [name, process.env[name]] as const);
+  // The registry's sources are read from the first three when it loads: the
+  // hosts below are the defaults. OPENAI_MODEL names the chat provider's model
+  // before the registry is consulted, so a developer's .env would hide the
+  // positive control's request.
+  ambient.forEach(([name]) => setEnv(name, undefined));
+
+  try {
+    await registryCase(
+      "DECIDE registry: a decision that names no model makes no request but the decision itself, answers as before and is priced as before",
+      async () => {
+        resetScaleDownEnv();
+        await makeModelRegistryDue();
+        await withMocks([scaledownRoute()], async ({ calls }) => {
+          const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+          const result = await nl.decide({
+            provider: SCALEDOWN_SPEC.provider,
+            state: "short",
+            questions: SCALEDOWN_QUESTIONS,
+          });
+          expectEq(
+            registryRequests(calls).length,
+            0,
+            `requests to ${MODEL_REGISTRY_HOSTS.join(" or ")}`,
+          );
+          expectEq(
+            calls.map((call) => call.url).join(","),
+            SCALEDOWN_SPEC.endpoint,
+            "the only request is the decision",
+          );
+          expectEq(result.model, SCALEDOWN_SPEC.model, "the model");
+          expect(
+            sameJson(result.answers, SCALEDOWN_EXPECTED_ANSWERS),
+            "the answers are the reply's",
+          );
+          const cost = nl
+            .getSpans()
+            .find((span) => span.type === "model.decision")?.attributes[
+            "ai.cost.total"
+          ];
+          expect(
+            typeof cost === "number" &&
+              Math.abs(cost - (120 * 0.05) / 1_000_000) < 1e-15,
+            `120 input tokens cost 120 x 0.05 / 1e6, got ${String(cost)}`,
+          );
+        });
+      },
+    );
+
+    await registryCase(
+      "DECIDE registry: no decision provider, by id or by alias, asks for the registry when the factory creates it with no model",
+      async () => {
+        resetScaleDownEnv();
+        const names = DECISION_PROVIDERS.flatMap((descriptor) => [
+          String(descriptor.name),
+          ...descriptor.aliases,
+        ]);
+        // Positive control for the loop: the eight providers and their aliases
+        // (jev, scaledown-classify, ...), so an emptied list fails here.
+        expect(
+          names.length >= 8 &&
+            ["typesafe", "jev", "scaledown", "scaledown-classify"].every(
+              (name) => names.includes(name),
+            ),
+          `the loop covers every decision provider and alias, got ${names.join(",")}`,
+        );
+        for (const name of names) {
+          await makeModelRegistryDue();
+          await withMocks([], async ({ calls }) => {
+            // Most are not configured here, so creation may fail; the registry
+            // is asked for, if at all, before that.
+            await AIProviderFactory.createProvider(
+              name,
+              undefined,
+              false,
+            ).catch(() => undefined);
+            expectEq(
+              registryRequests(calls).length,
+              0,
+              `${name}: requests to ${MODEL_REGISTRY_HOSTS.join(" or ")}`,
+            );
+          });
+        }
+      },
+    );
+
+    await registryCase(
+      "DECIDE registry: positive control, a chat provider created with no model still asks for the registry, the local port first and GitHub next",
+      async () => {
+        setEnv("OPENAI_API_KEY", "test-fake-openai-credential");
+        await makeModelRegistryDue();
+        await withMocks([], async ({ calls }) => {
+          await AIProviderFactory.createProvider(
+            "openai",
+            undefined,
+            false,
+          ).catch(() => undefined);
+          expectEq(
+            registryRequests(calls)
+              .map((call) => `${call.method} ${call.url}`)
+              .join(","),
+            "HEAD http://localhost:3001/health,GET http://localhost:3001/api/v1/models,GET https://raw.githubusercontent.com/juspay/neurolink/release/config/models.json",
+            "the registry requests of a chat provider",
+          );
+        });
+        await makeModelRegistryDue();
+        await withMocks([], async ({ calls }) => {
+          await AIProviderFactory.createProvider(
+            "openai",
+            "gpt-4o-mini",
+            false,
+          ).catch(() => undefined);
+          expectEq(
+            registryRequests(calls).length,
+            0,
+            "a chat provider with a named model asks for nothing",
+          );
+        });
+      },
+    );
+  } finally {
+    ambient.forEach(([name, value]) => setEnv(name, value));
+    setEnv("OPENAI_API_KEY", undefined);
+  }
+}
+
 async function runDecideSection(): Promise<void> {
   console.log(
     "\n=== Decision providers (TypeSafe, Laya, XOR, SubQ, Perplexity, Cloudflare Clef, OpenAI Decisions, ScaleDown) ===",
@@ -15922,6 +16092,7 @@ async function runDecideSection(): Promise<void> {
     await runOpenAIDecisionsSurface();
     await runOpenAIDecisionsAmbientGuard();
     await runScaleDownDecide();
+    await runDecideRegistryLookups();
     await runDecideCatalogSection();
   } finally {
     sharedKeyEnv.forEach((name, i) => setEnv(name, ambient[i]));

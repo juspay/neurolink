@@ -155,6 +155,9 @@ The system tries multiple sources in order:
 3. `https://raw.githubusercontent.com/juspay/neurolink/release/config/models.json` - GitHub
 4. `./config/models.json` - Local fallback
 
+Only chat providers use these sources. A decision provider (the `decide`
+inference type) reads its own model setting and never loads them.
+
 ### Model Resolution Logic
 
 ```typescript

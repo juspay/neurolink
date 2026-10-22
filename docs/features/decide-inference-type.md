@@ -1154,6 +1154,12 @@ providers configured, the state of a decision goes to OpenAI, unless
 by default. `SCALEDOWN_API_KEY`, which nothing else reads, sends the state to
 ScaleDown when it is the only decision key.
 
+**No model-registry lookup**: a decision provider reads its own model setting
+(`<PROVIDER>_MODEL`, else its default), so `decide()` does not load the model
+registry that chat providers use to look up a default model (`MODEL_CONFIG_URL`,
+else `http://localhost:3001`, then the GitHub copy of `config/models.json`, then
+`./config/models.json`). The registry lists no decision provider.
+
 **Cost**: TypeSafe, $0.042 per million input tokens, output free. Perplexity,
 $0.04 per million input tokens (image tokens included), output free. Cloudflare
 Clef, $0.24 per million input tokens for `clef` and $0.09 for `clef-flash`;
