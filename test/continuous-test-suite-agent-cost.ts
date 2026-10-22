@@ -6,7 +6,10 @@
  * The public pricing rows cover the exact Vertex/Gemini identifiers recorded
  * by hosts. No live credentials, provider fallback or MCP tools are used.
  */
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { NeuroLink, Agent, calculateCost, hasPricing } from "../dist/index.js";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
@@ -138,7 +141,13 @@ const createVendorFixture = async () => {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   };
-  return { sdk, agentFor, requests: () => requests, close };
+  return {
+    sdk,
+    agentFor,
+    requests: () => requests,
+    close,
+    baseURL: credentials.openai.baseURL,
+  };
 };
 
 await test("dated Vertex Sonnet 4 has its standard price", async () => {
@@ -274,6 +283,128 @@ await test("Agent.stream forwards analytics and emits the SDK estimate", async (
       "Agent stream did not use one local request",
     );
     assert(cost === 0.75, "Stream completion lost its SDK estimate");
+  } finally {
+    await fixture.close();
+  }
+});
+
+// Runs `streamTools` from a working directory whose .mcp-config.json names a
+// server that spawns, then never answers the MCP handshake, which is how a
+// stdio server behind a stalled `npx` download looks from here. A stream that
+// waits on it would sit for the 60s client timeout, so a deadline shorter
+// than that separates "waited" from "did not wait".
+const withStalledMcpServer = async (
+  label: string,
+  streamTools: () => Promise<void>,
+): Promise<void> => {
+  const directory = mkdtempSync(join(tmpdir(), "agent-stream-mcp-"));
+  const spawnedMarker = join(directory, "spawned");
+  writeFileSync(
+    join(directory, ".mcp-config.json"),
+    JSON.stringify({
+      mcpServers: {
+        stalled: {
+          name: "stalled",
+          transport: "stdio",
+          command: process.execPath,
+          args: [
+            "-e",
+            'require("node:fs").writeFileSync(process.argv[1], "spawned"); process.stdin.resume(); process.stdin.on("close", () => process.exit(0));',
+            spawnedMarker,
+          ],
+        },
+      },
+    }),
+  );
+  const previousDirectory = process.cwd();
+  let deadline: NodeJS.Timeout | undefined;
+  process.chdir(directory);
+  try {
+    await Promise.race([
+      streamTools(),
+      new Promise<never>((_, reject) => {
+        deadline = setTimeout(
+          () =>
+            reject(
+              new Error(
+                `${label} was still waiting after 10s (MCP server spawned: ${existsSync(spawnedMarker)})`,
+              ),
+            ),
+          10_000,
+        );
+      }),
+    ]);
+    assert(
+      !existsSync(spawnedMarker),
+      `${label} started a configured MCP server`,
+    );
+  } finally {
+    clearTimeout(deadline);
+    process.chdir(previousDirectory);
+    rmSync(directory, { recursive: true, force: true });
+  }
+};
+
+await test("Agent.stream with tools disabled does not start the working directory's MCP servers", async () => {
+  const fixture = await createVendorFixture();
+  try {
+    let completed = false;
+    await withStalledMcpServer("Agent stream with tools disabled", async () => {
+      for await (const chunk of fixture
+        .agentFor()
+        .stream("Read the fixture", { enableAnalytics: true })) {
+        if (chunk.type === "agent-complete") {
+          completed = true;
+        }
+      }
+    });
+    assert(completed, "Agent stream did not complete");
+    assert(
+      fixture.requests() === 1,
+      "Agent stream did not use one local request",
+    );
+  } finally {
+    await fixture.close();
+  }
+});
+
+await test("stream to an Ollama model without tool support does not start the working directory's MCP servers", async () => {
+  // Tools are left on here. The stream turns them off itself because `phi3`
+  // is not in the Ollama tool-capable list, so MCP must wait for that check.
+  const fixture = await createVendorFixture();
+  const credentials = { ollama: { baseURL: fixture.baseURL } };
+  const sdk = new NeuroLink({ credentials });
+  try {
+    let content = "";
+    await withStalledMcpServer(
+      "Ollama stream for a model without tool support",
+      async () => {
+        const result = await sdk.stream({
+          input: { text: "Read the fixture" },
+          provider: "ollama",
+          model: "phi3",
+          credentials,
+          disableInternalFallback: true,
+        });
+        for await (const chunk of result.stream) {
+          if (
+            chunk &&
+            "content" in chunk &&
+            typeof chunk.content === "string"
+          ) {
+            content += chunk.content;
+          }
+        }
+      },
+    );
+    assert(
+      content === "fixture complete",
+      `Ollama stream did not return the fixture text (got ${JSON.stringify(content)})`,
+    );
+    assert(
+      fixture.requests() === 1,
+      "Ollama stream did not use one local request",
+    );
   } finally {
     await fixture.close();
   }

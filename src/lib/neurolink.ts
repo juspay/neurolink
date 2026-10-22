@@ -12187,9 +12187,6 @@ Current user's request: ${currentInput}`;
       hrTimeStart,
     );
 
-    // Initialize MCP
-    await this.initializeMCP();
-
     // Memory retrieval
     if (
       this.shouldReadMemory(options.memory, options.context?.userId) &&
@@ -12251,6 +12248,16 @@ Current user's request: ${currentInput}`;
 
     // Auto-disable tools for Ollama models that don't support them
     await this.autoDisableOllamaStreamTools(options);
+
+    // generate() skips MCP when tools are disabled, so stream() must too:
+    // initialization loads the working directory's .mcp-config.json and waits
+    // for every stdio server it names before the request is sent, so an
+    // `npx -y …` entry on a slow npm registry stalls a stream that never
+    // needed a tool. Decided after the Ollama check above, which can turn
+    // tools off. Providers register themselves in AIProviderFactory.
+    if (!options.disableTools) {
+      await this.initializeMCP();
+    }
 
     // RAG Integration: If rag config is provided, prepare the RAG search tool
     if (options.rag?.files?.length) {
