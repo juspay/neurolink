@@ -181,7 +181,7 @@ import {
 } from "../../proxy/streamOutcome.js";
 import {
   isPermanentRefreshFailure,
-  needsRefresh,
+  needsInlineRefresh,
   persistTokens,
   refreshToken,
   refreshTokenFromLatest,
@@ -398,6 +398,16 @@ const AUTH_REFRESH_MAX_COOLDOWN_MS = 5 * 60 * 1000;
  *  to cover the full lifecycle of streaming responses, including extended
  *  thinking from Opus models (which can exceed 5 minutes for large contexts). */
 const UPSTREAM_FETCH_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+/** Per-address connect attempt budget. Node's 250ms default turns one SYN that
+ *  needs a retransmit into ETIMEDOUT on a host whose AAAA record has no route,
+ *  because the IPv6 fallback then fails instantly. */
+const UPSTREAM_CONNECT_ATTEMPT_TIMEOUT_MS = 2_000;
+const UPSTREAM_CONNECT_TIMEOUT_MS = 10_000;
+/** Idle upstream sockets are kept this long. undici's 4s default reopened TCP
+ *  and TLS after nearly every pause between turns; Anthropic was measured
+ *  keeping idle sockets open past 300s, so 30s reuses them with margin. */
+const UPSTREAM_KEEP_ALIVE_TIMEOUT_MS = 30_000;
+const UPSTREAM_KEEP_ALIVE_MAX_TIMEOUT_MS = 10 * 60 * 1000;
 
 // Context checks and spending reservations belong immediately before dispatch.
 import {
@@ -458,13 +468,30 @@ async function getAnthropicUpstreamDispatcher(): Promise<Agent> {
   }
   anthropicUpstreamDispatcherPromise ??= (async () => {
     try {
-      const { Agent: UndiciAgent } = await import("undici");
+      const { Agent: UndiciAgent, buildConnector } = await import("undici");
+      const connectUpstream = buildConnector({
+        timeout: UPSTREAM_CONNECT_TIMEOUT_MS,
+        autoSelectFamily: true,
+        autoSelectFamilyAttemptTimeout: UPSTREAM_CONNECT_ATTEMPT_TIMEOUT_MS,
+      });
       // Node's global fetch applies Undici's 300s default headers timeout
       // before the route's 15-minute abort signal. Keep both transport
       // deadlines aligned with the proxy contract.
       const agent = new UndiciAgent({
         headersTimeout: UPSTREAM_FETCH_TIMEOUT_MS,
         bodyTimeout: UPSTREAM_FETCH_TIMEOUT_MS,
+        keepAliveTimeout: UPSTREAM_KEEP_ALIVE_TIMEOUT_MS,
+        keepAliveMaxTimeout: UPSTREAM_KEEP_ALIVE_MAX_TIMEOUT_MS,
+        // A completed connect is the earliest proof the provider transport is
+        // back, so it releases requests parked behind a recovery probe.
+        connect: (options, callback) => {
+          connectUpstream(options, (...result) => {
+            if (result[0] === null) {
+              providerTransportCoordinator.reportConnectionEstablished();
+            }
+            callback(...result);
+          });
+        },
       });
       anthropicUpstreamDispatcher = agent;
       return agent;
@@ -1505,6 +1532,18 @@ const MIN_USAGE_REFETCH_INTERVAL_MS = 15_000;
 
 const lastUsageFetchAt = new Map<string, number>();
 let limitsRefreshInFlight: Promise<ProxyLimitsRefreshResponse> | null = null;
+/** Status lines and dashboards poll `/limits` more often than requests arrive.
+ *  A sweep finished this recently is still current: usage is refetched at most
+ *  every MIN_USAGE_REFETCH_INTERVAL_MS anyway, and each sweep takes the token
+ *  store lock that `/v1/messages` waits on. */
+const LIMITS_RESULT_REUSE_MS = 2_000;
+let lastLimitsRefresh:
+  | {
+      completedAt: number;
+      accountAllowlist: AccountAllowlist | undefined;
+      result: ProxyLimitsRefreshResponse;
+    }
+  | undefined;
 const USAGE_REFRESH_CONCURRENCY = 4;
 
 async function applyAccountUsageResult(
@@ -3255,10 +3294,6 @@ async function persistClaudeSnapshot(
 ): Promise<void> {
   const snapshotPath = getSnapshotPath(accountLabel);
   await writeJsonSnapshotAtomically(snapshotPath, snapshot, 0o600);
-  snapshotCache.set(getSnapshotSafeLabel(accountLabel), {
-    snapshot,
-    loadedAt: Date.now(),
-  });
 }
 
 async function maybeRefreshClaudeSnapshot(
@@ -3299,18 +3334,22 @@ async function maybeRefreshClaudeSnapshot(
     return existing;
   }
 
-  try {
-    await persistClaudeSnapshot(accountLabel, next);
-  } catch (error) {
+  // The request reads the snapshot from this cache, so it can go upstream now;
+  // the file only matters to a later process start. Writes to one account's
+  // file are already serialized, so the newest snapshot still lands last, and
+  // proxy shutdown awaits flushSnapshotWrites() so a graceful exit keeps it.
+  // A hard kill can still lose it, as a failed write always could; the next
+  // Claude Code request recaptures it.
+  snapshotCache.set(getSnapshotSafeLabel(accountLabel), {
+    snapshot: next,
+    loadedAt: Date.now(),
+  });
+  void persistClaudeSnapshot(accountLabel, next).catch((error: unknown) => {
     logger.warn("[proxy] failed to persist Claude snapshot", {
       accountLabel,
       error: error instanceof Error ? error.message : String(error),
     });
-    snapshotCache.set(getSnapshotSafeLabel(accountLabel), {
-      snapshot: next,
-      loadedAt: Date.now(),
-    });
-  }
+  });
   return next;
 }
 
@@ -6122,7 +6161,7 @@ function getCodexFallbackInvalidRequestFailure(
 async function tryConfiguredClaudeFallbackChain(args: {
   ctx: ServerContext;
   body: ClaudeRequest;
-  parsedFallbackRequest: ParsedClaudeRequest;
+  getParsedFallbackRequest: () => ParsedClaudeRequest;
   fallbackPlan?: ProxyTranslationPlan;
   modelRouter?: ModelRouterInterface;
   tracer?: ProxyTracer;
@@ -6156,7 +6195,7 @@ async function tryConfiguredClaudeFallbackChain(args: {
   const {
     ctx,
     body,
-    parsedFallbackRequest,
+    getParsedFallbackRequest,
     fallbackPlan: providedFallbackPlan,
     modelRouter,
     tracer,
@@ -6170,7 +6209,6 @@ async function tryConfiguredClaudeFallbackChain(args: {
       { provider: "anthropic", model: body.model },
       modelRouter?.getFallbackChain() ?? [],
       body.model,
-      parsedFallbackRequest,
     );
   ctx.metadata.fallbackPlan = fallbackPlan.attempts
     .slice(1)
@@ -6307,6 +6345,27 @@ async function tryConfiguredClaudeFallbackChain(args: {
           });
           lastFallbackError = `[${fallback.provider}/${fallback.model}] unavailable: ${reason}`;
           continue;
+        }
+        let parsedFallbackRequest: ParsedClaudeRequest;
+        try {
+          parsedFallbackRequest = getParsedFallbackRequest();
+        } catch (parseError) {
+          // A body the translator cannot read fails the same way on every
+          // provider, so report it as the client's error and stop here.
+          const reason = sanitizeForLog(
+            parseError instanceof Error
+              ? parseError.message
+              : String(parseError),
+            300,
+          );
+          terminalFailure = {
+            status: 400,
+            message: `Request could not be translated for provider fallback: ${reason}`,
+            errorType: "invalid_request_error",
+            retryable: false,
+          };
+          lastFallbackError = `[${fallback.provider}/${fallback.model}] untranslatable request: ${reason}`;
+          break;
         }
         const options = buildProxyFallbackOptions(parsedFallbackRequest, {
           provider: fallback.provider,
@@ -9592,9 +9651,18 @@ function createAnthropicAttemptLogger(args: {
   tracer?: ProxyTracer;
   account: ProxyPassthroughAccount;
   attemptNumber: number;
+  transportWaitMs: number;
 }): AnthropicAttemptLogger {
-  const { ctx, body, toolCount, requestStart, tracer, account, attemptNumber } =
-    args;
+  const {
+    ctx,
+    body,
+    toolCount,
+    requestStart,
+    tracer,
+    account,
+    attemptNumber,
+    transportWaitMs,
+  } = args;
   const attemptStartedAt = Date.now();
   const accountIdentity = resolveRequestLogAccountIdentity(
     account.label,
@@ -9634,6 +9702,7 @@ function createAnthropicAttemptLogger(args: {
       responseTimeMs: attemptCompletedAt - requestStart,
       attemptDurationMs:
         extra?.attemptDurationMs ?? attemptCompletedAt - attemptStartedAt,
+      ...(transportWaitMs > 0 ? { transportWaitMs } : {}),
       ...(errorType ? { errorType } : {}),
       ...(errorMessage ? { errorMessage } : {}),
       ...(extra?.errorCode ? { errorCode: extra.errorCode } : {}),
@@ -9703,7 +9772,7 @@ async function prepareAnthropicAccountAttempt(args: {
   let lastError = currentLastError;
   let authFailureMessage = currentAuthFailureMessage;
 
-  if (needsRefresh(account)) {
+  if (needsInlineRefresh(account)) {
     const refreshed = await refreshTokenFromLatest(
       account,
       account.persistTarget,
@@ -10230,7 +10299,11 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     logFinalRequest,
     setRoutingDecision,
   } = args;
-  const parsedRequest = parseClaudeRequest(body);
+  // Only the provider fallback legs read the parsed form, and it walks the
+  // whole history, so the native path should not pay for it up front.
+  let parsedRequest: ParsedClaudeRequest | undefined;
+  const getParsedRequest = (): ParsedClaudeRequest =>
+    (parsedRequest ??= parseClaudeRequest(body));
   // Loop prevention for the Codex-outbound-fallback leg (stage-c-trigger.md
   // §3): a request that reached this handler AS a Codex-outbound fallback
   // loopback call must never be offered a fallback chain that routes back
@@ -10278,7 +10351,6 @@ async function handleAnthropicRoutedClaudeRequest(args: {
         )
       : (modelRouter?.getFallbackChain() ?? []),
     body.model,
-    parsedRequest,
   );
   const hasConfiguredFallback = configuredFallbackPlan.attempts
     .slice(1)
@@ -10311,7 +10383,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     const configuredFallbackResult = await tryConfiguredClaudeFallbackChain({
       ctx,
       body,
-      parsedFallbackRequest: parsedRequest,
+      getParsedFallbackRequest: getParsedRequest,
       fallbackPlan: configuredFallbackPlan,
       modelRouter,
       tracer,
@@ -10509,8 +10581,13 @@ async function handleAnthropicRoutedClaudeRequest(args: {
       let rateLimitSameAccountRetries = 0;
 
       while (true) {
+        const transportWaitStartedAt = performance.now();
         const transportPermit = await providerTransportCoordinator.acquire(
           ctx.abortSignal,
+        );
+        // Rounded so the healthy fast path (microseconds) records nothing.
+        const transportWaitMs = Math.round(
+          performance.now() - transportWaitStartedAt,
         );
         if (transportPermit.allowed === false) {
           loopState.sawNetworkError = true;
@@ -10558,6 +10635,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
           tracer,
           account,
           attemptNumber: loopState.attemptNumber,
+          transportWaitMs,
         });
         const preparedAttempt = await prepareAnthropicAccountAttempt({
           ctx,
@@ -11014,7 +11092,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     const configuredFallbackResult = await tryConfiguredClaudeFallbackChain({
       ctx,
       body,
-      parsedFallbackRequest: parsedRequest,
+      getParsedFallbackRequest: getParsedRequest,
       fallbackPlan: configuredFallbackPlan,
       modelRouter,
       tracer,
@@ -12012,12 +12090,32 @@ export function createClaudeProxyRoutes(
             async () => {
               // Single-flight: concurrent full refreshes share one sweep.
               if (!snapshotOnly && !accountFilter) {
+                // Identity is the right key: the runtime config store hands
+                // out one frozen snapshot per config generation, so the same
+                // Set comes back until a reload, which should miss.
+                if (
+                  lastLimitsRefresh &&
+                  lastLimitsRefresh.accountAllowlist === effectiveAllowlist &&
+                  Date.now() - lastLimitsRefresh.completedAt <
+                    LIMITS_RESULT_REUSE_MS
+                ) {
+                  return lastLimitsRefresh.result;
+                }
                 if (!limitsRefreshInFlight) {
                   limitsRefreshInFlight = refreshAccountLimits({
                     accountAllowlist: effectiveAllowlist,
-                  }).finally(() => {
-                    limitsRefreshInFlight = null;
-                  });
+                  })
+                    .then((result) => {
+                      lastLimitsRefresh = {
+                        completedAt: Date.now(),
+                        accountAllowlist: effectiveAllowlist,
+                        result,
+                      };
+                      return result;
+                    })
+                    .finally(() => {
+                      limitsRefreshInFlight = null;
+                    });
                 }
                 return limitsRefreshInFlight;
               }
@@ -12859,6 +12957,7 @@ export const __testHooks = {
   clearLimitsRefreshStateForTests: (): void => {
     lastUsageFetchAt.clear();
     limitsRefreshInFlight = null;
+    lastLimitsRefresh = undefined;
     accountQuotaRefreshCoordinator.clear();
   },
   setAccountDirectoryForTests: (

@@ -34,7 +34,7 @@ export function buildProxyTranslationPlan(
   primary: { provider: string; model?: string },
   fallbackChain: FallbackEntry[],
   requestedModel: string,
-  _parsed: ParsedClaudeRequest,
+  _parsed?: ParsedClaudeRequest,
   allowAutoFallback = false,
 ): ProxyTranslationPlan {
   const attempts: ProxyTranslationAttempt[] = [

@@ -48,6 +48,17 @@ export async function writeJsonSnapshotAtomically(
   }
 }
 
+/** Settles every queued snapshot write. Shutdown awaits this so a write a
+ *  request left running in the background still lands before exit. It drains
+ *  until the queue stays empty, because a producer that outlived the listener
+ *  close can queue another write while earlier ones settle; the caller bounds
+ *  the whole drain with its own timeout. */
+export async function flushSnapshotWrites(): Promise<void> {
+  while (writeLocks.size > 0) {
+    await Promise.allSettled([...writeLocks.values()]);
+  }
+}
+
 export function clearSnapshotWriteLocksForTests(): void {
   writeLocks.clear();
 }

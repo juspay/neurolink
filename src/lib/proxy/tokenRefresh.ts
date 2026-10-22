@@ -18,6 +18,12 @@ import type {
 } from "../types/index.js";
 
 const BUFFER_MS = 5 * 60 * 1000;
+/** The background sweep runs every 30s and refreshes this far ahead, so a
+ *  token is normally renewed long before a live request would have to. */
+const BACKGROUND_REFRESH_BUFFER_MS = 10 * 60 * 1000;
+/** A request refreshes inline only this close to expiry, i.e. when the sweep
+ *  has not managed to, so the refresh round trip stays off the hot path. */
+const INLINE_REFRESH_BUFFER_MS = 2 * 60 * 1000;
 const SUCCESS_CACHE_MS = 60_000;
 // Bound the best-effort persisted-credential reconciliation read so a hung or
 // slow token-store decrypt can never stall (or abort) a live token refresh.
@@ -25,12 +31,24 @@ const PEEK_TOKENS_TIMEOUT_MS = 2_000;
 
 const refreshesInFlight = new Map<string, Promise<SharedRefreshResult>>();
 
-export function needsRefresh(account: RefreshableAccount): boolean {
+function expiresWithin(account: RefreshableAccount, bufferMs: number): boolean {
   return !!(
     account.expiresAt &&
-    account.expiresAt <= Date.now() + BUFFER_MS &&
+    account.expiresAt <= Date.now() + bufferMs &&
     account.refreshToken
   );
+}
+
+export function needsRefresh(account: RefreshableAccount): boolean {
+  return expiresWithin(account, BUFFER_MS);
+}
+
+export function needsBackgroundRefresh(account: RefreshableAccount): boolean {
+  return expiresWithin(account, BACKGROUND_REFRESH_BUFFER_MS);
+}
+
+export function needsInlineRefresh(account: RefreshableAccount): boolean {
+  return expiresWithin(account, INLINE_REFRESH_BUFFER_MS);
 }
 
 function isRefreshCredentialRejection(status: number | undefined): boolean {

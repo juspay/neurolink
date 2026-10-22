@@ -32,6 +32,7 @@ import {
   createClaudeProxyRoutes,
 } from "../src/lib/server/routes/claudeProxyRoutes.js";
 import { tokenStore } from "../src/lib/auth/tokenStore.js";
+import { ProviderTransportCoordinator } from "../src/lib/proxy/providerTransportCoordinator.js";
 import { clearAccountCooldown } from "../src/lib/proxy/accountCooldown.js";
 import { resetUsageStatsForTests } from "../src/lib/proxy/usageStats.js";
 import type { ServerContext } from "../src/lib/types/index.js";
@@ -84,6 +85,20 @@ function postDispatchTimeout(): Error {
   return new TypeError("fetch failed", { cause });
 }
 
+/** A resolver outage: the one failure that says the provider is unreachable
+ *  for every request, not just for one socket. */
+function dnsFailure(): Error {
+  const cause = Object.assign(
+    new Error("getaddrinfo ENOTFOUND api.anthropic.com"),
+    {
+      code: "ENOTFOUND",
+      syscall: "getaddrinfo",
+      hostname: "api.anthropic.com",
+    },
+  );
+  return new TypeError("fetch failed", { cause });
+}
+
 // ---------------------------------------------------------------------------
 // Hermetic harness around the shipped /v1/messages handler
 // ---------------------------------------------------------------------------
@@ -91,7 +106,13 @@ function postDispatchTimeout(): Error {
 type UpstreamStep =
   | { kind: "fail"; error: Error }
   | { kind: "ok" }
-  | { kind: "hold"; started: () => void; release: Promise<void> };
+  | {
+      kind: "hold";
+      started: () => void;
+      release: Promise<void>;
+      /** What the held attempt ends with once released. */
+      then: Error | "ok";
+    };
 
 function okMessagesResponse(): Response {
   return new Response(
@@ -138,7 +159,10 @@ function installUpstream(plan: UpstreamStep[]): {
     if (step.kind === "hold") {
       step.started();
       await step.release;
-      throw connectPhaseTimeout();
+      if (step.then !== "ok") {
+        throw step.then;
+      }
+      return okMessagesResponse();
     }
     if (step.kind === "fail") {
       throw step.error;
@@ -391,10 +415,17 @@ await test("a request queued behind a failed recovery probe retries instead of f
       releaseProbe = resolve;
     });
     const upstream = installUpstream([
-      // A's first attempt: fails at once and degrades the shared transport.
-      { kind: "fail", error: connectPhaseTimeout() },
-      // A's retry becomes the recovery probe; held so B can queue behind it.
-      { kind: "hold", started: probeStarted, release: releasePromise },
+      // A's first attempt: the resolver fails, which degrades the shared
+      // transport for every request.
+      { kind: "fail", error: dnsFailure() },
+      // A's retry becomes the recovery probe; held so B can queue behind it,
+      // then fails the same way.
+      {
+        kind: "hold",
+        started: probeStarted,
+        release: releasePromise,
+        then: dnsFailure(),
+      },
       // Whoever probes next succeeds, and so does the other request.
       { kind: "ok" },
       { kind: "ok" },
@@ -421,6 +452,192 @@ await test("a request queued behind a failed recovery probe retries instead of f
       `expected four upstream attempts, saw ${upstream.messagesCalls()}`,
     );
   });
+});
+
+await test("one socket's connect failure does not park other requests behind its retry", async () => {
+  await withAccount(async () => {
+    let retryStarted!: () => void;
+    const retryStartedPromise = new Promise<void>((resolve) => {
+      retryStarted = resolve;
+    });
+    let releaseRetry!: () => void;
+    const releasePromise = new Promise<void>((resolve) => {
+      releaseRetry = resolve;
+    });
+    const upstream = installUpstream([
+      // A loses one SYN: a per-connection failure, not a provider outage.
+      { kind: "fail", error: connectPhaseTimeout() },
+      // A's same-account retry is slow to answer.
+      {
+        kind: "hold",
+        started: retryStarted,
+        release: releasePromise,
+        then: "ok",
+      },
+      // B must reach the upstream straight away rather than wait on A.
+      { kind: "ok" },
+    ]);
+
+    const a = callMessages("connect-retry-isolated-a");
+    await retryStartedPromise;
+    const startedB = Date.now();
+    const resultB = await Promise.race([
+      callMessages("connect-retry-isolated-b"),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2_000)),
+    ]);
+    const waitedB = Date.now() - startedB;
+    releaseRetry();
+    const resultA = await a;
+
+    if (resultB === null) {
+      throw new Error(
+        "an unrelated request stayed parked behind another request's connect retry",
+      );
+    }
+    assert(
+      resultB.ok,
+      `unrelated request got ${errorTypeOf(resultB.body) || resultB.status}`,
+    );
+    assert(
+      waitedB < 1_000,
+      `unrelated request took ${waitedB}ms behind a per-connection failure`,
+    );
+    assert(
+      resultA.ok,
+      `retrying request got ${errorTypeOf(resultA.body) || resultA.status}`,
+    );
+    assert(
+      upstream.messagesCalls() === 3,
+      `expected three upstream attempts, saw ${upstream.messagesCalls()}`,
+    );
+  });
+});
+
+logSection("Transport recovery gate");
+
+/** Puts a fresh coordinator into the degraded state a resolver outage leaves
+ *  behind, and returns it with the probe permit already taken. */
+async function degradedCoordinatorWithProbe(): Promise<{
+  coordinator: ProviderTransportCoordinator;
+  probe: Awaited<ReturnType<ProviderTransportCoordinator["acquire"]>>;
+}> {
+  const coordinator = new ProviderTransportCoordinator();
+  const first = await coordinator.acquire();
+  coordinator.reportTransportFailure(
+    "ENOTFOUND",
+    "shared_provider_transport",
+    first,
+  );
+  const probe = await coordinator.acquire();
+  assert(
+    probe.allowed && probe.probe,
+    "precondition: the first request after a resolver outage did not probe",
+  );
+  return { coordinator, probe };
+}
+
+await test("a completed connect releases requests parked behind the probe", async () => {
+  const { coordinator } = await degradedCoordinatorWithProbe();
+  const waiter = coordinator.acquire();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const released = Date.now();
+  coordinator.reportConnectionEstablished();
+  const permit = await waiter;
+  assert(
+    permit.allowed && !permit.probe,
+    "a waiter was not admitted once the transport connected again",
+  );
+  assert(
+    Date.now() - released < 200,
+    "a waiter kept waiting after the transport connected again",
+  );
+  const next = await coordinator.acquire();
+  assert(
+    next.allowed && !next.probe,
+    "the gate stayed degraded after a completed connect",
+  );
+});
+
+await test("a probe that loses only its own socket hands the probe on instead of failing waiters", async () => {
+  const { coordinator, probe } = await degradedCoordinatorWithProbe();
+  const waiter = coordinator.acquire();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  coordinator.reportTransportFailure(
+    "ETIMEDOUT",
+    "connection_transport",
+    probe,
+    true,
+  );
+  const handedOn = await waiter;
+  assert(
+    handedOn.allowed && handedOn.probe,
+    "a waiter was failed, not handed the probe, after a per-connection failure",
+  );
+});
+
+await test("a request parks behind someone else's probe for at most about three seconds", async () => {
+  const { coordinator } = await degradedCoordinatorWithProbe();
+  const started = Date.now();
+  const permit = await coordinator.acquire();
+  const waited = Date.now() - started;
+  assert(
+    !permit.allowed,
+    "a waiter was admitted although the probe never answered",
+  );
+  assert(
+    waited >= 2_500 && waited < 4_500,
+    `a waiter parked for ${waited}ms behind an unanswered probe`,
+  );
+});
+
+logSection("Provider fallback translation");
+
+await test("a body the fallback translator cannot read is a 400, not a 502 per leg", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  // Only the fallback's configuration check reads it; every provider host is
+  // blocked by proxyTestIsolation, so no request can leave the process.
+  process.env.OPENAI_API_KEY = `sk-${"0".repeat(48)}`;
+  try {
+    const modelRouter = {
+      resolve: () => ({ provider: "anthropic", model: "claude-sonnet-4-5" }),
+      isClaudeTarget: () => true,
+      getFallbackChain: () => [
+        { provider: "openai", model: "gpt-4o-mini" },
+        { provider: "openai", model: "gpt-4o" },
+      ],
+    } as unknown as Parameters<typeof createClaudeProxyRoutes>[0];
+    const route = createClaudeProxyRoutes(modelRouter).routes.find(
+      (r) => r.path.endsWith("/v1/messages") && r.method === "POST",
+    );
+    if (!route) {
+      throw new Error("POST /v1/messages is not registered");
+    }
+    const ctx = messagesContext("fallback-untranslatable");
+    // No Anthropic account is stored, so the request goes straight to the
+    // configured fallback chain, whose translator cannot read a null block.
+    (ctx.body as Record<string, unknown>).system = [null];
+    const raw = await route.handler(ctx);
+    const result = raw instanceof Response ? await raw.json() : raw;
+    assert(
+      !(raw instanceof Response) || raw.status === 400,
+      `untranslatable body answered with HTTP ${raw instanceof Response ? raw.status : "-"}`,
+    );
+    assert(
+      errorTypeOf(result) === "invalid_request_error",
+      `untranslatable body reported as ${errorTypeOf(result) || "success"}`,
+    );
+    assert(
+      errorMessageOf(result).includes("could not be translated"),
+      "the 400 does not say the request could not be translated",
+    );
+  } finally {
+    if (previousKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = previousKey;
+    }
+    __testHooks.clearProviderTransportCoordinatorForTests();
+  }
 });
 
 await runSuite();

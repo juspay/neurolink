@@ -5,7 +5,10 @@ import type {
 import { TimeoutError, withTimeout } from "../utils/async/withTimeout.js";
 
 const SHARED_TRANSPORT_BACKOFF_MS = 250;
-const RECOVERY_PROBE_WAIT_TIMEOUT_MS = 30_000;
+/** Upper bound on how long a request parks behind someone else's probe. A
+ *  waiter that times out gets its own bounded retry, so this only caps the
+ *  stall a healthy request can inherit from an unrelated slow one. */
+const RECOVERY_PROBE_WAIT_TIMEOUT_MS = 3_000;
 
 export class ProviderTransportCoordinator {
   private generation = 0;
@@ -98,6 +101,17 @@ export class ProviderTransportCoordinator {
     if (permit.probe && this.probe?.generation !== permit.generation) {
       return;
     }
+    if (transportScope === "connection_transport") {
+      // One socket failing (a lost SYN, a reset) says nothing about the
+      // provider. The failing request already retries on its own budget, so
+      // parking every other request behind a probe only spreads the stall.
+      if (permit.probe && this.probe?.generation === permit.generation) {
+        this.probe.resolve("abandoned");
+        this.probe = undefined;
+        this.generation += 1;
+      }
+      return;
+    }
     this.degraded = true;
     this.backoffUntil = Date.now() + SHARED_TRANSPORT_BACKOFF_MS;
     this.lastErrorCode = errorCode ?? null;
@@ -108,6 +122,26 @@ export class ProviderTransportCoordinator {
       this.probe = undefined;
     }
     this.generation += 1;
+  }
+
+  /**
+   * A connect to the provider just completed. That is the transport recovering,
+   * and it is known long before a probe's response headers, which for a
+   * non-streaming request arrive only after the whole generation.
+   */
+  reportConnectionEstablished(): void {
+    if (!this.degraded) {
+      return;
+    }
+    this.degraded = false;
+    this.backoffUntil = 0;
+    this.lastErrorCode = null;
+    this.lastTransportScope = "shared_provider_transport";
+    this.lastFailureConnectPhase = false;
+    if (this.probe) {
+      this.probe.resolve("recovered");
+      this.probe = undefined;
+    }
   }
 
   reportProbeAbandoned(permit: ProxyProviderTransportPermit): void {

@@ -1167,6 +1167,9 @@ export type RequestAttemptLogEntry = {
   responseTimeMs: number;
   /** Time spent in this specific account attempt. */
   attemptDurationMs?: number;
+  /** Time this attempt waited on the shared transport-recovery gate before
+   *  dispatch. Not part of `attemptDurationMs`; omitted when zero. */
+  transportWaitMs?: number;
   errorType?: string;
   errorMessage?: string;
   /** Low-level transport code such as ETIMEDOUT or EADDRNOTAVAIL. */

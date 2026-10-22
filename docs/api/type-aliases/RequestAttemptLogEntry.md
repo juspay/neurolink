@@ -156,6 +156,15 @@ Time spent in this specific account attempt.
 
 ---
 
+### transportWaitMs?
+
+> `optional` **transportWaitMs?**: `number`
+
+Time this attempt waited on the shared transport-recovery gate before
+dispatch. Not part of `attemptDurationMs`; omitted when zero.
+
+---
+
 ### errorType?
 
 > `optional` **errorType?**: `string`
