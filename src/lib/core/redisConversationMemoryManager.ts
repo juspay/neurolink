@@ -824,10 +824,6 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
             });
           }
 
-          if (this.redisConfig.ttl > 0) {
-            await this.redisClient.expire(redisKey, this.redisConfig.ttl);
-          }
-
           if (options.userId) {
             await this.addUserSession(options.userId, options.sessionId);
           }

@@ -543,6 +543,36 @@ const titleWriteKeepsExpiry = (backend: Backend) => async () => {
   }
 };
 
+// The turn's own MULTI already gives both of its keys their TTL. A standalone
+// EXPIRE after it added nothing, and when the connection died before that
+// EXPIRE the caller was told a turn that had been stored failed to store, so a
+// retry could store it twice.
+const storedTurnIsReportedStored = (backend: Backend) => async () => {
+  const subject = await openSubject(backend, TTL_SECONDS);
+  subject.internals.generateConversationTitle = async () => "A generated title";
+  const restore = dropConnectionBeforeExpire(subject.client);
+  try {
+    await subject.manager.storeConversationTurn({
+      sessionId: subject.sessionId,
+      userId: subject.userId,
+      userMessage: "show my sales",
+      aiResponse: "Sales are up.",
+      enableSummarization: false,
+    });
+    assert(
+      (await backend.probe.text(subject.sessionKey)) !== null,
+      "the turn must be stored",
+    );
+    await assertLivesOnTtl(
+      backend,
+      subject.sessionKey,
+      "the conversation key after the turn",
+    );
+  } finally {
+    restore();
+  }
+};
+
 const userSessionIndexKeepsExpiry = (backend: Backend) => async () => {
   const subject = await openSubject(backend, TTL_SECONDS);
   const restore = dropConnectionBeforeExpire(subject.client);
@@ -728,6 +758,10 @@ const scenarios: Array<{
   {
     name: "the background title write leaves the conversation key a TTL when the connection dies after it",
     build: titleWriteKeepsExpiry,
+  },
+  {
+    name: "a stored turn is reported stored, with its TTL, when the connection dies right after it",
+    build: storedTurnIsReportedStored,
   },
   {
     name: "the per-user session index gets its TTL with its first member, not after",
