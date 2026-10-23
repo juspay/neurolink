@@ -30,6 +30,10 @@ import { NeuroLink } from "../dist/index.js";
 import { Skip } from "./helpers/harness.js";
 
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import {
+  EXPECTED_PROVIDER_ERROR_PATTERNS,
+  isExpectedProviderError as isSharedProviderError,
+} from "./helpers/envGuard.js";
 
 // Fail loudly rather than silently testing a stale build (see distFreshness.ts).
 assertDistFresh();
@@ -88,80 +92,101 @@ function logTest(
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // Provider-availability gate already SKIPs unconfigured providers up front, so
-// for tests that *do* run we only want to downgrade transport-level / missing-
-// configuration errors to SKIP — NOT auth/billing failures. A configured
-// provider that suddenly returns 401/403/billing should FAIL the suite, not
-// be silently skipped, otherwise CI can stay green over a broken integration.
-const TRANSPORT_SKIP_PHRASES = [
-  "cannot connect",
-  "not configured",
-  "econnrefused",
-  "enotfound",
-  "could not resolve",
-  "no providers",
-  "failed to fetch",
-  "fetch failed",
-  "server not reachable",
-  "deepseek_api_key",
-  "nvidia_nim_api_key",
-  // LM Studio / llama.cpp connectivity phrases only —
-  // bare "lm studio" was too broad and would mask real regressions.
-  "lm studio server not reachable",
-  "lm studio connection refused",
-  "llama.cpp server not",
-  "llama.cpp connection refused",
-  "no model loaded",
+// for tests that *do* run we only want to downgrade transport-level errors to
+// SKIP — NOT auth/billing failures. A configured provider that suddenly returns
+// 401/403/billing should FAIL the suite, not be silently skipped, otherwise CI
+// can stay green over a broken integration.
+//
+// The previous local lists skipped on bare substrings ("gone", "429", "not
+// configured", "no providers", "timeout", ...), so any message that merely
+// contained one was reported as a skip. Both tiers now start from the shared
+// matcher in test/helpers/envGuard.ts. An available provider gets only the
+// shared entries that describe the network or a missing model, plus the
+// anchored framings below; the full shared matcher, which also accepts auth and
+// billing wording, applies only to a provider that is not marked available.
+const SHARED_TRANSPORT_PATTERN_IDS: ReadonlySet<string> = new Set([
+  "process_network_codes",
+  "network_connectivity",
+  "local_openai_compat_server",
   "model_not_found",
-  // Per-test 60s wall-clock timeout (PER_TEST_TIMEOUT_MS). Tests that
-  // legitimately complete within the budget pass; tests that bump up
-  // against an upstream provider's slow path (e.g. NIM cold-starting a
-  // less-popular model) deserve a SKIP rather than a FAIL because the
-  // rerun will usually pass.
-  "the operation was aborted",
-  "timeout after 60000ms",
-  // Plain HTTP reason phrases that some providers (notably NIM) ship
-  // without a status code — these mean the server is unhealthy, not the
-  // SDK is broken.
-  "gone",
-  "internal server error",
-  "service unavailable",
-  "bad gateway",
-  // Rate-limit framings — these are server-side transient errors that
-  // belong in transport skips (NOT auth/billing), so they apply even when
-  // the provider is otherwise marked available. The previous scoping in
-  // AUTH_OR_BILLING_PHRASES skipped only unavailable providers and FAILed
-  // a working provider that happened to be rate-limited.
-  "too many requests",
-  "rate limit",
-  "rate-limit",
-  "rate_limited",
-  "429",
+]);
+
+// Throttling as the providers and this package's error mapping word it
+// ("<provider> rate limit exceeded. Please try again later." from
+// DEFAULT_ERROR_RULES, "Too Many Requests", a 429/502/503 with a status
+// prefix). The shared `rate_limit` and `http_status_codes` entries are not used
+// here because they also accept "quota exceeded" and 401/402/403.
+const UPSTREAM_THROTTLE_FRAMINGS: readonly RegExp[] = [
+  /\brate[ _-]?limit(?:ed)?\b/i,
+  /\btoo\s+many\s+requests\b/i,
+  /\b(?:http|status|status\s+code|error\s+code)[\s:_-]*(?:429|502|503)\b|\((?:429|502|503)\)/i,
 ];
-const AUTH_OR_BILLING_PHRASES = [
-  "api key",
-  "api_key",
-  "authentication",
-  "rate limit",
-  "rate-limit",
-  "rate_limited",
-  "too many requests",
-  "quota",
-  "credentials",
-  "permission denied",
-  "billing",
-  "unauthorized",
-  "403",
-  "429",
-  "lm studio api key",
-  "lm studio unauthorized",
+
+// Timeouts as this package and its providers word them: "<provider> <operation>
+// operation timed out after 30000ms", "Operation timeout after 60000ms" (and
+// this file's own abort reason, "timeout after 60000ms"), or a fetch a request
+// timeout aborted. The duration is what separates them from a message that
+// merely mentions a timeout.
+const UPSTREAM_TIMEOUT_FRAMINGS: readonly RegExp[] = [
+  /\b(?:timed[ _-]?out|timeout)\s+after\s+\d+\s*(?:ms|s)\b/i,
+  /\b(?:the|this)\s+operation\s+was\s+aborted\b/i,
 ];
+
+// Transport framings the shared list does not carry. Each is wording a
+// provider or this package's own error mapping actually emits.
+const NEW_PROVIDER_TRANSPORT_FRAMINGS: readonly RegExp[] = [
+  // undici's message when the socket never connects. localRuntimeOpenAICompat
+  // maps it to the "server not reachable" line below, but the generic mapping
+  // keeps it: "Connection error: fetch failed".
+  /\bfetch\s+failed\b/i,
+  // The shared entry only recognises loopback hosts; a LAN-hosted LM Studio or
+  // llama-server reports the same line with its own address.
+  /\b(?:lm\s+studio|llama\.cpp)\s+server\s+not\s+reachable\s+at\s+https?:\/\//i,
+  // LM Studio with nothing loaded ("No models loaded. Please load a model ..."),
+  // and this package's mapped form of the same condition (lmStudio.ts).
+  /\bno\s+models?\s+loaded\b/i,
+  /\blm\s+studio\s+model\s+'[^']*'\s+is\s+not\s+loaded\b/i,
+  // HTTP reason phrases with no status code, as NIM and some gateways ship
+  // them when the upstream is unhealthy. The shared `http_reason_phrases` entry
+  // is left out on purpose: it also accepts a bare, case-insensitive "Gone".
+  /\binternal\s+server\s+error\b/i,
+  /\bbad\s+gateway\b/i,
+];
+
+function isTransportError(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return (
+    EXPECTED_PROVIDER_ERROR_PATTERNS.some(
+      (pattern) =>
+        SHARED_TRANSPORT_PATTERN_IDS.has(pattern.id) &&
+        pattern.test(msg, lower),
+    ) ||
+    [
+      ...UPSTREAM_THROTTLE_FRAMINGS,
+      ...UPSTREAM_TIMEOUT_FRAMINGS,
+      ...NEW_PROVIDER_TRANSPORT_FRAMINGS,
+    ].some((re) => re.test(msg))
+  );
+}
+
+// The upstream was slow or throttled and never evaluated the request: the
+// per-test timer fired (`signal.aborted`), a timeout framing, or a throttle.
+// Narrower than isTransportError on purpose: a 404 or "fetch failed" is not
+// evidence that the credential under test was never looked at.
+function isUpstreamSlowPath(msg: string, signal: AbortSignal): boolean {
+  return (
+    signal.aborted ||
+    [...UPSTREAM_TIMEOUT_FRAMINGS, ...UPSTREAM_THROTTLE_FRAMINGS].some((re) =>
+      re.test(msg),
+    )
+  );
+}
 
 function isExpectedProviderError(
   msg: string,
   provider?: ProviderUnderTest,
 ): boolean {
-  const lower = msg.toLowerCase();
-  if (TRANSPORT_SKIP_PHRASES.some((p) => lower.includes(p))) {
+  if (isTransportError(msg)) {
     return true;
   }
   // Local LM servers (LM Studio + llama-server) return generic HTTP 400
@@ -182,7 +207,7 @@ function isExpectedProviderError(
   if (
     provider !== undefined &&
     !provider.available &&
-    AUTH_OR_BILLING_PHRASES.some((p) => lower.includes(p))
+    isSharedProviderError(msg)
   ) {
     return true;
   }
@@ -397,7 +422,7 @@ async function runProviderTest(
       record(provider.name, null);
       return null;
     }
-    if (timedOut || /timeout|watchdog/i.test(msg)) {
+    if (timedOut || msg.startsWith("runProviderTest watchdog:")) {
       // Provider-side hang: flag as SKIP rather than FAIL because the SDK
       // and harness behaved correctly — we just can't get a determinate
       // outcome for this case on this provider's current model. (Often
@@ -1376,11 +1401,7 @@ async function section9Errors(): Promise<void> {
           // service didn't actually evaluate the credential — we never
           // reached the auth check. SKIP rather than FAIL: rerunning when
           // the rate-limit window resets will pass.
-          if (
-            /timeout|aborted|too many requests|\b429\b|rate[ _-]?limit/i.test(
-              msg,
-            )
-          ) {
+          if (isUpstreamSlowPath(msg, signal)) {
             throw new Skip(`upstream slow path (${msg.slice(0, 60)})`);
           }
           return /invalid|unauthorized|401|403|forbidden|api key|authentication|access|\bbad request\b|\b400\b/i.test(
@@ -1431,7 +1452,7 @@ async function section9Errors(): Promise<void> {
             );
           }
           // Timeout / abort surfaces because NIM ran cold or rate-limited.
-          if (/timeout|aborted/i.test(msg)) {
+          if (isUpstreamSlowPath(msg, signal)) {
             throw new Skip(`upstream slow path (${msg.slice(0, 60)})`);
           }
           throw err;

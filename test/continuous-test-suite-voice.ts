@@ -31,6 +31,7 @@ import type { ProcessResult } from "../dist/index.js";
 import { NeuroLink } from "../dist/index.js";
 
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import { isExpectedProviderError } from "./helpers/envGuard.js";
 
 // Fail loudly rather than silently testing a stale build (see distFreshness.ts).
 assertDistFresh();
@@ -201,29 +202,70 @@ function runCommand(
   });
 }
 
-function isExpectedProviderError(msg: string): boolean {
-  const lowerMsg = msg.toLowerCase();
-  return [
-    "api key",
-    "api_key",
-    "authentication",
-    "rate limit",
-    "quota",
-    "credentials",
-    "could not be resolved",
-    "cannot connect",
-    "failed to generate",
-    "not configured",
-    "not supported",
-    "permission denied",
-    "billing",
-    "econnrefused",
-    "enotfound",
-    "unauthorized",
-    "google_application_credentials",
-    "tts_provider_not_configured",
-    "stt_provider_not_configured",
-  ].some((p) => lowerMsg.includes(p));
+/**
+ * Framings this suite treats as "the voice backend is not set up here" on top of
+ * the shared `isExpectedProviderError` (test/helpers/envGuard.ts). The previous
+ * local copy skipped on bare substrings ("not supported", "not configured",
+ * "provider", "billing", "permission denied"), so a regression whose message
+ * happened to contain one of them was reported as a skip and the run exited 0.
+ * Each entry below is anchored to wording this package's own processors emit.
+ */
+const VOICE_OPT_IN_FRAMINGS: readonly RegExp[] = [
+  // TTSProcessor / STTProcessor when the handler is registered but its
+  // credential is absent: `STT provider "google-stt" is not configured. Please
+  // set the required API keys.` (src/lib/utils/sttProcessor.ts, ttsProcessor.ts).
+  // Quoted provider name plus "is not configured" is what keeps this from
+  // matching an unrelated "not configured" in a regression message.
+  /\b(?:tts|stt)\s+provider\s+"[^"]+"\s+is\s+not\s+configured\b/i,
+];
+
+/**
+ * CLI flag not wired up: yargs prints `Unknown arguments: tts, ttsOutput` and
+ * the line has to name one of the voice flags. A bare `includes("--tts")` also
+ * matched the usage text a failing command prints, which skipped real failures.
+ */
+const VOICE_CLI_UNKNOWN_FLAG =
+  /\bUnknown arguments?:[^\n]*\b(?:tts|stt|input-audio)\b/;
+
+/**
+ * A handler registers only when its credential is in the environment, so
+ * asking for one without it fails with `STT provider "google-stt" is not
+ * supported. Use STTProcessor.registerHandler() to register it.` That is the
+ * environment while the credential is really absent. With the credential set,
+ * the same text means registration regressed, so it only counts here when the
+ * variable behind the named provider is empty.
+ */
+const VOICE_PROVIDER_CREDENTIAL_ENV: Readonly<Record<string, string>> = {
+  "google-ai": "GOOGLE_APPLICATION_CREDENTIALS",
+  vertex: "GOOGLE_APPLICATION_CREDENTIALS",
+  "google-stt": "GOOGLE_APPLICATION_CREDENTIALS",
+  "openai-tts": "OPENAI_API_KEY",
+  whisper: "OPENAI_API_KEY",
+  elevenlabs: "ELEVENLABS_API_KEY",
+  "elevenlabs-stt": "ELEVENLABS_API_KEY",
+  "azure-tts": "AZURE_SPEECH_KEY",
+  "azure-stt": "AZURE_SPEECH_KEY",
+  deepgram: "DEEPGRAM_API_KEY",
+};
+
+const UNREGISTERED_VOICE_HANDLER =
+  /\b(?:tts|stt)\s+provider\s+"([^"]+)"\s+is\s+not\s+supported\.\s+use\s+(?:tts|stt)processor\.registerhandler\(\)/i;
+
+function isHandlerMissingItsCredential(msg: string): boolean {
+  const provider = UNREGISTERED_VOICE_HANDLER.exec(msg)?.[1];
+  const envName =
+    provider === undefined
+      ? undefined
+      : VOICE_PROVIDER_CREDENTIAL_ENV[provider];
+  return envName !== undefined && !process.env[envName]?.trim();
+}
+
+function isExpectedVoiceError(msg: string): boolean {
+  return (
+    isExpectedProviderError(msg) ||
+    VOICE_OPT_IN_FRAMINGS.some((re) => re.test(msg)) ||
+    isHandlerMissingItsCredential(msg)
+  );
 }
 
 function isCredentialsMissing(): boolean {
@@ -410,7 +452,7 @@ async function testGenerateTTSMP3(sdk: NeuroLink): Promise<boolean | null> {
     return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (isExpectedProviderError(msg)) {
+    if (isExpectedVoiceError(msg)) {
       logTest("generate() + TTS (MP3 format)", "SKIP", msg.substring(0, 100));
       return null;
     }
@@ -484,7 +526,7 @@ async function testGenerateTTSWAV(sdk: NeuroLink): Promise<boolean | null> {
     return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (isExpectedProviderError(msg)) {
+    if (isExpectedVoiceError(msg)) {
       logTest("generate() + TTS (WAV format)", "SKIP", msg.substring(0, 100));
       return null;
     }
@@ -568,7 +610,7 @@ async function testGenerateTTSUnconfiguredProvider(
       return true;
     }
 
-    if (isExpectedProviderError(msg)) {
+    if (isExpectedVoiceError(msg)) {
       logTest(
         "generate() + TTS unconfigured provider error",
         "SKIP",
@@ -666,7 +708,7 @@ async function testGenerateSTT(sdk: NeuroLink): Promise<boolean | null> {
     return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (isExpectedProviderError(msg)) {
+    if (isExpectedVoiceError(msg)) {
       logTest("generate() + STT (core feature)", "SKIP", msg.substring(0, 100));
       return null;
     }
@@ -771,7 +813,7 @@ async function testGenerateSTTAndTTSRoundTrip(
     return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (isExpectedProviderError(msg)) {
+    if (isExpectedVoiceError(msg)) {
       logTest(
         "generate() + STT + TTS round-trip",
         "SKIP",
@@ -835,20 +877,8 @@ async function testStreamTTS(sdk: NeuroLink): Promise<boolean | null> {
     return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (isExpectedProviderError(msg)) {
+    if (isExpectedVoiceError(msg)) {
       logTest("stream() + TTS", "SKIP", msg.substring(0, 100));
-      return null;
-    }
-    if (
-      msg.includes("tts") ||
-      msg.includes("TTS") ||
-      msg.includes("not supported")
-    ) {
-      logTest(
-        "stream() + TTS",
-        "SKIP",
-        `TTS streaming not supported: ${msg.substring(0, 80)}`,
-      );
       return null;
     }
     logTest("stream() + TTS", "FAIL", msg);
@@ -886,14 +916,11 @@ async function testCLITTSGenerate(): Promise<boolean | null> {
     ]);
 
     if (!result.success) {
-      if (isExpectedProviderError(result.stderr)) {
+      if (isExpectedVoiceError(result.stderr)) {
         logTest("CLI --tts generate", "SKIP", result.stderr.substring(0, 100));
         return null;
       }
-      if (
-        result.stderr.includes("Unknown argument") ||
-        result.stderr.includes("--tts")
-      ) {
+      if (VOICE_CLI_UNKNOWN_FLAG.test(result.stderr)) {
         logTest(
           "CLI --tts generate",
           "SKIP",
@@ -992,15 +1019,11 @@ async function testCLISTTGenerate(): Promise<boolean | null> {
     ]);
 
     if (!result.success) {
-      if (isExpectedProviderError(result.stderr)) {
+      if (isExpectedVoiceError(result.stderr)) {
         logTest("CLI --stt generate", "SKIP", result.stderr.substring(0, 100));
         return null;
       }
-      if (
-        result.stderr.includes("Unknown argument") ||
-        result.stderr.includes("--stt") ||
-        result.stderr.includes("--input-audio")
-      ) {
+      if (VOICE_CLI_UNKNOWN_FLAG.test(result.stderr)) {
         logTest(
           "CLI --stt generate",
           "SKIP",
@@ -2078,13 +2101,17 @@ async function testStreamModeTwoRejectsLLMOnlyProvider(
     );
     return ok;
   } catch (err) {
-    // sdk.stream() may also reject up front for other reasons; treat as SKIP
+    // sdk.stream() may reject up front because the chat provider itself is
+    // unusable (bad key, quota, unreachable); that is a skip. Any other
+    // up-front rejection is the finding this case exists to catch.
+    const msg = err instanceof Error ? err.message : String(err);
+    const skip = isExpectedVoiceError(msg);
     logTest(
       "T7: stream() Mode 2 rejects LLM-only provider w/o tts.provider",
-      "SKIP",
-      `pre-stream rejection: ${err instanceof Error ? err.message : String(err)}`,
+      skip ? "SKIP" : "FAIL",
+      `pre-stream rejection: ${msg}`,
     );
-    return null;
+    return skip ? null : false;
   }
 }
 

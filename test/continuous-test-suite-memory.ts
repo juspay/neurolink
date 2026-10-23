@@ -31,6 +31,7 @@ import { NeuroLink } from "../dist/index.js";
 import type { ChatMessage } from "../src/lib/types/index.js";
 
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import { isExpectedProviderError } from "./helpers/envGuard.js";
 
 // Fail loudly rather than silently testing a stale build (see distFreshness.ts).
 assertDistFresh();
@@ -208,24 +209,6 @@ function validateResponseContent(
       `Matched: ${found.join(", ") || "none"}`,
     ],
   };
-}
-
-function isExpectedProviderError(msg: string): boolean {
-  const lower = msg.toLowerCase();
-  return [
-    "api key",
-    "authentication",
-    "rate limit",
-    "quota",
-    "credentials",
-    "could not be resolved",
-    "ollama",
-    "provider",
-    "failed to generate",
-    "cannot connect",
-    "econnrefused",
-    "provider error",
-  ].some((p) => lower.includes(p));
 }
 
 async function globalCleanup(): Promise<void> {
@@ -1115,11 +1098,7 @@ async function testRedisMemoryPersistence(
     return false;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (
-      isExpectedProviderError(msg) ||
-      msg.includes("ECONNREFUSED") ||
-      msg.includes("Redis")
-    ) {
+    if (isExpectedProviderError(msg)) {
       logTest(
         "5. Redis Memory Persistence",
         "SKIP",
@@ -1211,11 +1190,7 @@ async function testRedisConnectionPooling(
       if (f.status === "rejected") {
         const msg =
           f.reason instanceof Error ? f.reason.message : String(f.reason);
-        if (
-          !isExpectedProviderError(msg) &&
-          !msg.includes("Redis") &&
-          !msg.includes("ECONNREFUSED")
-        ) {
+        if (!isExpectedProviderError(msg)) {
           logTest(
             "6. Redis Connection Pooling",
             "FAIL",
@@ -1264,11 +1239,7 @@ async function testRedisConnectionPooling(
     return false;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (
-      isExpectedProviderError(msg) ||
-      msg.includes("ECONNREFUSED") ||
-      msg.includes("Redis")
-    ) {
+    if (isExpectedProviderError(msg)) {
       logTest(
         "6. Redis Connection Pooling",
         "SKIP",
@@ -1365,11 +1336,7 @@ async function testMemoryRetrievalTool(
     return false;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (
-      isExpectedProviderError(msg) ||
-      msg.includes("Redis") ||
-      msg.includes("ECONNREFUSED")
-    ) {
+    if (isExpectedProviderError(msg)) {
       logTest("7. Memory Retrieval Tool", "SKIP", msg);
       return null;
     }
@@ -1513,11 +1480,7 @@ async function testConversationTitleGeneration(
     return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (
-      isExpectedProviderError(msg) ||
-      msg.includes("Redis") ||
-      msg.includes("ECONNREFUSED")
-    ) {
+    if (isExpectedProviderError(msg)) {
       logTest("9. Conversation Title Generation", "SKIP", msg);
       return null;
     }
@@ -1714,11 +1677,7 @@ async function testCLIMemoryPersistence(): Promise<boolean | null> {
     return false;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (
-      isExpectedProviderError(msg) ||
-      msg.includes("ECONNREFUSED") ||
-      msg.includes("Redis")
-    ) {
+    if (isExpectedProviderError(msg)) {
       logTest(
         "10. CLI Memory Persistence",
         "SKIP",
@@ -2070,11 +2029,7 @@ async function testMemoryAcrossSessions(
     return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (
-      isExpectedProviderError(msg) ||
-      msg.includes("Redis") ||
-      msg.includes("ECONNREFUSED")
-    ) {
+    if (isExpectedProviderError(msg)) {
       logTest("13. Memory Across Sessions", "SKIP", msg);
       return null;
     }
@@ -2393,11 +2348,7 @@ async function testToolResultStoredInRedis(): Promise<boolean | null> {
     return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (
-      isExpectedProviderError(msg) ||
-      msg.includes("ECONNREFUSED") ||
-      msg.includes("Redis")
-    ) {
+    if (isExpectedProviderError(msg)) {
       logTest(
         "21. Tool result content stored correctly in Redis",
         "SKIP",
@@ -2415,6 +2366,19 @@ async function testToolResultStoredInRedis(): Promise<boolean | null> {
     }
   }
 }
+
+/**
+ * Test 22 drives the native Vertex path, so it also skips when Application
+ * Default Credentials cannot supply a project. The shared matcher already
+ * recognises the missing-credential wording (`GOOGLE_APPLICATION_CREDENTIALS`,
+ * "default credentials"); this is google-auth-library's own message for the
+ * project half (googleauth.js, GoogleAuth#getProjectId), which it does not.
+ * Bare "vertex", "project_id" and "credential" would also swallow real
+ * native-path regressions, so none of them is accepted.
+ */
+const VERTEX_NATIVE_OPT_IN_FRAMINGS: readonly RegExp[] = [
+  /\bunable to detect a project id in the current environment\b/i,
+];
 
 // ============================================================
 // Native-path tool storage assertion
@@ -2586,13 +2550,7 @@ async function testNativePathStoresToolRowsInRedis(): Promise<boolean | null> {
     const msg = error instanceof Error ? error.message : String(error);
     if (
       isExpectedProviderError(msg) ||
-      msg.includes("ECONNREFUSED") ||
-      msg.includes("Redis") ||
-      // Narrow Vertex auth signals only — bare "vertex" would swallow real
-      // native-path regressions.
-      msg.includes("GOOGLE_APPLICATION_CREDENTIALS") ||
-      msg.includes("project_id") ||
-      msg.toLowerCase().includes("credential")
+      VERTEX_NATIVE_OPT_IN_FRAMINGS.some((re) => re.test(msg))
     ) {
       logTest(
         testName,
@@ -3330,13 +3288,6 @@ async function testAbortDoesNotPersistSentinel(): Promise<boolean | null> {
         msg.toLowerCase().includes("timed out");
       if (looksLikeAbort) {
         sawAbort = true;
-      } else if (isExpectedProviderError(msg)) {
-        logTest(
-          "16. Abort path does not persist sentinel into memory",
-          "SKIP",
-          `Provider unavailable: ${msg}`,
-        );
-        return null;
       } else {
         throw err;
       }
@@ -3383,15 +3334,9 @@ async function testAbortDoesNotPersistSentinel(): Promise<boolean | null> {
     );
     return true;
   } catch (error) {
+    // No provider is reached here: the signal is aborted before generate()
+    // starts, so any other error is a finding, never a skip.
     const msg = error instanceof Error ? error.message : String(error);
-    if (isExpectedProviderError(msg)) {
-      logTest(
-        "16. Abort path does not persist sentinel into memory",
-        "SKIP",
-        msg,
-      );
-      return null;
-    }
     logTest(
       "16. Abort path does not persist sentinel into memory",
       "FAIL",
