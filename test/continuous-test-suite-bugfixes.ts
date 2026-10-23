@@ -61,6 +61,7 @@ import {
   buildMultimodalMessagesArray,
   mergeMediaFileAliases,
 } from "../src/lib/utils/messageBuilder.js";
+import { createFormatScorer } from "../src/lib/evaluation/scorers/rule/formatScorer.js";
 import { buildMultimodalOptions } from "../src/lib/utils/multimodalOptionsBuilder.js";
 import {
   CSVProcessor,
@@ -12139,6 +12140,114 @@ exit 127
       return (
         md ===
         "[text](https://example.com/path)![Alt](https://example.com/pic.png)"
+      );
+    },
+  },
+  {
+    name: "formatScorer: validates JSON against schema rather than accepting any valid JSON (#1955)",
+    category: "evaluation",
+    fn: async () => {
+      const schema = {
+        type: "object",
+        required: ["name", "age"],
+        properties: {
+          name: { type: "string" },
+          age: { type: "number" },
+        },
+      };
+      const scorer = await createFormatScorer({
+        allowedFormats: ["json"],
+        jsonSchema: schema,
+      });
+
+      const validResult = await scorer.score({
+        prompt: "test",
+        response: JSON.stringify({ name: "Alice", age: 30 }),
+      });
+      const nonConformingResult = await scorer.score({
+        prompt: "test",
+        response: JSON.stringify({ name: "Alice" }),
+      });
+      const malformedJsonResult = await scorer.score({
+        prompt: "test",
+        response: "not json at all",
+      });
+
+      return (
+        validResult.passed === true &&
+        validResult.score === 10 &&
+        nonConformingResult.passed === false &&
+        nonConformingResult.score < 10 &&
+        malformedJsonResult.passed === false &&
+        malformedJsonResult.score === 0
+      );
+    },
+  },
+  {
+    name: "formatScorer: enforces $ref sibling constraints under draft 2020-12 and rejects unsupported drafts (#1955)",
+    category: "evaluation",
+    fn: async () => {
+      // Draft 2020-12 schema with $ref and sibling 'required' constraint
+      const schema2020 = {
+        $schema: "https://json-schema.org/draft/2020-12/schema",
+        $defs: {
+          person: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+            },
+          },
+        },
+        $ref: "#/$defs/person",
+        required: ["age"],
+        properties: {
+          age: { type: "number" },
+        },
+      };
+
+      const scorer2020 = await createFormatScorer({
+        allowedFormats: ["json"],
+        jsonSchema: schema2020,
+      });
+
+      // Satisfies $ref but missing sibling required field 'age' -> MUST fail
+      const missingSiblingResult = await scorer2020.score({
+        prompt: "test",
+        response: JSON.stringify({ name: "Alice" }),
+      });
+
+      // Satisfies both $ref and sibling required field 'age' -> MUST pass
+      const validSiblingResult = await scorer2020.score({
+        prompt: "test",
+        response: JSON.stringify({ name: "Alice", age: 30 }),
+      });
+
+      // Unsupported schema draft (draft-03) -> MUST be explicitly rejected
+      const unsupportedDraftSchema = {
+        $schema: "http://json-schema.org/draft-03/schema#",
+        type: "object",
+        properties: {
+          name: { type: "string" },
+        },
+      };
+
+      const unsupportedScorer = await createFormatScorer({
+        allowedFormats: ["json"],
+        jsonSchema: unsupportedDraftSchema,
+      });
+
+      const unsupportedResult = await unsupportedScorer.score({
+        prompt: "test",
+        response: JSON.stringify({ name: "Alice" }),
+      });
+
+      return (
+        missingSiblingResult.passed === false &&
+        missingSiblingResult.score < 10 &&
+        validSiblingResult.passed === true &&
+        validSiblingResult.score === 10 &&
+        unsupportedResult.passed === false &&
+        unsupportedResult.score < 10
       );
     },
   },
