@@ -1085,9 +1085,12 @@ images. Both models accepted 520,000 text characters and refused 525,000 with
 413/code 5021 on 2026-10-04; `clef-flash` had accepted 262,000 and refused
 270,000 on 2026-10-03.
 On 2026-10-05 both models accepted PNG request bodies up to 492,485 bytes and refused
-532,505 (`clef-flash`) and 532,499 (`clef`) with the same 413; the reason the limits
-moved is unknown.
-See the [Clef guide's limits](../getting-started/providers/cloudflare-clef.md#limits).
+532,505 (`clef-flash`) and 532,499 (`clef`) with the same 413. For plain-text bodies
+the rule was located on 2026-10-23: the 413 comes when the body in bytes / 4 exceeds
+twice the model's context window, and `clef-flash`'s window had fallen from 65,536 to
+24,576 tokens, which puts its edge for plain text at 196,608 bytes. A request with an
+image is not held to that edge: live case 19.14 sends about 253 KB to `clef-flash`
+and it is answered. See the [Clef guide's limits](../getting-started/providers/cloudflare-clef.md#limits).
 
 **Two separate size ceilings** (TypeSafe), both enforced:
 

@@ -5687,35 +5687,62 @@ await test("19.10b — live: a JSON array of digits just under NeuroLink's limit
   }
 });
 
-// Text-only canary on clef-flash: 520,000 state characters accepted and
-// 525,000 refused with 413/code 5021 on 2026-10-04. This does not live-test
-// the 256,000-byte local cap with images. A changed result requires remeasurement.
-await test("19.11 — live: clef-flash text-only service ceiling accepts 520,000 and refuses 525,000 with 413/code 5021", async () => {
+// Text-only canaries on the service's request-size ceiling, one per Clef model,
+// each bracketed by two sizes of "a" x N measured against the live service.
+// Cloudflare refuses in two ways: 413/code 5021 when the encoded body in bytes
+// / 4 exceeds twice the context window the message prints, and 422/code 3030
+// when the real token count exceeds the window (maximum 65,529 for clef and
+// 24,576 for clef-flash on 2026-10-23; this filler is 8 characters a token, so
+// an accepted request is billed about 65,000 tokens on clef and 24,000 on
+// clef-flash).
+// clef: 520,000 accepted and 525,000 refused with 5021 on 2026-10-04 and again
+// on 2026-10-23. clef-flash had the same window on 2026-10-04 and 520,000 was
+// accepted; by 2026-10-23 its window was 24,576: 190,000 was accepted (23,891
+// tokens), 195,625 got 422/3030 and 200,000 got 5021. Each accepted size is
+// within 3% of the real-token limit and each refused size is just above the
+// 5021 edge (clef-flash 196,608 bytes, clef 524,288), where Cloudflare answers
+// 413/5021; closer to the edge it answers 422/3030 instead, which is
+// deliberately not what these assert. These bodies are plain text: a request
+// with an image is not held to that byte edge (case 19.14 sends about 253 KB to
+// clef-flash and is answered). A changed result requires remeasurement.
+async function expectClefCeiling(
+  model: string,
+  acceptedChars: number,
+  refusedChars: number,
+): Promise<void> {
   requireCloudflareClef();
   restoreEnv();
   const questions = {
     q: { type: "noul", instructions: "Is this about checkout?" },
   };
-  const inside = await clefRaw("clef-flash", {
-    model: "clef-flash",
-    state: "a".repeat(520_000),
+  const inside = await clefRaw(model, {
+    model,
+    state: "a".repeat(acceptedChars),
     questions,
   });
   assert(
     inside.status === 200,
-    `a 520,000-character request must be accepted (got ${inside.status}): the observed service ceiling changed; re-measure before changing NeuroLink's conservative 256,000-byte cap`,
+    `a ${acceptedChars}-character request to ${model} must be accepted (got ${inside.status}): the observed service ceiling changed; re-measure before changing NeuroLink's 256,000-byte cap`,
   );
-  const { status, json } = await clefRaw("clef-flash", {
-    model: "clef-flash",
-    state: "a".repeat(525_000),
+  const { status, json } = await clefRaw(model, {
+    model,
+    state: "a".repeat(refusedChars),
     questions,
   });
   const code = (json as { errors?: Array<{ code?: number }> })?.errors?.[0]
     ?.code;
   assert(
     status === 413 && code === 5021,
-    `an over-long request must be refused with 413 and code 5021 (got ${status}, ${code}): Cloudflare may have raised its cap; re-measure the request limit`,
+    `a ${refusedChars}-character request to ${model} must be refused with 413 and code 5021 (got ${status}, ${code}): Cloudflare may have moved the model's context window or its cap; re-measure the request limit`,
   );
+}
+
+await test("19.11 — live: clef-flash text-only service ceiling accepts 190,000 and refuses 200,000 with 413/code 5021", async () => {
+  await expectClefCeiling("clef-flash", 190_000, 200_000);
+});
+
+await test("19.11b — live: clef text-only service ceiling accepts 520,000 and refuses 525,000 with 413/code 5021", async () => {
+  await expectClefCeiling("clef", 520_000, 525_000);
 });
 
 await test("19.12 — live: a rejected token reaches the real API and comes back as authentication, sent once", async () => {

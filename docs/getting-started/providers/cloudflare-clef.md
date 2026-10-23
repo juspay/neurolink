@@ -365,10 +365,29 @@ a refusal at about the same body size, between 520,108 and 525,102 bytes for tex
 and between 492,485 and 532,499 for images. **Inference:** both intervals contain
 524,288 bytes (131,072 x 4); the reason the limit moved is unknown.
 
-NeuroLink keeps the 256,000-byte encoded-body cap. It remains below the accepted
-request sizes, text and images alike. Live case 19.14 sends an image request just
-under the cap through NeuroLink; live canary 19.11 checks the text-only service
-ceiling on `clef-flash`.
+**Located on 2026-10-23.** For a plain-text body, Cloudflare refuses with 413/code
+5021 exactly when the estimate (body bytes / 4) exceeds twice the context window its
+message prints, and
+with 422/code 3030 ("Request requires N tokens; the maximum is M") when the real
+token count exceeds the window. `clef`'s message prints a window of 65,536 tokens
+(its real-token maximum is 65,529), so its 5021 edge is 524,288 bytes: bodies of 524,284 and 524,288 bytes got 422, those of 524,292 and
+524,296 got 5021. `clef-flash`'s window had fallen to 24,576 tokens (the date is
+unknown), so its edge is 196,608 bytes: 196,604 and 196,608 got 422, 196,612 and
+196,616 got 5021. With text of about 5.5 characters a token, `clef-flash` refuses
+above about 136,000 characters (136,250 accepted, 136,875 refused, 422); "a" x N,
+8 characters a token, is accepted up to 195,118 characters. These bodies were
+plain text sent raw to the service. The byte rule is not what the service applies to
+a request with an image: live case 19.14 sends an image body of about 253 KB through
+NeuroLink to `clef-flash`, more than its 196,608 bytes, and the question is answered
+(it passed on 2026-10-20, 2026-10-22 and 2026-10-23). The images are evidently not
+counted that way; what the estimate does count for such a request was not measured
+here.
+
+NeuroLink keeps the 256,000-byte encoded-body cap. For text, `clef-flash` takes less
+than that, but NeuroLink's limit of 16,000 estimated state tokens keeps a text far
+below it. Live case 19.14 sends an image request just under the cap through
+NeuroLink; live canaries 19.11 and 19.11b check the text-only service ceiling on
+`clef-flash` and `clef`.
 
 ### The state window changed on 2026-10-07
 
@@ -478,11 +497,12 @@ described above, not a guarantee for every script or emoji sequence.
   2026-10-07) and the changing request-size limit belong to the hosted service or
   to the model itself. The open weights on Hugging Face
   were not run.
-- Whether either limit changes again. The live decide suite carries three canary
+- Whether either limit changes again. The live decide suite carries four canary
   cases that fail with an instruction to re-measure: 19.10 and 19.10b send a
   prose state and a digit array just under NeuroLink's own limit, with a fact at
   the very end, to both models, and fail if the service stops reading below that
-  limit; 19.11 checks both sides of the text-only request ceiling on `clef-flash`.
+  limit; 19.11 and 19.11b check both sides of the text-only request ceiling on
+  `clef-flash` and `clef`.
   None of them notices a service that reads more than the limit allows.
 
 ### Latency and the timeout
