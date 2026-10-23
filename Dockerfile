@@ -61,5 +61,7 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD ["node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/api/health/live').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
 # exec form: node is PID 1 and receives SIGTERM directly; `serve` drains and exits.
+# --debug logs each request's warnings and errors; NEUROLINK_DEBUG alone does
+# not, because the CLI resets it unless the flag is passed.
 ENTRYPOINT ["node", "/app/dist/cli/index.js"]
-CMD ["serve", "--host", "0.0.0.0", "--quiet"]
+CMD ["serve", "--host", "0.0.0.0", "--debug"]
