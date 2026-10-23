@@ -69,6 +69,7 @@ import type {
   ProxyTranslationAttempt,
   ServerContext,
   StreamSerializerAdapter,
+  TokenUsage,
 } from "../types/index.js";
 import { raceWithAbort, withTimeout } from "../utils/async/withTimeout.js";
 
@@ -137,24 +138,29 @@ export function hasTranslatedOutput(
  * - AI SDK v4: promptTokens / completionTokens
  * - NeuroLink internal: input / output
  */
-export function extractUsageFromStreamResult(usage: unknown): {
-  input: number;
-  output: number;
-  total: number;
-} {
-  if (!usage || typeof usage !== "object") {
-    return { input: 0, output: 0, total: 0 };
-  }
-  const u = usage as Record<string, unknown>;
-  const input =
-    (typeof u.inputTokens === "number" ? u.inputTokens : 0) ||
-    (typeof u.promptTokens === "number" ? u.promptTokens : 0) ||
-    (typeof u.input === "number" ? u.input : 0);
-  const output =
-    (typeof u.outputTokens === "number" ? u.outputTokens : 0) ||
-    (typeof u.completionTokens === "number" ? u.completionTokens : 0) ||
-    (typeof u.output === "number" ? u.output : 0);
-  return { input, output, total: input + output };
+export function extractUsageFromStreamResult(usage: unknown): TokenUsage {
+  const observed = readTranslationUsage(usage);
+  const cacheReadTokens = observed.cacheReadTokens ?? 0;
+  const cacheCreationTokens = observed.cacheCreationTokens ?? 0;
+  const input = observed.inputIncludesCachedTokens
+    ? Math.max(
+        0,
+        (observed.inputTokens ?? 0) - cacheReadTokens - cacheCreationTokens,
+      )
+    : (observed.inputTokens ?? 0);
+  const output = observed.outputTokens ?? 0;
+  return {
+    input,
+    output,
+    total: input + cacheReadTokens + cacheCreationTokens + output,
+    ...(observed.cacheReadTokens !== undefined ? { cacheReadTokens } : {}),
+    ...(observed.cacheCreationTokens !== undefined
+      ? { cacheCreationTokens }
+      : {}),
+    ...(observed.reasoningTokens !== undefined
+      ? { reasoning: observed.reasoningTokens }
+      : {}),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -347,13 +353,11 @@ function defaultFinishReason(format: ProxyFormat): string {
 }
 
 /** Preserve unknown usage as absent; zero is only reported when observed. */
-function translationUsage(
-  result: StreamResult | undefined,
-): Partial<RequestLogEntry> {
-  const raw = result?.usage as Record<string, unknown> | undefined;
-  if (!raw) {
+function readTranslationUsage(usage: unknown): Partial<RequestLogEntry> {
+  if (!usage || typeof usage !== "object") {
     return {};
   }
+  const raw = usage as Record<string, unknown>;
   const number = (...values: unknown[]) =>
     values.find(
       (value) =>
@@ -389,6 +393,12 @@ function translationUsage(
       details?.reasoningTokens,
     ),
   };
+}
+
+function translationUsage(
+  result: StreamResult | undefined,
+): Partial<RequestLogEntry> {
+  return readTranslationUsage(result?.usage);
 }
 
 /** Shared request owner, independent of a consumer asking for another chunk. */

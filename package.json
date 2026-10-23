@@ -233,6 +233,7 @@
     "test:proxy-connect-retry": "pnpm exec tsx test/continuous-test-suite-proxy-connect-retry.ts",
     "test:proxy-reliability": "node scripts/run-proxy-reliability.mjs",
     "test:proxy-telemetry": "pnpm exec tsx test/continuous-test-suite-proxy-telemetry.ts",
+    "test:proxy-usage": "pnpm exec tsx test/continuous-test-suite-proxy-usage-2049.ts",
     "test:proxy-restart": "pnpm exec tsx test/continuous-test-suite-proxy-restart.ts",
     "test:proxy-image-input": "pnpm exec tsx test/continuous-test-suite-proxy-image-input.ts",
     "test:codex": "pnpm exec tsx test/continuous-test-suite-codex.ts",

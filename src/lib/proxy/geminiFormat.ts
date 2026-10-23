@@ -24,6 +24,7 @@ import type {
   ProxyGeminiContent,
   ProxyGeminiPart,
   StreamSerializerAdapter,
+  TokenUsage,
 } from "../types/index.js";
 
 /** Google's role for assistant turns. */
@@ -244,15 +245,21 @@ function toGeminiFinishReason(reason: string): string {
   }
 }
 
-function usageMetadata(usage: {
-  input: number;
-  output: number;
-  total: number;
-}): Record<string, number> {
+function usageMetadata(usage: TokenUsage): Record<string, number> {
+  const promptTokens =
+    usage.input +
+    (usage.cacheReadTokens ?? 0) +
+    (usage.cacheCreationTokens ?? 0);
   return {
-    promptTokenCount: usage.input,
+    promptTokenCount: promptTokens,
     candidatesTokenCount: usage.output,
-    totalTokenCount: usage.total || usage.input + usage.output,
+    totalTokenCount: usage.total || promptTokens + usage.output,
+    ...(usage.cacheReadTokens !== undefined && {
+      cachedContentTokenCount: usage.cacheReadTokens,
+    }),
+    ...(usage.reasoning !== undefined && {
+      thoughtsTokenCount: usage.reasoning,
+    }),
   };
 }
 
@@ -273,7 +280,7 @@ export function renderGeminiToolUse(name: string, input: unknown): string {
 export function buildGeminiResponse(
   text: string,
   finishReason: string,
-  usage: { input: number; output: number; total: number },
+  usage: TokenUsage,
   modelVersion: string,
   toolCalls?: ReadonlyArray<{
     toolName: string;
@@ -364,10 +371,7 @@ export class GeminiStreamSerializer {
     return this.pushDelta(renderGeminiToolUse(name, input));
   }
 
-  finish(
-    finishReason: string,
-    usage: { input: number; output: number; total: number },
-  ): string[] {
+  finish(finishReason: string, usage: TokenUsage): string[] {
     return [
       this.frame({
         candidates: [
@@ -408,10 +412,8 @@ export function createGeminiSerializerAdapter(
     pushDelta: (text: string) => s.pushDelta(text),
     pushToolUse: (id: string, name: string, input: unknown) =>
       s.pushToolUse(id, name, input),
-    finish: (
-      finishReason: string,
-      usage: { input: number; output: number; total: number },
-    ) => s.finish(finishReason, usage),
+    finish: (finishReason: string, usage: TokenUsage) =>
+      s.finish(finishReason, usage),
     emitError: (message: string) => s.emitError(message),
   };
 }

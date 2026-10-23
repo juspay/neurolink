@@ -29,6 +29,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { calculateCost, hasPricing } from "../utils/pricing.js";
+import { proxyTokenUsage } from "./proxyTokenUsage.js";
 import type {
   CliAccountUsageTotals,
   ProxyLedgerEntry,
@@ -189,6 +190,7 @@ async function advanceCursor(
       provider:
         typeof record.provider === "string" ? record.provider : undefined,
       inputTokens: finiteNumber(record.inputTokens),
+      inputIncludesCachedTokens: record.inputIncludesCachedTokens === true,
       outputTokens: finiteNumber(record.outputTokens),
       cacheReadTokens: finiteNumber(record.cacheReadTokens),
       cacheCreationTokens: finiteNumber(record.cacheCreationTokens),
@@ -224,6 +226,10 @@ async function advanceCursor(
             ...previous,
             ...next,
             inputTokens: Math.max(previous.inputTokens, next.inputTokens),
+            inputIncludesCachedTokens:
+              next.inputTokens > previous.inputTokens
+                ? next.inputIncludesCachedTokens
+                : previous.inputIncludesCachedTokens,
             outputTokens: Math.max(previous.outputTokens, next.outputTokens),
             cacheReadTokens: Math.max(
               previous.cacheReadTokens,
@@ -396,14 +402,11 @@ export async function readAccountUsage(
     const provider = resolveProvider(entry);
     if (entry.model && entry.model !== "-") {
       if (hasPricing(provider, entry.model)) {
-        const cost = calculateCost(provider, entry.model, {
-          input: entry.inputTokens,
-          output: entry.outputTokens,
-          total: entry.inputTokens + entry.outputTokens,
-          cacheReadTokens: entry.cacheReadTokens,
-          cacheCreationTokens: entry.cacheCreationTokens,
-          cacheCreation1hTokens: entry.cacheCreation1hTokens,
-        });
+        const cost = calculateCost(
+          provider,
+          entry.model,
+          proxyTokenUsage(entry),
+        );
         row.costUsd += cost;
         client.costUsd += cost;
       } else {

@@ -42,31 +42,7 @@ Thinking/reasoning text from provider (Anthropic thinking blocks, Gemini thought
 
 ### usage?
 
-> `optional` **usage?**: `object`
-
-#### input
-
-> **input**: `number`
-
-#### output
-
-> **output**: `number`
-
-#### total
-
-> **total**: `number`
-
-#### cacheCreationTokens?
-
-> `optional` **cacheCreationTokens?**: `number`
-
-#### cacheReadTokens?
-
-> `optional` **cacheReadTokens?**: `number`
-
-#### reasoning?
-
-> `optional` **reasoning?**: `number`
+> `optional` **usage?**: [`TokenUsage`](TokenUsage.md)
 
 ---
 
