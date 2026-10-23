@@ -686,7 +686,7 @@ pnpm run check:docs-api   # Regenerate docs/api and fail if it differs from src/
 pnpm test                 # Main suite (test/continuous-test-suite.ts)
 pnpm run test:ci          # test + test:client
 pnpm run test:client      # SDK client suite
-pnpm run test:decide      # The decide inference type (live; gateway half skips without AI_GATEWAY_API_KEY)
+pnpm run test:decide      # The decide inference type: offline cases, then live (gateway half skips without AI_GATEWAY_API_KEY)
 pnpm run test:transcribe  # The transcribe inference type: SDK, CLI and routes (no API; Whistle cases skip without its files or macOS `say`)
 pnpm run test:transcribe:stream  # Chunked streaming adapter: endpointer, LocalAgreement, takeover (no API; determinism exception)
 pnpm run test:context     # Context compaction + file handling
@@ -777,8 +777,11 @@ The structural fix is to declare a suite that makes no network call `offline`:
 an explicit `Skip` or a `SKIP:` message skips, and a per-test timeout fails too.
 Do this for any suite whose only upstream is a loopback stand-in, a mock or a
 fixture. A suite that also has a live, key-gated case cannot (that case needs
-the provider-error-to-skip route), so for those the rule above is all that
-protects the offline cases.
+the provider-error-to-skip route), so split it: the offline cases go in a suite
+declared `offline`, the live ones in a `-live` file that keeps the skip route,
+and the original script name chains the two (`test:decide`, `test:model-pool`
+and `test:agent-delegation` do this). Shared setup goes in `test/helpers/`
+(`decideSuiteShared.ts` for the decide pair).
 
 When adding a suite, sanity-check it by breaking one assertion on purpose and
 confirming it reports `✗` and exits non-zero rather than `⊘`.

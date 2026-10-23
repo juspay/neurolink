@@ -10,14 +10,19 @@ import "dotenv/config";
  *      context_window get permanent-for-instance cooldown; recordSuccess clears.
  *   C. classifyProviderError — representative inputs → correct ProviderErrorClass.
  *   D. createDefaultRequestRouter — context-driven tier decisions.
- *   E. Live-gated — pool fallback via a real provider (skips without keys).
+ *   E. NeuroLink integration — pool fallback and router wiring through
+ *      generate()/stream(), with `AIProviderFactory.createProvider` stubbed.
  *
- * Run: pnpm run test:model-pool (tsx runner, no API keys required for A–D)
+ * Every case here is deterministic and makes no network call, so the suite is
+ * declared `offline`: a provider-shaped error is a failure, not a skip. The
+ * live-gated section F — pool fallback via a real provider, which skips without
+ * keys — is in continuous-test-suite-model-pool-live.ts.
+ *
+ * Run: pnpm run test:model-pool-offline (tsx runner, no API keys required)
+ *      pnpm run test:model-pool         (these cases, then the live one)
  */
 
-import { defineSuite, Skip, assert, assertEqual } from "./helpers/harness.js";
-import { skipUnlessProviderAvailable } from "./helpers/skipIf.js";
-import { isExpectedProviderError } from "./helpers/envGuard.js";
+import { defineSuite, assert, assertEqual } from "./helpers/harness.js";
 
 // ModelPool, classifyProviderError, createDefaultRequestRouter and
 // AIProviderFactory are all exported from the package — this suite tests the
@@ -44,7 +49,9 @@ import type {
 } from "../src/lib/types/index.js";
 import { spy, stub, withStubs } from "./helpers/stubs.js";
 
-const { test, runSuite } = defineSuite("ModelPool + RequestRouter");
+const { test, runSuite } = defineSuite("ModelPool + RequestRouter", {
+  offline: true,
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Section A — selectNext strategy tests (deterministic with injected clock)
@@ -1202,58 +1209,6 @@ await test("a provided requestRouter instance is stored as-is", () => {
     router,
     "the exact router instance must be retained",
   );
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Section F — Live-gated integration: real pool fallback via NeuroLink
-// ─────────────────────────────────────────────────────────────────────────────
-
-await test("[LIVE] pool falls back from bogus model to real provider", async () => {
-  // Guard: skip if no anthropic key available
-  skipUnlessProviderAvailable("anthropic");
-
-  // Dynamically import NeuroLink only if we have keys (avoids initialization
-  // side-effects when keys are absent)
-  const { NeuroLink } = await import("../dist/index.js");
-
-  const nl = new NeuroLink({
-    conversationMemory: { enabled: false },
-    modelPool: {
-      members: [
-        // Member 1: deliberately bogus model that will fail
-        {
-          provider: "anthropic",
-          model: "claude-definitely-does-not-exist-v99",
-        },
-        // Member 2: omit the model so the provider's current default is used.
-        // Pinning a specific id is brittle — older ids (claude-haiku-3-5,
-        // claude-3-5-haiku-*) are now end-of-life and 404 on the live API.
-        { provider: "anthropic" },
-      ],
-      strategy: "priority",
-      cooldownMs: 0,
-    },
-  });
-
-  try {
-    const result = await nl.generate({
-      input: { text: "Say 'pool-fallback-ok' and nothing else." },
-      disableTools: true,
-    });
-
-    assert(
-      typeof result.content === "string" && result.content.length > 0,
-      `Expected non-empty content from pool fallback, got: ${JSON.stringify(result.content)}`,
-    );
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (isExpectedProviderError(msg)) {
-      throw new Skip(
-        `provider error (expected in CI without keys): ${msg.slice(0, 100)}`,
-      );
-    }
-    throw err;
-  }
 });
 
 await runSuite();
