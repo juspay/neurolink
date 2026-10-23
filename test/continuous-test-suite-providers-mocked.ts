@@ -12325,6 +12325,67 @@ async function runSubqDecide(): Promise<void> {
         );
       },
     );
+
+    // The entry declares no `timeouts.decideMs`, so the attempt gets the base
+    // provider's 30 s. The platform receives the timeout as
+    // `AbortSignal.timeout(ms)`, so recording that argument shows it without
+    // waiting; the guide's two statements of the default are held to it.
+    await subqCase(
+      "DECIDE subq: the default timeout is the base provider's 30,000 ms, a caller's timeoutMs wins, and the guide states the default",
+      async () => {
+        resetSubqEnv();
+        const nativeTimeout = AbortSignal.timeout;
+        const asked: number[] = [];
+        AbortSignal.timeout = (ms: number) => {
+          asked.push(ms);
+          return nativeTimeout.call(AbortSignal, ms);
+        };
+        try {
+          await withMocks([subqRoute()], async () => {
+            const nl = new NeuroLink({
+              conversationMemory: { enabled: false },
+            });
+            await ask(nl, provider);
+            expectEq(asked.join(","), "30000", "no timeoutMs: 30,000 ms");
+            asked.length = 0;
+            await nl.decide({
+              provider,
+              state: "short",
+              questions: SUBQ_ONE_QUESTION,
+              timeoutMs: 1234,
+            });
+            expectEq(
+              asked.join(","),
+              "1234",
+              "a caller's own timeout, as given",
+            );
+          });
+        } finally {
+          AbortSignal.timeout = nativeTimeout;
+        }
+
+        const guide = readFileSync(
+          fileURLToPath(
+            new URL(
+              "../docs/getting-started/providers/subq.md",
+              import.meta.url,
+            ),
+          ),
+          "utf8",
+        );
+        const row = guide
+          .split("\n")
+          .find((line) => line.startsWith("| Default timeout"));
+        expect(
+          row?.includes("30 seconds per attempt") === true,
+          `the Key Facts row states 30 seconds per attempt (got: ${row})`,
+        );
+        expect(
+          guide.includes("**Timeout.** The default is 30 seconds per attempt."),
+          "the Timeout paragraph states 30 seconds per attempt",
+        );
+      },
+    );
   } finally {
     CLEF_DECISION_ENV.forEach((name, i) => setEnv(name, prior[i]));
   }

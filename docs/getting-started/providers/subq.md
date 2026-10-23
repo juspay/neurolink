@@ -36,7 +36,7 @@ URL to set.
 | Questions per request | no cap declared                                                                                                                                                                    |
 | State window          | 376,000 estimated tokens, advisory: reported by `decisionLimits()`, never enforced. SubQ's own 400 response states a maximum model length of 393,216 tokens; see [Limits](#limits) |
 | Media                 | none. Images attached to a `decide()` call are refused before any request; see [Images](#images)                                                                                   |
-| Default timeout       | 5 seconds; `timeoutMs` or `--timeout` replaces it                                                                                                                                  |
+| Default timeout       | 30 seconds per attempt; `timeoutMs` or `--timeout` replaces it                                                                                                                     |
 | Precedence            | used automatically unless TypeSafe, Laya or XOR is configured; it comes ahead of Perplexity, Cloudflare Clef, OpenAI Decisions and ScaleDown                                       |
 
 ---
@@ -159,8 +159,20 @@ question name up to 100 characters. SubQ refuses a request outside those with
 HTTP 422, which NeuroLink reports as `invalid_request`, with SubQ's reason when
 the body is the documented object form.
 
-**Timeout.** The default is 5 seconds per attempt. A state near the window takes
-longer to read than a short one, so size `timeoutMs` for the states you send.
+**Timeout.** The default is 30 seconds per attempt. SubQ's catalog entry declares
+no `timeouts.decideMs`, so the 30 seconds of the provider base class applies; it
+is not the 5 seconds that TypeSafe, Laya and XOR declare. A timeout raised by
+NeuroLink's own clock before any response arrives is retried once, so a request
+that never answers fails after about twice the limit (a loopback stand-in, not
+SubQ, that never answered was cut off at 30,000 ms and again after the retry,
+60.3 to 60.5 s in all, in three runs). A 200 whose body then stalls past the
+limit is not retried: the body read is cut off, the payload is empty, and the
+call fails after one limit with a `server` error for a response without an
+answers map; an error status whose body stalls follows that status's usual retry
+rule. That is read from the code, not measured. SubQ's own latency is not
+measured here. A state near the window
+takes longer to read than a short one, so size `timeoutMs` for the states you
+send.
 
 **Price.** SubQ's documentation gives $0.05 per million input tokens and no
 charge for output tokens (read on 2026-10-13; check the console for the current

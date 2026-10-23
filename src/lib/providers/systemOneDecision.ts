@@ -32,12 +32,6 @@ import {
 import { systemOneDialect } from "./decide/dialects/systemOne.js";
 import { asNumber, isRecord } from "./decide/guards.js";
 
-/**
- * Generous enough for a cold start (measured at 2.0–2.7s after idle on Jev)
- * while still bounded. Every internal caller is fail-open, so this only bites
- * on a genuine stall.
- */
-export const DEFAULT_DECISION_TIMEOUT_MS = 5000;
 const DEFAULT_MAX_RETRIES = 1;
 
 export { asNumber, isRecord } from "./decide/guards.js";
@@ -420,11 +414,11 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
     this.assertWithinRequestBytes(body);
     this.assertWithinVendorLimits(payload, resolvedModel);
 
+    // An entry that declares no `timeouts.decideMs` gets BaseProvider's 30 s.
     const timeoutMs =
       request.timeoutMs ??
       this.defaultTimeoutMs(questionEntries.length, stateTokens) ??
-      this.defaultTimeout ??
-      DEFAULT_DECISION_TIMEOUT_MS;
+      this.defaultTimeout;
 
     let lastError: DecisionError | undefined;
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
