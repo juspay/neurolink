@@ -20,7 +20,7 @@ Validate request body against a Zod schema
 
 ### schema
 
-`ZodType`\<`T`\>
+`ZodSchema`\<`T`\>
 
 ### data
 
