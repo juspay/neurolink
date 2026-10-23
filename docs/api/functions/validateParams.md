@@ -20,7 +20,7 @@ Validate path parameters against a Zod schema
 
 ### schema
 
-`ZodType`\<`T`\>
+`ZodSchema`\<`T`\>
 
 ### params
 

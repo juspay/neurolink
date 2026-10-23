@@ -20,7 +20,7 @@ Validate query parameters against a Zod schema
 
 ### schema
 
-`ZodType`\<`T`\>
+`ZodSchema`\<`T`\>
 
 ### query
 

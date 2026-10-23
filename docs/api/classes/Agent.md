@@ -127,13 +127,13 @@ Agent instructions
 
 ### inputSchema?
 
-> `readonly` `optional` **inputSchema?**: `ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>
+> `readonly` `optional` **inputSchema?**: `ZodSchema`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>
 
 ---
 
 ### outputSchema?
 
-> `readonly` `optional` **outputSchema?**: `ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>
+> `readonly` `optional` **outputSchema?**: `ZodSchema`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>
 
 ---
 
