@@ -13,7 +13,6 @@ import { redactUrlForError } from "../utils/logSanitize.js";
 import { getProviderModel } from "../utils/providerConfig.js";
 import {
   asNumber,
-  DEFAULT_DECISION_TIMEOUT_MS,
   describeValidationErrors,
   isRecord,
   SystemOneDecisionProvider,
@@ -423,9 +422,7 @@ export class TypeSafeProvider extends SystemOneDecisionProvider {
     }
     const response = await this.proxyFetch(`${this.baseURL}/v1/models`, {
       headers: { Authorization: `Bearer ${this.apiKey}` },
-      signal: AbortSignal.timeout(
-        this.defaultTimeout ?? DEFAULT_DECISION_TIMEOUT_MS,
-      ),
+      signal: AbortSignal.timeout(this.defaultTimeout),
     });
     const payload: unknown = await response.json().catch(() => null);
     if (!response.ok) {
