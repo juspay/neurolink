@@ -58,7 +58,10 @@ export function createAllRoutes(
     }),
     createToolRoutes(basePath),
     createMCPRoutes(basePath),
-    createMemoryRoutes(basePath),
+    createMemoryRoutes(basePath, {
+      ...options?.memory,
+      perUserAuth: options?.perUserAuth,
+    }),
     createHealthRoutes(basePath),
     createTranscribeRoutes(basePath, options?.transcribe),
   ];

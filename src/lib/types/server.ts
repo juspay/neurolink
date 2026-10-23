@@ -1643,12 +1643,15 @@ export type CreateRoutesOptions = {
    * people (one credential per person). The agent routes then take `userId`
    * and the session only from the authenticated user and ignore the request
    * body's, on every adapter and for every request; a request with no
-   * authenticated user gets neither. Any truthy value turns it on.
+   * authenticated user gets neither. The memory routes scope every session to
+   * that user too (see `ServerMemoryRouteOptions`). Any truthy value turns it
+   * on.
    *
    * **A server with per-person authentication must set this.** Left at the
    * default (`false`) requests choose `userId` and `sessionId` in the body, so
-   * any authenticated caller can name another person there and act as them.
-   * The one exception is Hono, where a request whose client sent its own
+   * any authenticated caller can name another person there and act as them,
+   * and the memory routes ignore who is calling. The agent routes have one
+   * exception, Hono, where a request whose client sent its own
    * `X-Request-ID` header reaches the handler with the middleware's context and
    * an authenticated `ctx.user` wins over the body, as before, and so on a
    * context the built-in adapters did not build (your own adapter, a handler
@@ -1674,6 +1677,76 @@ export type CreateRoutesOptions = {
    * `X-Request-ID`, and every other request runs as anonymous.
    */
   perUserAuth?: boolean;
+  /**
+   * Options for the conversation-memory routes (`<basePath>/memory/*`): which
+   * roles are admins when `perUserAuth` is on. Whether the routes are scoped is
+   * decided by the top-level `perUserAuth`, so it is not accepted here.
+   */
+  memory?: Omit<ServerMemoryRouteOptions, "perUserAuth">;
+};
+
+// =============================================================================
+// MEMORY ROUTES (from server/routes/memoryRoutes.ts)
+// =============================================================================
+
+/** Options for `createMemoryRoutes()`. */
+export type ServerMemoryRouteOptions = {
+  /**
+   * Set to `true` when the authentication middleware identifies individual
+   * people (one credential per person). Every memory route but
+   * `GET <basePath>/memory/health` then needs an authenticated user (`401`
+   * without one, or with an empty id) and is scoped to it: a caller reaches
+   * only its own sessions, and statistics and clear-all need an admin role.
+   * Any truthy value turns it on.
+   *
+   * Leave it unset (default `false`) for no authentication or one shared API
+   * key, such as `neurolink serve` with `NEUROLINK_SERVER_API_KEY`. A shared key
+   * names no person, so the routes do not read `ctx.user` at all and behave as
+   * they always have: `?userId=` chooses the user on Redis, in-memory sessions
+   * are keyed by id alone, and statistics and clear-all are open to every
+   * caller that passes your authentication.
+   *
+   * The routes can only read `ctx.user` if the adapter hands it to the handler,
+   * which it does when the server carries middleware state.
+   * `registerAllRoutes` turns that on when given `perUserAuth`; a caller that
+   * registers `createMemoryRoutes` itself must create the server with
+   * `carryMiddlewareState: true`, or every request but `GET /memory/health` is
+   * answered `401`.
+   *
+   * "Only its own sessions" is unconditional on the in-memory manager. On
+   * Redis it holds only while no user id contains `:`: the manager joins the
+   * two as `<keyPrefix><userId>:<sessionId>` without escaping either, and the
+   * session id comes from the URL, so user `a` asking for session `b:c` reaches
+   * the key of user `a:b` and session `c` (reading and deleting it). A session
+   * created without a `userId` likewise shares the key of a user whose id is
+   * `session-only`. Issue user ids without `:` (and never `session-only`) when
+   * you rely on the scoping on Redis.
+   */
+  perUserAuth?: boolean;
+  /**
+   * Roles allowed to read another user's sessions, read memory statistics and
+   * clear every session. Default `["admin"]`. Only consulted with
+   * `perUserAuth`.
+   *
+   * On Redis, sessions are keyed per user, so an admin reaches another user's
+   * session by naming that user in `?userId=` (without it the admin's own
+   * sessions). A session created without a `userId` is stored under
+   * `<keyPrefix>session-only:<sessionId>`, the key of a user named
+   * `session-only`: an admin reaches it by naming `?userId=session-only` (so
+   * does an ordinary user whose own id is `session-only`), no other name
+   * reaches it, and clear-all removes it. The in-memory manager lists every
+   * session for an admin.
+   */
+  adminRoles?: string[];
+};
+
+/**
+ * Who is calling a memory route. `user` is the authenticated user the request
+ * is scoped to, and `undefined` when the routes are unscoped (no `perUserAuth`).
+ */
+export type ServerMemoryActor = {
+  user: AuthenticatedUser | undefined;
+  admin: boolean;
 };
 
 // =============================================================================

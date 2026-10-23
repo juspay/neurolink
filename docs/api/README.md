@@ -3026,6 +3026,8 @@ console.log(result.content);
 - [OpenAPIGeneratorConfig](type-aliases/OpenAPIGeneratorConfig.md)
 - [OpenAPISpec](type-aliases/OpenAPISpec.md)
 - [CreateRoutesOptions](type-aliases/CreateRoutesOptions.md)
+- [ServerMemoryRouteOptions](type-aliases/ServerMemoryRouteOptions.md)
+- [ServerMemoryActor](type-aliases/ServerMemoryActor.md)
 - [ServerTranscribeCapabilities](type-aliases/ServerTranscribeCapabilities.md)
 - [ServerTranscribeRouteOptions](type-aliases/ServerTranscribeRouteOptions.md)
 - [ServerSTTEvalOptions](type-aliases/ServerSTTEvalOptions.md)
