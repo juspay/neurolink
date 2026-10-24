@@ -25,6 +25,7 @@ import type {
   ProxyGeminiPart,
   StreamSerializerAdapter,
 } from "../types/index.js";
+import { toStandardBase64 } from "./proxyImageInput.js";
 
 /** Google's role for assistant turns. */
 const MODEL_ROLE = "model";
@@ -51,32 +52,6 @@ function partsToText(parts: ProxyGeminiPart[] | undefined): string {
 /** `image/<subtype>` as a MIME restricted-name (RFC 6838): no space, comma or semicolon. */
 const IMAGE_MIME_TYPE = /^image\/[a-z0-9][a-z0-9!#$&^_.+-]{0,126}$/i;
 
-/** Standard or URL-safe base64, the two alphabets Google's JSON `bytes` fields accept. */
-const RAW_BASE64 = /^[A-Za-z0-9+/_-]+={0,2}$/;
-
-/**
- * `data` as padded standard-alphabet base64, which is what a `data:` URI carries,
- * or undefined when it is not well-formed base64.
- *
- * The SDK forwards the base64 text of a `data:` URI to the provider as it is, so
- * a URL-safe or unpadded payload would reach a provider that expects neither.
- * The alphabet check alone lets through a payload no decoder takes: one
- * character over a multiple of four is no base64 length at all, and padding
- * must be exactly what the length calls for.
- */
-function toStandardBase64(data: string): string | undefined {
-  const standard = /[-_]/.test(data)
-    ? data.replace(/-/g, "+").replace(/_/g, "/")
-    : data;
-  const body = standard.replace(/=+$/, "");
-  const padding = standard.length - body.length;
-  const missing = (4 - (body.length % 4)) % 4;
-  if (missing === 3 || (padding > 0 && padding !== missing)) {
-    return undefined;
-  }
-  return `${body}${"=".repeat(missing)}`;
-}
-
 /**
  * The `input.images` entry for one `inlineData`, or undefined when it has none.
  *
@@ -91,6 +66,12 @@ function toStandardBase64(data: string): string | undefined {
  * `mimeType`, an impossible length or inconsistent padding is refused there as
  * `invalid_image_reference`. Audio and PDF parts land in the same place; this
  * parser has never told them from images.
+ *
+ * Wrapping is not a verdict that the bytes are an image. Base64 text of a
+ * decodable length is wrapped whatever it decodes to (a path such as
+ * `/var/tmp/name` is made only of base64 characters), and the vetter then
+ * refuses it as `invalid_image_data` unless the bytes are a recognised image.
+ * It also replaces the declared `mimeType` with the type the bytes have.
  */
 function inlineDataToImage(
   inlineData: ProxyGeminiPart["inlineData"],
@@ -100,11 +81,7 @@ function inlineDataToImage(
     return undefined;
   }
   const mimeType = inlineData?.mimeType;
-  if (
-    typeof mimeType !== "string" ||
-    !IMAGE_MIME_TYPE.test(mimeType) ||
-    !RAW_BASE64.test(data)
-  ) {
+  if (typeof mimeType !== "string" || !IMAGE_MIME_TYPE.test(mimeType)) {
     return data;
   }
   const standard = toStandardBase64(data);
