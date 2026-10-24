@@ -405,9 +405,13 @@ allocation check answers 429/code 4006, so a 413 means refused by the gate and a
   images, the text at the edge) and 632,380 and 1,168,636 bytes (one image of
   about 0.5 and 1.1 MB, a text of 100,000 characters) got 429 on `clef-flash`,
   not 5021, while a text of 196,612 characters got 5021 with the same 200 KB image
-  beside it. That is an inference from the order of the two refusals; no answer
-  was read from these bodies. Live case 19.14, which sends about 253 KB with an
-  image, is answered. On 2026-10-05 the estimate was the whole body over four
+  beside it. That was an inference from the order of the two refusals, made with
+  the allocation spent. Once it was restored (2026-10-24) the answers were read:
+  image bodies of 196,616 bytes (8 over the text edge) and 1,168,636 bytes on
+  `clef-flash`, and of 524,292 and 724,504 bytes on `clef` (one image each and a
+  short text), got HTTP 200 with 258, 906, 749 and 825 input tokens; the status
+  and the token counts were read, not the content of the answers. Live case 19.14,
+  which sends about 253 KB with an image, is answered. On 2026-10-05 the estimate was the whole body over four
   (133,126 for 532,505 bytes); it no longer is.
 - **It counts characters, not bytes.** 98,252 "é" (196,612 bytes in UTF-8) got 429;
   98,252 newlines, which JSON writes as two characters each, got 5021.
