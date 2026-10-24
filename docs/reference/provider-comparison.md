@@ -872,7 +872,7 @@ _Subscription Pricing (via OAuth):_
 ### 15. NVIDIA NIM
 
 **Provider ID:** `nvidia-nim`
-**Default Model:** `meta/llama-3.3-70b-instruct`
+**Default Model:** `openai/gpt-oss-20b`
 **Aliases:** `nvidia`, `nim`
 
 **Strengths:**

@@ -1528,7 +1528,7 @@ export NVIDIA_NIM_API_KEY="nvapi-your-nvidia-api-key"
 ### Optional Configuration
 
 ```bash
-export NVIDIA_NIM_MODEL="meta/llama-3.3-70b-instruct"              # Default model
+export NVIDIA_NIM_MODEL="openai/gpt-oss-20b"                         # Default model
 export NVIDIA_NIM_BASE_URL="https://integrate.api.nvidia.com/v1"   # Default; override for self-hosted NIM
 ```
 
@@ -1546,7 +1546,7 @@ export NVIDIA_NIM_CHAT_TEMPLATE=""          # Override model chat template (adva
 
 ### Supported Models
 
-- `meta/llama-3.3-70b-instruct` (default) - Meta Llama 3.3 70B Instruct
+- `openai/gpt-oss-20b` (default) - OpenAI gpt-oss 20B, 128K context, tool calling
 - Any model from the [NVIDIA NIM catalog](https://build.nvidia.com/models)
 
 ### Usage Example
@@ -1559,7 +1559,7 @@ const neurolink = new NeuroLink();
 const result = await neurolink.generate({
   input: { text: "Explain GPU architecture" },
   provider: "nvidia-nim",
-  model: "meta/llama-3.3-70b-instruct",
+  model: "openai/gpt-oss-20b",
   temperature: 0.7,
   maxTokens: 1000,
 });
@@ -1596,7 +1596,7 @@ export NVIDIA_NIM_BASE_URL="http://your-nim-server:8000/v1"
 | Variable                        | Required | Default                               | Description                             |
 | ------------------------------- | -------- | ------------------------------------- | --------------------------------------- |
 | `NVIDIA_NIM_API_KEY`            | ✅       | -                                     | NVIDIA NIM API key (Bearer token)       |
-| `NVIDIA_NIM_MODEL`              | ❌       | `meta/llama-3.3-70b-instruct`         | Default model                           |
+| `NVIDIA_NIM_MODEL`              | ❌       | `openai/gpt-oss-20b`                  | Default model                           |
 | `NVIDIA_NIM_BASE_URL`           | ❌       | `https://integrate.api.nvidia.com/v1` | Override for self-hosted NIM            |
 | `NVIDIA_NIM_TOP_K`              | ❌       | -                                     | Top-K sampling parameter                |
 | `NVIDIA_NIM_MIN_P`              | ❌       | -                                     | Min-P sampling parameter                |
@@ -1925,7 +1925,7 @@ DEEPSEEK_MODEL=deepseek-chat  # Optional (deepseek-chat or deepseek-reasoner)
 
 # NVIDIA NIM
 NVIDIA_NIM_API_KEY=nvapi-your-nvidia-key
-NVIDIA_NIM_MODEL=meta/llama-3.3-70b-instruct  # Optional
+NVIDIA_NIM_MODEL=openai/gpt-oss-20b  # Optional
 
 # LM Studio (local — no API key required)
 LM_STUDIO_BASE_URL=http://localhost:1234/v1  # Optional

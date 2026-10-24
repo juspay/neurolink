@@ -127,7 +127,7 @@ NIM hosts hundreds of models. NeuroLink ships with these popular models pre-enum
 | `microsoft/phi-4`                       | 16K     | Compact, capable |
 | `google/gemma-3-27b-it`                 | 128K    | Google Gemma     |
 
-> **Availability, checked 2026-10-02.** NVIDIA's `GET https://integrate.api.nvidia.com/v1/models` did not list `meta/llama-3.3-70b-instruct`, `meta/llama-3.1-70b-instruct`, `deepseek-ai/deepseek-r1-distill-llama-70b` or `google/gemma-3-27b-it`. The `NvidiaNimModels` enum records a probe on 2026-08-26 in which these answered "no longer available", and keeps the members so existing code compiles. `meta/llama-3.1-405b-instruct`, `deepseek-ai/deepseek-r1`, `mistralai/mixtral-8x22b-instruct-v0.1`, `mistralai/mixtral-8x7b-instruct-v0.1` and `microsoft/phi-4` were also absent from that list on that date, and `meta/llama-3.2-90b-vision-instruct` was listed.
+> **Availability, checked 2026-10-24.** NVIDIA's `GET https://integrate.api.nvidia.com/v1/models` lists `openai/gpt-oss-20b`, `meta/llama-3.2-90b-vision-instruct`, `meta/llama-3.2-11b-vision-instruct` and `nvidia/llama-3.1-nemotron-70b-instruct` from the tables above, and none of the others. A chat request to `meta/llama-3.3-70b-instruct` or `meta/llama-3.1-70b-instruct` answers HTTP 410, "has reached its end of life on 2026-08-26T09:00:00Z and is no longer available"; `nvidia/llama-3.3-nemotron-super-49b-v1` and `mistralai/mixtral-8x22b-instruct-v0.1` also answer 410, and `deepseek-ai/deepseek-r1` and `meta/llama-3.1-405b-instruct` answer 404. `nvidia/llama-3.1-nemotron-70b-instruct` is listed but answered 404 ("not found for account") to the key used for the check. `openai/gpt-oss-20b` and `meta/llama-3.2-11b-vision-instruct` each answered a plain request and a tool-calling request. The `NvidiaNimModels` enum keeps the retired members so existing code compiles.
 
 Browse the full catalog at [https://build.nvidia.com/models](https://build.nvidia.com/models). You can pass any model ID via `--model` or `model:` — NIM returns 404 for IDs that are not in the catalog.
 
@@ -337,6 +337,10 @@ open https://build.nvidia.com/models
 ```
 
 Use the exact model ID shown on the model's page (e.g., `openai/gpt-oss-20b`).
+
+### HTTP 410 "has reached its end of life"
+
+The request named a model NVIDIA has retired, for example `meta/llama-3.1-70b-instruct` or `meta/llama-3.3-70b-instruct` (retired 2026-08-26). If you did not pass `model:`, look for a stale `NVIDIA_NIM_MODEL` in your `.env` or shell: it takes precedence over the built-in default (`openai/gpt-oss-20b`). Remove it or set it to a model from the current catalog.
 
 ### "NVIDIA NIM quota exceeded"
 

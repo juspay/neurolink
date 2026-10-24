@@ -918,7 +918,7 @@ NVIDIA_NIM_API_KEY="nvapi-your-nvidia-api-key"
 #### Optional Variables
 
 ```bash
-NVIDIA_NIM_MODEL="meta/llama-3.3-70b-instruct"              # Default model
+NVIDIA_NIM_MODEL="openai/gpt-oss-20b"                         # Default model
 NVIDIA_NIM_BASE_URL="https://integrate.api.nvidia.com/v1"   # Default: NVIDIA cloud API (override for self-hosted NIM)
 ```
 
@@ -942,7 +942,7 @@ NVIDIA_NIM_CHAT_TEMPLATE=              # Override model chat template string (ad
 
 #### Supported Models
 
-- `meta/llama-3.3-70b-instruct` (default) - Llama 3.3 70B Instruct
+- `openai/gpt-oss-20b` (default) - OpenAI gpt-oss 20B, 128K context, tool calling
 - Any model listed at [build.nvidia.com/models](https://build.nvidia.com/models)
 
 ---
@@ -1344,7 +1344,7 @@ DEEPSEEK_MODEL="deepseek-chat"
 
 # NVIDIA NIM Configuration
 NVIDIA_NIM_API_KEY="nvapi-your-nvidia-key"
-NVIDIA_NIM_MODEL="meta/llama-3.3-70b-instruct"
+NVIDIA_NIM_MODEL="openai/gpt-oss-20b"
 # NVIDIA_NIM_BASE_URL=https://integrate.api.nvidia.com/v1
 
 # LM Studio Configuration (local — no API key required)

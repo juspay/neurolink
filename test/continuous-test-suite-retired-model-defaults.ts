@@ -33,6 +33,9 @@ import "dotenv/config";
  *         src/lib/providers/openAI/client.ts,
  *         src/lib/providers/openRouter/client.ts,
  *         src/lib/providers/googleVertex/client.ts,
+ *         src/lib/providers/nvidiaNim/client.ts,
+ *         src/lib/factories/providerDescriptors.ts,
+ *         src/lib/factories/providerRegistry.ts,
  *         src/lib/utils/modelChoices.ts,
  *         src/lib/utils/providerHealth.ts (recommendation lists AND the
  *         standalone getConfiguredLiteLLMModel() availability-probe guess)
@@ -227,6 +230,75 @@ await test("Provider health LiteLLM availability probe default is not stale gpt-
       content,
     ),
     "providerHealth.ts getConfiguredLiteLLMModel() must guess openai/gpt-5.4-mini, not stale openai/gpt-4o-mini, when LITELLM_MODEL is unset",
+  );
+});
+
+await test("NVIDIA NIM default and model picker do not offer the models NVIDIA retired", async () => {
+  // NVIDIA answers HTTP 410 for these ("has reached its end of life on
+  // 2026-08-26"), so a default or a "Recommended" pick naming one fails every
+  // call that omits `model`. The NvidiaNimModels members and the pricing and
+  // context-window rows stay (callers compile against them); only defaults and
+  // picker entries are checked.
+  const retired = [
+    "meta/llama-3.3-70b-instruct",
+    "meta/llama-3.1-70b-instruct",
+    "nvidia/llama-3.3-nemotron-super-49b-v1",
+    "mistralai/mixtral-8x22b-instruct-v0.1",
+    "LLAMA_3_3_70B_INSTRUCT",
+    "LLAMA_3_1_70B_INSTRUCT",
+    "NEMOTRON_SUPER_49B",
+    "MIXTRAL_8X22B_INSTRUCT",
+  ];
+  const mentionsRetired = (text: string): boolean =>
+    retired.some((id) => text.includes(id));
+
+  const descriptors = read("factories/providerDescriptors.ts");
+  const nimDefault =
+    /name: AIProviderName\.NVIDIA_NIM,[\s\S]*?defaultModel: ([^,]+),/.exec(
+      descriptors,
+    )?.[1];
+  assert(
+    nimDefault === "NvidiaNimModels.GPT_OSS_20B",
+    "providerDescriptors.ts NVIDIA_NIM defaultModel must be NvidiaNimModels.GPT_OSS_20B",
+  );
+
+  const registry = read("factories/providerRegistry.ts");
+  const registryDefault =
+    /process\.env\.NVIDIA_NIM_MODEL \|\|[\s\S]*?(NvidiaNimModels\.\w+)/.exec(
+      registry,
+    )?.[1];
+  assert(
+    registryDefault === "NvidiaNimModels.GPT_OSS_20B",
+    "providerRegistry.ts must fall back to NvidiaNimModels.GPT_OSS_20B when NVIDIA_NIM_MODEL is unset",
+  );
+
+  const client = read("providers/nvidiaNim/client.ts");
+  const clientDefault =
+    /getProviderModel\(\s*"NVIDIA_NIM_MODEL",[\s\S]*?(NvidiaNimModels\.\w+),/.exec(
+      client,
+    )?.[1];
+  assert(
+    clientDefault === "NvidiaNimModels.GPT_OSS_20B",
+    "nvidiaNim/client.ts getDefaultNimModel() must fall back to NvidiaNimModels.GPT_OSS_20B",
+  );
+
+  const choices = read("utils/modelChoices.ts");
+  assert(
+    /\[AIProviderName\.NVIDIA_NIM\]: NvidiaNimModels\.GPT_OSS_20B,/.test(
+      choices,
+    ),
+    "modelChoices.ts default model for NVIDIA_NIM must be NvidiaNimModels.GPT_OSS_20B",
+  );
+  const picker = /\[AIProviderName\.NVIDIA_NIM\]: \[([\s\S]*?)\n {2}\],/.exec(
+    choices,
+  )?.[1];
+  assert(
+    picker !== undefined && picker.includes("NvidiaNimModels.GPT_OSS_20B"),
+    "modelChoices.ts NVIDIA_NIM picker must list gpt-oss-20b, the default",
+  );
+  assert(
+    picker !== undefined && !mentionsRetired(picker),
+    "modelChoices.ts NVIDIA_NIM picker must not offer a model NVIDIA retired",
   );
 });
 

@@ -79,7 +79,7 @@ DEEPSEEK_MODEL=deepseek-chat
 # NVIDIA NIM CONFIGURATION
 # =============================================================================
 NVIDIA_NIM_API_KEY=
-NVIDIA_NIM_MODEL=meta/llama-3.3-70b-instruct
+NVIDIA_NIM_MODEL=openai/gpt-oss-20b
 # Optional: override default base URL (use for self-hosted NIM)
 # NVIDIA_NIM_BASE_URL=https://integrate.api.nvidia.com/v1
 

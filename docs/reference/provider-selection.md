@@ -397,7 +397,7 @@ Choose NVIDIA NIM when you want NVIDIA-curated hosted inference — Llama, Nemot
 
 - **When to choose:** You want Llama 3.x or Nemotron models served at scale; you need thinking/reasoning via hosted DeepSeek-R1 or Nemotron-Reasoning; you are already an NGC customer.
 - **Provider ID:** `nvidia-nim`
-- **Key models:** `meta/llama-3.3-70b-instruct`, `nvidia/nemotron-4-340b-instruct`, DeepSeek-R1 variants
+- **Key models:** `openai/gpt-oss-20b` (default), `nvidia/nemotron-4-340b-instruct`, DeepSeek-R1 variants
 - **Vision:** Available on select models (Phi-3-vision, Llama 3.2 Vision); check https://build.nvidia.com/models.
 - **Not suitable for:** PDF processing; vision on non-vision models.
 - **Credential needed:** `NVIDIA_NIM_API_KEY` (get one at https://build.nvidia.com/settings/api-keys)

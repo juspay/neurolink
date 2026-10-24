@@ -270,24 +270,16 @@ const TOP_MODELS_CONFIG: Record<
   ],
   [AIProviderName.NVIDIA_NIM]: [
     {
-      model: "meta/llama-3.3-70b-instruct",
-      description: "Recommended - Llama 3.3 70B",
+      model: NvidiaNimModels.GPT_OSS_20B,
+      description: "Recommended - gpt-oss 20B (default)",
     },
     {
-      model: "nvidia/llama-3.3-nemotron-super-49b-v1",
-      description: "Nemotron Super (reasoning)",
+      model: NvidiaNimModels.LLAMA_3_2_11B_VISION,
+      description: "Llama 3.2 11B vision",
     },
     {
-      model: "deepseek-ai/deepseek-r1",
-      description: "DeepSeek-R1 hosted on NIM",
-    },
-    {
-      model: "meta/llama-3.2-90b-vision-instruct",
-      description: "Llama 3.2 vision",
-    },
-    {
-      model: "mistralai/mixtral-8x22b-instruct-v0.1",
-      description: "Mixtral 8x22B",
+      model: NvidiaNimModels.LLAMA_3_2_90B_VISION,
+      description: "Llama 3.2 90B vision",
     },
   ],
   [AIProviderName.LM_STUDIO]: [
