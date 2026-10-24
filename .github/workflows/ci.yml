@@ -507,6 +507,10 @@ jobs:
         if: matrix.group == 'rest'
         run: pnpm run test:aistudio-loop-characterization
 
+      - name: zod tool schemas on the wire (pinned shapes, local stand-in, no API keys required)
+        if: matrix.group == 'rest'
+        run: pnpm run test:zod-wire-schemas
+
       - name: 🧩 Provider Onboarding Completeness
         if: matrix.group == 'rest'
         run: pnpm run verify:provider-onboarding

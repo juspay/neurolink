@@ -1,0 +1,1491 @@
+{
+  "openai-compatible": {
+    "string_basic": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "string_constraints": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 20,
+          "pattern": "^[a-z]+$"
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "string_formats": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "properties": {
+            "e": {
+              "type": "string",
+              "format": "email",
+              "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+            },
+            "u": {
+              "type": "string",
+              "format": "uri"
+            },
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "dt": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+            },
+            "ip": {
+              "type": "string",
+              "format": "ipv4",
+              "pattern": "^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$"
+            }
+          },
+          "required": ["e", "u", "id", "dt", "ip"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "number_constraints": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "number_positive_multiple": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "multipleOf": 5
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "bigint_val": {
+      "type": "object",
+      "properties": {}
+    },
+    "boolean_val": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "boolean"
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "literal_val": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "const": "a"
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "literal_union": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "a"
+            },
+            {
+              "type": "number",
+              "const": 2
+            },
+            {
+              "type": "boolean",
+              "const": true
+            }
+          ]
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "enum_val": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "enum": ["red", "green", "blue"]
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "native_enum": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "enum": ["a", "b"]
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "object_basic": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "string"
+            },
+            "b": {
+              "type": "number"
+            },
+            "c": {
+              "type": ["boolean", "null"]
+            }
+          },
+          "required": ["a", "c"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "object_defaults": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "default": "x",
+              "type": "string"
+            },
+            "b": {
+              "default": 3,
+              "type": "number"
+            },
+            "c": {
+              "default": [],
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": ["a", "b", "c"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "object_strict": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "string"
+            }
+          },
+          "required": ["a"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "object_loose": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "string"
+            }
+          },
+          "required": ["a"],
+          "additionalProperties": {}
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "object_catchall": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "string"
+            }
+          },
+          "required": ["a"],
+          "additionalProperties": {
+            "type": "number"
+          }
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "object_describe": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "properties": {
+            "q": {
+              "type": "string",
+              "description": "the query"
+            },
+            "n": {
+              "type": "number",
+              "description": "how many"
+            }
+          },
+          "required": ["q"],
+          "additionalProperties": false,
+          "description": "search args"
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "object_nested": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "properties": {
+            "user": {
+              "type": "object",
+              "properties": {
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "k": {
+                        "type": "string"
+                      },
+                      "v": {
+                        "type": ["string", "number"]
+                      }
+                    },
+                    "required": ["k", "v"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["tags"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["user"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "array_constraints": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "minItems": 1,
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "array_nonempty": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "tuple_val": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "array",
+          "items": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "additionalItems": false,
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "tuple_rest": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "array",
+          "items": [
+            {
+              "type": "string"
+            }
+          ],
+          "additionalItems": {
+            "type": "number"
+          },
+          "minItems": 1
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "record_string": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "number"
+          }
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "record_enum": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "enum": ["a", "b"]
+          },
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "required": ["a", "b"]
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "union_val": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": ["string", "number", "null"]
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "discriminated": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "a"
+                },
+                "x": {
+                  "type": "string"
+                }
+              },
+              "required": ["kind", "x"],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "b"
+                },
+                "y": {
+                  "type": "number"
+                }
+              },
+              "required": ["kind", "y"],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "intersection_val": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "string"
+            },
+            "b": {
+              "type": "number"
+            }
+          },
+          "required": ["a", "b"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "nullable_val": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": ["string", "null"]
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "nullish_val": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": ["string", "null"]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "optional_default": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "default": "z",
+              "type": "string"
+            }
+          },
+          "required": ["a"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "readonly_val": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "readOnly": true,
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "string"
+            }
+          },
+          "required": ["a"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "catch_val": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "default": "fallback",
+          "type": "string"
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "coerce_number": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "date_val": {
+      "type": "object",
+      "properties": {}
+    },
+    "refine_val": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "number"
+            }
+          },
+          "required": ["a"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "transform_val": {
+      "type": "object",
+      "properties": {}
+    },
+    "pipe_val": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "minLength": 2
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "preprocess_val": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "template_literal": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "pattern": "^id--?\\d+(?:\\.\\d+)?$"
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "set_val": {
+      "type": "object",
+      "properties": {}
+    },
+    "map_val": {
+      "type": "object",
+      "properties": {}
+    },
+    "any_val": {
+      "type": "object",
+      "properties": {
+        "value": {}
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "unknown_val": {
+      "type": "object",
+      "properties": {
+        "value": {}
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "void_val": {
+      "type": "object",
+      "properties": {}
+    },
+    "never_val": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "not": {}
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "lazy_recursive": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            }
+          },
+          "required": ["name"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "getter_recursive": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "number"
+            },
+            "next": {
+              "type": "object"
+            }
+          },
+          "required": ["id"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "meta_val": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "title": "T",
+          "examples": ["e"]
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "tool_like": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "file path"
+            },
+            "mode": {
+              "default": "r",
+              "type": "string",
+              "enum": ["r", "w"]
+            },
+            "opts": {
+              "type": "object",
+              "properties": {
+                "recursive": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": ["path", "mode"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    }
+  },
+  "gemini-native": {
+    "string_basic": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "string_constraints": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 20,
+            "pattern": "^[a-z]+$"
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "string_formats": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "object",
+            "properties": {
+              "e": {
+                "type": "string",
+                "format": "email",
+                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+              },
+              "u": {
+                "type": "string",
+                "format": "uri"
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "dt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "ip": {
+                "type": "string",
+                "format": "ipv4",
+                "pattern": "^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$"
+              }
+            },
+            "required": ["e", "u", "id", "dt", "ip"]
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "number_constraints": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "number_positive_multiple": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "multipleOf": 5
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "bigint_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "boolean_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "literal_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "enum": ["a"]
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "literal_union": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "description": "Value as string (accepts: string | number | boolean)"
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "enum_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "enum": ["red", "green", "blue"]
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "native_enum": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "enum": ["a", "b"]
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "object_basic": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "object",
+            "properties": {
+              "a": {
+                "type": "string"
+              },
+              "b": {
+                "type": "number"
+              },
+              "c": {
+                "nullable": true,
+                "type": "boolean"
+              }
+            },
+            "required": ["a", "c"]
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "object_defaults": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "object",
+            "properties": {
+              "a": {
+                "type": "string"
+              },
+              "b": {
+                "type": "number"
+              },
+              "c": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": ["a", "b", "c"]
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "object_strict": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "object",
+            "properties": {
+              "a": {
+                "type": "string"
+              }
+            },
+            "required": ["a"]
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "object_loose": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "object",
+            "properties": {
+              "a": {
+                "type": "string"
+              }
+            },
+            "required": ["a"]
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "object_catchall": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "object",
+            "properties": {
+              "a": {
+                "type": "string"
+              }
+            },
+            "required": ["a"]
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "object_describe": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "object",
+            "properties": {
+              "q": {
+                "type": "string",
+                "description": "the query"
+              },
+              "n": {
+                "type": "number",
+                "description": "how many"
+              }
+            },
+            "required": ["q"],
+            "description": "search args"
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "object_nested": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "object",
+            "properties": {
+              "user": {
+                "type": "object",
+                "properties": {
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "k": {
+                          "type": "string"
+                        },
+                        "v": {
+                          "type": "string",
+                          "description": "Value as string (accepts: string | number)"
+                        }
+                      },
+                      "required": ["k", "v"]
+                    }
+                  }
+                },
+                "required": ["tags"]
+              }
+            },
+            "required": ["user"]
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "array_constraints": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "minItems": 1,
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "array_nonempty": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "tuple_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Value as string (accepts: string | number)"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "tuple_rest": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Value as string (accepts: string | number)"
+            },
+            "minItems": 1
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "record_string": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "object"
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "record_enum": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "object",
+            "required": ["a", "b"]
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "union_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "description": "Value as string (accepts: string | number | string)"
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "discriminated": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "description": "Value as string (accepts: object | object)"
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "intersection_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "object",
+            "properties": {
+              "a": {
+                "type": "string"
+              },
+              "b": {
+                "type": "number"
+              }
+            },
+            "required": ["a", "b"]
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "nullable_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "nullish_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "object",
+            "properties": {
+              "a": {
+                "nullable": true,
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "optional_default": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "object",
+            "properties": {
+              "a": {
+                "type": "string"
+              }
+            },
+            "required": ["a"]
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "readonly_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "readOnly": true,
+            "type": "object",
+            "properties": {
+              "a": {
+                "type": "string"
+              }
+            },
+            "required": ["a"]
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "catch_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "coerce_number": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "number"
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "date_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "refine_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "object",
+            "properties": {
+              "a": {
+                "type": "number"
+              }
+            },
+            "required": ["a"]
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "transform_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "pipe_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "minLength": 2
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "preprocess_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "template_literal": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "pattern": "^id--?\\d+(?:\\.\\d+)?$"
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "set_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "map_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "any_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {}
+        },
+        "required": ["value"]
+      }
+    },
+    "unknown_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {}
+        },
+        "required": ["value"]
+      }
+    },
+    "void_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "never_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "not": {}
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "lazy_recursive": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "children": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              }
+            },
+            "required": ["name"]
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "getter_recursive": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "number"
+              },
+              "next": {
+                "type": "object"
+              }
+            },
+            "required": ["id"]
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "meta_val": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "title": "T",
+            "examples": ["e"]
+          }
+        },
+        "required": ["value"]
+      }
+    },
+    "tool_like": {
+      "parametersJsonSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "file path"
+              },
+              "mode": {
+                "type": "string",
+                "enum": ["r", "w"]
+              },
+              "opts": {
+                "type": "object",
+                "properties": {
+                  "recursive": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "required": ["path", "mode"]
+          }
+        },
+        "required": ["value"]
+      }
+    }
+  }
+}

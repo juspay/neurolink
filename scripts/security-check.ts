@@ -108,11 +108,6 @@ const ACCEPTED_RISK_PACKAGES: Record<
     maxSeverity: "high",
     reason: "transitive via the optional fastify server adapter",
   },
-  "body-parser": {
-    maxSeverity: "high",
-    reason:
-      "transitive via the optional express server adapter; the patched 2.4.0 (2026-10-22) sits inside the 3-day minimumReleaseAge and lands via a lockfile bump once it clears",
-  },
   undici: {
     maxSeverity: "high",
     reason:
