@@ -408,7 +408,10 @@ reads. A caller can always name it with `provider: "openai-decisions"`. So:
 The classifier router's `auto` gate counts the credentials given to the
 `NeuroLink` constructor, the environment and the request's own per-call
 credentials, so a `credentials.openaiDecisions` passed on a single call can make
-`auto` pick `jev`, and the decision then goes to that account. The other
+`auto` pick `jev`. The decision goes to that account only when no provider ahead
+of OpenAI Decisions is configured; otherwise it goes to the earlier provider, as
+in the cases above, because per-call credentials add a provider and do not pin
+one. The other
 consumers NeuroLink wires itself that run inside a `generate()` or `stream()`
 call (tool routing and compaction) forward that call's `credentials` to the
 decision too. Compaction triggered by `compactSession()`, which has no request,
