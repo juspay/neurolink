@@ -24,7 +24,10 @@ Middleware name
 
 > `optional` **order?**: `number`
 
-Execution order (lower = earlier)
+Where this middleware belongs relative to the others, for reading and for
+the debug log. Informational only: the adapters do not sort by it, they run
+middleware in the order it was registered. The built-ins' numbers (for
+example authentication 10, session 12) say what to register first.
 
 ---
 
