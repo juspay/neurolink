@@ -650,16 +650,28 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
       astralTokensPerChar: 3,
       // Images only. Exactly four tiny images succeeded and five were refused
       // on both models. image/jpg also succeeded and is normalized to JPEG.
-      // Retain the conservative 256,000-byte encoded-body cap: on 2026-10-04
-      // both models accepted 520,000 text characters and refused 525,000 with
-      // 413/code 5021. On 2026-10-03, clef-flash accepted 262,000 and refused
-      // 270,000. Estimates are the encoded body bytes / 4, give or take one. The
-      // threshold moved from 65,527 accepted / 67,527 refused to 130,026 /
-      // 131,276 (clef) and 130,027 / 131,277 (flash); errors still print 65,536.
-      // Inference: the new interval contains 131,072 (twice the printed
-      // figure); reason unknown.
-      // On 2026-10-05 both models accepted PNG bodies up to 492,485 bytes and
-      // refused 532,505 (flash) and 532,499 (clef) with the same 413; the old 195/202 KB boundary is
+      // The 256,000-byte cap on the whole encoded body is NeuroLink's own and is
+      // the same for both models. It is well below what the service takes with
+      // images, since the 413/code 5021 gate does not count them (2026-10-24:
+      // bodies of up to 1.17 MB, images included, passed it on clef-flash). It
+      // is not below clef-flash's edge for the text: the estimate is the
+      // characters of the JSON without `images`, over four, and the refusal is
+      // past twice the window the message prints (24,576 for clef-flash, so
+      // 196,608 characters; 65,536 for clef, so 524,288). That is checked on the
+      // text alone, per model, in cloudflareClef.ts, 1,024 characters short of
+      // the edge. A text that large is out of reach of the state limit below
+      // except through the questions or control characters, which JSON writes
+      // as up to six characters each, so the margin costs a caller nothing.
+      // History: on 2026-10-04 both models accepted 520,000 text characters and
+      // refused 525,000 with 413/code 5021 (the window was then 65,536 for both).
+      // On 2026-10-03, clef-flash accepted 262,000 and refused 270,000. The
+      // threshold had moved from 65,527 accepted / 67,527 refused to 130,026 /
+      // 131,276 (clef) and 130,027 / 131,277 (flash) in a day, and the window
+      // of clef-flash has since fallen to 24,576 (by 2026-10-20), which moved
+      // its edge to 196,608. On 2026-10-05 both models accepted PNG bodies up
+      // to 492,485 bytes and refused 532,505 (flash) and 532,499 (clef) with the
+      // same 413, whose estimate (133,126) was the whole body over four, images
+      // included, which they no longer are. The old 195/202 KB boundary is
       // historical. See the guide for exact model and date coverage.
       media: { maxImages: 4, video: false, maxRequestBytes: 256_000 },
     },

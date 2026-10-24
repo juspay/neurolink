@@ -10678,6 +10678,19 @@ async function runClefErrors(): Promise<void> {
       ],
     },
     {
+      label:
+        "413 past the context window: the hint says the images are not counted",
+      reply: {
+        status: 413,
+        json: CLEF_ERRORS.overLength,
+        headers: { "cf-ai-req-id": "17060c92-1b60-48d5-b8ab-016882863c15" },
+      },
+      kind: "max_tokens_exceeded",
+      retryable: false,
+      includes: ["without its images"],
+      excludes: ["image data included"],
+    },
+    {
       label: "429 capacity exceeded",
       reply: { status: 429, json: CLEF_ERRORS.capacity, headers: modelHeaders },
       kind: "rate_limit",
@@ -11136,6 +11149,141 @@ async function runClefLimits(): Promise<void> {
         `the message gives the limit (got: ${over.failure.message})`,
       );
       expectEq(over.calls, 0, "nothing was sent");
+    },
+  );
+
+  // Cloudflare's own gate on the request text, measured 2026-10-23 and 24: 413/code
+  // 5021 when the characters of the JSON without its `images` array, over four,
+  // exceed twice the window its message prints (clef-flash 24,576, clef 65,536).
+  // The images are not counted, so a request is sized by its text alone: this is
+  // the text part of the body the provider sends.
+  const clefTextPartOf = (
+    model: string,
+    characters: number,
+  ): Partial<DecisionRequest> => {
+    const bare = JSON.stringify({
+      model: model
+        .trim()
+        .replace(/^@cf\/cloudflare\//i, "")
+        .toLowerCase(),
+      state: "short",
+      questions: { urgent: { type: "noul", instructions: "" } },
+    }).length;
+    return {
+      model,
+      questions: {
+        urgent: {
+          type: "boolean",
+          instructions: "q".repeat(characters - bare),
+        },
+      },
+    };
+  };
+  const sendClef = async (request: Partial<DecisionRequest>) =>
+    withMocks([clefRoute()], async ({ calls }) => {
+      const failure = await captureClefFailure(async () =>
+        clefDecideOne(await createClef(), request),
+      );
+      return { failure, calls: calls.length, bodyText: calls[0]?.bodyText };
+    });
+  const CLEF_FLASH_TEXT_LIMIT = 8 * 24_576 - 1_024;
+
+  await clefCase(
+    "DECIDE cloudflare-clef: clef-flash refuses a request text past 195,584 characters before sending it",
+    async () => {
+      const at = await sendClef(
+        clefTextPartOf("clef-flash", CLEF_FLASH_TEXT_LIMIT),
+      );
+      expect(!at.failure.threw, "a text of 195,584 characters is sent");
+      expectEq(at.calls, 1, "and reaches the network");
+      expectEq(
+        at.bodyText?.length,
+        CLEF_FLASH_TEXT_LIMIT,
+        "the helper builds the body the provider really sends",
+      );
+      const over = await sendClef(
+        clefTextPartOf("clef-flash", CLEF_FLASH_TEXT_LIMIT + 1),
+      );
+      expectEq(
+        over.failure.kind,
+        "max_tokens_exceeded",
+        "refused as Cloudflare's own 413 would be",
+      );
+      expect(
+        over.failure.message.includes('"clef-flash"') &&
+          over.failure.message.includes("accepts at most 195584") &&
+          over.failure.message.includes("without its images"),
+        `the message names the model, the limit and that images are not counted (got: ${over.failure.message})`,
+      );
+      expectEq(over.calls, 0, "nothing was sent");
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: the clef-flash text limit follows the model however it is spelled",
+    async () => {
+      for (const model of [
+        "@cf/cloudflare/clef-flash",
+        "CLEF-FLASH",
+        " clef-flash ",
+      ]) {
+        const over = await sendClef(
+          clefTextPartOf(model, CLEF_FLASH_TEXT_LIMIT + 1),
+        );
+        expectEq(
+          over.failure.kind,
+          "max_tokens_exceeded",
+          `"${model}" is held to the clef-flash limit`,
+        );
+        expectEq(over.calls, 0, `"${model}": nothing was sent`);
+      }
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: images are not counted, so clef-flash still sends a body past 196,608 bytes",
+    async () => {
+      const png = Buffer.concat([
+        syntheticPng(10, 10),
+        Buffer.alloc(150_000, 7),
+      ]);
+      const sent = await sendClef({
+        model: "clef-flash",
+        state: "",
+        images: [png],
+      });
+      expect(!sent.failure.threw, "a 150 KB image is sent");
+      expect(
+        (sent.bodyText?.length ?? 0) > 196_608,
+        `the body is past the text limit's 196,608 (got ${sent.bodyText?.length})`,
+      );
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: clef and a model NeuroLink does not know have no text limit of the flash kind",
+    async () => {
+      for (const model of ["clef", "clef-next"]) {
+        const sent = await sendClef(
+          clefTextPartOf(model, CLEF_FLASH_TEXT_LIMIT + 4_000),
+        );
+        expect(
+          !sent.failure.threw,
+          `${model}: a text past clef-flash's limit is sent`,
+        );
+        expectEq(sent.calls, 1, `${model}: and reaches the network`);
+      }
+    },
+  );
+
+  await clefCase(
+    "DECIDE cloudflare-clef: the manifest gives each model the window Cloudflare prints",
+    async () => {
+      const { getManifestForProvider } =
+        await import("../dist/models/manifestRegistry.js");
+      const models = getManifestForProvider("cloudflare-clef")?.models;
+      expectEq(models?.["clef-flash"]?.contextWindow, 24_576, "clef-flash");
+      expectEq(models?.clef?.contextWindow, 65_536, "clef");
     },
   );
 

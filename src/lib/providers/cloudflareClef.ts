@@ -31,6 +31,35 @@ const MODEL_PREFIX = "@cf/cloudflare/";
 const TIMEOUT_MS_PER_THOUSAND_STATE_TOKENS = 250;
 
 /**
+ * The context window each model's 413/code 5021 message prints. Cloudflare
+ * refuses a request with that code when its estimate passes twice the window,
+ * and the estimate is the characters of the request's JSON text, without its
+ * `images` array, over four: the images are not counted. Measured to the
+ * character on 2026-10-23 and 2026-10-24: clef-flash accepted a text of 196,609
+ * characters and refused 196,610 (twice 24,576, times four, is 196,608), clef
+ * accepted 524,288 and refused 524,292, with and without images of up to
+ * 1.1 MB in the body. The window of clef-flash fell from 65,536 (2026-10-04) to
+ * 24,576 (by 2026-10-20), so these are measurements to re-check, not constants
+ * of the model. A model missing from the map has no limit of this
+ * kind here: the service answers for it.
+ */
+const TEXT_GATE_WINDOW_TOKENS: ReadonlyMap<string, number> = new Map([
+  ["clef", 65_536],
+  ["clef-flash", 24_576],
+]);
+
+/** The estimate is characters / 4 and the refusal is past twice the window. */
+const TEXT_GATE_CHARACTERS_PER_WINDOW_TOKEN = 8;
+
+/**
+ * Kept below the measured edge. The edge is exact for the bodies that were
+ * probed (one question, an ASCII state, `JSON.stringify`), so the margin is for
+ * what they did not vary, and it is 0.5% of the smaller cap. See the
+ * descriptor for why it costs a caller nothing.
+ */
+const TEXT_GATE_MARGIN_CHARACTERS = 1_024;
+
+/**
  * Cloudflare account ids are 32 hex digits. The pattern is wider so that a
  * change of format needs no release, but it still keeps `/`, `.`, `?` and
  * whitespace out of the URL path the id is placed in.
@@ -391,6 +420,37 @@ export class CloudflareClefProvider extends SystemOneDecisionProvider {
     };
   }
 
+  /**
+   * Cloudflare's 413/code 5021 gate, applied before the request is sent: the
+   * text of the body, without its images, may not pass eight characters per
+   * token of the model's window, less a margin (see `TEXT_GATE_WINDOW_TOKENS`).
+   * Refused as `max_tokens_exceeded`, which is how Cloudflare's own 413 is
+   * classified, so a caller sees the same kind whether the refusal is made here
+   * or there.
+   */
+  protected override assertWithinVendorLimits(
+    payload: Record<string, unknown>,
+    model: string,
+  ): void {
+    const wire = wireModel(model);
+    const window =
+      wire === undefined ? undefined : TEXT_GATE_WINDOW_TOKENS.get(wire);
+    if (window === undefined) {
+      return;
+    }
+    const limit =
+      window * TEXT_GATE_CHARACTERS_PER_WINDOW_TOKEN -
+      TEXT_GATE_MARGIN_CHARACTERS;
+    const characters = JSON.stringify({ ...payload, images: undefined }).length;
+    if (characters > limit) {
+      throw this.decisionError({
+        kind: "max_tokens_exceeded",
+        message: `The request's text, without its images, is ${characters} characters; ${this.vendorLabel()}'s "${wire}" model accepts at most ${limit}. Shorten the state or ask shorter questions.`,
+        retryable: false,
+      });
+    }
+  }
+
   /** A success is `{ result: { model, answers, usage }, success: true }`. */
   protected override readDecisionPayload(payload: unknown): unknown {
     return isRecord(payload) && isRecord(payload.result)
@@ -412,7 +472,7 @@ export class CloudflareClefProvider extends SystemOneDecisionProvider {
         .slice(0, MAX_ERROR_MESSAGE_CHARS) || fallback;
     if (kind === "max_tokens_exceeded") {
       message +=
-        " Cloudflare counts the whole request, image data included, at about four characters per token.";
+        " Cloudflare counts the request's text, without its images, at about four characters per token.";
     } else if (parsed?.code === 7000) {
       message += `. Check the model name (Clef is served as "clef" and "clef-flash") and the base URL, which must end in /client/v4 and name your account.`;
     }

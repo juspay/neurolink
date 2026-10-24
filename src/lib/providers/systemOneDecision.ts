@@ -203,6 +203,15 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
     model: string,
     media?: DecisionPreparedMedia,
   ): Record<string, unknown>;
+  /**
+   * A refusal the vendor's own gate would make on the request about to be
+   * sent, which the descriptor's limits cannot express. Throw the refusal
+   * (see `decisionError`); the default has no such gate.
+   */
+  protected assertWithinVendorLimits(
+    _payload: Record<string, unknown>,
+    _model: string,
+  ): void {}
   protected abstract parseDecisionError(
     status: number,
     payload: unknown,
@@ -401,15 +410,15 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
       ]),
     );
     const media = await this.prepareMedia(request);
-    const body = JSON.stringify(
-      this.buildDecisionBody(
-        request.state,
-        wireQuestions,
-        resolvedModel,
-        media,
-      ),
+    const payload = this.buildDecisionBody(
+      request.state,
+      wireQuestions,
+      resolvedModel,
+      media,
     );
+    const body = JSON.stringify(payload);
     this.assertWithinRequestBytes(body);
+    this.assertWithinVendorLimits(payload, resolvedModel);
 
     const timeoutMs =
       request.timeoutMs ??

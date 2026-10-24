@@ -47,7 +47,7 @@ or in beta.
 | Questions per request   | 64                                                                                                                                                                                    |
 | Images                  | up to 4 per request: PNG, JPEG or WebP. No video                                                                                                                                      |
 | State                   | read in full up to at least 190,153 tokens (`clef-flash`) and 52,154 (`clef`) on 2026-10-07; about 2,048 until 2026-10-04. NeuroLink refuses a state it estimates at more than 16,000 |
-| Request size            | 256,000 bytes in NeuroLink, base64 image data included                                                                                                                                |
+| Request size            | 256,000 bytes in NeuroLink, base64 image data included; the text alone is held to 195,584 characters on `clef-flash`                                                                  |
 | Endpoint                | `https://api.cloudflare.com/client/v4/accounts/<account id>/ai/run/@cf/cloudflare/<model>`                                                                                            |
 | Credentials             | an API token with Workers AI permission, and the account id                                                                                                                           |
 | Price                   | $0.24 per million input tokens for `clef`, $0.09 for `clef-flash`; no output price is listed (Cloudflare's Workers AI pricing page)                                                   |
@@ -279,7 +279,7 @@ measurements. Historical latency, billing and burst figures retain their dates.
 | Limit              | Documented                                                                                                          | Measured                                                                                                                                                                                                              |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | State              | a 65,536-token context window; the schema adds that long text "is truncated to fit the model's token limit"         | **2026-10-03 and 2026-10-04: text past about 2,048 tokens ignored without an error. 2026-10-07: states of at least 190,153 tokens (`clef-flash`) and 52,154 (`clef`) read in full. Hosted service or model: unknown** |
-| Request size       | 4 MiB an image, 8 MiB in all, 13 MiB for the body                                                                   | 2026-10-04, both models: 520,000 text characters accepted, 525,000 refused with 413/code 5021; NeuroLink retains its 256,000-byte cap                                                                                 |
+| Request size       | 4 MiB an image, 8 MiB in all, 13 MiB for the body                                                                   | 2026-10-04, both models: 520,000 text characters accepted, 525,000 refused with 413/code 5021; NeuroLink retains its 256,000-byte cap; 2026-10-24: images not counted (below)                                         |
 | Questions          | 1 to 64                                                                                                             | 64 sent, the 65th refused with a 422                                                                                                                                                                                  |
 | Question ids       | letters, digits, `_`, `.`, `-`, up to 100                                                                           | the same; 101 characters and a space refused                                                                                                                                                                          |
 | Options and levels | 2 to 255 options, 2 to 10 levels                                                                                    | the same; 256 and 11 refused                                                                                                                                                                                          |
@@ -366,8 +366,8 @@ and between 492,485 and 532,499 for images. **Inference:** both intervals contai
 524,288 bytes (131,072 x 4); the reason the limit moved is unknown.
 
 **Located on 2026-10-23.** For a plain-text body, Cloudflare refuses with 413/code
-5021 exactly when the estimate (body bytes / 4) exceeds twice the context window its
-message prints, and
+5021 exactly when the estimate (the body's characters / 4, which for these ASCII
+bodies is bytes / 4) exceeds twice the context window its message prints, and
 with 422/code 3030 ("Request requires N tokens; the maximum is M") when the real
 token count exceeds the window. `clef`'s message prints a window of 65,536 tokens
 (its real-token maximum is 65,529), so its 5021 edge is 524,288 bytes: bodies of 524,284 and 524,288 bytes got 422, those of 524,292 and
@@ -379,15 +379,45 @@ above about 136,000 characters (136,250 accepted, 136,875 refused, 422); "a" x N
 plain text sent raw to the service. The byte rule is not what the service applies to
 a request with an image: live case 19.14 sends an image body of about 253 KB through
 NeuroLink to `clef-flash`, more than its 196,608 bytes, and the question is answered
-(it passed on 2026-10-20, 2026-10-22 and 2026-10-23). The images are evidently not
-counted that way; what the estimate does count for such a request was not measured
-here.
+(it passed on 2026-10-20, 2026-10-22 and 2026-10-23). The images are not counted;
+what is counted is under [What the 413 counts](#what-the-413-counts).
 
-NeuroLink keeps the 256,000-byte encoded-body cap. For text, `clef-flash` takes less
-than that, but NeuroLink's limit of 16,000 estimated state tokens keeps a text far
-below it. Live case 19.14 sends an image request just under the cap through
-NeuroLink; live canaries 19.11 and 19.11b check the text-only service ceiling on
-`clef-flash` and `clef`.
+NeuroLink keeps the 256,000-byte encoded-body cap. For images it remains far
+below what the service takes, because the images are not counted (see the next
+section). For text it does not: `clef-flash`'s text edge is 196,608 characters
+and `clef`'s 524,288, so the text is checked on its own, per model. Live case 19.14
+sends an image request just under the cap through NeuroLink; live canaries 19.11
+and 19.11b check the text-only service ceiling on `clef-flash` and `clef`.
+
+### What the 413 counts
+
+The paragraph above gives the edges for plain text. What the estimate is made of
+was measured on 2026-10-23 and 2026-10-24, one request at a time and with the daily
+allocation spent. That does not hide the size gate: it answers 413 before the
+allocation check answers 429/code 4006, so a 413 means refused by the gate and a
+429 means the request passed it (these probes read no answer).
+
+- **The estimate is the characters of the request's JSON without its `images`
+  array** (the key included), over four, rounded half up. A text of 196,609
+  characters got 429 on `clef-flash` and 196,610 got 5021 (estimate 49,153; twice
+  24,576 is 49,152); on `clef`, 524,288 got 429 and 524,292 got 5021.
+- **The images are not in it.** Bodies of 396,820 and 517,199 bytes (one and four
+  images, the text at the edge) and 632,380 and 1,168,636 bytes (one image of
+  about 0.5 and 1.1 MB, a text of 100,000 characters) got 429 on `clef-flash`,
+  not 5021, while a text of 196,612 characters got 5021 with the same 200 KB image
+  beside it. That is an inference from the order of the two refusals; no answer
+  was read from these bodies. Live case 19.14, which sends about 253 KB with an
+  image, is answered. On 2026-10-05 the estimate was the whole body over four
+  (133,126 for 532,505 bytes); it no longer is.
+- **It counts characters, not bytes.** 98,252 "é" (196,612 bytes in UTF-8) got 429;
+  98,252 newlines, which JSON writes as two characters each, got 5021.
+
+NeuroLink therefore holds the text of a Clef request (the body without `images`) to
+195,584 characters on `clef-flash` and 523,264 on `clef`, which is eight characters
+per window token less 1,024, and refuses more locally as `max_tokens_exceeded`,
+the kind Cloudflare's own 413 gets. A model it does not know has no such limit.
+Reaching it takes a text that its state limit above does not allow except through
+the questions or control characters, which JSON writes as up to six characters each.
 
 ### The state window changed on 2026-10-07
 
@@ -443,6 +473,7 @@ request](#what-neurolink-refuses-before-any-request)).
 | A state estimated over 16,000 tokens                                  | digits 1 token each, punctuation 0.75, emoji 3, other non-ASCII text 1.5, letters about 4 characters a token | `max_tokens_exceeded`                 |
 | More than 64 questions in one `decide()`                              | 64                                                                                                           | `max_tokens_exceeded`                 |
 | A request body over 256,000 bytes                                     | 256,000                                                                                                      | `invalid_request`                     |
+| `clef-flash`: text without images over 195,584 characters             | 195,584 (`clef`: 523,264)                                                                                    | `max_tokens_exceeded`                 |
 | More than 4 images, a video, or a format other than PNG, JPEG or WebP |                                                                                                              | `invalid_request`                     |
 | A model name that is not a plain name, such as `clef/../x`            |                                                                                                              | `invalid_request`                     |
 | A missing token or account id, or a base URL that cannot work         |                                                                                                              | `authentication` or `invalid_request` |
@@ -563,10 +594,14 @@ means one retry, after about 250 to 500 ms; the base class retries once.
   this account it came back later, see "What is not verified"); upgrade to Workers Paid or wait.
   Built-in features that use Clef as their default fall back as on any failure.
 - **An image is refused as "The request is N bytes; Cloudflare accepts at most
-  256000"** — Cloudflare counts the base64 text of the image, so NeuroLink
-  refuses it locally under the retained conservative cap. Resize or compress it
-  to well under 190 KB; a 195 KB PNG, which Cloudflare accepted, is about 260,000
-  characters in base64 and is refused here.
+  256000"** — that is NeuroLink's own cap on the whole encoded body, base64
+  included. Cloudflare's 413 gate does not count the images, so it would take
+  more. Resize or compress the image to well under 190 KB; a 195 KB PNG, which
+  Cloudflare accepted, is about 260,000 characters in base64 and is refused here.
+- **A request is refused as "The request's text, without its images, is N
+  characters; Cloudflare's "clef-flash" model accepts at most 195584"** — the
+  state and the questions together are past what that model takes; images do not
+  count towards it. Shorten them.
 - **`decide()` uses Clef although you never chose it** — you have the Workers AI
   token and account id set and no other decision provider; see
   [When NeuroLink uses it](#when-neurolink-uses-it).

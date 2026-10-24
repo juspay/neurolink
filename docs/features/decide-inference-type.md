@@ -1086,11 +1086,21 @@ images. Both models accepted 520,000 text characters and refused 525,000 with
 270,000 on 2026-10-03.
 On 2026-10-05 both models accepted PNG request bodies up to 492,485 bytes and refused
 532,505 (`clef-flash`) and 532,499 (`clef`) with the same 413. For plain-text bodies
-the rule was located on 2026-10-23: the 413 comes when the body in bytes / 4 exceeds
-twice the model's context window, and `clef-flash`'s window had fallen from 65,536 to
-24,576 tokens, which puts its edge for plain text at 196,608 bytes. A request with an
+the rule was located on 2026-10-23: the 413 comes when the body in characters / 4
+(bytes, for plain ASCII text) exceeds twice the model's context window, and
+`clef-flash`'s window had fallen from 65,536 to 24,576 tokens, which puts its edge
+for plain text at 196,608 bytes. A request with an
 image is not held to that edge: live case 19.14 sends about 253 KB to `clef-flash`
 and it is answered. See the [Clef guide's limits](../getting-started/providers/cloudflare-clef.md#limits).
+
+The 413/code 5021 gate counts the request's text, not its images (measured on
+2026-10-23 and 2026-10-24): the characters of the JSON without the `images`
+array, over four, against twice the context window Cloudflare prints (24,576
+tokens for `clef-flash`, 65,536 for `clef`). NeuroLink therefore keeps the
+256,000-byte cap on the whole body for images and also holds the text alone to
+195,584 characters on `clef-flash` and 523,264 on `clef`, refusing more locally as
+`max_tokens_exceeded`. See
+[What the 413 counts](../getting-started/providers/cloudflare-clef.md#what-the-413-counts).
 
 **Two separate size ceilings** (TypeSafe), both enforced:
 
