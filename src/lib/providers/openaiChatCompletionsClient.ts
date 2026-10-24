@@ -886,6 +886,8 @@ export const parseSSEStream = async (
   };
   const decoder = new TextDecoder();
   let parseErr: Error | undefined;
+  // Key of the tool call the previous delta wrote to (for unindexed deltas).
+  let lastToolCallKey: number | undefined;
 
   const handleEvent = (msg: EventSourceMessage) => {
     const data = msg.data;
@@ -929,14 +931,22 @@ export const parseSSEStream = async (
     }
     if (delta?.tool_calls) {
       for (const tc of delta.tool_calls) {
-        let state = result.toolCalls.get(tc.index);
+        // Gemini's OpenAI-compatible endpoint omits `index`: an unindexed
+        // delta with an id or name starts a call, otherwise it continues one.
+        const index =
+          tc.index ??
+          (tc.id || tc.function?.name || lastToolCallKey === undefined
+            ? Math.max(-1, ...result.toolCalls.keys()) + 1
+            : lastToolCallKey);
+        lastToolCallKey = index;
+        let state = result.toolCalls.get(index);
         if (!state) {
           state = {
-            id: tc.id ?? `call_${tc.index}_${Date.now()}`,
+            id: tc.id ?? `call_${index}_${Date.now()}`,
             name: tc.function?.name ?? "",
             argsBuffered: "",
           };
-          result.toolCalls.set(tc.index, state);
+          result.toolCalls.set(index, state);
         } else if (tc.id) {
           state.id = tc.id;
         }

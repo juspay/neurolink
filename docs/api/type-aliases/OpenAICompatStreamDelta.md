@@ -26,9 +26,9 @@
 
 > `optional` **tool_calls?**: `object`[]
 
-#### index
+#### index?
 
-> **index**: `number`
+> `optional` **index?**: `number`
 
 #### id?
 
