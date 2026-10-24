@@ -1,2 +1,16 @@
 onlyBuiltDependencies:
   - esbuild
+
+# Kept here and not under "pnpm" in package.json: pnpm 11 and later no longer read
+# that field, so a shell that resolves a newer pnpm than the repository's 10.15.1
+# (landing/ declares no packageManager) saw no overrides and refused the frozen
+# install with ERR_PNPM_LOCKFILE_CONFIG_MISMATCH. This file is read by every
+# version, and the lockfile records the same overrides.
+overrides:
+  tar: ">=7.5.19"
+  devalue: ">=5.8.1"
+  rollup: ">=4.59.0"
+  minimatch: ">=10.2.3"
+  "cookie@<0.7.0": ">=0.7.0"
+  fflate: ">=0.8.3"
+  "esbuild@>=0.17.0 <0.28.1": ">=0.28.1"
