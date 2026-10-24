@@ -2,7 +2,7 @@ onlyBuiltDependencies:
   - esbuild
 
 # Kept here and not under "pnpm" in package.json: pnpm 11 and later no longer read
-# that field, so a shell that resolves a newer pnpm than the repository's 10.15.1
+# that field, so a shell that resolves a newer pnpm than the repository's 10.28.2
 # (landing/ declares no packageManager) saw no overrides and refused the frozen
 # install with ERR_PNPM_LOCKFILE_CONFIG_MISMATCH. This file is read by every
 # version, and the lockfile records the same overrides.
