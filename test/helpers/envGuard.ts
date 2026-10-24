@@ -222,10 +222,16 @@ export const EXPECTED_PROVIDER_ERROR_PATTERNS: ExpectedProviderErrorPattern[] =
     },
 
     // -- Plain HTTP reason phrases from minimalist providers --------------
+    // "Gone" is an ordinary English word ("the session is gone"), so it only
+    // counts directly after the 410 status code, the way the SDK's own
+    // wrappers print `${status} ${statusText}`: "410 Gone", "HTTP 410: Gone",
+    // "HTTP error 410: Gone", "returned 410: Gone". "Service Unavailable" and
+    // "Bad Gateway" have no other meaning and stay bare.
     {
       id: "http_reason_phrases",
       test: (msg) =>
-        /\b(?:Gone|Service\s+Unavailable|Bad\s+Gateway)\b/i.test(msg),
+        /\b410\s*[:-]?\s*Gone\b/i.test(msg) ||
+        /\b(?:Service\s+Unavailable|Bad\s+Gateway)\b/i.test(msg),
     },
 
     // -- Anthropic beta / enterprise-tier gates ---------------------------
