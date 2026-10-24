@@ -582,9 +582,9 @@ export const resolveVertexLocation = (
 const resolveVertexRegionForModel = resolveVertexLocation;
 
 const getDefaultVertexModel = (): string => {
-  // Use gemini-2.5-flash as default - latest and best price-performance model
+  // Use gemini-3.8-flash as default: gemini-2.5-flash retired on Vertex on 2026-10-20
   // Override with VERTEX_MODEL environment variable if needed
-  return process.env.VERTEX_MODEL || "gemini-2.5-flash";
+  return process.env.VERTEX_MODEL || "gemini-3.8-flash";
 };
 
 const hasGoogleCredentials = (): boolean => {
