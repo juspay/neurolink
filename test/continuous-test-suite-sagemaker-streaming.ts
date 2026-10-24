@@ -28,6 +28,7 @@ import { createServer, type Server } from "node:http";
 import { z } from "zod";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import { serveEmptyModelRegistry } from "./helpers/emptyModelRegistry.js";
 
 assertDistFresh();
 
@@ -35,6 +36,11 @@ assertDistFresh();
 const { test, runSuite } = defineSuite("SageMaker streaming", {
   offline: true,
 });
+
+// Building a provider reads the model registry; without this it fetches the
+// public file from GitHub.
+const modelRegistry = await serveEmptyModelRegistry();
+process.env.MODEL_CONFIG_URL = modelRegistry.url;
 
 const { NeuroLink, tool } = await import("../dist/index.js");
 
@@ -624,6 +630,17 @@ await test("generate forwards the SageMaker JSON schema and returns structured d
     await sdk.shutdown();
     restoreEnv();
     await server.close();
+  }
+});
+
+await test("the model registry is read from the suite's own listener, not from the network", async () => {
+  try {
+    assert(
+      modelRegistry.requests.includes("GET /api/v1/models"),
+      "the suite's model registry was never read, so providers were built against another source",
+    );
+  } finally {
+    await modelRegistry.close();
   }
 });
 

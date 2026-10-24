@@ -10,6 +10,13 @@
  * directory leaves the whole MCP initialisation in place and gives it nothing
  * to load, which `NEUROLINK_SKIP_MCP` does not: that switch takes a different
  * path through the SDK.
+ *
+ * `process.chdir` moves the whole process, so this is for a suite that runs as
+ * its own process (one suite per `tsx` call): a second suite loaded into the
+ * same process would move the directory again and leave this one's behind.
+ * Import it before `dotenv/config` and before anything else that reads `.env`
+ * or `.mcp-config.json` from the working directory. Imported later, it loads
+ * the checkout's files again, and no type check or lint rule notices.
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
