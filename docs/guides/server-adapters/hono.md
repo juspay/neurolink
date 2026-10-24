@@ -198,6 +198,8 @@ const server = await createServer(neurolink, {
 
 A JSON or url-encoded form body over its limit is answered `413` with `error.code` set to `PAYLOAD_TOO_LARGE`, before any middleware or route runs. A declared `Content-Length` over the limit is refused without reading the body, and a body sent without one is read only as far as the limit. An upload over the limit still reaches its route, which answers in its own wire format.
 
+The Express adapter stops at the limit the same way (see "Request body limits" in its guide). Its `413` carries the message `request entity too large`, where Hono's names the limit in bytes.
+
 ---
 
 ## Middleware Integration

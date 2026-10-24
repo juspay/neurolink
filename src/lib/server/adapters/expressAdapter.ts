@@ -23,6 +23,7 @@ import type {
   ServerContext,
 } from "../../types/index.js";
 import { isErrorResponse } from "../utils/validation.js";
+import { createBoundedBodyParser } from "../utils/expressBody.js";
 import {
   isRawBodyContentType,
   isWebResponse,
@@ -71,10 +72,17 @@ export class ExpressServerAdapter extends BaseServerAdapter {
         this.config.bodyParser.maxSize ||
         this.config.bodyParser.jsonLimit ||
         "10mb";
+      const jsonLimit = this.config.bodyParser.jsonLimit || bodyLimit;
+      // body-parser drains a body it refuses, so each is read through a bound.
       this.app.use(
-        express.json({ limit: this.config.bodyParser.jsonLimit || bodyLimit }),
+        createBoundedBodyParser(express.json({ limit: jsonLimit }), jsonLimit),
       );
-      this.app.use(express.urlencoded({ extended: true, limit: bodyLimit }));
+      this.app.use(
+        createBoundedBodyParser(
+          express.urlencoded({ extended: true, limit: bodyLimit }),
+          bodyLimit,
+        ),
+      );
       // Uploads (multipart, octet-stream, audio/*) reach the route as bytes.
       this.app.use(
         express.raw({
