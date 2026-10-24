@@ -153,6 +153,35 @@ function jsonError(
   };
 }
 
+/** NVIDIA's gateway error body, `{"status","title","detail"?}` served as
+ * application/problem+json, captured from integrate.api.nvidia.com: an invalid
+ * key is `403 Forbidden / "Authorization failed"` and a throttle is
+ * `429 Too Many Requests` with no detail and no Retry-After. 429/5xx carry
+ * retry-after:0 for the same reason as in jsonError(). */
+function nvidiaProblem(
+  status: number,
+  title: string,
+  detail?: string,
+): MockHandler {
+  return () => {
+    const headers: Record<string, string> = {
+      "content-type": "application/problem+json",
+    };
+    if (status === 429 || status >= 500) {
+      headers["retry-after"] = "0";
+    }
+    return {
+      status,
+      headers,
+      body: JSON.stringify({
+        status,
+        title,
+        ...(detail === undefined ? {} : { detail }),
+      }),
+    };
+  };
+}
+
 /** Google API error body, `{"error":{"code","message","status"}}`, the shape
  * Vertex answers with. `@google/genai` raises it as an ApiError whose message
  * is the JSON text of the whole body, so the status name (INVALID_ARGUMENT,
@@ -1122,6 +1151,61 @@ async function main(): Promise<void> {
       run: () =>
         gen({ provider: "nvidia-nim", model: "meta/llama-3.1-8b-instruct" }),
       notClasses: [AuthenticationError, RateLimitError, InvalidModelError],
+    });
+
+    // NVIDIA answers an invalid key with a 403 whose body is
+    // {"status":403,"title":"Forbidden","detail":"Authorization failed"}. That
+    // is an authentication failure, not a quota stop and not a bare
+    // ProviderError.
+    setHandler(nvidiaProblem(403, "Forbidden", "Authorization failed"));
+    await expectGenerateError({
+      name: "nvidia-nim: NVIDIA's 403 'Authorization failed' (invalid key) -> AuthenticationError",
+      run: () =>
+        gen({ provider: "nvidia-nim", model: "meta/llama-3.1-8b-instruct" }),
+      expectClass: AuthenticationError,
+      notClasses: [RateLimitError, InvalidModelError],
+      messageIncludes: ["build.nvidia.com/settings/api-keys"],
+      messageExcludes: ["NVIDIA NIM quota exceeded"],
+    });
+
+    // A relay that writes the status into the text ("403 Authorization failed")
+    // used to be taken by the quota rule, whose 403 test reads the text.
+    setHandler(jsonError(403, "403 Authorization failed"));
+    await expectGenerateError({
+      name: "nvidia-nim: a relayed '403 Authorization failed' -> AuthenticationError, not quota",
+      run: () =>
+        gen({ provider: "nvidia-nim", model: "meta/llama-3.1-8b-instruct" }),
+      expectClass: AuthenticationError,
+      messageExcludes: ["NVIDIA NIM quota exceeded"],
+    });
+
+    // The quota stop stays a quota stop: a 403 whose text names the quota is
+    // not an authentication failure.
+    setHandler(
+      jsonError(403, "403 quota exceeded for this account, add credits"),
+    );
+    await expectGenerateError({
+      name: "nvidia-nim: a 403 naming the quota -> quota ProviderError, not AuthenticationError",
+      run: () =>
+        gen({ provider: "nvidia-nim", model: "meta/llama-3.1-8b-instruct" }),
+      notClasses: [AuthenticationError, RateLimitError, InvalidModelError],
+      messageIncludes: ["NVIDIA NIM quota exceeded"],
+    });
+
+    // NVIDIA's throttle (captured live): 429 {"status":429,"title":"Too Many
+    // Requests"} with no detail, so the message the base builds is the generic
+    // "failed with status 429" and the structured status carries it. Asserted
+    // by message: generate() wraps a classified error in a plain
+    // `Error("Provider ... failed: ...")` once the retries are spent (see the
+    // mistral 429 case above), so the class identity does not survive.
+    setHandler(nvidiaProblem(429, "Too Many Requests"));
+    await expectGenerateError({
+      name: "nvidia-nim: NVIDIA's 429 'Too Many Requests' -> the rate-limit message",
+      run: () =>
+        gen({ provider: "nvidia-nim", model: "meta/llama-3.1-8b-instruct" }),
+      notClasses: [AuthenticationError],
+      messageIncludes: ["NVIDIA NIM rate limit exceeded"],
+      messageExcludes: ["NVIDIA NIM quota exceeded"],
     });
 
     // -- openrouter: multi-branch quirks ---------------------------------------

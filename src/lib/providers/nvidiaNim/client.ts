@@ -353,6 +353,23 @@ export class NvidiaNimProvider extends OpenAIChatCompletionsProvider {
         message: "NVIDIA NIM rate limit exceeded",
       },
       {
+        // An invalid key now reaches the gateway as HTTP 403
+        // {"status":403,"title":"Forbidden","detail":"Authorization failed"},
+        // not a 401 (probed live: a well-formed bad key gets this body, a
+        // missing header or a malformed JWT still gets a 401). The same body is
+        // reported for a valid key whose organization lacks Public API
+        // Endpoints access. The text is what identifies it — the structured 403
+        // alone does not, and the quota rule below would take a relayed
+        // "403 Authorization failed" because that text names status 403. A
+        // message that also says "quota" is left for the quota rule.
+        match: (ctx) =>
+          /authori[sz]ation failed/i.test(ctx.message) &&
+          !/quota/i.test(ctx.message),
+        errorClass: AuthenticationError,
+        message:
+          "NVIDIA NIM rejected the credentials (HTTP 403 Authorization failed). Check the API key at https://build.nvidia.com/settings/api-keys; a valid key is also refused when its organization lacks Public API Endpoints access.",
+      },
+      {
         // NIM answers most of its roster with a 404 whose text ("Function …
         // not found for account …") names no model, so the status decides.
         match: (ctx) =>
@@ -364,6 +381,10 @@ export class NvidiaNimProvider extends OpenAIChatCompletionsProvider {
           `NVIDIA NIM model '${this.modelName}' not available. Browse the catalog at https://build.nvidia.com/models`,
       },
       {
+        // NVIDIA's throttle is a 429 {"status":429,"title":"Too Many Requests"}
+        // (46 of 70 concurrent probes, no Retry-After); no source seen sends a
+        // quota stop as a 403. This rule keeps the older text-keyed behaviour
+        // for a relay that names the quota or a 403 in its message.
         match: (ctx) =>
           /quota/.test(ctx.message) || messageNamesStatus(ctx.message, 403),
         errorClass: ProviderError,
