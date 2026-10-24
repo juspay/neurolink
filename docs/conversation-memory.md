@@ -13,6 +13,7 @@ The conversation memory system provides:
 - **In-memory storage**: Fast, lightweight storage for conversation history
 - **Universal Method Support**: Works seamlessly with both `generate()` and `stream()` methods
 - **Stream Integration**: Full conversation memory support for streaming responses
+- **Title Generation Events**: Redis-backed conversations get an AI-generated title, announced with a `conversation:titleGenerated` event
 
 ## ⚙️ Configuration
 
@@ -159,6 +160,41 @@ await neurolink.generate({
 });
 // Response: "I don't have information about your favorite color..."
 ```
+
+## 🏷️ Title Generation Events {#title-generation-events}
+
+When a Redis-backed conversation stores its first turn, NeuroLink generates a title for it in the background and saves it on the session (`listSessions()` reports it). Once the title is stored, the SDK's event emitter fires `conversation:titleGenerated`.
+
+```typescript
+const neurolink = new NeuroLink({
+  conversationMemory: { enabled: true, redisConfig: { host: "localhost" } },
+});
+
+neurolink.getEventEmitter().on("conversation:titleGenerated", (event) => {
+  console.log(`${event.sessionId} (${event.userId}): ${event.title}`);
+});
+
+await neurolink.generate({
+  input: { text: "How do I implement authentication in Node.js?" },
+  context: { sessionId: "auth-help", userId: "developer-123" },
+});
+```
+
+Payload (`ConversationTitleGeneratedEvent`):
+
+| Property    | Type     | Description                                          |
+| ----------- | -------- | ---------------------------------------------------- |
+| `sessionId` | `string` | Session the title belongs to                         |
+| `userId`    | `string` | User that owns the session (`randomUser` when unset) |
+| `title`     | `string` | The title that was stored                            |
+| `timestamp` | `number` | Unix epoch milliseconds when the title was stored    |
+
+Notes:
+
+- The event fires once per conversation, on the first turn, not on later turns.
+- Only Redis-backed memory generates titles; in-memory storage lists sessions by session ID.
+- If the summarization provider cannot answer, the stored title falls back to the first 30 characters of the message plus `...`, and the event carries that fallback.
+- Set `NEUROLINK_TITLE_PROMPT` to customize the title prompt. `${userMessage}` is replaced with the user's message.
 
 ## 📊 Memory Management
 

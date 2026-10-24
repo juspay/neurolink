@@ -1125,6 +1125,7 @@ console.log(result.content);
 - [SessionExport](type-aliases/SessionExport.md)
 - [ConversationBase](type-aliases/ConversationBase.md)
 - [RedisConversationObject](type-aliases/RedisConversationObject.md)
+- [ConversationTitleGeneratedEvent](type-aliases/ConversationTitleGeneratedEvent.md)
 - [ConversationData](type-aliases/ConversationData.md)
 - [ConversationSummary](type-aliases/ConversationSummary.md)
 - [RedisStorageConfig](type-aliases/RedisStorageConfig.md)

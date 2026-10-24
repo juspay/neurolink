@@ -1851,6 +1851,12 @@ emitter.on("stream:chunk", (data) => {
 | `externalMCP:serverAdded`        | A new MCP server registration is added    |
 | `externalMCP:serverRemoved`      | An MCP server registration is removed     |
 
+### Conversation Memory Events
+
+| Event                         | Emitted When                                                                                                                     |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `conversation:titleGenerated` | A new Redis-backed conversation's title is stored (see [Conversation Memory](../conversation-memory.md#title-generation-events)) |
+
 ### Other Events
 
 | Event                  | Emitted When                        |
