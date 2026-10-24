@@ -13,5 +13,5 @@ Speed-First Adaptive Workflow
 Optimizes for speed with quality fallback:
 
 1. Fast tier: Single fast model (GPT-4o-mini)
-2. Balanced tier: If fast fails, use Gemini 2.0
+2. Balanced tier: If fast fails, use Gemini 3.8 Flash
 3. Quality tier: If both fail, use GPT-4o

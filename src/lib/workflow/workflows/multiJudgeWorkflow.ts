@@ -22,14 +22,14 @@ import { WORKFLOW_CREATION_DATE } from "../config.js";
  * Uses 5 models across different providers:
  * - GPT-4o (OpenAI)
  * - GPT-4o-mini (OpenAI)
- * - Claude 3.5 Sonnet (Anthropic)
- * - Claude 3 Haiku (Anthropic)
- * - Gemini 2.0 Flash (Google)
+ * - Claude Sonnet 4.6 (Anthropic)
+ * - Claude Haiku 4.5 (Anthropic)
+ * - Gemini 3.8 Flash (Google)
  *
  * 3 independent judges vote:
  * - GPT-4o evaluates accuracy & clarity
- * - Claude 3.5 Sonnet evaluates reasoning & depth
- * - Gemini 2.0 Flash evaluates completeness & coherence
+ * - Claude Sonnet 4.6 evaluates reasoning & depth
+ * - Gemini 3.8 Flash evaluates completeness & coherence
  *
  * Scores are averaged across all judges for final selection
  *
@@ -72,22 +72,22 @@ export const MULTI_JUDGE_5_WORKFLOW: WorkflowConfig = {
     },
     {
       provider: AIProviderName.ANTHROPIC,
-      model: "claude-3-5-sonnet-20241022",
-      label: "Claude 3.5 Sonnet",
+      model: "claude-sonnet-4-6",
+      label: "Claude Sonnet 4.6",
       weight: 1.0,
       temperature: 0.7,
     },
     {
       provider: AIProviderName.ANTHROPIC,
-      model: "claude-3-haiku-20240307",
-      label: "Claude 3 Haiku",
+      model: "claude-haiku-4-5-20251001",
+      label: "Claude Haiku 4.5",
       weight: 0.7, // Lower weight for faster model
       temperature: 0.7,
     },
     {
       provider: AIProviderName.GOOGLE_AI,
-      model: "gemini-2.0-flash",
-      label: "Gemini 2 Flash",
+      model: "gemini-3.8-flash",
+      label: "Gemini 3.8 Flash",
       weight: 0.9,
       temperature: 0.7,
     },
@@ -107,7 +107,7 @@ export const MULTI_JUDGE_5_WORKFLOW: WorkflowConfig = {
     },
     {
       provider: AIProviderName.ANTHROPIC,
-      model: "claude-3-5-sonnet-20241022",
+      model: "claude-sonnet-4-6",
       criteria: ["reasoning_quality", "depth", "nuance"],
       outputFormat: "detailed",
       includeReasoning: true,
@@ -117,7 +117,7 @@ export const MULTI_JUDGE_5_WORKFLOW: WorkflowConfig = {
     },
     {
       provider: AIProviderName.GOOGLE_AI,
-      model: "gemini-2.0-flash",
+      model: "gemini-3.8-flash",
       criteria: ["completeness", "coherence", "relevance"],
       outputFormat: "detailed",
       includeReasoning: true,
@@ -157,8 +157,8 @@ export const MULTI_JUDGE_5_WORKFLOW: WorkflowConfig = {
  * Multi-Judge-3 Workflow (Lighter Version)
  *
  * 3 models with 2 judges (more cost-effective):
- * - GPT-4o, Claude 3.5, Gemini 2.0
- * - Judged by GPT-4o and Claude 3.5
+ * - GPT-4o, Claude Sonnet 4.6, Gemini 3.8
+ * - Judged by GPT-4o and Claude Sonnet 4.6
  */
 export const MULTI_JUDGE_3_WORKFLOW: WorkflowConfig = {
   id: "multi-judge-3",
@@ -177,15 +177,15 @@ export const MULTI_JUDGE_3_WORKFLOW: WorkflowConfig = {
     },
     {
       provider: AIProviderName.ANTHROPIC,
-      model: "claude-3-5-sonnet-20241022",
-      label: "Claude 3.5 Sonnet",
+      model: "claude-sonnet-4-6",
+      label: "Claude Sonnet 4.6",
       weight: 1.0,
       temperature: 0.7,
     },
     {
       provider: AIProviderName.GOOGLE_AI,
-      model: "gemini-2.0-flash",
-      label: "Gemini 2.0 Flash",
+      model: "gemini-3.8-flash",
+      label: "Gemini 3.8 Flash",
       weight: 1.0,
       temperature: 0.7,
     },
@@ -204,7 +204,7 @@ export const MULTI_JUDGE_3_WORKFLOW: WorkflowConfig = {
     },
     {
       provider: AIProviderName.ANTHROPIC,
-      model: "claude-3-5-sonnet-20241022",
+      model: "claude-sonnet-4-6",
       criteria: ["reasoning", "depth", "coherence"],
       outputFormat: "detailed",
       includeReasoning: true,
@@ -262,15 +262,15 @@ export function createMultiJudgeWorkflow(
     },
     {
       provider: AIProviderName.ANTHROPIC,
-      model: "claude-3-5-sonnet-20241022",
-      label: "Claude 3.5 Sonnet",
+      model: "claude-sonnet-4-6",
+      label: "Claude Sonnet 4.6",
       weight: 1.0,
       temperature: 0.7,
     },
     {
       provider: AIProviderName.GOOGLE_AI,
-      model: "gemini-2.0-flash",
-      label: "Gemini 2.0 Flash",
+      model: "gemini-3.8-flash",
+      label: "Gemini 3.8 Flash",
       weight: 1.0,
       temperature: 0.7,
     },
@@ -287,8 +287,8 @@ export function createMultiJudgeWorkflow(
     },
     {
       provider: AIProviderName.ANTHROPIC,
-      model: "claude-3-haiku-20240307",
-      label: "Claude 3 Haiku",
+      model: "claude-haiku-4-5-20251001",
+      label: "Claude Haiku 4.5",
       weight: 0.7,
       temperature: 0.7,
     },
@@ -301,10 +301,10 @@ export function createMultiJudgeWorkflow(
     },
     {
       provider: AIProviderName.OPENAI,
-      model: "gpt-3.5-turbo",
-      label: "GPT-3.5 Turbo",
+      model: "gpt-5.6-terra",
+      label: "GPT-5.6 Terra",
       weight: 0.6,
-      temperature: 0.7,
+      // No temperature: gpt-5.6 models reject non-default sampling values.
     },
   ];
 
@@ -324,7 +324,7 @@ export function createMultiJudgeWorkflow(
     },
     {
       provider: AIProviderName.ANTHROPIC,
-      model: "claude-3-5-sonnet-20241022",
+      model: "claude-sonnet-4-6",
       criteria: ["reasoning", "depth", "coherence"],
       outputFormat: "detailed" as const,
       includeReasoning: true,
@@ -336,7 +336,7 @@ export function createMultiJudgeWorkflow(
 
   const thirdJudge = {
     provider: AIProviderName.GOOGLE_AI,
-    model: "gemini-2.0-flash",
+    model: "gemini-3.8-flash",
     criteria: ["relevance", "factual_accuracy", "structure"],
     outputFormat: "detailed" as const,
     includeReasoning: true,
