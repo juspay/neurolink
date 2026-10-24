@@ -158,16 +158,26 @@ describe a Codex account, and none served that turn.
 
 ## 6. Error handling
 
-| Condition                    | Behaviour                                                                                                                                                                        |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No Codex accounts configured | `401` with a message pointing at `neurolink auth login codex`                                                                                                                    |
-| All accounts cooling         | Terminal `response.failed` SSE event (200, `retry-after` computed from the soonest recovery) instead of a bare `429`, so the CLI shows a real error instead of "Reconnecting..." |
-| All accounts auth-cooling    | The same terminal event with code `server_error` instead of `insufficient_quota` (every account is parked by an auth failure), so it is not reported as spent quota              |
-| `401` / `403` from upstream  | One forced token refresh, then rotate; a failed refresh disables the account until re-login                                                                                      |
-| `429`                        | Cool the account per its reported window, then rotate                                                                                                                            |
-| `5xx` / network              | Rotate to the next account                                                                                                                                                       |
+| Condition                                 | Behaviour                                                                                                                                                                        |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No Codex accounts configured              | `401` with a message pointing at `neurolink auth login codex`                                                                                                                    |
+| All accounts cooling                      | Terminal `response.failed` SSE event (200, `retry-after` computed from the soonest recovery) instead of a bare `429`, so the CLI shows a real error instead of "Reconnecting..." |
+| All accounts auth-cooling                 | The same terminal event with code `server_error` instead of `insufficient_quota` (every account is parked by an auth failure), so it is not reported as spent quota              |
+| `401` / `403` from upstream               | One forced token refresh and a retry; a second rejection parks the account for 60 s and rotates; a failed refresh disables the account until re-login                            |
+| `401` / `403` with a request-refusal code | The request ends on that account with no refresh, cooldown or rotation: a policy code answers `403`, an invalid-request code keeps the upstream status (see below)               |
+| `429`                                     | Cool the account per its reported window, then rotate                                                                                                                            |
+| `5xx` / network                           | Rotate to the next account                                                                                                                                                       |
 
 Access tokens are refreshed proactively when within 5 minutes of expiry, and the rotated refresh token is written back to the store.
+
+A `401` / `403` is only treated as a credential failure after its body has been read. When the body carries a
+request-level refusal code (`cyber_policy`, `content_policy_violation`, `content_filter`, `safety_violation`, or one of the
+invalid-request codes `invalid_request_error`, `context_length_exceeded`, `max_output_tokens`, `empty_response`; the set
+`classifyProxyFailureCode` marks non-retryable), the request itself was refused, so refreshing the token cannot help and no
+other account would answer differently. The request ends on the first account: no refresh, no cooldown, no rotation, and no
+[outbound fallback](#92-when-it-triggers). The client gets the refusal with `error.code` set and `error.retryable: false`: a policy code
+answers `403`, and an invalid-request code keeps the upstream `401` or `403`. A body with no code, or any other code, stays a credential failure
+and takes the row above.
 
 ---
 
@@ -325,7 +335,9 @@ When the account loop runs out, the last attempt decides eligibility. A
 401/403 across the whole pool is a Codex credential failure and falls back, as
 do 429 and 5xx. A content-policy or invalid-request error code
 (`classifyProxyFailureCode`), or any other 4xx, rejects the request itself and
-is returned unchanged.
+is returned unchanged. A pre-stream 401/403 carrying such a code never reaches
+this point: the pool ends the request on the account that received it (see
+section 6).
 
 The Anthropic loopback has a 5-minute timeout that covers the connection until
 its response headers arrive. After that the stream runs as long as the turn

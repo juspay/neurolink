@@ -44,7 +44,10 @@ import {
   parseCodexRateLimitHeaders,
 } from "../../proxy/codexAccountUsage.js";
 import { buildClientAttribution } from "../../proxy/clientAttribution.js";
-import { getProxyUpstreamFailure } from "../../proxy/proxyFailureDetails.js";
+import {
+  classifyProxyFailureCode,
+  getProxyUpstreamFailure,
+} from "../../proxy/proxyFailureDetails.js";
 import {
   registerProxyResponseObserver,
   isProxyRequestFinalized,
@@ -175,6 +178,36 @@ function summarizeCodexUpstreamError(
   fallback: string,
 ): string {
   return sanitizeForLog(errorText).slice(0, 200) || fallback;
+}
+
+/**
+ * Whether a pre-stream 401/403 refuses the REQUEST rather than the credential.
+ *
+ * Only the body can tell: a content-policy 403 and an expired-token 403 share a
+ * status. `classifyProxyFailureCode` is the verdict the outbound fallback stops
+ * on, so the pool and the fallback read one code the same way. Anything it does
+ * not call non-retryable, including a body with no code at all, stays an
+ * authentication failure.
+ */
+function readCodexRequestRefusal(
+  status: number,
+  errorText: string,
+): { code: string; status: number; message: string | undefined } | undefined {
+  if (status !== 401 && status !== 403) {
+    return undefined;
+  }
+  const failure = getProxyUpstreamFailure({ responseBody: errorText });
+  if (failure?.code === undefined) {
+    return undefined;
+  }
+  const known = classifyProxyFailureCode(failure.code);
+  return known.retryable === false
+    ? {
+        code: failure.code,
+        status: known.status ?? status,
+        message: failure.message,
+      }
+    : undefined;
 }
 
 /**
@@ -1875,6 +1908,34 @@ async function handleCodexUpstreamFailure(
   const { account, attempt, attemptStartedAt, upstream, authRetried } = args;
   const errText = await upstream.text().catch(() => "");
 
+  // A refusal of the request itself says nothing about the account: a refresh
+  // would rotate its refresh token for nothing, a cooldown would park a healthy
+  // account, and every other account would be refused the same way.
+  const refusal = readCodexRequestRefusal(upstream.status, errText);
+  if (refusal) {
+    const errorMessage =
+      refusal.message ??
+      summarizeCodexUpstreamError(errText, "Codex refused the request");
+    recordAttemptError(account.label, CODEX_ACCOUNT_TYPE, upstream.status);
+    writeAttempt(account, attempt, attemptStartedAt, upstream.status, {
+      errorType: "invalid_request_error",
+      errorCode: refusal.code,
+      errorMessage,
+      retryable: false,
+    });
+    return {
+      lastFailure: {
+        errorType: "invalid_request_error",
+        errorCode: refusal.code,
+        retryable: false,
+      },
+      lastErrorStatus: refusal.status,
+      lastErrorCode: refusal.code,
+      lastErrorMessage: errorMessage,
+      refusedRequest: true,
+    };
+  }
+
   // 401/403 → try a forced token refresh once, then rotate.
   if (
     (upstream.status === 401 || upstream.status === 403) &&
@@ -2005,9 +2066,10 @@ async function handleCodexUpstreamFailure(
 
   // Other non-ok → record and rotate.
   if (upstream.status === 401 || upstream.status === 403) {
-    // Reached only when the account has no refresh token to retry with, so
-    // it will fail identically on the next request. Park it briefly instead
-    // of letting it stay first in line with unknown quota.
+    // Reached when the account has no refresh token to retry with, or when
+    // the retry after a refresh was rejected again. Either way it will fail
+    // identically on the next request, so park it briefly instead of letting
+    // it stay first in line with unknown quota.
     await saveAccountCooldown(
       account.key,
       Date.now() + CODEX_AUTH_COOLDOWN_MS,
@@ -2311,8 +2373,9 @@ async function executeCodexResponsesRequest(
     let lastErrorCode: string | undefined;
     let lastFailure: CodexFinalLogExtra = { errorType: "all_accounts_failed" };
     let lastAttemptedAccount: CodexRuntimeAccount | undefined;
+    let requestRefused = false;
 
-    for (const account of eligible) {
+    accountLoop: for (const account of eligible) {
       try {
         tracer?.setAccountSelection({
           strategy: "codex-quota-order",
@@ -2452,6 +2515,11 @@ async function executeCodexResponsesRequest(
         }
         ({ lastFailure, lastErrorStatus, lastErrorCode, lastErrorMessage } =
           failure);
+        if (failure.refusedRequest) {
+          // Every other account would be refused the same way.
+          requestRefused = true;
+          break accountLoop;
+        }
         break;
       }
     }
@@ -2472,7 +2540,11 @@ async function executeCodexResponsesRequest(
       ...lastFailure,
       errorMessage: lastFailure.errorMessage ?? lastErrorMessage,
     });
-    return buildCodexErrorResponse(lastErrorStatus, lastErrorMessage);
+    return buildCodexErrorResponse(
+      lastErrorStatus,
+      lastErrorMessage,
+      requestRefused ? lastErrorCode : undefined,
+    );
   };
   try {
     return await dispatch();
