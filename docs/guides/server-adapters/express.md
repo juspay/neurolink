@@ -190,6 +190,14 @@ const server = await createServer(neurolink, {
 });
 ```
 
+### Request body limits
+
+`bodyParser.jsonLimit` bounds JSON bodies and `bodyParser.maxSize` bounds url-encoded forms. Both default to `10mb`, and raising either one is honoured. Uploads (`multipart/form-data`, `application/octet-stream`, `audio/*`) are bounded by `bodyParser.rawMaxSize`, which defaults to `maxSize` when that is set and to `64mb` otherwise.
+
+A JSON or url-encoded form body over its limit is answered `413` with `error.code` set to `PAYLOAD_TOO_LARGE` and `error.message` set to `request entity too large`, before any middleware or route runs, and the connection is closed so the client stops sending. The body is not read past the limit: a declared `Content-Length` over the limit is refused without reading the body, and a body sent without one (chunked) is read only as far as the limit. For a compressed body (`Content-Encoding: gzip`, `deflate`, `br` or `zstd`) the limit applies to the inflated size, and reading stops once the body has inflated past it.
+
+The bytes are still parsed by `express.json()` and `express.urlencoded()` (body-parser), so which requests are parsed, how charsets are decoded, strict JSON, and the `qs` parsing of forms are unchanged. Anything body-parser refuses other than a body that is too large (a malformed or scalar JSON body, an unsupported charset or `Content-Encoding`, too many form parameters) is answered `500` with `error.code` set to `INTERNAL_ERROR`, as before.
+
 ---
 
 ## Middleware Integration

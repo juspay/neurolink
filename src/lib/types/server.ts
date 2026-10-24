@@ -3,6 +3,12 @@
  * Comprehensive type system for NeuroLink server adapters
  */
 
+import type {
+  IncomingHttpHeaders,
+  IncomingMessage,
+  ServerResponse as NodeServerResponse,
+} from "node:http";
+import type { Readable } from "node:stream";
 import type { ExternalServerManager } from "../mcp/externalServerManager.js";
 import type { MCPToolRegistry } from "../mcp/toolRegistry.js";
 import type { NeuroLink } from "../neurolink.js";
@@ -201,6 +207,54 @@ export type RequiredBodyParserConfig = {
   rawMaxSize: string;
   urlEncoded: boolean;
 };
+
+/**
+ * The request a body-parser middleware is handed in place of the real one: a
+ * stream of bytes that were already read, with the headers the parser decides
+ * from. `body` is where the parser leaves its result, as on a real request.
+ */
+export type ServerBufferedRequest = Readable & {
+  headers: IncomingHttpHeaders;
+  body: unknown;
+};
+
+/**
+ * A body read as far as its limit: the bytes, and whether the connection is to
+ * be closed after the answer. That is the case when a compressed body was
+ * complete but the request kept sending past the cap on raw bytes, which are
+ * then left unread.
+ */
+export type ServerBoundedBodyRead = {
+  bytes: Buffer;
+  closeConnection: boolean;
+};
+
+/** A Node request as a body-parser middleware sees it: `body` is where it leaves what it parsed. */
+export type ServerParsedNodeRequest = IncomingMessage & { body?: unknown };
+
+/**
+ * A body-parser middleware (`express.json()`, `express.urlencoded()`) as
+ * body-parser types it: Node's request and response, and a `next` that takes
+ * an error. Typed without Express, which is an optional peer, so the published
+ * declarations do not import it.
+ */
+export type ServerNodeMiddleware = (
+  req: ServerParsedNodeRequest,
+  res: NodeServerResponse,
+  next: (error?: unknown) => void,
+) => void;
+
+/**
+ * What a body-parser middleware decides about a request, asked before any of
+ * its body is read: leave it alone, parse it, or refuse it. A refusal made
+ * before the parser would read anything has `beforeRead` set; one the parser
+ * only reaches once it starts to read (a charset the decoder cannot handle)
+ * has not.
+ */
+export type ServerBodyParserVerdict =
+  | { kind: "skip"; body: unknown }
+  | { kind: "parse" }
+  | { kind: "reject"; error: unknown; beforeRead: boolean };
 
 /**
  * Logging configuration
