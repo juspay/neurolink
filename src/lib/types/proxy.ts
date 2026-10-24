@@ -1309,6 +1309,10 @@ export type CodexRotationFailure = {
   lastErrorStatus: number;
   lastErrorCode: string | undefined;
   lastErrorMessage: string;
+  /** The upstream refused the request itself (a policy or invalid-request
+   *  code), not the account: no other account would answer differently, so the
+   *  pool ends the request here instead of rotating. */
+  refusedRequest?: boolean;
 };
 
 /** Minimal persistence contract needed by Codex rotating-token refreshes. */
