@@ -94,8 +94,10 @@ const AUTH_FRAMINGS: RegExp[] = [
   /\brequires?\s+a\s+higher\s+[\w .-]{0,40}?\btier\b/,
 ];
 
+// A bare `cannot connect` is deliberately absent: the only framing the SDK
+// emits ("Cannot connect to Ollama at ...") is matched by `ollama_specific`,
+// and a message of our own such as "Cannot connect to MCP server" must fail.
 const NETWORK_FRAMINGS: RegExp[] = [
-  /\bcannot\s+connect\b/,
   /\bcould\s+not\s+resolve\b/,
   /\bcould\s+not\s+be\s+resolved\b/,
   /\bconnection\s+refused\b/,
