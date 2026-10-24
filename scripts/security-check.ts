@@ -116,7 +116,7 @@ const ACCEPTED_RISK_PACKAGES: Record<
   undici: {
     maxSeverity: "high",
     reason:
-      "direct dep; patched releases fit the existing >=7.24.0 <8.0.0 range and land via lockfile bumps",
+      "direct dep; patched releases fit the existing >=7.30.1 <8.0.0 range and land via lockfile bumps",
   },
   "ip-address": {
     maxSeverity: "high",
