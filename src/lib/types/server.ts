@@ -3,6 +3,8 @@
  * Comprehensive type system for NeuroLink server adapters
  */
 
+import type { IncomingHttpHeaders } from "node:http";
+import type { Readable } from "node:stream";
 import type { ExternalServerManager } from "../mcp/externalServerManager.js";
 import type { MCPToolRegistry } from "../mcp/toolRegistry.js";
 import type { NeuroLink } from "../neurolink.js";
@@ -201,6 +203,28 @@ export type RequiredBodyParserConfig = {
   rawMaxSize: string;
   urlEncoded: boolean;
 };
+
+/**
+ * The request a body-parser middleware is handed in place of the real one: a
+ * stream of bytes that were already read, with the headers the parser decides
+ * from. `body` is where the parser leaves its result, as on a real request.
+ */
+export type ServerBufferedRequest = Readable & {
+  headers: IncomingHttpHeaders;
+  body: unknown;
+};
+
+/**
+ * What a body-parser middleware decides about a request, asked before any of
+ * its body is read: leave it alone, parse it, or refuse it. A refusal made
+ * before the parser would read anything has `beforeRead` set; one the parser
+ * only reaches once it starts to read (a charset the decoder cannot handle)
+ * has not.
+ */
+export type ServerBodyParserVerdict =
+  | { kind: "skip"; body: unknown }
+  | { kind: "parse" }
+  | { kind: "reject"; error: unknown; beforeRead: boolean };
 
 /**
  * Logging configuration

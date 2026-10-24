@@ -2959,6 +2959,8 @@ console.log(result.content);
 - [RequiredRateLimitConfig](type-aliases/RequiredRateLimitConfig.md)
 - [BodyParserConfig](type-aliases/BodyParserConfig.md)
 - [RequiredBodyParserConfig](type-aliases/RequiredBodyParserConfig.md)
+- [ServerBufferedRequest](type-aliases/ServerBufferedRequest.md)
+- [ServerBodyParserVerdict](type-aliases/ServerBodyParserVerdict.md)
 - [LoggingConfig](type-aliases/LoggingConfig.md)
 - [RequiredLoggingConfig](type-aliases/RequiredLoggingConfig.md)
 - [RedactionConfig](type-aliases/RedactionConfig.md)
