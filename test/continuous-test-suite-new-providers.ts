@@ -760,6 +760,13 @@ async function section2Tools(): Promise<void> {
 
   // B4 doesn't depend on zod (no custom Zod schema), so run it unconditionally
   // — even if zod is missing, the disableTools negative-test still has value.
+  // maxTokens bounds reasoning tokens as well as the answer. A reasoning model
+  // such as NIM's default openai/gpt-oss-20b spends the whole of a 16-token
+  // budget thinking and stops with finish_reason "length" and empty content
+  // (measured live: 16 -> content "", reasoning 56 chars, 16 completion
+  // tokens; 64 and 256 -> "PONG" after 31-40 completion tokens). 256 leaves
+  // room for the reasoning, and a model that answers PONG directly stops early.
+  const B4_MAX_TOKENS = 256;
   for (const p of PROVIDERS) {
     await runProviderTest("B4 tools.disable", p, async (signal) => {
       const sdk = makeSdk();
@@ -768,7 +775,7 @@ async function section2Tools(): Promise<void> {
         provider: p.name,
         abortSignal: signal,
         disableTools: true,
-        maxTokens: 16,
+        maxTokens: B4_MAX_TOKENS,
       });
       return Boolean(res?.content);
     });
@@ -779,6 +786,30 @@ async function section2Tools(): Promise<void> {
 // SECTION 3 — MULTIMODAL (C1-C4)
 // (Image only on providers + models that support it)
 // ============================================================
+
+// The C1 request: one sample image and a one-sentence description prompt.
+function describeSampleImageRequest(p: ProviderUnderTest, signal: AbortSignal) {
+  return {
+    input: {
+      text: "Describe this image in 1 sentence.",
+      files: [
+        {
+          // FileWithMetadata is { buffer, filename, mimetype? }. This was
+          // built as { data, mimeType, name }, which isFileWithMetadata()
+          // rejects — so the image bytes were never attached and this
+          // vision test was exercising a text-only request.
+          buffer: VISION_PNG_BUFFER,
+          filename: "sample.png",
+          mimetype: "image/png",
+        },
+      ],
+    },
+    provider: p.name,
+    abortSignal: signal,
+    model: p.visionModel,
+    maxTokens: 64,
+  };
+}
 
 async function section3Multimodal(): Promise<void> {
   logSection("SECTION 3 — Multimodal (image input)");
@@ -833,24 +864,14 @@ async function section3Multimodal(): Promise<void> {
     await runProviderTest("C1 image.basic", p, async (signal) => {
       const sdk = makeSdk();
       const res = await sdk.generate({
-        input: {
-          text: "Describe this image in 1 sentence.",
-          files: [
-            {
-              // FileWithMetadata is { buffer, filename, mimetype? }. This was
-              // built as { data, mimeType, name }, which isFileWithMetadata()
-              // rejects — so the image bytes were never attached and this
-              // vision test was exercising a text-only request.
-              buffer: VISION_PNG_BUFFER,
-              filename: "sample.png",
-              mimetype: "image/png",
-            },
-          ],
-        },
-        provider: p.name,
-        abortSignal: signal,
-        model: p.visionModel,
-        maxTokens: 64,
+        ...describeSampleImageRequest(p, signal),
+        // NIM's meta/llama-3.2-11b-vision-instruct answers HTTP 400 "The
+        // number of image tokens (0) must be the same as the number of images
+        // (1)" to ANY request that carries both an image and a `tools` array,
+        // and NeuroLink attaches its tools unless told not to. C1 is about the
+        // image reaching the model, so NIM runs it without tools; the
+        // tools-plus-image combination is C1b below.
+        ...(p.name === "nvidia-nim" ? { disableTools: true } : {}),
       });
       if (res?.content) {
         return true;
@@ -868,6 +889,42 @@ async function section3Multimodal(): Promise<void> {
         );
       }
       return false;
+    });
+  }
+
+  // C1b: the same image with NeuroLink's default tools attached. NIM's
+  // meta/llama-3.2-11b-vision-instruct rejects this combination at the service.
+  // Probed live on 2026-10-24 by replaying NeuroLink's exact request, then
+  // stripping one feature at a time: with the `tools` array removed the request
+  // answers 200; with any `tools` array present (26 of them, or a single
+  // trivial one, with or without tool_choice "none") it answers HTTP 400 "The
+  // number of image tokens (0) must be the same as the number of images (1)".
+  // The system message, the image's position in the content array and the
+  // data-URL format make no difference, and nvidia/nemotron-3.5-super-vl
+  // accepts the identical raw request, so the request shape is not at fault. The
+  // case reports that error as a service limitation by name, and still fails on
+  // any other error or on empty content.
+  const nim = PROVIDERS.find((candidate) => candidate.name === "nvidia-nim");
+  if (nim?.available) {
+    await runProviderTest("C1b image.with-tools", nim, async (signal) => {
+      const sdk = makeSdk();
+      try {
+        const res = await sdk.generate(describeSampleImageRequest(nim, signal));
+        return Boolean(res?.content);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (
+          /number of image tokens \(0\) must be the same as the number of images/i.test(
+            msg,
+          )
+        ) {
+          // logTest prints only the first 100 characters of a skip reason.
+          throw new Skip(
+            'NIM service limit, not request shape: 400 "image tokens (0)" on image + tools; C1 passes without',
+          );
+        }
+        throw err;
+      }
     });
   }
 }
@@ -1414,8 +1471,10 @@ async function section9Errors(): Promise<void> {
           // markers. The provider's `formatProviderError` also normalizes
           // this to "Invalid NVIDIA NIM API key", which the regex matches.
           // NVIDIA's gateway now answers an invalid key with HTTP 403
-          // {"detail":"Authorization failed"}, which the provider passes
-          // through without the status, hence "authorization failed" too.
+          // {"detail":"Authorization failed"}. The provider maps that text to
+          // an AuthenticationError ("NVIDIA NIM rejected the credentials ...
+          // Authorization failed"); the regex keeps "authorization failed" so
+          // an older build that passes the text through still reads as auth.
           // Aborts, timeouts, and 429 rate-limits all mean the upstream
           // service didn't actually evaluate the credential — we never
           // reached the auth check. SKIP rather than FAIL: rerunning when
