@@ -335,10 +335,9 @@ carries media is always refused for the media. To decide over images today, use
 ## Timeouts
 
 The default is 30,000 ms per attempt. The entry declares it (`timeouts.decideMs`
-in `scaledown.json`). It is not the 5,000 ms of `DEFAULT_DECISION_TIMEOUT_MS`:
-that constant comes after the provider's own default timeout, which is 30,000 ms
-on the provider base class, so it is never reached. A provider that wants a
-shorter limit declares one, as TypeSafe, Laya and XOR declare 5,000 ms.
+in `scaledown.json`); 30,000 ms is also what the provider base class gives an
+entry that declares none. There is no shared 5,000 ms default: a provider that
+wants a shorter limit declares one, as TypeSafe, Laya and XOR declare 5,000 ms.
 
 30 seconds is not derived from a measurement of ScaleDown, but a 5-second limit
 would have cut answers off. In the live test of 2026-10-20, with no `timeoutMs`, 10 identical
