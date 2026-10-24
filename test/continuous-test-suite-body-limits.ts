@@ -27,6 +27,19 @@
  * refused and one under it reaching the gate. One ceiling set through
  * NEUROLINK_PROXY_MAX_REQUEST_BODY_BYTES replaces all of them, higher or lower.
  *
+ * Express has a second group, because it reads JSON and form bodies through a
+ * bound of its own and then hands the bytes to body-parser to parse. Read
+ * amount: a declared 64 or 256 MiB body is refused with next to none of it read,
+ * and the same size chunked is read to the limit and no further, as counted by
+ * the server's own socket (`bytesRead`), not by the client, whose count would
+ * depend on the operating system's socket buffers. Compatibility, pinned case by
+ * case against what body-parser alone answered (run against an unmodified build,
+ * these all pass): compressed bodies, the limit on the inflated size, charsets,
+ * strict JSON, malformed bodies, empty bodies and other content types, qs
+ * parsing of forms, a half-closed client, and keep-alive. Anything body-parser
+ * refuses other than an over-limit body is answered 500 by the adapter's error
+ * handler, whatever status body-parser gave it; that is pinned as it is.
+ *
  * What is NOT the same on every framework, and is pinned here rather than
  * papered over:
  *  - Fastify has no url-encoded parser, so a form is answered 415 whatever its
@@ -34,6 +47,12 @@
  *  - Koa reads forms with koa-bodyparser's own 56kb default, which `maxSize`
  *    does not change, so "a raised limit is honoured" is asserted for forms on
  *    Hono and Express only. JSON is asserted on all four.
+ *
+ * A server that refuses a body it has not read closes the connection while the
+ * client is still writing, and the reset can overtake the answer for a client
+ * that never pauses (about one in twelve, on every framework). The cases that
+ * send a body the server refuses stop writing as soon as the answer arrives and
+ * send it again if it was lost (`sendRefused`).
  *
  * Not covered: a body that never ends is only bounded, not timed out (a
  * slow-read client is the server timeout's concern); `bodyParser.enabled:
@@ -53,8 +72,13 @@
 
 import "./helpers/credentialFreeEnv.js";
 import { spawn, type ChildProcess } from "node:child_process";
-import { request as httpRequest } from "node:http";
-import { createServer as createTcpServer } from "node:net";
+import { request as httpRequest, Agent, Server as HttpServer } from "node:http";
+import {
+  connect as tcpConnect,
+  createServer as createTcpServer,
+  type Socket,
+} from "node:net";
+import * as zlib from "node:zlib";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -103,6 +127,10 @@ type Reply = {
   status: number;
   headers: Record<string, string | string[] | undefined>;
   text: string;
+  /** The client's local port, to find the server's end of the connection. */
+  clientPort: number;
+  /** Bytes the client had written to the socket when the answer began. */
+  clientWritten: number;
 };
 
 type SendOptions = {
@@ -111,8 +139,12 @@ type SendOptions = {
   size?: number;
   kind?: BodyKind;
   /** A literal body, instead of `size` bytes of padding. */
-  literal?: string;
+  literal?: string | Buffer;
   contentType?: string;
+  /** Extra request headers, such as Content-Encoding. */
+  headers?: Record<string, string>;
+  /** Give up on an answer after this long (default 60s). */
+  timeoutMs?: number;
   /** No Content-Length: the body goes out chunked. */
   chunked?: boolean;
   token?: string;
@@ -154,8 +186,15 @@ function send(port: number, options: SendOptions): Promise<Reply> {
       : "application/x-www-form-urlencoded");
   const literal = options.literal;
   const total =
-    literal !== undefined ? Buffer.byteLength(literal) : (options.size ?? 0);
-  const headers: Record<string, string> = { "content-type": contentType };
+    literal !== undefined
+      ? typeof literal === "string"
+        ? Buffer.byteLength(literal)
+        : literal.length
+      : (options.size ?? 0);
+  const headers: Record<string, string> = {
+    "content-type": contentType,
+    ...options.headers,
+  };
   if (!options.chunked) {
     headers["content-length"] = String(total);
   }
@@ -177,9 +216,9 @@ function send(port: number, options: SendOptions): Promise<Reply> {
       if (!settled) {
         settled = true;
         req.destroy();
-        rejectReply(new Error("no response within 60s"));
+        rejectReply(new Error("no response in time"));
       }
-    }, 60_000);
+    }, options.timeoutMs ?? 60_000);
     const settle = (action: () => void): void => {
       if (!settled) {
         settled = true;
@@ -199,6 +238,8 @@ function send(port: number, options: SendOptions): Promise<Reply> {
     req.on("response", (res) => {
       // A final answer before the body is complete means the server is done
       // with the request; the rest of the body is not sent.
+      const clientPort = req.socket?.localPort ?? 0;
+      const clientWritten = req.socket?.bytesWritten ?? 0;
       answered();
       const parts: Buffer[] = [];
       res.on("data", (part: Buffer) => parts.push(part));
@@ -208,6 +249,8 @@ function send(port: number, options: SendOptions): Promise<Reply> {
             status: res.statusCode ?? 0,
             headers: res.headers,
             text: Buffer.concat(parts).toString("utf8"),
+            clientPort,
+            clientWritten,
           }),
         );
         req.destroy();
@@ -279,6 +322,33 @@ function send(port: number, options: SendOptions): Promise<Reply> {
   });
 }
 
+/**
+ * `send`, again if the answer was lost. A server that refuses a body it has not
+ * read closes the connection with data still arriving, which resets a client
+ * that is mid-write, and the reset can overtake the answer. Every framework here
+ * does that to a client that never pauses (about one in twelve in a measurement
+ * of all four), so it says nothing about the code under test: a lost answer is
+ * sent again, and an answer that arrives is judged as it is. A server that does
+ * not answer at all still fails on the timeout.
+ */
+async function sendRefused(
+  port: number,
+  options: SendOptions,
+  attempts = 3,
+): Promise<Reply> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await send(port, options);
+    } catch (error) {
+      const lost =
+        error instanceof Error && error.message.startsWith("no response (");
+      if (!lost || attempt >= attempts) {
+        throw error;
+      }
+    }
+  }
+}
+
 const parseJson = (reply: Reply): Record<string, unknown> => {
   try {
     const parsed: unknown = JSON.parse(reply.text);
@@ -305,6 +375,13 @@ const errorCodeOf = (reply: Reply): unknown => {
     : undefined;
 };
 
+const errorMessageOf = (reply: Reply): unknown => {
+  const error = parseJson(reply).error;
+  return error !== null && typeof error === "object"
+    ? (error as Record<string, unknown>).message
+    : undefined;
+};
+
 // ---------------------------------------------------------------------------
 // One server per framework and limit configuration
 // ---------------------------------------------------------------------------
@@ -324,6 +401,13 @@ type Running = {
   port: number;
   authCalls: () => number;
   routeCalls: () => number;
+  /**
+   * Bytes the server has read off the connection a client opened from
+   * `clientPort`, or `undefined` for a server that does not expose its sockets.
+   * How much a server received is what "stopped reading at the limit" means; a
+   * client-side count would depend on the operating system's socket buffers.
+   */
+  bytesReadFrom: (clientPort: number) => number | undefined;
   stop: () => Promise<void>;
 };
 
@@ -405,10 +489,20 @@ function serverFor(
     });
     await adapter.initialize();
     await adapter.start();
+    const connections = new Map<number, Socket>();
+    const nativeServer = adapter.getNativeServer();
+    if (nativeServer instanceof HttpServer) {
+      nativeServer.on("connection", (socket: Socket) => {
+        if (socket.remotePort !== undefined) {
+          connections.set(socket.remotePort, socket);
+        }
+      });
+    }
     return {
       port,
       authCalls: () => authCalls,
       routeCalls: () => routeCalls,
+      bytesReadFrom: (clientPort) => connections.get(clientPort)?.bytesRead,
       stop: () => adapter.stop(),
     };
   })();
@@ -432,6 +526,29 @@ async function countingCalls<T>(
 }
 
 const DEFAULT_LIMIT_BYTES = 10 * MIB;
+
+/**
+ * What the server may have read of a body whose declared size it refused. The
+ * bytes that arrived with the headers and a few reads behind them, nothing of
+ * the 64 or 256 MiB that was on offer; a server that drains the request reads
+ * all of it.
+ */
+const EXPRESS_DECLARED_READ_CEILING = 4 * MIB;
+/** What the server may read past the limit of a chunked body before it stops. */
+const EXPRESS_CHUNKED_READ_SLACK = 4 * MIB;
+
+// Built from a code point: a literal U+FEFF is easy to lose in a file.
+const BYTE_ORDER_MARK = String.fromCharCode(0xfeff);
+
+const SAMPLE = {
+  a: 1,
+  b: [1, 2, { c: null }],
+  d: "h\u00e9llo \u2603 \u65e5\u672c",
+};
+
+/** A JSON body of exactly `size` bytes. */
+const jsonBody = (size: number): string =>
+  JSON_PREFIX + "a".repeat(padLengthFor("json", size)) + JSON_SUFFIX;
 
 /**
  * What a truncated JSON body was answered with before this suite existed.
@@ -1149,6 +1266,586 @@ await test("[proxy] a ceiling too long to be finite is ignored, so each route ke
     await send(proxy.port, { path: MESSAGES_PATH, size: 31 * MIB }),
     "the Messages route, 31 MiB under an overflowing ceiling",
   );
+});
+
+// ---------------------------------------------------------------------------
+// The Express adapter: how much of a refused body is read, and what is unchanged
+// ---------------------------------------------------------------------------
+//
+// Express reads JSON and form bodies with body-parser, which answers 413 for a
+// body over the limit but only after it has taken the whole request off the
+// socket. The adapter now reads them through a bound and hands the bytes to
+// body-parser to parse. The first group below is what that changed: how much a
+// server read before it answered. The second group pins what it must not have
+// changed, case by case, against the behaviour body-parser gave before.
+
+/** The 413 body Express has always answered with; Hono's differs. */
+const assertExpressTooLarge = (reply: Reply, what: string): void => {
+  assertEqual(reply.status, 413, `${what}: refused with 413`);
+  assertEqual(
+    errorCodeOf(reply),
+    "PAYLOAD_TOO_LARGE",
+    `${what}: the adapters' error code`,
+  );
+  assertEqual(
+    errorMessageOf(reply),
+    "request entity too large",
+    `${what}: body-parser's message`,
+  );
+  assert(
+    typeof (parseJson(reply).metadata as { timestamp?: unknown })?.timestamp ===
+      "string",
+    `${what}: the adapters' metadata envelope`,
+  );
+};
+
+const INTERNAL_ERROR_MESSAGE = "An internal error occurred";
+
+/**
+ * Anything body-parser refuses other than a body that is too large is answered
+ * 500 by the adapter's error handler, whatever status body-parser gave it (415
+ * for a charset or an encoding it does not read, 400 for a body that does not
+ * parse). That is today's behaviour and is pinned as it is.
+ */
+const assertInternalError = (reply: Reply, what: string): void => {
+  assertEqual(reply.status, 500, `${what}: answered 500`);
+  assertEqual(errorCodeOf(reply), "INTERNAL_ERROR", `${what}: error code`);
+  assertEqual(
+    errorMessageOf(reply),
+    INTERNAL_ERROR_MESSAGE,
+    `${what}: generic message`,
+  );
+};
+
+for (const kind of ["json", "form"] as const) {
+  for (const mib of [64, 256]) {
+    await test(`[express] a declared ${mib} MiB ${kind} body is refused without being read`, async () => {
+      const server = await serverFor("express", DEFAULT_LIMITS, "default");
+      const { result, auth, route } = await countingCalls(server, () =>
+        sendRefused(server.port, {
+          path: "/echo",
+          kind,
+          size: mib * MIB,
+          expectRefusal: true,
+          timeoutMs: 200_000,
+        }),
+      );
+      assertExpressTooLarge(result, "declared");
+      assertEqual(auth + route, 0, "no handler ran for it");
+      const read = server.bytesReadFrom(result.clientPort);
+      assert(read !== undefined, "the server's end of the connection is known");
+      assert(
+        (read ?? Infinity) <= EXPRESS_DECLARED_READ_CEILING,
+        "the server read next to none of the declared body",
+      );
+    });
+
+    await test(`[express] a chunked ${mib} MiB ${kind} body is read only as far as the limit`, async () => {
+      const server = await serverFor("express", DEFAULT_LIMITS, "default");
+      const { result, auth, route } = await countingCalls(server, () =>
+        sendRefused(server.port, {
+          path: "/echo",
+          kind,
+          size: mib * MIB,
+          chunked: true,
+          expectRefusal: true,
+          timeoutMs: 200_000,
+        }),
+      );
+      assertExpressTooLarge(result, "chunked");
+      assertEqual(auth + route, 0, "no handler ran for it");
+      const read = server.bytesReadFrom(result.clientPort);
+      assert(read !== undefined, "the server's end of the connection is known");
+      assert(
+        (read ?? 0) > DEFAULT_LIMIT_BYTES,
+        "the server read the body up to the limit",
+      );
+      assert(
+        (read ?? Infinity) <= DEFAULT_LIMIT_BYTES + EXPRESS_CHUNKED_READ_SLACK,
+        "the server stopped reading just past the limit",
+      );
+    });
+  }
+}
+
+/** POSTs on one keep-alive agent, telling whether each reused the connection. */
+function keepAliveClient(port: number): {
+  post: (body: string) => Promise<{ status: number; reused: boolean }>;
+  close: () => void;
+} {
+  const agent = new Agent({ keepAlive: true, maxSockets: 1 });
+  return {
+    post: (body) =>
+      new Promise((resolveReply, rejectReply) => {
+        const req = httpRequest(
+          {
+            host: "127.0.0.1",
+            port,
+            path: "/echo",
+            method: "POST",
+            agent,
+            headers: {
+              "content-type": "application/json",
+              "content-length": String(Buffer.byteLength(body)),
+              authorization: `Bearer ${VALID_TOKEN}`,
+            },
+          },
+          (res) => {
+            res.resume();
+            res.on("end", () =>
+              resolveReply({
+                status: res.statusCode ?? 0,
+                reused: req.reusedSocket,
+              }),
+            );
+          },
+        );
+        req.on("error", rejectReply);
+        req.end(body);
+      }),
+    close: () => agent.destroy(),
+  };
+}
+
+await test("[express] requests that are served keep the connection, and one after a refusal is served", async () => {
+  const server = await serverFor("express", SMALL_LIMITS, "small");
+  const client = keepAliveClient(server.port);
+  try {
+    const first = await client.post(jsonBody(1 * KIB));
+    assertEqual(first.status, 200, "a normal request is served");
+    const second = await client.post(jsonBody(2 * KIB));
+    assertEqual(second.status, 200, "and the next");
+    assert(
+      second.reused,
+      "a served request leaves the connection to be reused",
+    );
+    const refused = await client.post(jsonBody(128 * KIB));
+    assertEqual(refused.status, 413, "an over-limit body is refused");
+    const after = await client.post(jsonBody(1 * KIB));
+    assertEqual(after.status, 200, "the request after a refusal is served");
+  } finally {
+    client.close();
+  }
+});
+
+await test("[express] a refused body closes the connection, so a client still sending is cut off", async () => {
+  const server = await serverFor("express", SMALL_LIMITS, "small");
+  const client = keepAliveClient(server.port);
+  try {
+    const first = await client.post(jsonBody(1 * KIB));
+    assertEqual(first.status, 200, "a normal request is served");
+    // The refusal resets a client still writing, which can lose the answer
+    // (see sendRefused): sent again, on a new connection.
+    let refused: { status: number; reused: boolean } | undefined;
+    for (let attempt = 0; attempt < 3 && refused === undefined; attempt += 1) {
+      refused = await client.post(jsonBody(128 * KIB)).catch(() => undefined);
+    }
+    assertEqual(refused?.status, 413, "an over-limit body is refused");
+    const after = await client.post(jsonBody(1 * KIB));
+    assertEqual(after.status, 200, "the next request is served");
+    assert(
+      !after.reused,
+      "on a new connection: the refusal closed the one it arrived on",
+    );
+  } finally {
+    client.close();
+  }
+});
+
+await test("[express] compressed JSON bodies are inflated: gzip, deflate, br, zstd", async () => {
+  const server = await serverFor("express", DEFAULT_LIMITS, "default");
+  const text = JSON.stringify(SAMPLE);
+  const body = Buffer.from(text);
+  const codecs: Array<[string, Buffer]> = [
+    ["gzip", zlib.gzipSync(body)],
+    ["deflate", zlib.deflateSync(body)],
+    ["br", zlib.brotliCompressSync(body)],
+    ["GZIP", zlib.gzipSync(body)],
+    ["identity", body],
+  ];
+  if (typeof zlib.zstdCompressSync === "function") {
+    codecs.push(["zstd", zlib.zstdCompressSync(body)]);
+  }
+  for (const [encoding, bytes] of codecs) {
+    for (const chunked of [false, true]) {
+      const reply = await send(server.port, {
+        token: VALID_TOKEN,
+        path: "/echo",
+        literal: bytes,
+        headers: { "content-encoding": encoding },
+        chunked,
+      });
+      assertEqual(reply.status, 200, `${encoding}: served`);
+      assertEqual(
+        JSON.stringify(dataOf(reply).echo),
+        text,
+        `${encoding}: inflated and parsed to the same object`,
+      );
+    }
+  }
+  const form = await send(server.port, {
+    token: VALID_TOKEN,
+    path: "/echo",
+    kind: "form",
+    literal: zlib.gzipSync(Buffer.from("a=1&b[c]=2")),
+    headers: { "content-encoding": "gzip" },
+  });
+  assertEqual(
+    JSON.stringify(dataOf(form).echo),
+    '{"a":"1","b":{"c":"2"}}',
+    "a compressed form is inflated and parsed",
+  );
+});
+
+await test("[express] the limit applies to the inflated size of a compressed body", async () => {
+  const server = await serverFor("express", SMALL_LIMITS, "small");
+  const limit = 64 * KIB;
+  const gzipHeader = { "content-encoding": "gzip" };
+  const withBody = (size: number, how: "gzip" | "stored"): Buffer =>
+    how === "gzip"
+      ? zlib.gzipSync(Buffer.from(jsonBody(size)))
+      : zlib.deflateSync(Buffer.from(jsonBody(size)), { level: 0 });
+
+  for (const chunked of [false, true]) {
+    const bomb = await send(server.port, {
+      token: VALID_TOKEN,
+      path: "/echo",
+      literal: withBody(4 * limit, "gzip"),
+      headers: gzipHeader,
+      chunked,
+      expectRefusal: true,
+    });
+    assertExpressTooLarge(bomb, "a gzip body of 4x the limit inflated");
+
+    const atLimit = await send(server.port, {
+      token: VALID_TOKEN,
+      path: "/echo",
+      literal: withBody(limit, "gzip"),
+      headers: gzipHeader,
+      chunked,
+    });
+    assertEqual(
+      atLimit.status,
+      200,
+      "inflating to exactly the limit is served",
+    );
+    assertEqual(
+      dataOf(atLimit).padLength,
+      padLengthFor("json", limit),
+      "and parsed whole",
+    );
+
+    const over = await send(server.port, {
+      token: VALID_TOKEN,
+      path: "/echo",
+      literal: withBody(limit + 1, "gzip"),
+      headers: gzipHeader,
+      chunked,
+      expectRefusal: true,
+    });
+    assertExpressTooLarge(over, "inflating to one byte over the limit");
+  }
+
+  // Deflate with stored blocks: the wire is larger than what it inflates to,
+  // and the wire's size is not what the limit is about.
+  const inflated = limit - 8;
+  const stored = withBody(inflated, "stored");
+  assert(stored.length > limit, "the stored body is larger than the limit");
+  for (const chunked of [false, true]) {
+    const reply = await send(server.port, {
+      token: VALID_TOKEN,
+      path: "/echo",
+      literal: stored,
+      headers: { "content-encoding": "deflate" },
+      chunked,
+    });
+    assertEqual(
+      reply.status,
+      200,
+      "a body that inflates under the limit is served",
+    );
+    assertEqual(
+      dataOf(reply).padLength,
+      padLengthFor("json", inflated),
+      "and parsed whole",
+    );
+  }
+});
+
+await test("[express] an unsupported Content-Encoding, a corrupt or empty compressed body: refused as before", async () => {
+  const server = await serverFor("express", DEFAULT_LIMITS, "default");
+  const gz = zlib.gzipSync(Buffer.from(JSON.stringify(SAMPLE)));
+  for (const encoding of ["compress", "x-gzip", "gzip, br", "unknown"]) {
+    assertInternalError(
+      await send(server.port, {
+        token: VALID_TOKEN,
+        path: "/echo",
+        literal: gz,
+        headers: { "content-encoding": encoding },
+      }),
+      `Content-Encoding ${encoding}`,
+    );
+  }
+  assertInternalError(
+    await send(server.port, {
+      token: VALID_TOKEN,
+      path: "/echo",
+      literal: Buffer.from("not gzip at all"),
+      headers: { "content-encoding": "gzip" },
+    }),
+    "a body that is not gzip",
+  );
+  assertInternalError(
+    await send(server.port, {
+      token: VALID_TOKEN,
+      path: "/echo",
+      literal: gz.subarray(0, gz.length - 6),
+      headers: { "content-encoding": "gzip" },
+    }),
+    "a truncated gzip body",
+  );
+  assertInternalError(
+    await send(server.port, {
+      token: VALID_TOKEN,
+      path: "/echo",
+      literal: "",
+      headers: { "content-encoding": "gzip" },
+    }),
+    "an empty body declared gzip",
+  );
+  // An encoding on a body that is not parsed is not looked at.
+  const plain = await send(server.port, {
+    token: VALID_TOKEN,
+    path: "/echo",
+    contentType: "text/plain",
+    literal: gz,
+    headers: { "content-encoding": "compress" },
+  });
+  assertEqual(plain.status, 200, "text/plain is not parsed, so not inflated");
+  assertEqual(dataOf(plain).bodyType, "undefined", "and the route saw no body");
+});
+
+await test("[express] charset: utf-8 and utf-16 JSON are decoded, one body-parser refuses is refused as before", async () => {
+  const server = await serverFor("express", DEFAULT_LIMITS, "default");
+  const text = JSON.stringify(SAMPLE);
+  for (const [label, contentType, bytes] of [
+    ["utf-8", "application/json; charset=utf-8", Buffer.from(text)],
+    ["UTF-8", "application/json; charset=UTF-8", Buffer.from(text)],
+    [
+      "utf-16le",
+      "application/json; charset=utf-16le",
+      Buffer.from(text, "utf16le"),
+    ],
+    ["none", "application/json", Buffer.from(text)],
+  ] as const) {
+    const reply = await send(server.port, {
+      token: VALID_TOKEN,
+      path: "/echo",
+      contentType,
+      literal: bytes,
+    });
+    assertEqual(reply.status, 200, `${label}: served`);
+    assertEqual(
+      JSON.stringify(dataOf(reply).echo),
+      text,
+      `${label}: decoded to the same object`,
+    );
+  }
+  for (const [label, contentType] of [
+    ["iso-8859-1", "application/json; charset=iso-8859-1"],
+    ["ascii", "application/json; charset=ascii"],
+    ["utf-99", "application/json; charset=utf-99"],
+  ] as const) {
+    assertInternalError(
+      await send(server.port, {
+        token: VALID_TOKEN,
+        path: "/echo",
+        contentType,
+        literal: '{"a":1}',
+      }),
+      `JSON charset ${label}`,
+    );
+  }
+  const latin1 = await send(server.port, {
+    token: VALID_TOKEN,
+    path: "/echo",
+    kind: "form",
+    contentType: "application/x-www-form-urlencoded; charset=iso-8859-1",
+    literal: "a=%E9",
+  });
+  assertEqual(
+    JSON.stringify(dataOf(latin1).echo),
+    '{"a":"é"}',
+    "a latin-1 form is decoded",
+  );
+  assertInternalError(
+    await send(server.port, {
+      token: VALID_TOKEN,
+      path: "/echo",
+      kind: "form",
+      contentType: "application/x-www-form-urlencoded; charset=utf-16",
+      literal: "a=1",
+    }),
+    "a form in a charset it does not read",
+  );
+});
+
+await test("[express] strict JSON: scalars and malformed bodies are refused as before, arrays and objects are parsed", async () => {
+  const server = await serverFor("express", DEFAULT_LIMITS, "default");
+  const post = (literal: string): Promise<Reply> =>
+    send(server.port, {
+      token: VALID_TOKEN,
+      path: "/echo",
+      literal,
+    });
+  for (const [label, text] of [
+    ["number", "1"],
+    ["string", '"s"'],
+    ["null", "null"],
+    ["whitespace then a scalar", "  1"],
+    ["whitespace only", "   "],
+    ["trailing garbage", '{"a":1}x'],
+    ["truncated", '{"a":'],
+    ["single quotes", "{'a':1}"],
+  ] as const) {
+    assertInternalError(await post(text), label);
+  }
+  for (const [label, text] of [
+    ["an array", "[1,2,3]"],
+    ["an empty array", "[]"],
+    ["an empty object", "{}"],
+    ["whitespace then an object", '  \n\t{"a":1}'],
+    ["a byte-order mark then an object", BYTE_ORDER_MARK + '{"a":1}'],
+    ["duplicate keys", '{"a":1,"a":2}'],
+    ["a __proto__ key", '{"__proto__":{"x":1},"y":2}'],
+  ] as const) {
+    const reply = await post(text);
+    assertEqual(reply.status, 200, `${label}: served`);
+    assertEqual(
+      JSON.stringify(dataOf(reply).echo),
+      JSON.stringify(JSON.parse(text.split(BYTE_ORDER_MARK).join(""))),
+      `${label}: the same object JSON.parse gives`,
+    );
+  }
+});
+
+await test("[express] an empty body, a body of another type and the +json types are left unparsed as before", async () => {
+  const server = await serverFor("express", DEFAULT_LIMITS, "default");
+  const empty = await send(server.port, {
+    token: VALID_TOKEN,
+    path: "/echo",
+    literal: "",
+  });
+  assertEqual(empty.status, 200, "an empty JSON body is served");
+  assertEqual(dataOf(empty).bodyType, "object", "as an empty object");
+  assertEqual(JSON.stringify(dataOf(empty).echo), "{}", "which is empty");
+  const emptyChunked = await send(server.port, {
+    token: VALID_TOKEN,
+    path: "/echo",
+    literal: "",
+    chunked: true,
+  });
+  assertEqual(JSON.stringify(dataOf(emptyChunked).echo), "{}", "also chunked");
+  const emptyForm = await send(server.port, {
+    token: VALID_TOKEN,
+    path: "/echo",
+    kind: "form",
+    literal: "",
+  });
+  assertEqual(JSON.stringify(dataOf(emptyForm).echo), "{}", "an empty form");
+
+  for (const contentType of [
+    "text/plain",
+    "application/vnd.api+json",
+    "application/ld+json",
+    "application/json-patch+json",
+    "text/json",
+    "application/jsonx",
+  ]) {
+    const reply = await send(server.port, {
+      token: VALID_TOKEN,
+      path: "/echo",
+      contentType,
+      literal: '{"a":1}',
+    });
+    assertEqual(reply.status, 200, `${contentType}: served`);
+    assertEqual(
+      dataOf(reply).bodyType,
+      "undefined",
+      `${contentType}: not parsed, the route saw no body`,
+    );
+  }
+});
+
+await test("[express] url-encoded bodies parse with qs as before: nesting, arrays, repeated keys, depth and parameter limits", async () => {
+  const server = await serverFor("express", DEFAULT_LIMITS, "default");
+  const post = (literal: string): Promise<Reply> =>
+    send(server.port, {
+      token: VALID_TOKEN,
+      path: "/echo",
+      kind: "form",
+      literal,
+    });
+  for (const [form, expected] of [
+    ["a=1&b=2", '{"a":"1","b":"2"}'],
+    ["a=1&a=2&a=3", '{"a":["1","2","3"]}'],
+    ["a[]=1&a[]=2", '{"a":["1","2"]}'],
+    ["a[0]=x&a[1]=y", '{"a":["x","y"]}'],
+    ["a[b][c]=1&a[b][d]=2&a[e]=3", '{"a":{"b":{"c":"1","d":"2"},"e":"3"}}'],
+    ["a[b]=1&a=2", '{"a":[{"b":"1"},"2"]}'],
+    ["c=%C3%A9+z&d=", '{"c":"é z","d":""}'],
+    ["a.b=1&a.c=2", '{"a.b":"1","a.c":"2"}'],
+    ["a[150]=x", '{"a":{"150":"x"}}'],
+    ["flag&b", '{"flag":"","b":""}'],
+    ["__proto__[x]=1&y=2", '{"y":"2"}'],
+    ["constructor[prototype][y]=1", '{"constructor":{"prototype":{"y":"1"}}}'],
+  ] as const) {
+    const reply = await post(form);
+    assertEqual(reply.status, 200, "a form is served");
+    assertEqual(
+      JSON.stringify(dataOf(reply).echo),
+      expected,
+      "parsed to the object qs gave before",
+    );
+  }
+  const nest = (depth: number): string => `a${"[b]".repeat(depth)}=1`;
+  assertEqual((await post(nest(32))).status, 200, "depth 32 is parsed");
+  assertInternalError(await post(nest(33)), "depth 33");
+  const params = (count: number): string =>
+    Array.from({ length: count }, (_, i) => `k${i}=v`).join("&");
+  assertEqual((await post(params(1000))).status, 200, "1000 parameters");
+  assertInternalError(await post(params(1001)), "1001 parameters");
+});
+
+await test("[express] a request half-closed after its last byte is still answered", async () => {
+  const server = await serverFor("express", DEFAULT_LIMITS, "default");
+  // The body is read, parsed and answered in the turns between the data and the
+  // end-of-stream the client sends right behind it; one that waited on a timer
+  // or a thread would lose the answer to the close.
+  for (const [contentType, body] of [
+    ["application/json", JSON.stringify(SAMPLE)],
+    ["application/x-www-form-urlencoded", "a=1&b[c]=2"],
+  ] as const) {
+    const answer = await new Promise<string>((resolveAnswer, rejectAnswer) => {
+      const socket = tcpConnect(server.port, "127.0.0.1");
+      let received = "";
+      const timer = setTimeout(() => {
+        socket.destroy();
+        rejectAnswer(new Error("no answer in time"));
+      }, 10_000);
+      socket.on("data", (part: Buffer) => (received += part.toString("utf8")));
+      socket.on("error", () => undefined);
+      socket.on("close", () => {
+        clearTimeout(timer);
+        resolveAnswer(received);
+      });
+      socket.end(
+        `POST /echo HTTP/1.1\r\nHost: x\r\nConnection: close\r\nContent-Type: ${contentType}\r\nAuthorization: Bearer ${VALID_TOKEN}\r\nContent-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`,
+      );
+    });
+    assert(answer.startsWith("HTTP/1.1 200"), `${contentType}: answered 200`);
+    assert(answer.includes('"bodyType":"object"'), `${contentType}: parsed`);
+  }
 });
 
 // ---------------------------------------------------------------------------
