@@ -24,6 +24,7 @@ import { withCaseTimeout, isCaseTimeout } from "./helpers/harness.js";
 
 import { spawn } from "child_process";
 import * as fs from "fs";
+import { createServer, type Server } from "http";
 import * as os from "os";
 import * as path from "path";
 import { fileURLToPath } from "url";
@@ -247,6 +248,12 @@ const VOICE_PROVIDER_CREDENTIAL_ENV: Readonly<Record<string, string>> = {
   "azure-stt": "AZURE_SPEECH_KEY",
   deepgram: "DEEPGRAM_API_KEY",
 };
+
+/** True when the variable that registers `provider`'s handler is set. */
+function isVoiceCredentialSet(provider: string): boolean {
+  const envName = VOICE_PROVIDER_CREDENTIAL_ENV[provider];
+  return envName !== undefined && Boolean(process.env[envName]?.trim());
+}
 
 const UNREGISTERED_VOICE_HANDLER =
   /\b(?:tts|stt)\s+provider\s+"([^"]+)"\s+is\s+not\s+supported\.\s+use\s+(?:tts|stt)processor\.registerhandler\(\)/i;
@@ -1082,36 +1089,22 @@ async function testHandlerRegistration(): Promise<boolean | null> {
     // Import TTSProcessor from dist
     const { TTSProcessor } = await import("../dist/utils/ttsProcessor.js");
 
-    // registerDefault{TTS,STT}Handlers skip a handler whose credential is
-    // absent, so the ElevenLabs entries are only expected when the key is set.
-    const elevenLabsConfigured = Boolean(
-      process.env.ELEVENLABS_API_KEY?.trim(),
-    );
+    // registerDefault{TTS,STT}Handlers register a handler only when its
+    // credential is in the environment, so a handler is expected only for the
+    // providers whose credential is set here. The rest are listed, not
+    // asserted: their absence is the environment, not a regression.
     const ttsProviders = [
       "google-ai",
       "vertex",
       "openai-tts",
-      ...(elevenLabsConfigured ? ["elevenlabs"] : []),
+      "elevenlabs",
       "azure-tts",
     ];
-    const ttsChecks: Array<{ provider: string; supported: boolean }> = [];
-
-    for (const provider of ttsProviders) {
-      ttsChecks.push({
-        provider,
-        supported: TTSProcessor.supports(provider),
-      });
-    }
-
-    for (const c of ttsChecks) {
-      const icon = c.supported ? "\u2705" : "\u274C";
-      log(
-        `   ${icon} TTSProcessor.supports("${c.provider}"): ${c.supported}`,
-        "reset",
-      );
-    }
-
-    const ttsAllPass = ttsChecks.every((c) => c.supported);
+    const ttsChecks = ttsProviders.map((provider) => ({
+      provider,
+      expected: isVoiceCredentialSet(provider),
+      supported: TTSProcessor.supports(provider),
+    }));
 
     // Import STTProcessor from dist
     const { STTProcessor } = await import("../dist/utils/sttProcessor.js");
@@ -1123,48 +1116,58 @@ async function testHandlerRegistration(): Promise<boolean | null> {
       "deepgram",
       "google-stt",
       "azure-stt",
-      ...(elevenLabsConfigured ? ["elevenlabs-stt"] : []),
+      "elevenlabs-stt",
     ];
-    const sttChecks: Array<{ provider: string; supported: boolean }> = [];
+    const sttChecks = sttProviders.map((provider) => ({
+      provider,
+      expected: isVoiceCredentialSet(provider),
+      supported: STTProcessor.supports(provider),
+    }));
 
-    for (const provider of sttProviders) {
-      sttChecks.push({
-        provider,
-        supported: STTProcessor.supports(provider),
-      });
+    for (const [kind, checks] of [
+      ["TTS", ttsChecks],
+      ["STT", sttChecks],
+    ] as const) {
+      for (const c of checks) {
+        const icon = !c.expected
+          ? "\u23ED\uFE0F"
+          : c.supported
+            ? "\u2705"
+            : "\u274C";
+        const note = c.expected ? "" : " (credential not set, not asserted)";
+        log(
+          `   ${icon} ${kind}Processor.supports("${c.provider}"): ${c.supported}${note}`,
+          "reset",
+        );
+      }
     }
 
-    for (const c of sttChecks) {
-      const icon = c.supported ? "\u2705" : "\u274C";
-      log(
-        `   ${icon} STTProcessor.supports("${c.provider}"): ${c.supported}`,
-        "reset",
+    const asserted = [...ttsChecks, ...sttChecks].filter((c) => c.expected);
+    const notAsserted = [...ttsChecks, ...sttChecks].filter((c) => !c.expected);
+
+    if (asserted.length === 0) {
+      logTest(
+        "Handler registration (TTSProcessor + STTProcessor)",
+        "SKIP",
+        "no voice credential is set, so no handler is expected to register",
       );
+      return null;
     }
 
-    const sttAllPass = sttChecks.every((c) => c.supported);
-
-    if (ttsAllPass && sttAllPass) {
+    const missing = asserted.filter((c) => !c.supported);
+    if (missing.length === 0) {
       logTest(
         "Handler registration (TTSProcessor + STTProcessor)",
         "PASS",
-        `All ${ttsChecks.length} TTS and ${sttChecks.length} STT handlers registered`,
+        `${asserted.length} handlers with a credential registered; ${notAsserted.length} not asserted (credential not set)`,
       );
       return true;
     }
 
-    const failedTTS = ttsChecks
-      .filter((c) => !c.supported)
-      .map((c) => c.provider);
-    const failedSTT = sttChecks
-      .filter((c) => !c.supported)
-      .map((c) => c.provider);
-    const failedAll = [...failedTTS, ...failedSTT];
-
     logTest(
       "Handler registration (TTSProcessor + STTProcessor)",
       "FAIL",
-      `Missing handlers: ${failedAll.join(", ")}`,
+      `Missing handlers despite their credential being set: ${missing.map((c) => c.provider).join(", ")}`,
     );
     return false;
   } catch (error) {
@@ -1966,21 +1969,79 @@ async function testConcurrentStreamTTS(
   }
 }
 
+/**
+ * Loopback chat endpoint for T6. It answers a streaming request with one SSE
+ * chunk and then drops the connection, so the provider hands back a stream and
+ * the failure only shows up while the caller iterates it. `provider: "openai"`
+ * takes a per-call `credentials.openai.baseURL`, which is all that is needed to
+ * point it here; no credential or network is involved.
+ */
+function startDroppedStreamServer(): Promise<{
+  baseURL: string;
+  close: () => Promise<void>;
+}> {
+  const server: Server = createServer((req, res) => {
+    req.resume();
+    req.on("end", () => {
+      res.writeHead(200, { "Content-Type": "text/event-stream" });
+      res.write(
+        `data: ${JSON.stringify({
+          id: "t6-stand-in",
+          object: "chat.completion.chunk",
+          created: 1,
+          model: "t6-stand-in",
+          choices: [
+            {
+              index: 0,
+              delta: { role: "assistant", content: "partial" },
+              finish_reason: null,
+            },
+          ],
+        })}\n\n`,
+      );
+      setTimeout(() => res.destroy(), 100);
+    });
+  });
+  return new Promise((resolve) => {
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      resolve({
+        baseURL: `http://127.0.0.1:${port}/v1`,
+        close: () =>
+          new Promise<void>((done) => {
+            server.closeAllConnections();
+            server.close(() => done());
+          }),
+      });
+    });
+  });
+}
+
 async function testStreamErrorBeforeTTS(
   sdk: NeuroLink,
 ): Promise<boolean | null> {
   // T6: when the LLM stream errors mid-iteration, result.audio Promise must
   // still settle (to undefined) within ~5s — guarantees the resolver-on-
   // finally hooks fire even on the error path.
-  logTest("T6: stream() error → audio Promise still settles", "TESTING");
+  const name = "T6: stream() error → audio Promise still settles";
+  logTest(name, "TESTING");
+  // The path needs sdk.stream() to return and the stream to fail afterwards.
+  // A bogus provider id cannot do that: the registry throws before stream()
+  // returns, so there is no result to read `audio` from.
+  const standIn = await startDroppedStreamServer();
   try {
-    let errored = false;
     let r: Awaited<ReturnType<typeof sdk.stream>>;
     try {
       r = await sdk.stream({
         input: { text: "x" },
-        // Force an error path: an obviously wrong provider id.
-        provider: "this-provider-does-not-exist-xyzzy",
+        provider: "openai",
+        credentials: {
+          openai: { apiKey: "sk-t6-stand-in", baseURL: standIn.baseURL },
+        },
+        // A fallback provider would answer the request and hide the error.
+        disableInternalFallback: true,
+        disableTools: true,
         maxTokens: 10,
         tts: {
           enabled: true,
@@ -1989,53 +2050,64 @@ async function testStreamErrorBeforeTTS(
           format: "mp3",
         },
       });
-    } catch {
-      // Immediate rejection from sdk.stream() means the test infrastructure
-      // could not reach the intended path ("stream object exists, iteration
-      // fails, audio Promise still settles"). Skip with a clear message
-      // rather than masking it as PASS — a real regression in the resolver-
-      // on-finally hooks would still surface as a TIMEOUT below if the path
-      // were exercised. (Bogus provider id triggers an early registry-side
-      // throw before stream() returns; reaching the mid-iteration error
-      // path requires a real provider that fails partway through.)
-      errored = true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const skip = isExpectedVoiceError(msg);
       logTest(
-        "T6: stream() error → audio Promise still settles",
-        "SKIP",
-        "sdk.stream() rejected before returning a stream object — intended path not exercised in this env",
+        name,
+        skip ? "SKIP" : "FAIL",
+        "sdk.stream() rejected before returning a stream object, so the error path was not reached",
       );
-      return null;
+      return skip ? null : false;
     }
-    if (errored) {
-      return null;
-    }
+
+    let iterationThrew = false;
     try {
-      for await (const _c of r!.stream) {
+      for await (const _c of r.stream) {
         void _c;
       }
     } catch {
-      // expected
+      iterationThrew = true;
+    }
+    if (!iterationThrew) {
+      logTest(
+        name,
+        "FAIL",
+        "the stream drained without raising the dropped connection, so the error path was not exercised",
+      );
+      return false;
+    }
+    if (!r.audio) {
+      logTest(
+        name,
+        "FAIL",
+        "stream() returned no audio Promise although tts.enabled was true",
+      );
+      return false;
     }
     const settled = await Promise.race([
-      r!.audio,
+      r.audio.then(
+        () => "settled" as const,
+        () => "settled" as const,
+      ),
       new Promise<"timeout">((resolve) =>
         setTimeout(() => resolve("timeout"), 5000),
       ),
     ]);
     const ok = settled !== "timeout";
     logTest(
-      "T6: stream() error → audio Promise still settles",
+      name,
       ok ? "PASS" : "FAIL",
-      ok ? "settled within 5s" : "TIMEOUT — Promise hung",
+      ok
+        ? "stream failed after its first chunk; audio settled within 5s"
+        : "TIMEOUT — Promise hung",
     );
     return ok;
   } catch (err) {
-    logTest(
-      "T6: stream() error → audio Promise still settles",
-      "FAIL",
-      err instanceof Error ? err.message : String(err),
-    );
+    logTest(name, "FAIL", err instanceof Error ? err.message : String(err));
     return false;
+  } finally {
+    await standIn.close();
   }
 }
 

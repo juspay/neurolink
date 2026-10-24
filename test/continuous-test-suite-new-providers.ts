@@ -1285,6 +1285,12 @@ async function section9Errors(): Promise<void> {
         // K1" SKIP for cloud providers was a design shortcut that hid
         // this code path. Inject the fake URL via per-call credentials
         // for whichever provider we're testing.
+        // DeepSeek and NIM build their client from an API key before the
+        // request is made, and the per-call baseURL override does not stand in
+        // for one. Without a key of its own this case failed in the
+        // provider's configuration step whenever the environment held none,
+        // and never reached the unreachable URL it is about. The key is
+        // never sent anywhere: nothing listens on the fake URL.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const credentials: any =
           p.name === "lm-studio"
@@ -1292,9 +1298,19 @@ async function section9Errors(): Promise<void> {
             : p.name === "llamacpp"
               ? { llamacpp: { baseURL: fakeUrl } }
               : p.name === "deepseek"
-                ? { deepseek: { baseURL: fakeUrl } }
+                ? {
+                    deepseek: {
+                      baseURL: fakeUrl,
+                      apiKey: "sk-" + "0".repeat(32),
+                    },
+                  }
                 : p.name === "nvidia-nim"
-                  ? { nvidiaNim: { baseURL: fakeUrl } }
+                  ? {
+                      nvidiaNim: {
+                        baseURL: fakeUrl,
+                        apiKey: "nvapi-" + "A".repeat(64),
+                      },
+                    }
                   : { lmStudio: { baseURL: fakeUrl } };
         try {
           await sdk.generate({
@@ -1397,6 +1413,9 @@ async function section9Errors(): Promise<void> {
           // so the regex includes that framing alongside the canonical auth
           // markers. The provider's `formatProviderError` also normalizes
           // this to "Invalid NVIDIA NIM API key", which the regex matches.
+          // NVIDIA's gateway now answers an invalid key with HTTP 403
+          // {"detail":"Authorization failed"}, which the provider passes
+          // through without the status, hence "authorization failed" too.
           // Aborts, timeouts, and 429 rate-limits all mean the upstream
           // service didn't actually evaluate the credential — we never
           // reached the auth check. SKIP rather than FAIL: rerunning when
@@ -1404,7 +1423,7 @@ async function section9Errors(): Promise<void> {
           if (isUpstreamSlowPath(msg, signal)) {
             throw new Skip(`upstream slow path (${msg.slice(0, 60)})`);
           }
-          return /invalid|unauthorized|401|403|forbidden|api key|authentication|access|\bbad request\b|\b400\b/i.test(
+          return /invalid|unauthorized|401|403|forbidden|api key|authentication|authori[sz]ation\s+failed|access|\bbad request\b|\b400\b/i.test(
             msg,
           );
         }
