@@ -850,14 +850,66 @@ await test("no doc example enables HITL without dangerousActions", async () => {
 // Every documented reply carries the metadata the type requires
 // ---------------------------------------------------------------------------
 
+const RESPONSE_EMITS = new RegExp(RESPONSE_EMIT.source, "g");
+
+// The text from the `(` or `{` at `open` to its matching close. Strings,
+// template literals and comments are skipped, so a `)` in "Press ) to close" or
+// an apostrophe in a `//` comment does not end the scan early.
+const bracketed = (code: string, open: number): string => {
+  const opener = code[open];
+  const closer = opener === "(" ? ")" : "}";
+  let depth = 0;
+  let quote: string | undefined;
+  for (let i = open; i < code.length; i += 1) {
+    const ch = code[i];
+    if (quote !== undefined) {
+      if (ch === "\\") {
+        i += 1;
+      } else if (ch === quote) {
+        quote = undefined;
+      }
+    } else if (ch === '"' || ch === "'" || ch === "`") {
+      quote = ch;
+    } else if (code.startsWith("//", i)) {
+      const end = code.indexOf("\n", i);
+      i = end === -1 ? code.length : end;
+    } else if (code.startsWith("/*", i)) {
+      const end = code.indexOf("*/", i + 2);
+      i = end === -1 ? code.length : end + 1;
+    } else if (ch === opener) {
+      depth += 1;
+    } else if (ch === closer) {
+      depth -= 1;
+      if (depth === 0) {
+        return code.slice(open, i + 1);
+      }
+    }
+  }
+  return code.slice(open);
+};
+
+// One emitted event's `payload: { … }` object literal. A payload passed as a
+// variable cannot be read from text, so the whole argument list stands in.
+const emittedPayload = (code: string, from: number): string => {
+  const args = bracketed(code, code.indexOf("(", from));
+  const key = /\bpayload\s*:\s*\{/.exec(args);
+  return key === null ? args : bracketed(args, key.index + key[0].length - 1);
+};
+
 // Text-level, so it also covers the pages whose fences are not compiled
 const replyProblems = (code: string): string[] => {
-  if (!RESPONSE_EMIT.test(code)) {
+  const payloads = [...code.matchAll(RESPONSE_EMITS)].map((match) =>
+    emittedPayload(code, match.index),
+  );
+  if (payloads.length === 0) {
     return [];
   }
   const problems: string[] = [];
-  // `metadata,` shorthand counts: the object literal is still checked by `satisfies`
-  if (!/\bmetadata\s*[:,}]/.test(code)) {
+  // Looked for in each emitted payload, so a `metadata` built elsewhere in the
+  // fence, or set beside the payload instead of in it, cannot stand in for one
+  // the payload leaves out. `metadata,` shorthand counts: the object literal is
+  // still checked by `satisfies`
+  if (!payloads.every((payload) => /\bmetadata\s*[:,}]/.test(payload))) {
     problems.push("no metadata");
   }
   if (!/\btimestamp\s*:/.test(code)) {
@@ -901,6 +953,48 @@ await test("reply control: a reply with no metadata, a zero or an epoch response
       emit(
         "metadata: { timestamp: new Date().toISOString(), responseTime: Date.now() - receivedAt }",
       ),
+    ).join(", "),
+    "",
+  );
+  const built =
+    "const metadata = { timestamp: new Date().toISOString(), responseTime: Date.now() - receivedAt };\n";
+  assertEqual(
+    replyProblems(built + emit("confirmationId, approved")).join(", "),
+    "no metadata",
+  );
+  assertEqual(
+    replyProblems(built + emit("confirmationId, approved, metadata")).join(
+      ", ",
+    ),
+    "",
+  );
+  assertEqual(
+    replyProblems(
+      built +
+        emit("confirmationId, approved: true, metadata") +
+        "\n" +
+        emit("confirmationId, approved: false"),
+    ).join(", "),
+    "no metadata",
+  );
+  assertEqual(
+    replyProblems(
+      built +
+        `emitter.emit("hitl:confirmation-response", { type: "hitl:confirmation-response", payload: { confirmationId, approved }, metadata });`,
+    ).join(", "),
+    "no metadata",
+  );
+  const measured =
+    "metadata: { timestamp: new Date().toISOString(), responseTime: Date.now() - receivedAt }";
+  assertEqual(
+    replyProblems(
+      emit(`note: "Press ) to close", label: 'a } brace', ${measured}`),
+    ).join(", "),
+    "",
+  );
+  assertEqual(
+    replyProblems(
+      emit(`// the reviewer's call (and a stray ")")\n${measured}`),
     ).join(", "),
     "",
   );
