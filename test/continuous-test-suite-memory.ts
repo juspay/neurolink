@@ -28,7 +28,10 @@ import * as path from "path";
 import { fileURLToPath } from "url";
 import type { ProcessResult } from "../dist/index.js";
 import { NeuroLink } from "../dist/index.js";
-import type { ChatMessage } from "../src/lib/types/index.js";
+import type {
+  ChatMessage,
+  ConversationTitleGeneratedEvent,
+} from "../src/lib/types/index.js";
 
 import { assertDistFresh } from "./helpers/distFreshness.js";
 import { isExpectedProviderError } from "./helpers/envGuard.js";
@@ -1366,23 +1369,65 @@ async function testMemoryRetrievalTool(
 }
 
 // ============================================================
-// TEST #9: Conversation Title Generation
+// TEST #9: Conversation Title Generation (event contract)
 // ============================================================
+
+/** Longest the stored title may take to appear after generate() returns. */
+const TITLE_WAIT_MS = 60_000;
+
+/**
+ * The title the memory manager stores when the summarization call fails: the
+ * first 30 characters of the message plus an ellipsis. It has to be told apart
+ * from a generated title because it means the summarization provider was not
+ * usable here.
+ */
+function messagePrefixFallbackTitle(userMessage: string): string {
+  return `${userMessage.substring(0, 30)}...`;
+}
+
+function isTitleGeneratedEvent(
+  value: unknown,
+): value is ConversationTitleGeneratedEvent {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.sessionId === "string" &&
+    typeof candidate.userId === "string" &&
+    typeof candidate.title === "string" &&
+    typeof candidate.timestamp === "number"
+  );
+}
 
 async function testConversationTitleGeneration(
   sdk: NeuroLink,
 ): Promise<boolean | null> {
   logTest("9. Conversation Title Generation", "TESTING");
 
+  // The memory manager announces a stored title with `conversation:titleGenerated`
+  // (docs/conversation-memory.md). This case covers that event: that it fires,
+  // names the right session and user, carries the title that was stored, and
+  // fires once per conversation. What the title looks like (no truncating
+  // ellipsis) is case 9b's job, so it is not asserted again here.
+  const firstMessage = "Explain the differences between REST and GraphQL APIs.";
+  const sessionId = generateTestSessionId("title-event");
+  const userId = `title-event-user-${randomUUID().slice(0, 8)}`;
+  const redisConfig = REDIS_URL
+    ? { url: REDIS_URL }
+    : { host: REDIS_HOST || "localhost", port: REDIS_PORT || 6379 };
+
+  const received: unknown[] = [];
+  const onTitleGenerated = (...args: unknown[]): void => {
+    received.push(args[0]);
+  };
+  const eventsForSession = (): ConversationTitleGeneratedEvent[] =>
+    received
+      .filter(isTitleGeneratedEvent)
+      .filter((event) => event.sessionId === sessionId);
+
   let memorySdk: NeuroLink | null = null;
   try {
-    const sessionId = generateTestSessionId("title-gen");
-    // Always pass Redis config directly (Redis runs at localhost:6379)
-    // instead of relying on env var detection via isRedisConfigured()
-    const redisConfig = REDIS_URL
-      ? { url: REDIS_URL }
-      : { host: REDIS_HOST || "localhost", port: REDIS_PORT || 6379 };
-
     memorySdk = new NeuroLink({
       conversationMemory: {
         enabled: true,
@@ -1390,106 +1435,139 @@ async function testConversationTitleGeneration(
         redisConfig,
       },
     });
-
-    // Listen for title generation events
-    let titleGenerated = false;
-    let generatedTitle = "";
-
     memorySdk
       .getEventEmitter()
-      .on("conversationTitleGenerated", (...args: unknown[]) => {
-        const data = args[0] as { sessionId: string; title: string };
-        if (data.sessionId === sessionId) {
-          titleGenerated = true;
-          generatedTitle = data.title;
-        }
-      });
+      .on("conversation:titleGenerated", onTitleGenerated);
 
-    // Generate 4 meaningful turns about a specific topic to give title generation every chance to fire
+    const startedAt = Date.now();
     await memorySdk.generate({
-      input: { text: "Explain the differences between REST and GraphQL APIs." },
-      maxTokens: TEST_CONFIG.maxTokens,
+      input: { text: firstMessage },
+      maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
       ...buildBaseSDKOptions(),
-      context: { sessionId },
+      context: { sessionId, userId },
     });
 
-    await new Promise((r) => setTimeout(r, 2000));
+    const deadline = Date.now() + TITLE_WAIT_MS;
+    while (received.length === 0 && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 250));
+    }
 
+    if (received.length === 0) {
+      logTest(
+        "9. Conversation Title Generation",
+        "FAIL",
+        `generate() completed but no conversation:titleGenerated event fired within ${TITLE_WAIT_MS / 1000}s`,
+      );
+      return false;
+    }
+
+    const malformed = received.filter(
+      (payload) => !isTitleGeneratedEvent(payload),
+    );
+    if (malformed.length > 0) {
+      logTest(
+        "9. Conversation Title Generation",
+        "FAIL",
+        `Event payload does not match { sessionId, userId, title, timestamp }: ${JSON.stringify(malformed[0])}`,
+      );
+      return false;
+    }
+
+    const [event] = eventsForSession();
+    if (!event) {
+      logTest(
+        "9. Conversation Title Generation",
+        "FAIL",
+        `Event fired but not for session ${sessionId}: ${JSON.stringify(received[0])}`,
+      );
+      return false;
+    }
+
+    if (event.userId !== userId) {
+      logTest(
+        "9. Conversation Title Generation",
+        "FAIL",
+        `Event named user "${event.userId}", expected "${userId}"`,
+      );
+      return false;
+    }
+
+    if (event.title.trim().length <= 3) {
+      logTest(
+        "9. Conversation Title Generation",
+        "FAIL",
+        `Event title is too short to be meaningful: "${event.title}"`,
+      );
+      return false;
+    }
+
+    if (event.timestamp < startedAt || event.timestamp > Date.now()) {
+      logTest(
+        "9. Conversation Title Generation",
+        "FAIL",
+        `Event timestamp ${event.timestamp} is outside the test window [${startedAt}, ${Date.now()}]`,
+      );
+      return false;
+    }
+
+    // The event is only worth listening to if it carries what was stored, and
+    // it is emitted after the write, so the stored title is already readable.
+    let storedTitle: string | undefined;
+    const storedDeadline = Date.now() + 5_000;
+    do {
+      storedTitle = (await memorySdk.listSessions(userId)).find(
+        (s) => s.id === sessionId,
+      )?.title;
+      if (storedTitle === event.title) {
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    } while (Date.now() < storedDeadline);
+
+    if (storedTitle !== event.title) {
+      logTest(
+        "9. Conversation Title Generation",
+        "FAIL",
+        `Event title "${event.title}" is not the stored title ${storedTitle === undefined ? "(session not listed)" : `"${storedTitle}"`}`,
+      );
+      return false;
+    }
+
+    // A second turn must not generate (or announce) another title: the title
+    // is produced when the conversation is created, not on every turn.
     await memorySdk.generate({
       input: {
         text: "Which one would you recommend for a new microservices project?",
       },
-      maxTokens: TEST_CONFIG.maxTokens,
+      maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
       ...buildBaseSDKOptions(),
-      context: { sessionId },
+      context: { sessionId, userId },
     });
+    await new Promise((r) => setTimeout(r, 5000));
 
-    await new Promise((r) => setTimeout(r, 2000));
-
-    await memorySdk.generate({
-      input: {
-        text: "What about gRPC? How does it compare to REST and GraphQL for inter-service communication?",
-      },
-      maxTokens: TEST_CONFIG.maxTokens,
-      ...buildBaseSDKOptions(),
-      context: { sessionId },
-    });
-
-    await new Promise((r) => setTimeout(r, 2000));
-
-    await memorySdk.generate({
-      input: {
-        text: "Can you summarize the pros and cons of all three approaches in a comparison table?",
-      },
-      maxTokens: TEST_CONFIG.maxTokens,
-      ...buildBaseSDKOptions(),
-      context: { sessionId },
-    });
-
-    // Wait longer for potential background title generation (up to 10s)
-    await new Promise((r) => setTimeout(r, 10000));
-
-    if (titleGenerated) {
-      if (
-        typeof generatedTitle !== "string" ||
-        generatedTitle.trim().length <= 3
-      ) {
-        logTest(
-          "9. Conversation Title Generation",
-          "FAIL",
-          `Title event fired but title is too short or invalid: "${generatedTitle}"`,
-        );
-        return false;
-      }
-
-      // Assert the title was not post-processed with a trailing ellipsis.
-      // Before the fix, titles longer than 60 chars were unconditionally truncated
-      // to 57 chars + "..." — the server must now return the complete LLM output.
-      if (generatedTitle.endsWith("...")) {
-        logTest(
-          "9. Conversation Title Generation",
-          "FAIL",
-          `Title was truncated with ellipsis, expected complete title: "${generatedTitle}"`,
-        );
-        return false;
-      }
-
+    const announced = eventsForSession().length;
+    if (announced !== 1) {
       logTest(
         "9. Conversation Title Generation",
-        "PASS",
-        `Complete title generated (no ellipsis): "${generatedTitle}"`,
+        "FAIL",
+        `Expected exactly one title event for the conversation after two turns, got ${announced}`,
       );
-      return true;
+      return false;
     }
 
-    // Title generation is a background/optional feature — the conversation itself works.
-    // The conversationTitleGenerated event is not currently emitted by the memory manager
-    // (title is generated and stored in Redis but no EventEmitter event is fired).
-    // PASS with a note that the core conversation functionality works fine.
+    if (event.title === messagePrefixFallbackTitle(firstMessage)) {
+      logTest(
+        "9. Conversation Title Generation",
+        "SKIP",
+        "the event fired and matched the stored title, but that title is the message-prefix fallback; the summarization provider did not answer in this environment, so a generated title was not verified",
+      );
+      return null;
+    }
+
     logTest(
       "9. Conversation Title Generation",
       "PASS",
-      "4 conversation turns completed successfully. Title generation is background/optional — no event emitter wired in memory manager, but conversation works correctly.",
+      `conversation:titleGenerated fired once for ${sessionId} with the stored title "${event.title}"`,
     );
     return true;
   } catch (error) {
@@ -1502,6 +1580,18 @@ async function testConversationTitleGeneration(
     return false;
   } finally {
     try {
+      memorySdk
+        ?.getEventEmitter()
+        .off("conversation:titleGenerated", onTitleGenerated);
+    } catch {
+      /* ignore */
+    }
+    try {
+      await memorySdk?.clearConversationSession(sessionId);
+    } catch {
+      /* ignore */
+    }
+    try {
       await memorySdk?.shutdown?.();
     } catch {
       /* ignore */
@@ -1512,9 +1602,6 @@ async function testConversationTitleGeneration(
 // ============================================================
 // TEST #9b: Title No-Ellipsis
 // ============================================================
-
-/** Longest the stored title may take to appear after generate() returns. */
-const TITLE_WAIT_MS = 60_000;
 
 /** What a session is listed under until its generated title is stored. */
 const PLACEHOLDER_TITLE = "New Conversation";
@@ -1530,10 +1617,9 @@ async function testTitleNoEllipsis(sdk: NeuroLink): Promise<boolean | null> {
   const longUserMessage =
     "Can you explain the differences between supervised, unsupervised, and reinforcement learning in machine learning, with examples?";
   // When that background call fails, the memory manager stores a title cut
-  // from the message itself instead (30 characters plus an ellipsis). It is
-  // the same shape as the truncation this case guards against, so it has to
-  // be told apart: it means the summarization provider was not usable here.
-  const messagePrefixFallbackTitle = `${longUserMessage.substring(0, 30)}...`;
+  // from the message itself instead. It is the same shape as the truncation
+  // this case guards against, so it has to be told apart.
+  const fallbackTitle = messagePrefixFallbackTitle(longUserMessage);
 
   const sessionId = generateTestSessionId("title-no-ellipsis");
   const userId = `title-no-ellipsis-user-${randomUUID().slice(0, 8)}`;
@@ -1584,7 +1670,7 @@ async function testTitleNoEllipsis(sdk: NeuroLink): Promise<boolean | null> {
       return false;
     }
 
-    if (title === messagePrefixFallbackTitle) {
+    if (title === fallbackTitle) {
       logTest(
         "9b. Title No-Ellipsis (unit)",
         "SKIP",

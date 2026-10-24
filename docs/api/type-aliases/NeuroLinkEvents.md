@@ -165,6 +165,12 @@ Application-owned events captured in ordered conversation history.
 
 ---
 
+### conversation:titleGenerated
+
+> **conversation:titleGenerated**: [`ConversationTitleGeneratedEvent`](ConversationTitleGeneratedEvent.md)
+
+---
+
 ### connected
 
 > **connected**: `unknown`

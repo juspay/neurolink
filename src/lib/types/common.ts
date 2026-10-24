@@ -3,7 +3,10 @@
  */
 
 import type { NeuroLink } from "../neurolink.js";
-import type { ConversationMemoryConfig } from "./conversation.js";
+import type {
+  ConversationMemoryConfig,
+  ConversationTitleGeneratedEvent,
+} from "./conversation.js";
 import type {
   AutoresearchErrorEvent,
   AutoresearchExperimentCompletedEvent,
@@ -208,6 +211,9 @@ export type NeuroLinkEvents = {
   // Tool registration events
   "tools-register:start": unknown;
   "tools-register:end": unknown;
+
+  // Conversation memory events
+  "conversation:titleGenerated": ConversationTitleGeneratedEvent;
 
   // General events
   connected: unknown;
