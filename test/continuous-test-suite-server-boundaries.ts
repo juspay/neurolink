@@ -462,13 +462,24 @@ try {
             address.family === "IPv4" &&
             !address.internal,
         );
+      // The outcome of each probe is logged, not put in the assertion message:
+      // the assertions only see a boolean, and once the positive control failed
+      // with nothing left to say whether it timed out, was refused or was
+      // answered with another status.
       const reachableOn = async (host: string, port: number) => {
+        const started = Date.now();
         try {
           const response = await fetch(`http://${host}:${port}/health`, {
             signal: AbortSignal.timeout(3_000),
           });
+          log(
+            `probe ${host}:${port}/health -> HTTP ${response.status} in ${Date.now() - started} ms`,
+          );
           return response.status === 200;
-        } catch {
+        } catch (error) {
+          log(
+            `probe ${host}:${port}/health -> ${probeErrorCode(error)} in ${Date.now() - started} ms`,
+          );
           return false;
         }
       };
@@ -534,6 +545,23 @@ try {
 
 function log(message: string): void {
   console.log(`[server-boundaries] ${message}`);
+}
+
+/** Node's fetch hides the socket error in `cause`; fall back to the error name (a timeout is `TimeoutError`). */
+function probeErrorCode(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "unknown";
+  }
+  const cause: unknown = error.cause;
+  if (
+    typeof cause === "object" &&
+    cause !== null &&
+    "code" in cause &&
+    typeof cause.code === "string"
+  ) {
+    return cause.code;
+  }
+  return error.name;
 }
 
 await runSuite();
