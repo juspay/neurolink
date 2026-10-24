@@ -108,6 +108,7 @@ All fields are optional; defaults are applied by the base class.
 | `disableBuiltInHealth` | `boolean`          | `false`                  | Skip built-in `/health`, `/ready` |
 | `redaction`            | `RedactionConfig`  | disabled                 | Stream redaction settings         |
 | `shutdown`             | `ShutdownConfig`   | 30s shutdown, 15s drain  | Graceful shutdown behavior        |
+| `carryMiddlewareState` | `boolean`          | `false`                  | Carry middleware state (opt-in)   |
 
 #### `ShutdownConfig`
 
@@ -197,6 +198,13 @@ type AuthResult = {
   id: string;
   email?: string;
   roles?: string[];
+  /**
+   * true when this identity stands for every holder of one credential (a
+   * shared API key) rather than one person. Carried to `ctx.user.shared`; the
+   * agent routes do not warn about a body `userId` for a shared identity. See
+   * the security guide.
+   */
+  shared?: boolean;
   metadata?: Record<string, unknown>;
 };
 ```
@@ -670,6 +678,32 @@ type CreateRoutesOptions = {
     maxInputAttachments?: number;
     maxInputTotalBytes?: number;
   };
+  /**
+   * Set to true when the auth middleware identifies individual people: the
+   * agent routes then take userId and the session only from the authenticated
+   * user and ignore the request body's, on every adapter and for every request
+   * (an unauthenticated request gets neither). A server with per-person
+   * authentication must set this: at the default (false) the routes take
+   * userId and sessionId from the request body, so any authenticated caller can
+   * name another person. The one exception is Hono, where a request whose
+   * client sent its own X-Request-ID header gets the authenticated user over
+   * the body, as before, and so does a context the built-in adapters did not
+   * build (your own adapter, a handler called directly). When the server
+   * carries middleware state, the routes log one warning (per server) the first
+   * time a request served from the body names a different userId than its
+   * ctx.user; with carryMiddlewareState off there is no ctx.user to compare and no
+   * warning. Leave it false for no auth or one shared API key, and mark the
+   * shared identity with `shared: true` so that warning stays quiet
+   * (`neurolink serve` does). Any truthy value turns it on. This is the one
+   * switch for `registerAllRoutes` / `createAllRoutes`; the `agent` options
+   * do not take it. `registerAllRoutes` also turns on the server's
+   * `carryMiddlewareState`, which the routes need to see the user on every
+   * request; a caller that registers the groups itself must set that option on
+   * the server, or a perUserAuth request has a user only on Hono with the
+   * client's own X-Request-ID and every other request runs as anonymous. See
+   * the security guide.
+   */
+  perUserAuth?: boolean;
 };
 ```
 
@@ -1251,7 +1285,7 @@ These are `type`-only exports (no runtime value).
 | `WebSocketMessage`     | Message object                                                        |
 | `WebSocketMessageType` | `"text" \| "binary" \| "ping" \| "pong" \| "close"`                   |
 | `WebSocketAuthConfig`  | Auth config for WebSocket (same shape as `AuthConfig` from types)     |
-| `AuthenticatedUser`    | User object with id, email, name, roles, permissions, metadata        |
+| `AuthenticatedUser`    | User object: id, shared, email, name, roles, permissions, metadata    |
 | `AuthStrategy`         | `"bearer" \| "apiKey" \| "basic" \| "custom" \| "none"`               |
 
 ### Error Types

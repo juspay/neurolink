@@ -57,6 +57,7 @@ export function isDevPlayground(
 export const DEV_PLAYGROUND_USER: AuthResult = {
   id: "playground",
   roles: ["developer"],
+  shared: true,
 };
 /**
  * Authentication result
@@ -111,6 +112,7 @@ export function createAuthMiddleware(
           id: DEV_PLAYGROUND_USER.id,
           email: DEV_PLAYGROUND_USER.email,
           roles: DEV_PLAYGROUND_USER.roles,
+          shared: DEV_PLAYGROUND_USER.shared,
         };
         return next();
       }
@@ -135,6 +137,7 @@ export function createAuthMiddleware(
           id: result.id,
           email: result.email,
           roles: result.roles,
+          shared: result.shared,
         };
 
         // Store additional metadata
