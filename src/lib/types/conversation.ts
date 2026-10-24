@@ -883,6 +883,19 @@ export type RedisConversationObject = ConversationBase & {
 };
 
 /**
+ * Payload of the `conversation:titleGenerated` event, emitted once the title
+ * of a new Redis-backed conversation has been stored.
+ */
+export type ConversationTitleGeneratedEvent = {
+  sessionId: string;
+  userId: string;
+  /** The title that was stored, which is what `listSessions()` reports. */
+  title: string;
+  /** Unix epoch milliseconds when the title was stored. */
+  timestamp: number;
+};
+
+/**
  * Full conversation data for session restoration and manipulation
  * Extends Redis storage object with additional loop mode metadata
  */

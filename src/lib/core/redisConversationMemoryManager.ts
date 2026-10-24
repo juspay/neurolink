@@ -24,8 +24,11 @@ import type {
   SessionMetadata,
   StoreConversationTurnOptions,
   AgenticLoopReportMetadata,
+  ConversationTitleGeneratedEvent,
   IConversationMemoryManager,
+  NeuroLinkEvents,
   PendingToolExecution,
+  TypedEventEmitter,
 } from "../types/index.js";
 import { ConversationMemoryError } from "../types/index.js";
 import { withTimeout } from "../utils/errorHandling.js";
@@ -80,6 +83,12 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
     null;
 
   /**
+   * Receives `conversation:titleGenerated` once a new conversation's title is
+   * stored. Optional because the manager can be constructed standalone.
+   */
+  private readonly eventEmitter?: TypedEventEmitter<NeuroLinkEvents>;
+
+  /**
    * Temporary storage for tool execution data to prevent race conditions
    * Key format: "${sessionId}:${userId}"
    */
@@ -100,9 +109,11 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
   constructor(
     config: ConversationMemoryConfig,
     redisConfig: RedisStorageConfig = {},
+    eventEmitter?: TypedEventEmitter<NeuroLinkEvents>,
   ) {
     this.config = config;
     this.redisConfig = getNormalizedConfig(redisConfig);
+    this.eventEmitter = eventEmitter;
   }
 
   /**
@@ -655,6 +666,12 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
                         serializedData,
                         this.redisConfig.ttl,
                       );
+                      this.emitTitleGenerated({
+                        sessionId: options.sessionId,
+                        userId: normalizedUserId,
+                        title,
+                        timestamp: Date.now(),
+                      });
                     }
                   }
                 } catch (titleError) {
@@ -1506,6 +1523,28 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
         },
       );
       return null;
+    }
+  }
+
+  /**
+   * Announce a stored title. A throwing listener is logged rather than
+   * propagated: the title is already persisted, and the caller's catch block
+   * reports title-generation failures.
+   */
+  private emitTitleGenerated(event: ConversationTitleGeneratedEvent): void {
+    try {
+      this.eventEmitter?.emit("conversation:titleGenerated", event);
+    } catch (listenerError) {
+      logger.warn(
+        "[RedisConversationMemoryManager] conversation:titleGenerated listener threw",
+        {
+          sessionId: event.sessionId,
+          error:
+            listenerError instanceof Error
+              ? listenerError.message
+              : String(listenerError),
+        },
+      );
     }
   }
 
