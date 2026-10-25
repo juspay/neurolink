@@ -8,6 +8,7 @@
 
 import type WebSocket from "ws";
 import { logger } from "../../utils/logger.js";
+import { assertWebSocketProxyPolicy } from "../../proxy/proxyFetch.js";
 import { RealtimeError } from "../errors.js";
 import { BaseRealtimeHandler } from "../RealtimeVoiceAPI.js";
 import type {
@@ -76,6 +77,7 @@ export class OpenAIRealtime extends BaseRealtimeHandler {
 
       // Connect to OpenAI Realtime API
       const wsUrl = `wss://api.openai.com/v1/realtime?model=${model}`;
+      assertWebSocketProxyPolicy(wsUrl, "OpenAI Realtime");
 
       this.ws = new WebSocket(wsUrl, {
         headers: {

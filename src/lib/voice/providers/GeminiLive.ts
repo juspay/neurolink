@@ -8,6 +8,7 @@
 
 import type WebSocket from "ws";
 import { logger } from "../../utils/logger.js";
+import { assertWebSocketProxyPolicy } from "../../proxy/proxyFetch.js";
 import { RealtimeError } from "../errors.js";
 import { BaseRealtimeHandler } from "../RealtimeVoiceAPI.js";
 import type {
@@ -78,6 +79,7 @@ export class GeminiLive extends BaseRealtimeHandler {
 
       // Connect to Gemini Live API
       const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${this.apiKey}`;
+      assertWebSocketProxyPolicy(wsUrl, "Gemini Live");
 
       this.ws = new WebSocket(wsUrl);
 

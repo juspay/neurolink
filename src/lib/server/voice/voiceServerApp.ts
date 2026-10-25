@@ -10,6 +10,7 @@ import { NeuroLink } from "../../neurolink.js";
 import { logger } from "../../utils/logger.js";
 import { withTimeout } from "../../utils/async/withTimeout.js";
 import { getCartesiaWsUrl } from "../../adapters/tts/cartesiaHandler.js";
+import { assertWebSocketProxyPolicy } from "../../proxy/proxyFetch.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -247,8 +248,10 @@ async function warmup(): Promise<void> {
   try {
     const { default: WebSocket } = await import("ws");
     const apiKey = process.env.CARTESIA_API_KEY;
+    const cartesiaWsUrl = getCartesiaWsUrl();
+    assertWebSocketProxyPolicy(cartesiaWsUrl, "Cartesia TTS warmup");
     await new Promise<void>((resolve) => {
-      const ws = new WebSocket(getCartesiaWsUrl(), {
+      const ws = new WebSocket(cartesiaWsUrl, {
         headers: apiKey ? { "X-API-Key": apiKey } : undefined,
       });
       const timeout = setTimeout(() => {
