@@ -6,7 +6,7 @@
 
 # Function: createMCPRoutes()
 
-> **createMCPRoutes**(`basePath?`): [`RouteGroup`](../type-aliases/RouteGroup.md)
+> **createMCPRoutes**(`basePath?`, `options?`): [`RouteGroup`](../type-aliases/RouteGroup.md)
 
 Create MCP server management routes
 
@@ -15,6 +15,14 @@ Create MCP server management routes
 ### basePath?
 
 `string` = `"/api"`
+
+### options?
+
+[`ServerSensitiveRouteOptions`](../type-aliases/ServerSensitiveRouteOptions.md)
+
+`hasAuthentication` / `allowUnauthenticated`: whether the
+routes that change or use servers (reconnect, remove, execute a tool)
+answer an unauthenticated caller (see `ServerSensitiveRouteOptions`).
 
 ## Returns
 

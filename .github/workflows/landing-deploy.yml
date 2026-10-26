@@ -48,24 +48,27 @@ jobs:
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      # package.json pins "packageManager": "pnpm@10.28.2", so `vercel build`
-      # shells out to pnpm for the install. Without pnpm on the runner it dies
-      # with `spawn pnpm ENOENT` before the build starts. Version kept in step
-      # with the pin and with the other workflows in this repo.
+      # package.json pins "packageManager", so `vercel build` shells out to pnpm
+      # for the install. Without pnpm on the runner it dies with `spawn pnpm
+      # ENOENT` before the build starts. pnpm/action-setup reads the version
+      # from that field, so there is one pin for every workflow and the image.
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.28.2
-
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "24"
+          node-version: "24.22.1"
 
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
+      # Exact version: this CLI receives VERCEL_TOKEN. `vercel@latest` ran
+      # whatever the registry served at that minute, outside any cooldown.
+      - name: Install Vercel CLI (exact version)
+        env:
+          VERCEL_CLI_VERSION: "65.2.0"
+        run: npm install --global "vercel@${VERCEL_CLI_VERSION}"
 
       # push → production, pull_request/dispatch → preview.
       - name: Resolve target environment
@@ -79,18 +82,31 @@ jobs:
             echo "flag=" >> "$GITHUB_OUTPUT"
           fi
 
+      # The token travels in the environment (the CLI reads VERCEL_TOKEN), never
+      # on argv: a `--token=` argument is visible to every process on the runner
+      # and lands in any captured command line.
+      #
       # Pulls project settings too — including rootDirectory=landing — so the
       # build runs against the landing app without duplicating config here.
       - name: Pull Vercel project settings
-        run: vercel pull --yes --environment=${{ steps.target.outputs.env }} --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          TARGET_ENV: ${{ steps.target.outputs.env }}
+        run: vercel pull --yes --environment="$TARGET_ENV"
 
       - name: Build
-        run: vercel build ${{ steps.target.outputs.flag }} --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          TARGET_FLAG: ${{ steps.target.outputs.flag }}
+        run: vercel build $TARGET_FLAG
 
       - name: Deploy
         id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          TARGET_FLAG: ${{ steps.target.outputs.flag }}
         run: |
-          url="$(vercel deploy --prebuilt ${{ steps.target.outputs.flag }} --token=${{ secrets.VERCEL_TOKEN }})"
+          url="$(vercel deploy --prebuilt $TARGET_FLAG)"
           echo "url=$url" >> "$GITHUB_OUTPUT"
           {
             echo "### Landing deployed (${{ steps.target.outputs.env }})"
@@ -101,7 +117,7 @@ jobs:
       # Restores the one thing the Git integration gave us for free.
       - name: Comment preview URL on the PR
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const url = ${{ toJSON(steps.deploy.outputs.url) }};

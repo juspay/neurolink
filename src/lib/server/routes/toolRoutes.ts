@@ -5,13 +5,16 @@
 
 import { SpanStatusCode } from "@opentelemetry/api";
 import type {
+  ErrorResponse,
   RouteGroup,
   ServerContext,
+  ServerSensitiveRouteOptions,
   ToolExecuteRequest,
   ToolExecuteResponse,
 } from "../../types/index.js";
 import { withSpan } from "../../telemetry/withSpan.js";
 import { tracers } from "../../telemetry/tracers.js";
+import { shapeRouteError } from "../utils/clientError.js";
 import {
   createErrorResponse,
   ToolArgumentsSchema,
@@ -22,9 +25,41 @@ import {
 } from "../utils/validation.js";
 
 /**
- * Create tool routes
+ * The 403 for an execution route on a server that authenticates nobody, or
+ * `undefined` when the request may proceed: the server authenticates, the
+ * operator opted out, or the routes were built without a way to tell.
  */
-export function createToolRoutes(basePath: string = "/api"): RouteGroup {
+export function refuseUnauthenticatedExecution(
+  ctx: ServerContext,
+  options: ServerSensitiveRouteOptions | undefined,
+): ErrorResponse | undefined {
+  if (
+    !options?.hasAuthentication ||
+    options.allowUnauthenticated === true ||
+    options.hasAuthentication()
+  ) {
+    return undefined;
+  }
+  return createErrorResponse(
+    "FORBIDDEN",
+    "This route executes tools on the server and is not served to unauthenticated callers. Register authentication middleware, or opt out with allowUnauthenticated / NEUROLINK_SERVER_ALLOW_UNAUTHENTICATED=1.",
+    undefined,
+    ctx.requestId,
+    403,
+  );
+}
+
+/**
+ * Create tool routes
+ *
+ * @param options - `hasAuthentication` / `allowUnauthenticated`: whether the
+ *   execution routes answer an unauthenticated caller (see
+ *   `ServerSensitiveRouteOptions`). `createAllRoutes` supplies them.
+ */
+export function createToolRoutes(
+  basePath: string = "/api",
+  options?: ServerSensitiveRouteOptions,
+): RouteGroup {
   return {
     prefix: `${basePath}/tools`,
     // IMPORTANT: Route ordering matters for proper matching!
@@ -127,6 +162,11 @@ export function createToolRoutes(basePath: string = "/api"): RouteGroup {
         ): Promise<
           ToolExecuteResponse | ReturnType<typeof createErrorResponse>
         > => {
+          const refused = refuseUnauthenticatedExecution(ctx, options);
+          if (refused) {
+            return refused;
+          }
+
           // Validate request body
           const validation = validateRequest(
             ToolExecuteRequestSchema,
@@ -197,9 +237,12 @@ export function createToolRoutes(basePath: string = "/api"): RouteGroup {
                 span.recordException(
                   error instanceof Error ? error : new Error(errorMessage),
                 );
+                // The tool's own exception text (paths, upstream bodies) stays
+                // in the log under the request id.
                 return {
                   success: false,
-                  error: errorMessage,
+                  error: shapeRouteError("toolRoutes", ctx.requestId, error)
+                    .message,
                   duration: Date.now() - startTime,
                 };
               }
@@ -218,6 +261,11 @@ export function createToolRoutes(basePath: string = "/api"): RouteGroup {
         ): Promise<
           ToolExecuteResponse | ReturnType<typeof createErrorResponse>
         > => {
+          const refused = refuseUnauthenticatedExecution(ctx, options);
+          if (refused) {
+            return refused;
+          }
+
           // Validate params
           const paramValidation = validateParams(
             ToolNameParamSchema,
@@ -299,7 +347,8 @@ export function createToolRoutes(basePath: string = "/api"): RouteGroup {
                 );
                 return {
                   success: false,
-                  error: errorMessage,
+                  error: shapeRouteError("toolRoutes", ctx.requestId, error)
+                    .message,
                   duration: Date.now() - startTime,
                 };
               }

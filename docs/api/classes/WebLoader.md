@@ -6,10 +6,34 @@
 
 # Class: WebLoader
 
-Web page loader
+RAG (Retrieval-Augmented Generation) Document Processing
 
-Fetches and extracts content from web pages.
-Supports basic HTML parsing without external dependencies.
+Comprehensive RAG system with document loading, chunking, embedding,
+retrieval, and context assembly capabilities.
+
+## Example
+
+```typescript
+import {
+  MDocument,
+  loadDocument,
+  RAGPipeline,
+  ChunkerRegistry,
+} from "@juspay/neurolink";
+
+// Load and process a document
+const doc = await loadDocument("/path/to/document.md");
+await doc.chunk({ strategy: "markdown", config: { maxSize: 1000 } });
+
+// Use the full RAG pipeline
+const pipeline = new RAGPipeline({
+  embeddingModel: { provider: "openai", modelName: "text-embedding-3-small" },
+  generationModel: { provider: "openai", modelName: "gpt-4o-mini" },
+});
+await pipeline.ingest(["./docs/*.md"]);
+const response = await pipeline.query("What are the key features?");
+console.log(response.answer);
+```
 
 ## Implements
 

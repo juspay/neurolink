@@ -17,7 +17,10 @@ import type {
 import type { NeuroLink } from "../../neurolink.js";
 import { WebSocketError, WebSocketConnectionError } from "../errors.js";
 import { logger } from "../../utils/logger.js";
-import { WebSocketAgentRequestSchema } from "../utils/validation.js";
+import {
+  WebSocketAgentRequestSchema,
+  WebSocketToolCallSchema,
+} from "../utils/validation.js";
 
 /**
  * Default WebSocket configuration
@@ -51,7 +54,20 @@ export class WebSocketConnectionManager {
   private handlers = new Map<string, IWebSocketHandler>();
 
   constructor(config: WebSocketConfig = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    // A strategy other than "none" means the deployer wants callers
+    // identified, so `required` defaults to true with it: a config that named
+    // a strategy and forgot `required` used to get an open socket.
+    const strategy = config.auth?.strategy ?? DEFAULT_CONFIG.auth.strategy;
+    this.config = {
+      ...DEFAULT_CONFIG,
+      ...config,
+      auth: {
+        ...DEFAULT_CONFIG.auth,
+        ...config.auth,
+        strategy,
+        required: config.auth?.required ?? strategy !== "none",
+      },
+    };
   }
 
   /**
@@ -685,10 +701,19 @@ export function createAgentWebSocketHandler(
   });
 
   router.route("tool_call", async (connection, payload) => {
-    const { toolName, args } = payload as {
-      toolName: string;
-      args: unknown;
-    };
+    const parsed = WebSocketToolCallSchema.safeParse(payload);
+    if (!parsed.success) {
+      throw new WebSocketError(
+        `Invalid tool_call payload: ${parsed.error.issues
+          .map(
+            (issue) => `${issue.path.join(".") || "payload"} ${issue.message}`,
+          )
+          .join("; ")}`,
+        undefined,
+        connection.id,
+      );
+    }
+    const { toolName, args } = parsed.data;
     const result = await neurolink.executeTool(toolName, args);
     return { type: "tool_result", toolName, result };
   });

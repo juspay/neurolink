@@ -35,7 +35,15 @@ import {
   ANTHROPIC_REDIRECT_URI,
   CLAUDE_CLI_USER_AGENT,
   OAUTH_BETA_HEADERS,
+  buildSubscriptionAuthUrl,
+  exchangePastedSubscriptionCode,
+  parsePastedAuthorizationCode,
 } from "../../lib/auth/anthropicOAuth.js";
+import {
+  tightenProcessUmask,
+  writePrivateFileAtomicallySync,
+} from "../../lib/auth/secureFiles.js";
+import { normalizeAnthropicAccountKey } from "../../lib/proxy/accountSelection.js";
 import type {
   AccountQuota,
   AuthCommandArgs,
@@ -125,6 +133,7 @@ const AUTH_LOGIN_PROVIDERS = ["anthropic", "codex"] as const;
  * (e.g., "anthropic:alice") to support multi-account pools.
  */
 export async function handleLogin(argv: AuthCommandArgs): Promise<void> {
+  tightenProcessUmask();
   try {
     const provider = argv.provider?.toLowerCase() as SupportedProvider;
 
@@ -200,7 +209,7 @@ export async function handleCodexLogin(argv: AuthCommandArgs): Promise<void> {
       credential.email ??
       credential.accountId?.slice(0, 8) ??
       Date.now().toString(36).slice(-6);
-    const label = rawLabel.trim();
+    const label = validateAccountLabel(rawLabel);
     const compoundKey = `codex:${label}`;
 
     const scopeParts = ["codex"];
@@ -1306,6 +1315,7 @@ async function handleCodexRefresh(argv: AuthCommandArgs): Promise<void> {
  * `neurolink auth refresh <provider>`
  */
 export async function handleRefresh(argv: AuthCommandArgs): Promise<void> {
+  tightenProcessUmask();
   try {
     const provider = argv.provider?.toLowerCase() as SupportedProvider;
 
@@ -1413,15 +1423,28 @@ export async function handleRefresh(argv: AuthCommandArgs): Promise<void> {
         updatedAt: Date.now(),
       });
 
-      // Also update the TokenStore pool entries for this provider.
-      // Update both the bare provider key and compound "provider:label" keys
-      // so that pooled accounts created via saveAccountToPool() stay current.
+      // Also update the TokenStore pool entries for this provider — but only
+      // the entries that held the credential just refreshed. Writing the new
+      // token to every `provider:*` key collapsed a multi-account pool into
+      // one identity and threw the other accounts' refresh tokens away.
+      const previousAccessToken = credentials.oauth.accessToken;
+      const previousRefreshToken = credentials.oauth.refreshToken;
       try {
         const allKeys = await defaultTokenStore.listProviders();
         for (const key of allKeys) {
           if (key === provider || key.startsWith(`${provider}:`)) {
             const existingTokens = await defaultTokenStore.loadTokens(key);
-            if (existingTokens) {
+            const heldThisCredential =
+              existingTokens !== null &&
+              (existingTokens.accessToken === previousAccessToken ||
+                (previousRefreshToken !== undefined &&
+                  existingTokens.refreshToken === previousRefreshToken));
+            if (existingTokens && !heldThisCredential) {
+              logger.debug(
+                `Skipping TokenStore entry ${key}: it holds a different account's credential`,
+              );
+            }
+            if (existingTokens && heldThisCredential) {
               await defaultTokenStore.saveTokens(key, {
                 accessToken: newTokens.accessToken,
                 refreshToken: newTokens.refreshToken,
@@ -2538,11 +2561,13 @@ async function handleCreateApiKeyOAuth(
 
   const spinner = ora("Starting OAuth flow...").start();
 
-  // Generate PKCE challenge - OpenCode sets state = verifier
+  // PKCE verifier and an unrelated random state. The state is what the pasted
+  // code must come back with; the verifier never leaves this process.
   const codeVerifier = randomBytes(32).toString("base64url");
   const codeChallenge = createHash("sha256")
     .update(codeVerifier)
     .digest("base64url");
+  const oauthState = randomBytes(32).toString("base64url");
 
   // Build authorization URL using CONSOLE config (for API key creation scope)
   // Based on opencode-anthropic-auth implementation
@@ -2560,8 +2585,7 @@ async function handleCreateApiKeyOAuth(
   authUrl.searchParams.set("scope", ANTHROPIC_CONSOLE_OAUTH_CONFIG.scope);
   authUrl.searchParams.set("code_challenge", codeChallenge);
   authUrl.searchParams.set("code_challenge_method", "S256");
-  // OpenCode sets state = verifier for simplicity
-  authUrl.searchParams.set("state", codeVerifier);
+  authUrl.searchParams.set("state", oauthState);
 
   spinner.text = "Opening browser for authentication...";
 
@@ -2612,15 +2636,16 @@ async function handleCreateApiKeyOAuth(
     "Exchanging authorization code for tokens...",
   ).start();
 
-  // Parse code#state format (e.g., "abc123#xyz789")
-  // IMPORTANT: OpenCode sets state = verifier in the auth URL, so the state
-  // returned in code#state IS the original verifier used for the code challenge!
-  const trimmedCode = authCode.trim();
-  const splits = trimmedCode.split("#");
-  const actualCode = splits[0];
-  const codeState = splits[1] || codeVerifier;
-  // Use the state as the verifier (since we set state = verifier in the auth URL)
-  const actualVerifier = codeState;
+  // The pasted value is `code#state`. The state must be the one this login
+  // generated, and the exchange always uses this process's own verifier — a
+  // code from someone else's login is refused before anything is sent.
+  let actualCode: string;
+  try {
+    actualCode = parsePastedAuthorizationCode(authCode, oauthState).code;
+  } catch (error) {
+    exchangeSpinner.fail("Authorization code rejected");
+    throw error;
+  }
 
   // Exchange code for tokens using JSON body (per opencode-anthropic-auth)
   const tokenResponse = await fetch(ANTHROPIC_CONSOLE_OAUTH_CONFIG.tokenUrl, {
@@ -2630,11 +2655,11 @@ async function handleCreateApiKeyOAuth(
     },
     body: JSON.stringify({
       code: actualCode,
-      state: codeState,
+      state: oauthState,
       grant_type: "authorization_code",
       client_id: ANTHROPIC_CONSOLE_OAUTH_CONFIG.clientId,
       redirect_uri: ANTHROPIC_CONSOLE_OAUTH_CONFIG.redirectUri,
-      code_verifier: actualVerifier,
+      code_verifier: codeVerifier,
     }),
   });
 
@@ -2764,24 +2789,23 @@ async function handleOAuthAuth(provider: SupportedProvider): Promise<void> {
 
   const spinner = ora("Starting OAuth flow...").start();
 
-  // Generate PKCE challenge - state = verifier (OpenCode's approach)
+  // PKCE verifier and an unrelated random state, through the same builder the
+  // split-PKCE provisioning flow uses so the two cannot drift. The verifier
+  // never leaves this process; the state is what the pasted code must carry.
   const codeVerifier = randomBytes(32).toString("base64url");
   const codeChallenge = createHash("sha256")
     .update(codeVerifier)
     .digest("base64url");
-
-  // Build authorization URL using claude.ai (NOT console.anthropic.com)
-  // This is the direct OAuth flow for Claude Pro/Max
-  const authUrl = new URL(ANTHROPIC_OAUTH_CONFIG.authorizationUrl);
-  authUrl.searchParams.set("code", "true");
-  authUrl.searchParams.set("client_id", ANTHROPIC_OAUTH_CONFIG.clientId);
-  authUrl.searchParams.set("response_type", "code");
-  authUrl.searchParams.set("redirect_uri", ANTHROPIC_OAUTH_CONFIG.redirectUri);
-  authUrl.searchParams.set("scope", ANTHROPIC_OAUTH_CONFIG.scope);
-  authUrl.searchParams.set("code_challenge", codeChallenge);
-  authUrl.searchParams.set("code_challenge_method", "S256");
-  // OpenCode sets state = verifier for simplicity
-  authUrl.searchParams.set("state", codeVerifier);
+  const oauthState = randomBytes(32).toString("base64url");
+  const authUrl = new URL(
+    buildSubscriptionAuthUrl({
+      codeChallenge,
+      state: oauthState,
+      clientId: ANTHROPIC_OAUTH_CONFIG.clientId,
+      redirectUri: ANTHROPIC_OAUTH_CONFIG.redirectUri,
+      scope: ANTHROPIC_OAUTH_CONFIG.scope,
+    }),
+  );
 
   spinner.text = "Opening browser for authentication...";
 
@@ -2833,41 +2857,36 @@ async function handleOAuthAuth(provider: SupportedProvider): Promise<void> {
     "Exchanging authorization code for tokens...",
   ).start();
 
-  // Parse code#state format (e.g., "abc123#xyz789")
-  // OpenCode sets state = verifier in the auth URL, so the state
-  // returned in code#state IS the original verifier used for the code challenge
-  const codeParts = trimmedCode.split("#");
-  const actualCode = codeParts[0];
-  const codeState = codeParts[1] || codeVerifier;
-  // Use the state as the verifier (since we set state = verifier in the auth URL)
-  const actualVerifier = codeState;
-
-  // Exchange code for tokens with Claude CLI User-Agent
-  // IMPORTANT: Uses JSON body, not URLSearchParams
-  const tokenResponse = await fetch(ANTHROPIC_OAUTH_CONFIG.tokenUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      code: actualCode,
-      state: codeState,
-      grant_type: "authorization_code",
-      client_id: ANTHROPIC_OAUTH_CONFIG.clientId,
-      redirect_uri: ANTHROPIC_OAUTH_CONFIG.redirectUri,
-      code_verifier: actualVerifier,
-    }),
-  });
-
-  if (!tokenResponse.ok) {
-    const errorText = await tokenResponse.text();
+  // The pasted value is `code#state`: the state must match this login and the
+  // exchange uses this process's verifier. A code from someone else's login is
+  // refused before anything is sent.
+  let exchanged: Awaited<ReturnType<typeof exchangePastedSubscriptionCode>>;
+  try {
+    exchanged = await exchangePastedSubscriptionCode({
+      pasted: trimmedCode,
+      expectedState: oauthState,
+      codeVerifier,
+      clientId: ANTHROPIC_OAUTH_CONFIG.clientId,
+      redirectUri: ANTHROPIC_OAUTH_CONFIG.redirectUri,
+    });
+  } catch (error) {
     exchangeSpinner.fail("Token exchange failed");
-    throw new Error(
-      `Token exchange failed: ${tokenResponse.status} - ${errorText}`,
-    );
+    throw error;
   }
 
-  const tokenData = (await tokenResponse.json()) as {
+  const tokenData = {
+    access_token: exchanged.accessToken,
+    refresh_token: exchanged.refreshToken,
+    expires_in:
+      exchanged.expiresAt !== undefined
+        ? Math.max(1, Math.round((exchanged.expiresAt - Date.now()) / 1000))
+        : undefined,
+    token_type: exchanged.tokenType,
+    scope: exchanged.scope,
+    account: exchanged.accountEmail
+      ? { email_address: exchanged.accountEmail }
+      : undefined,
+  } as {
     access_token: string;
     refresh_token?: string;
     expires_in?: number;
@@ -2990,10 +3009,16 @@ async function saveAccountToPool(
   const credEmail = credentials.email;
   let compoundKey: string;
   if (label) {
-    compoundKey = `${provider}:${label}`;
+    compoundKey = `${provider}:${validateAccountLabel(label)}`;
   } else {
     const autoLabel = credEmail ?? Date.now().toString(36).slice(-6);
-    compoundKey = `${provider}:${autoLabel}`;
+    compoundKey = `${provider}:${validateAccountLabel(autoLabel)}`;
+  }
+  if (provider === "anthropic") {
+    // The proxy compares Anthropic keys case-insensitively
+    // (normalizeAnthropicAccountKey); saving them as typed let `Alice` and
+    // `alice` coexist as two pool entries that every lookup treated as one.
+    compoundKey = normalizeAnthropicAccountKey(compoundKey);
   }
 
   // Decision 10A: Auto-prune stale token-prefix entries when email is known.
@@ -3280,19 +3305,46 @@ async function saveStoredCredentials(
   provider: string,
   credentials: StoredCredentials,
 ): Promise<void> {
-  // Ensure config directory exists
-  if (!fs.existsSync(NEUROLINK_CONFIG_DIR)) {
-    fs.mkdirSync(NEUROLINK_CONFIG_DIR, { recursive: true });
-  }
-
   const credentialsFile = path.join(
     NEUROLINK_CONFIG_DIR,
     `${provider}-credentials.json`,
   );
 
-  fs.writeFileSync(credentialsFile, JSON.stringify(credentials, null, 2), {
-    mode: 0o600, // Restrict permissions
-  });
+  // Owner-only directory and an atomic owner-only write: the previous
+  // truncate-in-place write kept whatever mode the file already had and
+  // followed a symlink planted at the path.
+  //
+  // The refresh token stays in this file deliberately. It is the credential
+  // source for the SDK's Anthropic provider (`providers/anthropic/client.ts`)
+  // and for the proxy's legacy single-account path, both of which refresh from
+  // it; removing it would silently break every caller that never ran
+  // `auth login` against the pooled store.
+  writePrivateFileAtomicallySync(
+    credentialsFile,
+    JSON.stringify(credentials, null, 2),
+  );
+}
+
+/**
+ * An account label becomes part of a token-store key, a log line and a
+ * snapshot file name. Control characters and newlines have no place in any of
+ * those (a newline forges a log line), so they are refused rather than stored.
+ */
+function validateAccountLabel(label: string): string {
+  const trimmed = label.trim();
+  if (trimmed === "") {
+    throw new Error("Account label must not be empty.");
+  }
+  // eslint-disable-next-line no-control-regex -- the point is to refuse them
+  if (/[\u0000-\u001f\u007f]/.test(trimmed)) {
+    throw new Error(
+      "Account label must not contain control characters or line breaks.",
+    );
+  }
+  if (trimmed.length > 200) {
+    throw new Error("Account label must be 200 characters or fewer.");
+  }
+  return trimmed;
 }
 
 /**

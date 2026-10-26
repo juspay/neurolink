@@ -346,13 +346,13 @@ await test("bundled generate() sends a Zod 3 tool's parameters over the wire", a
 });
 
 /**
- * The other package the `module` stub serves is `json-schema-to-zod`. Only
- * ToolsManager reaches it, for a custom tool whose `parameters` is a plain
- * JSON Schema object: `NeuroLink.registerTool()` keeps such a schema as it is
- * and never converts it, so no registered tool gets here. A provider from
- * `AIProviderFactory` with a tool handed to `setupToolExecutor` does, and the
- * bundle exports both. Without the stub's help the conversion finds no
- * `jsonSchemaToZod` function and the tool goes out with no properties.
+ * A custom tool whose `parameters` is a plain JSON Schema object is converted
+ * to Zod in-process by `convertJsonSchemaToZod` (no package since the 2026-10
+ * audit removed the `json-schema-to-zod` code-generation path). Only
+ * ToolsManager reaches that converter: `NeuroLink.registerTool()` keeps such a
+ * schema as it is and never converts it, so no registered tool gets here. A
+ * provider from `AIProviderFactory` with a tool handed to `setupToolExecutor`
+ * does, and the bundle exports both. The tool must go out with its properties.
  */
 await test("bundled provider sends a JSON Schema tool's parameters over the wire", async () => {
   const BundledFactory = bundle.AIProviderFactory as typeof AIProviderFactory;

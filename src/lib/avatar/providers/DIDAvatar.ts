@@ -24,11 +24,11 @@ import {
   AvatarError,
 } from "../../utils/avatarProcessor.js";
 import { assertSafeUrl } from "../../utils/ssrfGuard.js";
+import { safeDownload } from "../../utils/safeFetch.js";
 import {
   MAX_AUDIO_BYTES,
   MAX_IMAGE_BYTES,
   MAX_VIDEO_BYTES,
-  readBoundedBuffer,
 } from "../../utils/sizeGuard.js";
 
 const DEFAULT_BASE_URL = "https://api.d-id.com";
@@ -376,26 +376,26 @@ export class DIDAvatar implements AvatarHandler {
   }
 
   private async downloadResult(url: string): Promise<Buffer> {
-    const response = await this.fetchWithTimeout(url, { method: "GET" });
-    if (!response.ok) {
-      throw new AvatarError({
-        code: AVATAR_ERROR_CODES.GENERATION_FAILED,
-        message: `D-ID result download failed: ${response.status}`,
-        category: ErrorCategory.NETWORK,
-        severity: ErrorSeverity.MEDIUM,
-        retriable: response.status >= 500,
-        context: { status: response.status, url },
-      });
-    }
+    // `safeDownload` re-validates the provider-returned URL, pins the
+    // connection to the vetted addresses, refuses redirects and bounds the
+    // body while it streams. The URL pre-check the caller already ran covered
+    // the URL text only, not the connection it produced.
     try {
-      return await readBoundedBuffer(response, MAX_VIDEO_BYTES, "D-ID result");
+      return await safeDownload(url, {
+        maxBytes: MAX_VIDEO_BYTES,
+        label: "D-ID result",
+        timeoutMs: REQUEST_TIMEOUT_MS,
+      });
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const status = /HTTP (\d{3})/.exec(message)?.[1];
       throw new AvatarError({
         code: AVATAR_ERROR_CODES.GENERATION_FAILED,
-        message: `D-ID result download rejected: ${err instanceof Error ? err.message : String(err)}`,
+        message: `D-ID result download failed: ${message}`,
         category: ErrorCategory.NETWORK,
-        severity: ErrorSeverity.HIGH,
-        retriable: false,
+        severity:
+          status !== undefined ? ErrorSeverity.MEDIUM : ErrorSeverity.HIGH,
+        retriable: status !== undefined && Number(status) >= 500,
         context: { url },
         originalError: err instanceof Error ? err : undefined,
       });
@@ -416,43 +416,48 @@ export class DIDAvatar implements AvatarHandler {
         retriable: false,
       });
     }
-    try {
-      await assertSafeUrl(input);
-    } catch (err) {
-      throw new AvatarError({
-        code: AVATAR_ERROR_CODES.INVALID_INPUT,
-        message: `Unsafe URL rejected: ${err instanceof Error ? err.message : String(err)}`,
-        category: ErrorCategory.VALIDATION,
-        severity: ErrorSeverity.HIGH,
-        retriable: false,
-        context: { url: input },
-      });
-    }
-    const response = await this.fetchWithTimeout(input, { method: "GET" });
-    if (!response.ok) {
-      throw new AvatarError({
-        code: AVATAR_ERROR_CODES.INVALID_INPUT,
-        message: `Failed to fetch input from ${input}: ${response.status}`,
-        category: ErrorCategory.NETWORK,
-        severity: ErrorSeverity.MEDIUM,
-        retriable: response.status >= 500,
-        context: { url: input, status: response.status },
-      });
-    }
     // Use the larger of the two input caps (audio 50 MiB > image 25 MiB) so
     // both audio and image URLs are bounded without falsely rejecting valid audio.
     const inputCap = Math.max(MAX_AUDIO_BYTES, MAX_IMAGE_BYTES);
+    // `safeDownload`: URL vetted (HTTPS, public host), connection pinned to
+    // the vetted addresses, redirects refused, body bounded while streaming.
     try {
-      return await readBoundedBuffer(response, inputCap, "D-ID input");
+      return await safeDownload(input, {
+        maxBytes: inputCap,
+        label: "D-ID input",
+        timeoutMs: REQUEST_TIMEOUT_MS,
+      });
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (/rejected|permitted|blocked range|redirect/i.test(message)) {
+        throw new AvatarError({
+          code: AVATAR_ERROR_CODES.INVALID_INPUT,
+          message: `Unsafe URL rejected: ${message}`,
+          category: ErrorCategory.VALIDATION,
+          severity: ErrorSeverity.HIGH,
+          retriable: false,
+          context: { url: input },
+        });
+      }
+      if (/too large|size cap/i.test(message)) {
+        throw new AvatarError({
+          code: AVATAR_ERROR_CODES.INVALID_INPUT,
+          message: `D-ID input download rejected: ${message}`,
+          category: ErrorCategory.NETWORK,
+          severity: ErrorSeverity.HIGH,
+          retriable: false,
+          context: { url: input },
+          originalError: err instanceof Error ? err : undefined,
+        });
+      }
+      const status = /HTTP (\d{3})/.exec(message)?.[1];
       throw new AvatarError({
         code: AVATAR_ERROR_CODES.INVALID_INPUT,
-        message: `D-ID input download rejected: ${err instanceof Error ? err.message : String(err)}`,
+        message: `Failed to fetch input from ${input}: ${message}`,
         category: ErrorCategory.NETWORK,
-        severity: ErrorSeverity.HIGH,
-        retriable: false,
+        severity: ErrorSeverity.MEDIUM,
+        retriable: status === undefined || Number(status) >= 500,
         context: { url: input },
-        originalError: err instanceof Error ? err : undefined,
       });
     }
   }

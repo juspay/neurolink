@@ -33,6 +33,12 @@ Claude Code
 Hono app (proxy.ts)
   │  Logs: method, path, model, stream/non-stream, tool count
   │
+  ├─ Inbound token (inboundAuth.ts) — when NEUROLINK_PROXY_INBOUND_TOKEN is set
+  │    │  Checked before the body is read. /health, /peer/* and update-control
+  │    │  are exempt; a request carrying a share token is left to the gate.
+  │    ├─ Token missing or wrong → 401 (x-neurolink-inbound-auth: required)
+  │    └─ Token present → continue
+  │
   ├─ Peer-sharing gate (shareGate.ts) — see /docs/features/proxy-peer-sharing
   │    │  Runs after the body is parsed, because the model allowlist is a gate.
   │    │
@@ -106,7 +112,8 @@ claudeProxyRoutes.ts  POST /v1/messages handler
   ├─ On completion (borrowed traffic only):
   │    settle the coin hold from real usage, record the window delta against
   │    the grant, and strip x-neurolink-account* and pool counters from the
-  │    response headers
+  │    response headers (the Codex door does the same); error text names a
+  │    count of accounts, never a label
   │
   ▼
 Claude Code receives Response

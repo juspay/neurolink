@@ -2073,10 +2073,32 @@ async function testFileDetectorLoadFromURLRetry(): Promise<boolean | null> {
       ) => Promise<Buffer>;
     };
 
-    const buffer = await detector.loadFromURL(
-      `http://127.0.0.1:${port}/fixture.txt`,
-      { maxRetries: failuresBeforeSuccess, retryDelay: 20, timeout: 5000 },
-    );
+    // This case exercises the retry budget, not the attachment policy. Since
+    // the 2026-10 security audit a plain-http loopback URL is refused by default
+    // (SSRF guard), so opt in for the duration of the call and restore after.
+    const policyEnv = {
+      NEUROLINK_ATTACHMENT_ALLOW_INSECURE_URLS:
+        process.env.NEUROLINK_ATTACHMENT_ALLOW_INSECURE_URLS,
+      NEUROLINK_ATTACHMENT_ALLOW_PRIVATE_NETWORK:
+        process.env.NEUROLINK_ATTACHMENT_ALLOW_PRIVATE_NETWORK,
+    };
+    process.env.NEUROLINK_ATTACHMENT_ALLOW_INSECURE_URLS = "1";
+    process.env.NEUROLINK_ATTACHMENT_ALLOW_PRIVATE_NETWORK = "1";
+    let buffer: Buffer;
+    try {
+      buffer = await detector.loadFromURL(
+        `http://127.0.0.1:${port}/fixture.txt`,
+        { maxRetries: failuresBeforeSuccess, retryDelay: 20, timeout: 5000 },
+      );
+    } finally {
+      for (const [key, value] of Object.entries(policyEnv)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
 
     if (buffer.toString("utf-8") !== expectedBody) {
       logTest(testName, "FAIL", "response body did not match fixture");

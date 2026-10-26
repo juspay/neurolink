@@ -466,7 +466,7 @@ node your-app.js
 Run AI-powered workflows directly in GitHub Actions with broad provider support and automatic PR/issue commenting.
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@e42b4db89fa87946e2dd766cf2ab43929c689b8b # v13.8.16
   with:
     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
     prompt: "Review this PR for security issues and code quality"

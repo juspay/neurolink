@@ -68,6 +68,18 @@ Enable the Gemini door on its own, for the same reason.
 
 ---
 
+### proxyAuth?
+
+> `optional` **proxyAuth?**: [`ProxyInboundAuthOptions`](ProxyInboundAuthOptions.md)
+
+Inbound authentication for the Claude and Codex proxy route groups. The
+token defaults to `NEUROLINK_PROXY_INBOUND_TOKEN`; `allowUnauthenticated`
+falls back to the top-level `allowUnauthenticated`. Mounting a proxy door
+with neither logs a loud warning, because anyone who reaches the port can
+spend the pooled subscriptions.
+
+---
+
 ### runtimeConfigProvider?
 
 > `optional` **runtimeConfigProvider?**: [`ProxyRuntimeConfigProvider`](ProxyRuntimeConfigProvider.md)
@@ -104,6 +116,47 @@ Options for the agent routes (`POST <basePath>/agent/execute` and
 `/agent/stream`): where local-path attachments may be read from, and how
 large an attachment may be. Whose identity the routes trust is decided by
 the top-level `perUserAuth`, which is why it is not accepted here.
+
+---
+
+### tools?
+
+> `optional` **tools?**: `boolean`
+
+`false` leaves the tool routes (`GET/POST <basePath>/tools/*`) out. They
+execute whatever the server's registry holds, including the built-in
+filesystem tools when those are enabled, so a server that only generates
+text has no reason to mount them. Default: mounted.
+
+---
+
+### allowUnauthenticated?
+
+> `optional` **allowUnauthenticated?**: `boolean`
+
+Serve the tool and MCP execution routes to callers the server has not
+authenticated. By default those routes answer 403 whenever the server has
+no authentication middleware (see `hasAuthentication`), because they run
+tools and remove MCP servers on behalf of anyone who can reach the port.
+`true` restores the open behaviour for a server that is protected some
+other way (a reverse proxy, a private network). The environment variable
+`NEUROLINK_SERVER_ALLOW_UNAUTHENTICATED=1` has the same effect.
+
+---
+
+### hasAuthentication?
+
+> `optional` **hasAuthentication?**: () => `boolean`
+
+Tells the tool and MCP execution routes whether the server authenticates
+its callers; read on every request. `registerAllRoutes()` supplies one
+that asks the adapter for middleware marked `authenticates: true`. With
+neither this nor `allowUnauthenticated`, `createAllRoutes()` cannot tell
+and leaves those routes open, as before.
+
+#### Returns
+
+`boolean`
 
 ---
 

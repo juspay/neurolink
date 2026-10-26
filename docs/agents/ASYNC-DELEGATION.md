@@ -161,6 +161,17 @@ Nothing here is a second implementation of anything:
 - `runIsolatedAgent` — fresh session on a worker instance that **shares this
   host's tool registry**, so live MCP connections are reused; waste detection,
   honest stop reasons, continuation handles;
+  - **the isolation is behavioural, not a security boundary.** A worker
+    created by `createWorkerInstance()` — and therefore every isolated agent
+    and delegate — runs in the **same process** as the host, inherits the
+    host's provider credentials and environment, shares its tool registry and
+    HITL manager, and may only _narrow_ the host's file-tool roots. What it
+    gets fresh is conversation state: a new session, its own budget and its
+    own stop reasons. A delegate's prompt can therefore reach anything the
+    host's tools can reach. To run untrusted work with fewer privileges, start
+    a separate process (or container) with its own credentials and point the
+    host at it as an external MCP server or a remote agent — do not rely on a
+    worker instance for that;
 - the delegation pool in `agentToolRegistrar` — one pool, raised never lowered;
 - `bankArtifact` (N3) — the full report on disk, a pointer in the conversation;
 - the task checklist (N1) — the counters that make completion visible.

@@ -18,6 +18,12 @@ Optional runtime configuration wiring for Claude proxy route factories.
 
 ---
 
-### runtimeConfigProvider
+### runtimeConfigProvider?
 
-> **runtimeConfigProvider**: [`ProxyRuntimeConfigProvider`](ProxyRuntimeConfigProvider.md)
+> `optional` **runtimeConfigProvider?**: [`ProxyRuntimeConfigProvider`](ProxyRuntimeConfigProvider.md)
+
+---
+
+### inboundAuth?
+
+> `optional` **inboundAuth?**: [`ProxyInboundAuthOptions`](ProxyInboundAuthOptions.md)

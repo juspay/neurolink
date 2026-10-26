@@ -36,6 +36,7 @@ export const textGenerationOptionsSchema: Record<
     | "thinkingConfig" // Complex object, use thinking/thinkingBudget instead
     | "requestId" // Observability ID, not CLI-settable
     | "fileRegistry" // Internal: set by SDK, not by CLI
+    | "attachmentPolicy" // Internal: set by SDK, not by CLI
     | "abortSignal" // Runtime object, not CLI-settable
     | "toolFilter" // Array type, not simple CLI option
     | "excludeTools" // Array type, not simple CLI option

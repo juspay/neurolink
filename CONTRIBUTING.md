@@ -155,6 +155,15 @@ Your code must pass these validation checks:
 - ✅ .env.example completeness
 - ✅ Configuration consistency checks
 
+#### **Dependency Pinning Policy (since the 2026-10 security audit):**
+
+- ✅ Every entry in `dependencies`, `devDependencies` and `optionalDependencies` is an **exact version**. `.npmrc` sets `save-exact=true`, so `pnpm add` records exact versions; never hand-edit a range back in. `peerDependencies` stay ranges.
+- ✅ Transitive floors live in `pnpm.overrides` as **bands**: `"name@<fixed": ">=fixed <next-major"`. Never add a bare `"name": "x.y.z"` override — it pins the whole graph and blocks the next patch (this is how fastify sat on a vulnerable version). When a new advisory lands, move the band's floor to the new fixed version and keep the `<next-major` cap.
+- ✅ The toolchain is pinned too: `packageManager` (exact pnpm), `engines.node` (the first patched release of each supported line), `.nvmrc`, the Dockerfile `FROM` digest, and `node-version` in every workflow. Bump them together when Node or pnpm ships a security release.
+- ✅ `pnpm audit --prod` must be clean. An accepted risk is keyed by **GHSA id** in `scripts/security-check.ts`, carries the real dependency path, a reason and an expiry — never a package name with a severity ceiling.
+- ✅ `pnpm-workspace.yaml` keeps `minimumReleaseAge` (3 days) so a freshly published release cannot be resolved before the ecosystem has had time to catch a compromise. Tooling fetched at run time in CI (`npx`, `uvx`, `npm -g`) is not covered by that cooldown, so it is pinned exactly as well.
+- ✅ `pnpm run test:security` (and the `security-suites` CI job) runs the regression suites that enforce the above and the application hardening from the audit. Run it before touching dependencies, the server, the proxy, MCP loading or file ingestion.
+
 ### 🚀 **Manual Validation Commands**
 
 Before committing, you can run these commands manually to check your code:

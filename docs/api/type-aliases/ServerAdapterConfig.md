@@ -24,7 +24,10 @@ Server port (default: 3000)
 
 > `optional` **host?**: `string`
 
-Server host (default: "0.0.0.0")
+Interface to bind (default: `"127.0.0.1"`, loopback only). Pass
+`"0.0.0.0"` or `"::"` to listen on every interface; a server reachable from
+the network should register authentication middleware first, since the
+tool, MCP and memory routes act on this host.
 
 ---
 

@@ -145,8 +145,8 @@ describe a Codex account, and none served that turn.
 
 | Header                               | Meaning                                                                                                                                                                            |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `x-neurolink-account`                | Which pooled account served the request                                                                                                                                            |
-| `x-neurolink-account-type`           | Always `codex-oauth`                                                                                                                                                               |
+| `x-neurolink-account`                | Which pooled account served the request. Stripped from borrowed responses: the label is the lender's identity                                                                      |
+| `x-neurolink-account-type`           | Always `codex-oauth`. Stripped from borrowed responses                                                                                                                             |
 | `x-neurolink-served-by`              | `codex`, or `codex-outbound-fallback:anthropic` / `codex-outbound-fallback:vertex` when the [outbound fallback](#9-outbound-fallback-codex-request--claude-engine) served the turn |
 | `x-neurolink-attempt`                | Which attempt succeeded (1 = first account tried)                                                                                                                                  |
 | `x-neurolink-quota-source`           | `live` when the backend reported quota, else `none`                                                                                                                                |
@@ -165,8 +165,9 @@ describe a Codex account, and none served that turn.
 | All accounts auth-cooling                 | The same terminal event with code `server_error` instead of `insufficient_quota` (every account is parked by an auth failure), so it is not reported as spent quota              |
 | `401` / `403` from upstream               | One forced token refresh and a retry; a second rejection parks the account for 60 s and rotates; a failed refresh disables the account until re-login                            |
 | `401` / `403` with a request-refusal code | The request ends on that account with no refresh, cooldown or rotation: a policy code answers `403`, an invalid-request code keeps the upstream status (see below)               |
-| `429`                                     | Cool the account per its reported window, then rotate                                                                                                                            |
-| `5xx` / network                           | Rotate to the next account                                                                                                                                                       |
+| `429`                                     | Cool the account per its reported window (bounded by what the window can mean, as the Claude engine does), then rotate                                                           |
+| Any other `4xx`                           | Upstream's verdict on the request itself (a malformed body, an unknown model): returned with the upstream status after exactly one upstream call, no rotation                    |
+| `5xx` / network                           | Rotate to the next account, up to `NEUROLINK_PROXY_MAX_ACCOUNTS_PER_REQUEST` accounts (default 3)                                                                                |
 
 Access tokens are refreshed proactively when within 5 minutes of expiry, and the rotated refresh token is written back to the store.
 
@@ -203,7 +204,33 @@ The Anthropic engine in `claudeProxyRoutes.ts` is untouched. The Codex engine is
 - **Native browser login is not implemented.** The verified path is importing an existing `codex login` credential. The OAuth constants (authorize URL, PKCE, scopes) are present in `codexOAuth.ts` for a future native flow.
 - **Quota-aware ordering is unverified against the live backend.** The usage endpoint and the rate-limit header shape were reconstructed from a capture, not confirmed end to end. If either is wrong, `fetchCodexAccountUsage` returns no quota, `x-neurolink-quota-source` reads `none`, and ordering degenerates to insertion order while every 429 falls back to the 15-minute transient cooldown. Rotation still works; it is simply not quota-aware. Verify with `neurolink auth list --refresh` — a `codex usage …` error line per account means the quota path is not live.
 - **SSE usage-limit signals are not acted on.** Only an HTTP 429 triggers a cooldown and rotation. A `200` response whose SSE stream carries `usage_limit_reached` (or the workspace-credit variants) is relayed to the client untouched, so the account is neither cooled nor rotated away from. HTTP-level exhaustion is handled; in-stream exhaustion is not.
-- **Client fingerprint is forwarded verbatim.** The proxy replaces the caller's credentials but does not regenerate `originator`, `installation_id`, `session-id`, or turn metadata per account, so every pooled account shares the client's fingerprint. This is what makes the terms-of-service point above concrete.
+- **Client fingerprint is forwarded, bounded by an allow-list.** The proxy replaces the caller's credentials and forwards only the documented protocol headers (`accept`, `content-type`, `user-agent`, `originator`, `session_id`, `conversation_id`, `openai-beta`, `x-codex-*`); everything else — `x-neurolink-*`, trace context, `cf-*`, `x-forwarded-*`, cookies — is dropped. It does not regenerate the fingerprint per account, so every pooled account still shares the client's. This is what makes the terms-of-service point above concrete.
+
+## Inbound trust
+
+The Codex door is served by the same listener as `/v1/messages` and is governed
+by the same rules (see the Claude proxy guide's "Inbound authentication"):
+
+- The listener binds `127.0.0.1` by default and **refuses any other host**
+  unless `NEUROLINK_PROXY_INBOUND_TOKEN` / `--inbound-token`,
+  `NEUROLINK_PROXY_REQUIRE_GRANT=1` or `--allow-unauthenticated` is set. With
+  an inbound token every `POST /backend-api/codex/responses` and
+  `GET /backend-api/codex/models` must carry it (`x-neurolink-inbound-token`
+  or `Authorization: Bearer`); a request carrying a share token is judged by
+  the share gate instead. `NEUROLINK_PROXY_REQUIRE_GRANT` gates this door too.
+- `createCodexProxyRoutes(basePath, runtimeConfigProvider, loopbackPort,
+internalDispatch, inboundAuth?)` applies the same token when mounted from the
+  SDK, reading `NEUROLINK_PROXY_INBOUND_TOKEN` when no `inboundAuth.token` is
+  given, and logs one loud warning when mounted with neither.
+- Borrowed requests get no account label (`x-neurolink-account*` are stripped),
+  cannot reference or create account-side state (`previous_response_id`,
+  `prompt_cache_key`, `metadata`, `user` dropped; `store` forced `false`), and
+  model discovery serves them like any other caller.
+- `GET /backend-api/codex/models` forwards only `client_version` from the
+  client's query and uses healthy (non-cooling) accounts only, at most the
+  per-request account cap. Every call reaches upstream, because the context
+  window and output ceiling it reports are recorded per model and must not be
+  served stale.
 
 ## Model discovery
 
@@ -295,7 +322,9 @@ for-byte.
 
 **The `anthropic` target needs the CLI proxy's in-process loopback.** Dispatch
 to an `anthropic` target goes through an in-process loopback
-(`127.0.0.1:<loopbackPort>` plus an unforgeable `internalDispatch` marker, see
+(`127.0.0.1:<loopbackPort>`, authorised by a server-minted single-use
+`x-neurolink-internal-request` token — `proxyActivity.ts` — which is what makes
+the crossing unforgeable; `internalDispatch` itself is just `app.fetch`, see
 §9.3) rather than a second network hop, and only `neurolink proxy start` (the
 CLI proxy command) wires that loopback through today. `createAllRoutes` /
 `registerAllRoutes` — the generic SDK route surface in
@@ -334,10 +363,10 @@ behaviour in section 6:
 When the account loop runs out, the last attempt decides eligibility. A
 401/403 across the whole pool is a Codex credential failure and falls back, as
 do 429 and 5xx. A content-policy or invalid-request error code
-(`classifyProxyFailureCode`), or any other 4xx, rejects the request itself and
-is returned unchanged. A pre-stream 401/403 carrying such a code never reaches
-this point: the pool ends the request on the account that received it (see
-section 6).
+(`classifyProxyFailureCode`), or any other 4xx, rejects the request itself:
+the pool ends the request on the account that received it, after exactly one
+upstream call, and returns the upstream status (see section 6), so such a
+request never reaches this point.
 
 The Anthropic loopback has a 5-minute timeout that covers the connection until
 its response headers arrive. After that the stream runs as long as the turn
@@ -355,14 +384,13 @@ Two independent guards, so a defect in one does not remove the bound:
   attempt within the same client request. This is a single flag, not a
   per-target counter, because at most one crossing is ever allowed regardless
   of how many of the internal dispatch call sites reach this function.
-- **Depth counter (defense-in-depth).** `ctx.metadata["neurolink.fallbackHopDepth"]`
-  is incremented on every engine crossing (never on a same-engine account
-  rotation) and checked against `MAX_ENGINE_CROSSINGS = 1`, independent of the
-  marker check above. The invariant this enforces: the ordered sequence of
+- **Depth bound.** `MAX_ENGINE_CROSSINGS = 1` (`codexOutboundFallback.ts`)
+  states the invariant the marker guard enforces: the ordered sequence of
   engines serving any one client request has length ≤ 2 with no repeat — only
   `[codex]`, `[anthropic]`, `[codex,anthropic]`, `[anthropic,codex]` are
-  possible. A leg that is itself already an inner fallback of the other engine
-  can never itself fall outbound again.
+  possible. It is a documented constant, not a second runtime counter: the
+  marker above is the only check that runs, and there is no
+  `fallbackHopDepth` metadata key.
 
 A request that reaches this point already carrying a forged
 `codexOutboundFallbackAttempted`-shaped marker from outside is not trusted —

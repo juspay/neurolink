@@ -165,6 +165,43 @@ const riskyTool = {
 - **Automatic reset**: Permission flag clears immediately after use
 - **Fail-safe**: Defaults to requiring permission when in doubt
 
+### Built-in tools
+
+HITL applies to the built-in tools (`readFile`, `writeFile`, `listDirectory`,
+`analyzeCSV`, `calculateMath`, `getCurrentTime`, `websearchGrounding` and the
+opt-in `executeBashCommand`) exactly as it applies to tools you register:
+`dangerousActions` keywords and `customRules` are matched against the tool
+name on every model-driven call. Before the 2026-10 security audit fix (finding
+C3) built-in tools bypassed HITL entirely — only tools executed through the
+tool registry were gated — so a
+prompt-injected model could write files or, with the bash tool enabled, run
+shell commands with no confirmation, while the bash tool's own description
+claimed otherwise.
+
+Two built-ins change the machine and are **confirmed on every call while HITL
+is enabled, whatever `dangerousActions` lists**: `writeFile` and
+`executeBashCommand`. To gate them by keywords only, like every other tool,
+set `confirmBuiltinTools: false`:
+
+```typescript
+const neurolink = new NeuroLink({
+  hitl: {
+    enabled: true,
+    dangerousActions: ["delete", "drop"],
+    confirmBuiltinTools: false, // writeFile / executeBashCommand follow the keywords
+  },
+});
+```
+
+A denied built-in call is reported to the model as a failed tool call
+(`Tool execution rejected by user: <reason>`); the model sees the denial and
+can continue without the side effect. A confirmation that returns
+`modifiedArguments` runs the tool with those arguments. The confirmation
+request carries `serverId: "direct"` for a built-in tool.
+
+Per-call tools passed through `generate({ tools })` are the host's own code
+and are not gated by HITL; wrap their `execute` yourself if they need it.
+
 ## API Reference
 
 ### Event Types

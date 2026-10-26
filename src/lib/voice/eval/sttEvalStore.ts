@@ -27,6 +27,7 @@ import type {
   ServerSTTEvalReport,
   ServerSTTEvalSegment,
   ServerSTTEvalSide,
+  ServerSTTEvalStoredBatch,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 import { phoneticKey } from "../codeMix.js";
@@ -37,14 +38,23 @@ import {
 
 const DEFAULT_MAX_CALLS = 1000;
 const DEFAULT_MAX_SEGMENTS = 50_000;
+/** Bytes of segments held in memory across every call. */
+const DEFAULT_MAX_BYTES = 64 * 1024 * 1024;
 /** Words per side above which a speaker is aligned in time windows instead of whole. */
 const FULL_ALIGN_MAX_WORDS = 4000;
 const WINDOW_S = 300;
+
+/** Roughly what a segment costs in memory: its JSON, which is what is kept. */
+function segmentBytes(segment: ServerSTTEvalSegment): number {
+  return JSON.stringify(segment).length;
+}
 
 export class STTEvalStore {
   private readonly _dir: string | undefined;
   private readonly _maxCalls: number;
   private readonly _maxSegments: number;
+  private readonly _maxBytes: number;
+  private _totalBytes = 0;
   private readonly _calls = new Map<string, ServerSTTEvalCallRecord>();
   /** Per call: the tail of its accept queue, so batches apply and append in arrival order. */
   private readonly _queues = new Map<string, Promise<unknown>>();
@@ -59,24 +69,43 @@ export class STTEvalStore {
       1,
       options.maxSegmentsPerCall ?? DEFAULT_MAX_SEGMENTS,
     );
+    this._maxBytes = Math.max(1, options.maxBytes ?? DEFAULT_MAX_BYTES);
     const langfuse = sttEvalLangfuseConfigFromEnv();
     this._langfuse = langfuse
       ? new STTEvalLangfuseExporter(langfuse)
       : undefined;
   }
 
+  /** Bytes of segments held in memory right now, across every call. */
+  get heldBytes(): number {
+    return this._totalBytes;
+  }
+
+  /**
+   * Take a batch. `owner` is the authenticated caller, when the server
+   * identified one: a call created with an owner accepts batches only from
+   * that owner, and `undefined` is returned for anyone else's.
+   */
   async accept(
     batch: ServerSTTEvalBatchRequest,
-  ): Promise<ServerSTTEvalBatchResponse> {
+    owner?: string,
+  ): Promise<ServerSTTEvalBatchResponse | undefined> {
     await this._load();
     return this._serial(batch.call_id, async () => {
-      const call = (await this._callFor(batch.call_id)) ?? this._create(batch);
+      const held = await this._callFor(batch.call_id);
+      if (held && !this._visibleTo(held, owner)) {
+        return undefined;
+      }
+      const call = held ?? this._create(batch, owner);
       const counts = this._apply(call, batch);
       if (this._dir) {
         try {
+          const stored: ServerSTTEvalStoredBatch = owner
+            ? { ...batch, owner }
+            : batch;
           await appendFile(
             this._fileFor(batch.call_id),
-            `${JSON.stringify(batch)}\n`,
+            `${JSON.stringify(stored)}\n`,
             "utf8",
           );
         } catch (error) {
@@ -101,9 +130,11 @@ export class STTEvalStore {
     });
   }
 
-  async list(): Promise<ServerSTTEvalCallSummary[]> {
+  /** Calls visible to `owner`: theirs and the unowned ones (see `_visibleTo`). */
+  async list(owner?: string): Promise<ServerSTTEvalCallSummary[]> {
     await this._load();
     return [...this._calls.values()]
+      .filter((call) => this._visibleTo(call, owner))
       .sort((a, b) => b.updatedAt - a.updatedAt)
       .map(summarize);
   }
@@ -111,10 +142,25 @@ export class STTEvalStore {
   async report(
     callId: string,
     includeSegments = false,
+    owner?: string,
   ): Promise<ServerSTTEvalReport | undefined> {
     await this._load();
     const call = await this._callFor(callId);
-    return call ? this._reportOf(call, includeSegments) : undefined;
+    return call && this._visibleTo(call, owner)
+      ? this._reportOf(call, includeSegments)
+      : undefined;
+  }
+
+  /**
+   * A call an identified caller created is theirs alone. A call with no owner
+   * (made under no authentication or a shared key) is visible to everyone, as
+   * every call was before owners existed.
+   */
+  private _visibleTo(
+    call: ServerSTTEvalCallRecord,
+    owner: string | undefined,
+  ): boolean {
+    return call.owner === undefined || call.owner === owner;
   }
 
   private _reportOf(
@@ -168,7 +214,10 @@ export class STTEvalStore {
     return run;
   }
 
-  private _create(batch: ServerSTTEvalBatchRequest): ServerSTTEvalCallRecord {
+  private _create(
+    batch: ServerSTTEvalBatchRequest,
+    owner?: string,
+  ): ServerSTTEvalCallRecord {
     const call: ServerSTTEvalCallRecord = {
       callId: batch.call_id,
       room: batch.room ?? null,
@@ -177,6 +226,8 @@ export class STTEvalStore {
       batches: new Set(),
       segments: new Map(),
       updatedAt: Date.now(),
+      bytes: 0,
+      ...(owner ? { owner } : {}),
     };
     this._calls.set(batch.call_id, call);
     return call;
@@ -190,8 +241,10 @@ export class STTEvalStore {
     let updated = 0;
     let ignored = 0;
     for (const segment of batch.segments) {
-      if (call.segments.has(segment.id)) {
+      const previous = call.segments.get(segment.id);
+      if (previous) {
         updated++;
+        this._charge(call, -segmentBytes(previous));
       } else if (call.segments.size >= this._maxSegments) {
         ignored++;
         continue;
@@ -199,6 +252,7 @@ export class STTEvalStore {
         inserted++;
       }
       call.segments.set(segment.id, { ...segment });
+      this._charge(call, segmentBytes(segment));
     }
     call.batches.add(batch.batch);
     call.final = call.final || batch.final === true;
@@ -218,20 +272,44 @@ export class STTEvalStore {
     if (held || !this._dir) {
       return held;
     }
-    // Evicted from memory but still on disk.
+    // Evicted from memory but still on disk. Replaying re-registers the call
+    // and its bytes; the next eviction pass trims the budget again.
     const text = await readFile(this._fileFor(callId), "utf8").catch(
       () => undefined,
     );
-    return text === undefined ? undefined : this._replay(text);
+    if (text === undefined) {
+      return undefined;
+    }
+    const call = this._replay(text);
+    this._evict();
+    return call;
   }
 
+  private _charge(call: ServerSTTEvalCallRecord, delta: number): void {
+    call.bytes += delta;
+    this._totalBytes = Math.max(0, this._totalBytes + delta);
+  }
+
+  /**
+   * Drop the least recently updated calls while there are more than
+   * `maxCalls`, or while the held segments exceed `maxBytes`; a dropped call
+   * is still on disk when there is a directory. The newest call is never
+   * dropped, so a single call larger than the budget stays.
+   */
   private _evict(): void {
-    while (this._calls.size > this._maxCalls) {
+    while (
+      this._calls.size > 1 &&
+      (this._calls.size > this._maxCalls || this._totalBytes > this._maxBytes)
+    ) {
       const oldest = this._calls.keys().next().value;
       if (oldest === undefined) {
         return;
       }
+      const call = this._calls.get(oldest);
       this._calls.delete(oldest);
+      if (call) {
+        this._totalBytes = Math.max(0, this._totalBytes - call.bytes);
+      }
     }
   }
 
@@ -263,8 +341,10 @@ export class STTEvalStore {
         (a, b) => a.updatedAt - b.updatedAt,
       );
       this._calls.clear();
+      this._totalBytes = 0;
       for (const call of recent) {
         this._calls.set(call.callId, call);
+        this._totalBytes += call.bytes;
       }
       this._evict();
     } catch (error) {
@@ -283,8 +363,8 @@ export class STTEvalStore {
         continue;
       }
       try {
-        const batch = JSON.parse(line) as ServerSTTEvalBatchRequest;
-        call = call ?? this._create(batch);
+        const batch = JSON.parse(line) as ServerSTTEvalStoredBatch;
+        call = call ?? this._create(batch, batch.owner);
         this._apply(call, batch);
         for (const segment of batch.segments) {
           lastSeen = Math.max(lastSeen, segment.received_at * 1000);

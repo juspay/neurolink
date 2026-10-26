@@ -81,7 +81,7 @@ async function extractFrame(
   const outputPath = join(tempDir, `${position}_frame.jpg`);
 
   try {
-    await writeFile(inputPath, videoBuffer);
+    await writeFile(inputPath, videoBuffer, { mode: 0o600, flag: "wx" });
 
     const args =
       position === "first"

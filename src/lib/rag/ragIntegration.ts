@@ -1,4 +1,3 @@
-import { existsSync, readFileSync } from "fs";
 import { extname, resolve } from "path";
 import { z } from "zod";
 import {
@@ -11,6 +10,11 @@ import { logger } from "../utils/logger.js";
 import { redactUrlForError } from "../utils/logSanitize.js";
 import { ErrorFactory } from "../utils/errorHandling.js";
 import { ImageProcessor } from "../utils/imageProcessor.js";
+import {
+  readAttachmentFile,
+  resolveAttachmentPath,
+  resolveAttachmentPolicy,
+} from "../utils/attachmentPolicy.js";
 import { createChunker } from "./ChunkerFactory.js";
 import {
   createVectorQueryTool,
@@ -19,6 +23,7 @@ import {
 import { ImageLoader } from "./document/imageLoader.js";
 import { IMAGE_EXTENSIONS } from "../processors/config/index.js";
 import type {
+  AttachmentPolicy,
   ChunkingStrategy,
   RAGConfig,
   VectorQueryResult,
@@ -27,6 +32,13 @@ import type {
 import { withSpan } from "../telemetry/withSpan.js";
 import { tracers } from "../telemetry/tracers.js";
 import type { Tool } from "../types/index.js";
+
+/**
+ * Ceiling for one `rag.files` text source: 50 MiB. A file is chunked and
+ * embedded in full, so a larger one is a mistake rather than a document;
+ * `attachments.maxBytes` lowers it.
+ */
+const RAG_FILE_MAX_BYTES = 50 * 1024 * 1024;
 
 /**
  * Maps file extensions to recommended chunking strategies
@@ -220,6 +232,7 @@ function diversifyResults(
 export async function prepareRAGTool(
   ragConfig: RAGConfig,
   fallbackProvider?: string,
+  attachmentPolicy: AttachmentPolicy = resolveAttachmentPolicy(),
 ): Promise<RAGPreparedTool> {
   const span = SpanSerializer.createSpan(SpanType.RAG, "rag.prepare", {
     "rag.operation": "prepare",
@@ -229,7 +242,11 @@ export async function prepareRAGTool(
   });
   const startTime = Date.now();
   try {
-    const result = await _prepareRAGToolInner(ragConfig, fallbackProvider);
+    const result = await _prepareRAGToolInner(
+      ragConfig,
+      fallbackProvider,
+      attachmentPolicy,
+    );
     span.durationMs = Date.now() - startTime;
     const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
     endedSpan.attributes = {
@@ -251,7 +268,8 @@ export async function prepareRAGTool(
 
 async function _prepareRAGToolInner(
   ragConfig: RAGConfig,
-  fallbackProvider?: string,
+  fallbackProvider: string | undefined,
+  attachmentPolicy: AttachmentPolicy,
 ): Promise<RAGPreparedTool> {
   const {
     files,
@@ -324,10 +342,6 @@ async function _prepareRAGToolInner(
     }
 
     const resolvedPath = resolve(filePath);
-    if (!existsSync(resolvedPath)) {
-      logger.warn(`[RAG] File not found, skipping: ${resolvedPath}`);
-      continue;
-    }
 
     // Detect image files by extension
     const ext = extname(resolvedPath).toLowerCase();
@@ -339,15 +353,43 @@ async function _prepareRAGToolInner(
       continue;
     }
     if ((IMAGE_EXTENSIONS as readonly string[]).includes(ext)) {
-      imageFiles.push({ path: resolvedPath, ext });
+      // The same containment as the text branch below; ImageLoader then reads
+      // the real path this returned. A path outside the roots is skipped with
+      // the same warning as an unreadable one, so the tool keeps working on
+      // the files it may read.
+      try {
+        const real = await resolveAttachmentPath(
+          resolvedPath,
+          attachmentPolicy,
+          "RAG image",
+        );
+        imageFiles.push({ path: real, ext });
+      } catch (error) {
+        logger.warn(
+          `[RAG] Failed to read image: ${resolvedPath}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
       continue;
     }
 
     try {
-      const content = readFileSync(resolvedPath, "utf-8");
+      // Roots containment when configured, O_NOFOLLOW open of the real path,
+      // regular files only, and a bounded read — where this was a bare
+      // `readFileSync` of whatever string arrived.
+      const read = await readAttachmentFile(resolvedPath, {
+        policy: attachmentPolicy,
+        maxBytes: RAG_FILE_MAX_BYTES,
+        label: "RAG file",
+      });
+      const content = read.buffer.toString("utf-8");
       const strategy = userStrategy || detectStrategy(resolvedPath);
       fileContents.push({ path: resolvedPath, content, strategy });
     } catch (error) {
+      const code = (error as { code?: unknown } | undefined)?.code;
+      if (code === "ENOENT") {
+        logger.warn(`[RAG] File not found, skipping: ${resolvedPath}`);
+        continue;
+      }
       logger.warn(
         `[RAG] Failed to read file: ${resolvedPath}: ${error instanceof Error ? error.message : String(error)}`,
       );

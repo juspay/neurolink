@@ -16,10 +16,14 @@
  * module it lands in. The positive control proves the hook sees packages at
  * all, so an empty trace cannot pass as a clean one.
  *
- * zod-to-json-schema and json-schema-to-zod are the odd two: they load through
- * `require()` (src/lib/utils/schemaConversion.ts), not `import()`. The control
- * drives each to its first conversion and checks the same hook sees it then,
- * and only then. A last test covers the price of that choice: when a bundler
+ * zod-to-json-schema is the odd one: it loads through `require()`
+ * (src/lib/utils/schemaConversion.ts), not `import()`. The control drives it
+ * to its first conversion and checks the same hook sees it then, and only
+ * then. json-schema-to-zod is no longer loaded at all — the JSON Schema → Zod
+ * direction is converted in-process since the 2026-10 audit — and the control
+ * checks that a JSON Schema tool's first conversion loads no package, so a
+ * regression that brings the code-generating path back fails here. A last
+ * test covers the price of the require() choice: when a bundler
  * or a resolver cannot find the package, conversion degrades to an empty
  * schema and says so once, at error level, instead of failing silently.
  *
@@ -74,9 +78,11 @@ const LAZY_PACKAGES = [
   "@opentelemetry/core",
   "@opentelemetry/otlp-transformer",
   // src/lib/utils/schemaConversion.ts: only reachable from
-  // convertZodToJsonSchema/convertJsonSchemaToZod, both synchronous — loaded
-  // via require() on first call. zod itself stays a static import since its
-  // runtime schemas are public exports used well beyond schema conversion.
+  // convertZodToJsonSchema, synchronous — loaded via require() on first call.
+  // zod itself stays a static import since its runtime schemas are public
+  // exports used well beyond schema conversion. json-schema-to-zod is not
+  // used anywhere any more (convertJsonSchemaToZod converts in-process); it
+  // stays listed so a reintroduced static import fails here.
   "zod-to-json-schema",
   "json-schema-to-zod",
 ];
@@ -212,11 +218,11 @@ async function providerWithTool(name, parameters) {
 `;
 
 /** Drives a Zod 3 `parameters` tool (schemaConversion's zod-to-json-schema
- * fallback) and a plain JSON Schema `parameters` tool (json-schema-to-zod)
- * through their first conversion, with the same load-hook detector the
- * absence checks use, snapshotting what it has seen after the import and
- * after the conversions. The `resolve` hook independently records who asked
- * for each of the two packages. */
+ * fallback) and a plain JSON Schema `parameters` tool (converted in-process,
+ * no package) through their first conversion, with the same load-hook
+ * detector the absence checks use, snapshotting what it has seen after the
+ * import and after the conversions. The `resolve` hook independently records
+ * who asked for either schema package. */
 function buildFirstUseProbe(): string {
   return `
 import { registerHooks } from "node:module";
@@ -418,10 +424,10 @@ await test("importing the /server subpath entry loads no optional backend", () =
  * Item 2 is the measurement the absence checks above rely on; item 1 is what
  * makes it a measurement rather than a blind spot.
  */
-await test("first use of a Zod 3 tool and a JSON Schema tool loads zod-to-json-schema and json-schema-to-zod, requested only by schemaConversion.js", () => {
+await test("first use of a Zod 3 tool loads zod-to-json-schema, requested only by schemaConversion.js; a JSON Schema tool loads no package", () => {
   skipIfHooksUnsupported();
   const { afterImport, afterUse, resolves } = runFirstUseProbe();
-  const SCHEMA_PACKAGES = ["zod-to-json-schema", "json-schema-to-zod"];
+  const SCHEMA_PACKAGES = ["zod-to-json-schema"];
   assert(
     afterImport.files > 100 && afterImport.packages.includes("zod"),
     "precondition: the load hook must observe the entry's own dependencies",
@@ -433,6 +439,10 @@ await test("first use of a Zod 3 tool and a JSON Schema tool loads zod-to-json-s
   assert(
     SCHEMA_PACKAGES.every((p) => !afterImport.packages.includes(p)),
     "a schema-conversion package was loaded by the import itself, before any conversion ran",
+  );
+  assert(
+    !afterUse.packages.includes("json-schema-to-zod"),
+    "converting a JSON Schema tool loaded json-schema-to-zod: the code-generating conversion path is back",
   );
   for (const specifier of SCHEMA_PACKAGES) {
     const requests = resolves.filter((r) => r.specifier === specifier);

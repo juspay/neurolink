@@ -15,6 +15,85 @@ import { logger } from "./logger.js";
 
 const SESSION_ONLY_PREFIX = "session-only:";
 
+/**
+ * Longest id that may become part of a key. Redis itself allows far more, but
+ * a session or user id past this length is not an id.
+ */
+const MAX_REDIS_ID_LENGTH = 512;
+
+/**
+ * Characters an id may not contain: `:` is the key-segment separator (so
+ * `user "a:b"` + session `"c"` would alias `user "a"` + session `"b:c"`), and
+ * `*`, `?`, `[` are glob metacharacters for SCAN/KEYS patterns; line breaks
+ * never belong in a key.
+ */
+const FORBIDDEN_REDIS_ID_CHARS = /[:*?[\r\n]/;
+// userId may carry ':' (multi-tenant ids such as `cust:merchant:shop` are established
+// usage); the key `${prefix}${userId}:${sessionId}` still splits unambiguously at the
+// last colon because sessionId may not contain one. Glob characters and line breaks
+// stay forbidden so an id can never widen a SCAN pattern or break a log line.
+const FORBIDDEN_REDIS_USER_ID_CHARS = /[*?[\r\n]/;
+
+/**
+ * Set `NEUROLINK_REDIS_ALLOW_LEGACY_IDS=1` to accept ids that fail the check
+ * with a warning instead of an error, for a deployment whose stored sessions
+ * already carry `:` in their ids and needs time to migrate.
+ */
+const ENV_ALLOW_LEGACY_IDS = "NEUROLINK_REDIS_ALLOW_LEGACY_IDS";
+
+/**
+ * Why an id is not usable as a key segment, or `null` when it is.
+ */
+export function describeRedisIdProblem(
+  value: string,
+  kind: "sessionId" | "userId" = "sessionId",
+): string | null {
+  if (value.length === 0) {
+    return "is empty";
+  }
+  if (value.length > MAX_REDIS_ID_LENGTH) {
+    return `is longer than ${MAX_REDIS_ID_LENGTH} characters`;
+  }
+  if (kind === "userId") {
+    if (FORBIDDEN_REDIS_USER_ID_CHARS.test(value)) {
+      return "contains a reserved character ('*', '?', '[' or a line break)";
+    }
+  } else if (FORBIDDEN_REDIS_ID_CHARS.test(value)) {
+    return "contains a reserved character (':', '*', '?', '[' or a line break)";
+  }
+  if (value === SESSION_ONLY_PREFIX.slice(0, -1)) {
+    return "is the reserved no-user namespace";
+  }
+  return null;
+}
+
+/**
+ * Refuse an id that would alias another key or break a SCAN pattern.
+ *
+ * @throws {Error} with `code: "INVALID_REDIS_ID"` unless the legacy switch is
+ *   set, in which case the problem is logged once per id shape and the id
+ *   is used as given.
+ */
+export function assertSafeRedisId(
+  value: string,
+  label: "sessionId" | "userId",
+): void {
+  const problem = describeRedisIdProblem(value, label);
+  if (problem === null) {
+    return;
+  }
+  const message = `[REDIS] ${label} ${problem}; it cannot be used in a Redis key`;
+  if (process.env[ENV_ALLOW_LEGACY_IDS] === "1") {
+    logger.warn(`${message} (allowed by ${ENV_ALLOW_LEGACY_IDS})`);
+    return;
+  }
+  const error = new Error(
+    `${message}. Set ${ENV_ALLOW_LEGACY_IDS}=1 to accept legacy ids while migrating.`,
+  );
+  (error as NodeJS.ErrnoException).code = "INVALID_REDIS_ID";
+  throw error;
+}
+
 /** Characters that end the authority (`user:pass@host:port`) of a URL in text. */
 const AUTHORITY_TERMINATORS = new Set(["/", "?", "#", " ", "\t", "\n", "\r"]);
 
@@ -272,6 +351,10 @@ export function getSessionKey(
   sessionId: string,
   userId?: string,
 ): string {
+  assertSafeRedisId(sessionId, "sessionId");
+  if (userId !== undefined && userId !== "") {
+    assertSafeRedisId(userId, "userId");
+  }
   if (!userId) {
     logger.warn("[REDIS] getSessionKey called without userId", { sessionId });
     return `${config.keyPrefix}${SESSION_ONLY_PREFIX}${sessionId}`;
@@ -296,6 +379,7 @@ export function getUserSessionsKey(
   config: Required<RedisStorageConfig>,
   userId: string,
 ): string {
+  assertSafeRedisId(userId, "userId");
   return `${config.userSessionsKeyPrefix}${userId}`;
 }
 

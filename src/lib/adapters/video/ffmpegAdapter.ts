@@ -10,9 +10,8 @@
  * @module adapters/video/ffmpegAdapter
  */
 
-import { randomUUID } from "node:crypto";
 import { readdirSync, rmdirSync, unlinkSync } from "node:fs";
-import { mkdir, readFile, rm, unlink, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { logger } from "../../utils/logger.js";
@@ -44,6 +43,34 @@ export const MIN_VIDEO_BUFFER_SIZE = 12;
 
 /** MP4 ftyp box magic bytes at offset 4: "ftyp" */
 const FTYP_MAGIC = Buffer.from([0x66, 0x74, 0x79, 0x70]);
+
+/**
+ * Input-side options every ffmpeg run here gets, placed before the first
+ * `-i` so they apply to the inputs.
+ *
+ * `-protocol_whitelist file,crypto,data` pins the demuxer to local files: a
+ * playlist or container that references `http://`, `concat:` or `subfile:`
+ * cannot make ffmpeg fetch or read anything else, whatever the installed
+ * build's defaults are. `-nostdin` keeps a child from ever waiting on a
+ * terminal. Passed explicitly rather than relied on, because the whitelist a
+ * build ships with is the build's choice, not ours.
+ */
+export const FFMPEG_INPUT_HARDENING: readonly string[] = [
+  "-nostdin",
+  "-protocol_whitelist",
+  "file,crypto,data",
+];
+
+/**
+ * Prepend {@link FFMPEG_INPUT_HARDENING} to an argv that names an input, once.
+ * An argv without `-i` (a version probe) is returned as given.
+ */
+export function withInputHardening(args: readonly string[]): string[] {
+  if (!args.includes("-i") || args.includes("-protocol_whitelist")) {
+    return [...args];
+  }
+  return [...FFMPEG_INPUT_HARDENING, ...args];
+}
 
 // ============================================================================
 // TEMP DIRECTORY MANAGEMENT
@@ -94,8 +121,9 @@ function ensureCleanupRegistered(): void {
  */
 export async function createTrackedTempDir(prefix: string): Promise<string> {
   ensureCleanupRegistered();
-  const dir = join(tmpdir(), `neurolink-${prefix}-${randomUUID()}`);
-  await mkdir(dir, { recursive: true });
+  // mkdtemp: an unguessable name AND 0o700, atomically — nothing else on the
+  // host can read the frames or clips that land here.
+  const dir = await mkdtemp(join(tmpdir(), `neurolink-${prefix}-`));
   activeTempDirs.add(dir);
   return dir;
 }
@@ -212,11 +240,12 @@ export async function runFfmpeg(
   const ffmpegPath = options.binaryPath ?? (await getFfmpegPath());
   const timeoutMs = options.timeoutMs ?? FFMPEG_FRAME_TIMEOUT_MS;
   const maxBuffer = options.maxBuffer ?? FFMPEG_FRAME_MAX_BUFFER;
+  const hardenedArgs = withInputHardening(args);
 
   return new Promise((resolve, reject) => {
     const proc = execFile(
       ffmpegPath,
-      args,
+      hardenedArgs,
       { timeout: timeoutMs, maxBuffer },
       (error, stdout, stderr) => {
         if (error) {

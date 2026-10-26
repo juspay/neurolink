@@ -1579,6 +1579,10 @@ export type PreparedAnthropicAccountAttempt = {
   lastError: unknown;
   authFailureMessage: string | null;
   headers?: Record<string, string>;
+  /** The upstream `anthropic-beta` carries a value the client asked for that
+   *  the proxy would not have sent itself. A rejection of it is then the
+   *  client's doing, and must not re-rank the pool for everyone. */
+  clientSuppliedBetaForwarded?: boolean;
   buildUpstreamBody?: AnthropicUpstreamBodyBuilder;
   finalBodyStr?: string;
   preparedContext?: ProxyPreparedContext<ClaudeRequest>;
@@ -3792,12 +3796,25 @@ export type ProxyStatusPrimaryAccount = {
 // CLAUDE SNAPSHOT (from server/routes/claudeProxyRoutes.ts)
 // =============================================================================
 
-/** Parsed fields captured from a Claude Code client request body. */
+/**
+ * Identity tuple captured from a genuine Claude Code client request body.
+ *
+ * Deliberately carries no prompt text. An earlier shape persisted the client's
+ * "agent block" `system` text and replayed it as the system prompt of every
+ * later non-Claude-Code request on the account, so one hostile request could
+ * plant instructions into everyone else's sessions. The agent block is now a
+ * compiled-in constant; `billingHeader` is stored only in its normalised
+ * two-field form.
+ */
 export type ClaudeSnapshotBody = {
   metadataUserId?: string;
   billingHeader?: string;
-  agentBlock?: string;
   sessionId?: string;
+};
+
+/** The identity tuple plus one request-shape probe that is never persisted. */
+export type ClaudeSnapshotBodyProbe = ClaudeSnapshotBody & {
+  hasAgentBlock?: boolean;
 };
 
 /** Snapshot of headers and body from a Claude Code request, used for polyfill. */
@@ -3805,6 +3822,13 @@ export type ClaudeSnapshot = {
   accountKey: string;
   capturedAt: string;
   source: "claude-code";
+  /**
+   * Set only by a capture that verified the client was Claude Code itself
+   * (session header and `claude-cli/` user-agent). A snapshot without it was
+   * written by a release whose heuristic any caller could satisfy, so its
+   * identity tuple is not trusted and is dropped on load.
+   */
+  capturedFrom?: "genuine-claude-code";
   headers: Record<string, string>;
   body?: ClaudeSnapshotBody;
 };
@@ -3952,10 +3976,45 @@ export type ProxyRuntimeConfigStoreOptions = {
 /** Runtime configuration provider captured by route factories. */
 export type ProxyRuntimeConfigProvider = () => ProxyRequestRoutingSnapshot;
 
+/**
+ * Inbound authentication for a mounted proxy route group.
+ *
+ * `token` is the bearer every caller must present (header
+ * `x-neurolink-inbound-token`, or `Authorization: Bearer <token>`); when
+ * omitted it is read from `NEUROLINK_PROXY_INBOUND_TOKEN`. With neither, the
+ * routes serve any caller that reaches them, and the factory says so loudly
+ * unless `allowUnauthenticated` records that the operator chose that
+ * (loopback-only bind, or an authenticating reverse proxy in front).
+ */
+export type ProxyInboundAuthOptions = {
+  token?: string;
+  allowUnauthenticated?: boolean;
+};
+
 /** Optional runtime configuration wiring for Claude proxy route factories. */
 export type ClaudeProxyRouteRuntimeOptions = {
   accountAllowlist?: AccountAllowlist;
-  runtimeConfigProvider: ProxyRuntimeConfigProvider;
+  runtimeConfigProvider?: ProxyRuntimeConfigProvider;
+  inboundAuth?: ProxyInboundAuthOptions;
+};
+
+/**
+ * Whether a listener may bind where it was asked to.
+ *
+ * A non-loopback bind needs something in front of the pooled subscriptions:
+ * the share gate (`NEUROLINK_PROXY_REQUIRE_GRANT`), an inbound token, or the
+ * operator's explicit `allowUnauthenticated`.
+ */
+export type ProxyBindPolicyDecision =
+  | { allowed: true; warning?: string }
+  | { allowed: false; reason: string };
+
+/** Inputs to the bind policy, resolved from flags and the environment. */
+export type ProxyBindPolicyInput = {
+  host: string;
+  inboundToken?: string;
+  requireGrant: boolean;
+  allowUnauthenticated: boolean;
 };
 
 /** Listener invoked after a new configuration generation is published. */

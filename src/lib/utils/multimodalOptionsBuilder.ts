@@ -1,4 +1,5 @@
 import type { StreamOptions } from "../types/index.js";
+import { getAttachmentPolicy } from "./attachmentPolicy.js";
 
 /**
  * Builds a normalized multimodal options payload for streaming providers.
@@ -90,5 +91,8 @@ export function buildMultimodalOptions(
     enableEvaluation: options.enableEvaluation,
     context: options.context,
     fileRegistry: (options as Record<string, unknown>).fileRegistry,
+    attachmentPolicy: getAttachmentPolicy(
+      options as { attachmentPolicy?: unknown },
+    ),
   };
 }

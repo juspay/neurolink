@@ -1145,6 +1145,7 @@ export function startCallbackServer(
   port: number = DEFAULT_CALLBACK_PORT,
   path: string = "/callback",
   timeout: number = 5 * 60 * 1000, // 5 minutes default
+  expectedState?: string,
 ): Promise<CallbackResult> {
   return new Promise((resolve, reject) => {
     let server: Server | null = null;
@@ -1234,6 +1235,27 @@ export function startCallbackServer(
         return;
       }
 
+      // A callback whose state is not ours is answered but never resolves the
+      // flow: on an all-interfaces listener that was how a LAN peer could abort
+      // a login or hand it a code of their choosing. The server keeps waiting
+      // for the genuine redirect.
+      if (expectedState !== undefined && state !== expectedState) {
+        res.writeHead(400, { "Content-Type": "text/html" });
+        res.end(`
+          <!DOCTYPE html>
+          <html>
+            <head><title>State Mismatch</title></head>
+            <body>
+              <h1>Authentication Failed</h1>
+              <p>The callback did not match the login in progress.</p>
+              <p>You can close this window.</p>
+            </body>
+          </html>
+        `);
+        logger.warn("OAuth callback ignored: state mismatch");
+        return;
+      }
+
       // Success response
       res.writeHead(200, { "Content-Type": "text/html" });
       res.end(`
@@ -1265,8 +1287,10 @@ export function startCallbackServer(
       );
     });
 
-    server.listen(port, () => {
-      logger.info(`OAuth callback server listening on port ${port}`);
+    // Loopback only: the redirect comes from the operator's own browser, and an
+    // all-interfaces bind on a fixed port let anything on the network reach it.
+    server.listen(port, "127.0.0.1", () => {
+      logger.info(`OAuth callback server listening on 127.0.0.1:${port}`);
     });
   });
 }
@@ -1505,8 +1529,13 @@ export async function performOAuthFlow(
   // Generate state for CSRF protection
   const state = randomBytes(32).toString("base64url");
 
-  // Start callback server
-  const callbackPromise = startCallbackServer(port, "/callback", timeout);
+  // Start callback server; it resolves only for a redirect carrying our state.
+  const callbackPromise = startCallbackServer(
+    port,
+    "/callback",
+    timeout,
+    state,
+  );
 
   // Generate auth URL
   const authUrl = oauth.generateAuthUrl(
@@ -1554,4 +1583,83 @@ export async function performOAuthFlow(
   );
 
   return tokens;
+}
+
+/**
+ * Split a pasted `code#state` string and bind it to the login in progress.
+ *
+ * The CLI paste flows used to set `state` to the PKCE verifier and then trust
+ * whatever the user pasted after `#` as that verifier, so the code was bound to
+ * nothing the CLI held: a phished `code#state` from someone else's login landed
+ * their account in the victim's pool. The state is now an unrelated random
+ * value, it must come back exactly, and the exchange always uses the verifier
+ * this process generated.
+ */
+export function parsePastedAuthorizationCode(
+  pasted: string,
+  expectedState: string,
+): { code: string } {
+  const trimmed = pasted.trim();
+  const separator = trimmed.indexOf("#");
+  const code = separator === -1 ? trimmed : trimmed.slice(0, separator);
+  const state = separator === -1 ? "" : trimmed.slice(separator + 1).trim();
+  if (!code) {
+    throw new OAuthError(
+      "Authorization code is empty. Paste the full code shown by the browser.",
+      "INVALID_AUTHORIZATION_CODE",
+    );
+  }
+  if (!state) {
+    throw new OAuthError(
+      "Authorization code is missing its state. Paste the full code#state value " +
+        "the browser showed, from this login attempt.",
+      "STATE_MISMATCH",
+    );
+  }
+  if (
+    state.length !== expectedState.length ||
+    !timingSafeStringEqual(state, expectedState)
+  ) {
+    throw new OAuthError(
+      "Authorization code does not belong to this login attempt (state mismatch). " +
+        "Start the login again and paste only the code it produces.",
+      "STATE_MISMATCH",
+    );
+  }
+  return { code };
+}
+
+function timingSafeStringEqual(left: string, right: string): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return difference === 0;
+}
+
+/**
+ * Validate a pasted `code#state` against the login in progress and exchange it
+ * with the local verifier. Nothing is sent when the state does not match.
+ */
+export async function exchangePastedSubscriptionCode(params: {
+  pasted: string;
+  expectedState: string;
+  codeVerifier: string;
+  clientId?: string;
+  redirectUri?: string;
+}): ReturnType<typeof exchangeSubscriptionCode> {
+  const { code } = parsePastedAuthorizationCode(
+    params.pasted,
+    params.expectedState,
+  );
+  return exchangeSubscriptionCode({
+    code,
+    state: params.expectedState,
+    codeVerifier: params.codeVerifier,
+    ...(params.clientId ? { clientId: params.clientId } : {}),
+    ...(params.redirectUri ? { redirectUri: params.redirectUri } : {}),
+  });
 }

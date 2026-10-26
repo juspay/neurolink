@@ -23,8 +23,8 @@ import {
   downloadPredictionOutput,
   predict,
 } from "../../adapters/replicate/predictionLifecycle.js";
-import { MAX_AUDIO_BYTES, readBoundedBuffer } from "../../utils/sizeGuard.js";
-import { assertSafeUrl } from "../../utils/ssrfGuard.js";
+import { MAX_AUDIO_BYTES } from "../../utils/sizeGuard.js";
+import { safeDownload } from "../../utils/safeFetch.js";
 
 const DEFAULT_MODEL =
   "meta/musicgen:7be0f12c54a8d033a0fbd14418c9af98962da9a86f5ff7811f9b3423a1f0b7d7";
@@ -182,25 +182,17 @@ export class ReplicateMusic implements MusicHandler {
         retriable: false,
       });
     }
-    try {
-      await assertSafeUrl(input);
-    } catch (err) {
-      throw new MusicError({
-        code: MUSIC_ERROR_CODES.INVALID_INPUT,
-        message: `Unsafe URL rejected: ${err instanceof Error ? err.message : String(err)}`,
-        category: ErrorCategory.VALIDATION,
-        severity: ErrorSeverity.HIGH,
-        retriable: false,
-        context: { url: input },
-      });
-    }
+    // `safeDownload`: URL vetted (HTTPS, public host), connection pinned to
+    // the vetted addresses, redirects refused, body bounded while streaming.
     const FETCH_TIMEOUT_MS = 60_000;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    let r: Response;
     try {
-      r = await fetch(input, { signal: controller.signal });
+      return await safeDownload(input, {
+        maxBytes: MAX_AUDIO_BYTES,
+        label: "Replicate reference audio",
+        timeoutMs: FETCH_TIMEOUT_MS,
+      });
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       if (err instanceof Error && err.name === "AbortError") {
         throw new MusicError({
           code: MUSIC_ERROR_CODES.GENERATION_FAILED,
@@ -210,33 +202,33 @@ export class ReplicateMusic implements MusicHandler {
           retriable: true,
         });
       }
-      throw err;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-    if (!r.ok) {
+      if (/rejected|permitted|blocked range|redirect/i.test(message)) {
+        throw new MusicError({
+          code: MUSIC_ERROR_CODES.INVALID_INPUT,
+          message: `Unsafe URL rejected: ${message}`,
+          category: ErrorCategory.VALIDATION,
+          severity: ErrorSeverity.HIGH,
+          retriable: false,
+          context: { url: input },
+        });
+      }
+      if (/too large|size cap/i.test(message)) {
+        throw new MusicError({
+          code: MUSIC_ERROR_CODES.INVALID_INPUT,
+          message: `Replicate reference audio too large: ${message}`,
+          category: ErrorCategory.VALIDATION,
+          severity: ErrorSeverity.HIGH,
+          retriable: false,
+          context: { url: input },
+        });
+      }
+      const status = /HTTP (\d{3})/.exec(message)?.[1];
       throw new MusicError({
         code: MUSIC_ERROR_CODES.GENERATION_FAILED,
-        message: `Failed to fetch reference audio: ${input}: ${r.status}`,
+        message: `Failed to fetch reference audio: ${input}: ${message}`,
         category: ErrorCategory.NETWORK,
         severity: ErrorSeverity.MEDIUM,
-        retriable: r.status >= 500,
-      });
-    }
-    try {
-      return await readBoundedBuffer(
-        r,
-        MAX_AUDIO_BYTES,
-        "Replicate reference audio",
-      );
-    } catch (err) {
-      throw new MusicError({
-        code: MUSIC_ERROR_CODES.INVALID_INPUT,
-        message: `Replicate reference audio too large: ${err instanceof Error ? err.message : String(err)}`,
-        category: ErrorCategory.VALIDATION,
-        severity: ErrorSeverity.HIGH,
-        retriable: false,
-        context: { url: input },
+        retriable: status === undefined || Number(status) >= 500,
       });
     }
   }

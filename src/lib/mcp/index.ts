@@ -58,6 +58,27 @@ export {
 export { MCPToolRegistry } from "./toolRegistry.js";
 export { ExternalServerManager } from "./externalServerManager.js";
 export { MCPClientFactory } from "./mcpClientFactory.js";
+// Project `.mcp-config.json` trust and transport URL policy
+export {
+  PROJECT_MCP_CONFIG_FILENAME,
+  TRUST_MCP_CONFIG_ENV,
+  TRUST_MCP_CONFIG_FLAG,
+  TRUSTED_MCP_CONFIGS_FILENAME,
+  formatProjectMcpConfigSummary,
+  getProjectMcpConfigTrustHook,
+  getProjectMcpConfigTrustStatus,
+  getTrustedMcpConfigStorePath,
+  hashProjectMcpConfig,
+  readProjectMcpConfigTrustStore,
+  recordTrustedProjectMcpConfig,
+  resolveProjectMcpConfigPath,
+  setProjectMcpConfigTrustHook,
+  summarizeProjectMcpConfig,
+} from "./projectConfigTrust.js";
+export {
+  assertMcpTransportUrlAllowed,
+  classifyMcpTransportAddress,
+} from "./transportUrlPolicy.js";
 
 // ========================================
 // MCP ENHANCEMENTS (Phase 8.39.0)

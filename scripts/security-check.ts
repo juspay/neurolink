@@ -4,8 +4,10 @@
  * NeuroLink Security Validation Script
  *
  * Comprehensive security checks for the NeuroLink codebase including:
- * - Professional secret detection with Gitleaks integration
- * - Dependency vulnerability scanning
+ * - Professional secret detection with Gitleaks integration (required under
+ *   CI=true; basic-pattern fallback elsewhere)
+ * - Dependency vulnerability scanning, gated by GitHub advisory id with a
+ *   declared dependency path, an expiry and a fix check per acceptance
  * - License compliance checks
  * - Security best practices validation
  * - File permission validation
@@ -44,89 +46,142 @@ const CRITICAL_SECURITY_RULES = [
   "private-key",
 ];
 
-// Configuration: production advisories accepted as risk, keyed by package with
-// a severity ceiling.
+// Configuration: production advisories accepted as risk, keyed by GitHub
+// advisory id.
 //
-// Why a ceiling rather than a list of advisory ids: a package such as undici or
-// ip-address accumulates several advisories for the same underlying weakness,
-// and every new one used to hard-fail the build until a human pasted its id in
-// here. That is not a review decision, it is a tax — and it fired mid-release
-// on fast-uri 1145636.
+// Two earlier models are worth not repeating. A list of pnpm advisory ids made
+// every newly published advisory a hard failure until a human pasted its id in.
+// The per-PACKAGE severity ceiling that replaced it went the other way: any
+// advisory on a listed package at or below the ceiling was accepted without a
+// human ever looking, the free-text `reason` was never checked against the
+// dependency path pnpm reported, nothing expired, and nothing noticed when a
+// fix was published. The 2026-10 audit found the gate green over 19
+// high-severity production advisories, eight of them in a DIRECT dependency
+// with a published fix, under a reason that called it transitive.
 //
-// The ceiling is set to the highest severity actually observed for that package
-// at the time of the snapshot below. A further advisory in the same package at
-// or below that severity is accepted and logged; one that arrives ABOVE the
-// ceiling still fails the build. So the model stays quiet for more of the same
-// and still speaks up when a package gets materially worse.
+// This model keeps the review decision explicit and checkable on every run:
 //
-// Every accepted advisory is printed with its id and title on each run, so a
-// new one inside an existing ceiling is visible in the log even though it does
-// not block. Re-seed from `pnpm audit --prod --json` when this goes stale.
+//   ghsa          the one advisory being accepted. A sibling advisory in the
+//                 same package is a new decision, never more of the same.
+//   package       the module pnpm reports. A mismatch fails.
+//   path          a prefix every `findings[].paths` entry must start with, so
+//                 a reason that says "transitive via X" fails the moment pnpm
+//                 reports the package as `.>pkg` (a direct dependency).
+//   expires       YYYY-MM-DD. An expired acceptance fails the build until it
+//                 is renewed — an acceptance is a debt with a due date.
+//   reason        why the advisory does not reach this package's consumers.
+//   fixBlockedBy  REQUIRED when the advisory lists a patched version: an
+//                 acceptance of a fixable advisory has to say what blocks the
+//                 fix, or the fix is the answer.
 //
-// Snapshot taken 2026-08-22 against `pnpm audit --prod --json`: 16 actionable
-// (moderate+) advisories across 9 packages. `--prod` structurally excludes dev
-// -only trees.
-type AdvisorySeverity = "low" | "moderate" | "high" | "critical";
-
-const SEVERITY_RANK: Record<string, number> = {
-  info: 0,
-  low: 0,
-  moderate: 1,
-  high: 2,
-  critical: 3,
+// Snapshot 2026-10-26, after the dependency floors were raised: `pnpm audit
+// --prod --json` reports zero advisories, so the table is empty. That is the
+// steady state to return to, not a milestone. `--prod` structurally excludes
+// dev-only trees.
+type AcceptedRiskEntry = {
+  readonly ghsa: string;
+  readonly package: string;
+  readonly path: string;
+  readonly expires: string;
+  readonly reason: string;
+  readonly fixBlockedBy?: string;
 };
 
-const ACCEPTED_RISK_PACKAGES: Record<
-  string,
-  { maxSeverity: AdvisorySeverity; reason: string }
-> = {
-  uuid: {
-    maxSeverity: "moderate",
-    reason:
-      "deep transitive via @anthropic-ai/vertex-sdk, bullmq and exceljs — no single direct dependency to bump",
-  },
-  "form-data": {
-    maxSeverity: "high",
-    reason:
-      "transitive via optional @livekit/agents (voice feature only), not on the default request path",
-  },
-  "@opentelemetry/core": {
-    maxSeverity: "moderate",
-    reason: "transitive via the optional livekit OTEL exporter chain",
-  },
-  "adm-zip": {
-    maxSeverity: "high",
-    reason:
-      "transitive via optional @livekit/agents-plugin-livekit onnxruntime-node",
-  },
-  sharp: {
-    maxSeverity: "high",
-    reason:
-      "optionalDependency for image handling — not required at runtime for most consumers",
-  },
-  "find-my-way": {
-    maxSeverity: "high",
-    reason: "transitive via the optional fastify server adapter",
-  },
-  undici: {
-    maxSeverity: "high",
-    reason:
-      "direct dep; patched releases fit the existing >=7.30.1 <8.0.0 range and land via lockfile bumps",
-  },
-  "ip-address": {
-    maxSeverity: "high",
-    reason: "transitive via express-rate-limit (SSRF-bypass family)",
-  },
-  "image-size": {
-    maxSeverity: "high",
-    reason:
-      "transitive via pptxgenjs — upstream has published no patched version yet",
-  },  "sprintf-js": {
-    maxSeverity: "moderate",
-    reason:
-      "transitive via the optional @livekit/agents-plugin-livekit onnxruntime-node chain (global-agent, roarr) — no patched version exists",
-  },
-};
+const ACCEPTED_RISK_ADVISORIES: readonly AcceptedRiskEntry[] = [];
+
+/** GitHub advisory ids use a fixed alphabet; a typo here would accept nothing and warn forever. */
+const GHSA_ID_PATTERN =
+  /^GHSA-[23456789cfghjmpqrvwx]{4}-[23456789cfghjmpqrvwx]{4}-[23456789cfghjmpqrvwx]{4}$/;
+
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Problems with the table itself, independent of what `pnpm audit` reports.
+ * Pure so the shape can be pinned by a test; every string is one failure.
+ */
+function validateAcceptedRiskTable(
+  table: readonly AcceptedRiskEntry[],
+  today: Date,
+): string[] {
+  const problems: string[] = [];
+  const seen = new Set<string>();
+  const todayIso = today.toISOString().slice(0, 10);
+  table.forEach((entry, index) => {
+    const label = `entry ${index + 1} (${entry.ghsa || "no id"})`;
+    if (!GHSA_ID_PATTERN.test(entry.ghsa)) {
+      problems.push(`${label}: ghsa is not a GHSA-xxxx-xxxx-xxxx id`);
+    }
+    if (seen.has(entry.ghsa)) {
+      problems.push(`${label}: duplicate ghsa`);
+    }
+    seen.add(entry.ghsa);
+    if (!entry.package.trim()) {
+      problems.push(`${label}: package is empty`);
+    }
+    if (!entry.path.startsWith(".>")) {
+      problems.push(
+        `${label}: path must be a pnpm dependency-path prefix starting with ".>"`,
+      );
+    }
+    if (!entry.reason.trim()) {
+      problems.push(`${label}: reason is empty`);
+    }
+    if (
+      !ISO_DATE_PATTERN.test(entry.expires) ||
+      Number.isNaN(Date.parse(`${entry.expires}T00:00:00Z`))
+    ) {
+      problems.push(`${label}: expires is not a YYYY-MM-DD date`);
+    } else if (entry.expires <= todayIso) {
+      problems.push(
+        `${label}: acceptance expired on ${entry.expires} — renew it with a fresh review or fix the dependency`,
+      );
+    }
+  });
+  return problems;
+}
+
+/**
+ * Whether the advisory has a published fix. npm and GitHub encode "no patched
+ * version" as the unsatisfiable range `<0.0.0`; anything else names versions a
+ * consumer could move to, which is what an acceptance has to argue against.
+ */
+function hasPublishedFix(patchedVersions: string | undefined): boolean {
+  const range = patchedVersions?.trim() ?? "";
+  return range !== "" && range !== "<0.0.0";
+}
+
+/**
+ * Why a live advisory does NOT satisfy the entry that names it. Empty means
+ * the acceptance holds. Each check is one of the ways the previous model was
+ * fooled: wrong package, a direct dependency called transitive, a fix nobody
+ * noticed.
+ */
+function checkAcceptance(
+  entry: AcceptedRiskEntry,
+  advisory: PnpmAdvisory,
+): string[] {
+  const problems: string[] = [];
+  if (advisory.module_name !== entry.package) {
+    problems.push(
+      `accepted for package ${entry.package} but pnpm reports it in ${advisory.module_name}`,
+    );
+  }
+  for (const finding of advisory.findings ?? []) {
+    for (const depPath of finding.paths ?? []) {
+      if (!depPath.startsWith(entry.path)) {
+        problems.push(
+          `dependency path ${depPath} does not start with the declared prefix ${entry.path}`,
+        );
+      }
+    }
+  }
+  if (hasPublishedFix(advisory.patched_versions) && !entry.fixBlockedBy) {
+    problems.push(
+      `a patched version exists (${advisory.patched_versions}) and the acceptance does not say what blocks the fix (fixBlockedBy)`,
+    );
+  }
+  return problems;
+}
 
 /**
  * Run a git command, or return undefined. Never throws, never prints.
@@ -177,27 +232,30 @@ function ensureReleaseRef(): boolean {
 }
 
 /**
- * Whether `release` accepts a package that the running branch does not.
+ * Whether `release` accepts an advisory that the running branch does not.
  *
  * The accepted-risk table lives in this file, so it moves with `release` like
  * any other source. A branch cut before an entry was added fails on an advisory
  * that `release` has already reviewed and accepted — and the failure text says
- * only "is not an accepted-risk package", which is true of the branch and
- * useless to whoever is reading it. That happened to two contributor PRs in one
- * week; both spent days looking for a fault in their own code. `fast-uri`
- * 1145636 is the worked example, and this file's own comments already reference
- * it.
+ * only "is not accepted", which is true of the branch and useless to whoever is
+ * reading it. That happened to two contributor PRs in one week; both spent days
+ * looking for a fault in their own code.
  *
- * Reads the table out of `origin/release` rather than parsing it: the literal
- * is extracted by brace matching and the package looked for as a KEY. A plain
- * substring search would be wrong — package names appear in the prose of other
- * entries' `reason` fields and in the comments above, `fast-uri` included.
+ * Reads `origin/release`'s copy of this file and looks for the GitHub advisory
+ * id as a `ghsa:` value inside the ACCEPTED_RISK_ADVISORIES literal. The id is
+ * matched as a quoted value, not a substring, so an id quoted in a comment or a
+ * `reason` cannot produce a false hint. Older copies of `release` carried a
+ * per-package table (ACCEPTED_RISK_PACKAGES); a package KEY in that table is
+ * reported too, so the hint keeps working across the model change.
  *
  * Returns undefined on any failure. This is a diagnostic attached to a build
  * that is already failing; it must never be the reason one fails, so a missing
  * ref, a shallow clone, or no git at all just means no hint.
  */
-function releaseAcceptsPackage(moduleName: string): string | undefined {
+function releaseAcceptsAdvisory(
+  ghsaId: string | undefined,
+  moduleName: string,
+): string | undefined {
   if (!ensureReleaseRef()) {
     return undefined;
   }
@@ -206,43 +264,52 @@ function releaseAcceptsPackage(moduleName: string): string | undefined {
     if (released === undefined) {
       return undefined;
     }
-    const start = released.indexOf("const ACCEPTED_RISK_PACKAGES");
-    if (start === -1) {
-      return undefined;
-    }
-    const open = released.indexOf("{", released.indexOf("= {", start));
-    if (open === -1) {
-      return undefined;
-    }
-    let depth = 0;
-    let end = -1;
-    for (let i = open; i < released.length; i++) {
-      if (released[i] === "{") {
-        depth++;
-      } else if (released[i] === "}") {
-        depth--;
-        if (depth === 0) {
-          end = i;
-          break;
+    const literalOf = (name: string): string | undefined => {
+      const start = released.indexOf(`const ${name}`);
+      if (start === -1) {
+        return undefined;
+      }
+      const eq = released.indexOf("=", start);
+      const open = released.slice(eq).search(/[[{]/);
+      if (eq === -1 || open === -1) {
+        return undefined;
+      }
+      const from = eq + open;
+      const opener = released[from];
+      const closer = opener === "[" ? "]" : "}";
+      let depth = 0;
+      for (let i = from; i < released.length; i++) {
+        if (released[i] === opener) {
+          depth++;
+        } else if (released[i] === closer) {
+          depth--;
+          if (depth === 0) {
+            return released.slice(from, i + 1);
+          }
         }
       }
-    }
-    if (end === -1) {
       return undefined;
+    };
+    const escape = (text: string): string =>
+      text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const byId = literalOf("ACCEPTED_RISK_ADVISORIES");
+    if (
+      ghsaId &&
+      byId &&
+      new RegExp(`ghsa:\\s*["']${escape(ghsaId)}["']`).test(byId)
+    ) {
+      return `advisory ${ghsaId}`;
     }
-    const table = released.slice(open, end + 1);
-    // Key position only: start of line, optionally quoted, followed by `: {`.
-    const escaped = moduleName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const key = new RegExp(
-      `^\\s*(["']?)${escaped}\\1\\s*:\\s*\\{([\\s\\S]*?)^\\s*\\}`,
-      "m",
-    );
-    const found = table.match(key);
-    if (!found) {
-      return undefined;
+    const byPackage = literalOf("ACCEPTED_RISK_PACKAGES");
+    if (
+      byPackage &&
+      new RegExp(`^\\s*(["']?)${escape(moduleName)}\\1\\s*:\\s*\\{`, "m").test(
+        byPackage,
+      )
+    ) {
+      return `package ${moduleName} (legacy per-package table)`;
     }
-    const ceiling = found[2].match(/maxSeverity:\s*["']([a-z]+)["']/);
-    return ceiling ? ceiling[1] : "unknown";
+    return undefined;
   } catch {
     return undefined;
   }
@@ -334,11 +401,20 @@ type SecurityIssue = {
   timestamp: string;
 };
 
+type PnpmAdvisoryFinding = {
+  version?: string;
+  paths?: string[];
+};
+
 type PnpmAdvisory = {
   id: number;
   severity: string;
   module_name: string;
   title: string;
+  github_advisory_id?: string;
+  patched_versions?: string;
+  vulnerable_versions?: string;
+  findings?: PnpmAdvisoryFinding[];
 };
 
 type PnpmAuditJson = {
@@ -380,6 +456,38 @@ type SecurityResults = {
  * reintroduces the hang this exists to prevent.
  */
 const SCANNER_TIMEOUT_DEFAULT_MS = 120_000;
+
+/**
+ * Whether an ABSENT gitleaks binary fails the gate instead of degrading to the
+ * basic pattern fallback.
+ *
+ * The fallback exists for a developer's machine, where a missing scanner is a
+ * local-setup fact and a warning is the right volume. On a CI runner it was
+ * never that: the GitHub runners did not install gitleaks, so the "🔒 Security
+ * Validation" step had run the four-regex fallback on every pull request and
+ * reported green — the professional scan this file is named for had never run
+ * in CI at all. CI now installs a pinned gitleaks before this script, so a
+ * missing binary there is a broken step, not a policy, and it fails loudly.
+ *
+ *   NEUROLINK_REQUIRE_GITLEAKS=1   require it anywhere (pre-commit on a
+ *                                  machine that has it installed)
+ *   NEUROLINK_REQUIRE_GITLEAKS=0   allow the fallback even under CI=true
+ *   otherwise                      required exactly when CI=true, which every
+ *                                  GitHub Actions runner sets
+ */
+function gitleaksIsRequired(): boolean {
+  const explicit = process.env.NEUROLINK_REQUIRE_GITLEAKS;
+  if (explicit === "1") {
+    return true;
+  }
+  if (explicit === "0") {
+    return false;
+  }
+  return process.env.CI === "true";
+}
+
+const GITLEAKS_REQUIRED_MESSAGE =
+  "gitleaks is required here (CI=true or NEUROLINK_REQUIRE_GITLEAKS=1) and is not on PATH — the secret scan did not run, so the tree cannot be reported as clean. Install the pinned release (see the quality-gate job in .github/workflows/ci.yml) or set NEUROLINK_REQUIRE_GITLEAKS=0 to allow the basic-pattern fallback.";
 const SCANNER_TIMEOUT_MS = (() => {
   const raw = process.env.NEUROLINK_SCANNER_TIMEOUT_MS;
   if (raw === undefined) {
@@ -447,8 +555,8 @@ class SecurityValidator {
 
   // 1. Dependency Vulnerability Scanning
   //
-  // Parses `pnpm audit --prod --json` and checks each advisory against the
-  // per-package ceiling in ACCEPTED_RISK_PACKAGES.
+  // Parses `pnpm audit --prod --json` and checks each moderate-or-higher
+  // advisory against ACCEPTED_RISK_ADVISORIES, by GitHub advisory id.
   //
   // Two earlier designs are worth not repeating. The first ran plain-text
   // `pnpm audit` and computed a single boolean over the *entire* output: if
@@ -458,12 +566,14 @@ class SecurityValidator {
   // high-severity production advisories report PASS because one unrelated,
   // genuinely-ignorable OTEL package also appeared in the table.
   //
-  // The second keyed acceptance to individual advisory ids. Correct, but it
-  // made every newly-published advisory a hard build failure until a human
-  // pasted its id in — which fired mid-release on fast-uri 1145636 and had to
-  // be unblocked by hand. The ceiling model keeps the per-package review
-  // decision while letting more-of-the-same through, and still fails on
-  // anything that exceeds the severity a package was accepted at.
+  // The second keyed acceptance to individual pnpm advisory ids, and the
+  // third replaced that with a per-package severity ceiling that accepted
+  // "more of the same" without review — and, as the 2026-10 audit showed, with
+  // reasons that were simply false. This model is the second one again, done
+  // properly: one GitHub advisory id per acceptance, with a declared
+  // dependency path, an expiry and a required explanation whenever a fix
+  // exists, all checked on every run. A new advisory IS a hard failure until a
+  // human reviews it. That is the gate's job.
   //
   // `--prod` excludes dev-only trees, so this only evaluates advisories that
   // can reach a real consumer of the published package.
@@ -567,6 +677,21 @@ class SecurityValidator {
       return;
     }
 
+    // The table is checked on EVERY run, not only when an advisory matches
+    // it. An expired acceptance or a malformed id is a defect in the gate
+    // itself, and a gate with a defect must not report a clean tree.
+    const tableProblems = validateAcceptedRiskTable(
+      ACCEPTED_RISK_ADVISORIES,
+      new Date(),
+    );
+    for (const problem of tableProblems) {
+      this.addIssue(
+        "error",
+        "dependencies",
+        `ACCEPTED_RISK_ADVISORIES ${problem}`,
+      );
+    }
+
     const advisories = Object.values(rawAdvisories);
     // Only moderate+ advisories require an explicit accept — this mirrors
     // the previous --audit-level=moderate threshold. Low/info advisories are
@@ -574,83 +699,89 @@ class SecurityValidator {
     const actionable = advisories.filter((a) =>
       ["moderate", "high", "critical"].includes(a.severity),
     );
+    const lowOnly = advisories.filter((a) => !actionable.includes(a));
 
-    const isAccepted = (a: PnpmAdvisory): boolean => {
-      const entry = ACCEPTED_RISK_PACKAGES[a.module_name];
+    const byGhsa = new Map(ACCEPTED_RISK_ADVISORIES.map((e) => [e.ghsa, e]));
+    const accepted: Array<{ advisory: PnpmAdvisory; entry: AcceptedRiskEntry }> =
+      [];
+    const unaccepted: Array<{ advisory: PnpmAdvisory; why: string }> = [];
+    for (const advisory of actionable) {
+      const ghsa = advisory.github_advisory_id;
+      const entry = ghsa ? byGhsa.get(ghsa) : undefined;
       if (!entry) {
-        return false;
+        unaccepted.push({
+          advisory,
+          why: ghsa
+            ? `${ghsa} is not in ACCEPTED_RISK_ADVISORIES`
+            : `pnpm reported no GitHub advisory id for advisory ${advisory.id}, so it cannot match an acceptance`,
+        });
+        continue;
       }
-      return (
-        (SEVERITY_RANK[a.severity] ?? 0) <=
-        (SEVERITY_RANK[entry.maxSeverity] ?? 0)
-      );
-    };
-
-    const accepted = actionable.filter(isAccepted);
-    const unaccepted = actionable.filter((a) => !isAccepted(a));
-
-    // Print every accepted advisory, not just a count. The ceiling model is
-    // deliberately quiet about more-of-the-same, so the log is the only place
-    // a newly-appeared advisory inside an existing ceiling becomes visible.
-    if (accepted.length > 0) {
-      accepted.forEach((a) => {
-        const entry = ACCEPTED_RISK_PACKAGES[a.module_name];
-        this.log(
-          `Accepted risk — ${a.module_name} ${a.severity} (ceiling ${entry.maxSeverity}) advisory ${a.id}: ${a.title} — ${entry.reason}`,
-          "cyan",
-        );
-      });
+      const problems = checkAcceptance(entry, advisory);
+      if (problems.length > 0) {
+        unaccepted.push({
+          advisory,
+          why: `accepted as ${entry.ghsa} but the acceptance does not hold: ${problems.join("; ")}`,
+        });
+      } else {
+        accepted.push({ advisory, entry });
+      }
     }
 
-    // An accepted-risk entry whose package no longer has any live advisory is
-    // dead weight: it makes the accepted list look larger than the real
-    // exposure, and it hides the fact that something was fixed upstream. Report
-    // it as a warning rather than an error — a stale acceptance is tidy-up, not
-    // a vulnerability, and failing the build for it would break unrelated work
-    // the moment a dependency gets patched.
-    //
-    // This is the safeguard the previous advisory-id list never had. That list
-    // could only grow: ids were added by hand whenever the build broke, and
-    // nothing ever told anyone when one stopped mattering.
+    // Print every accepted advisory, not just a count, so the decision stays
+    // visible in the log of every run and in the job summary.
+    accepted.forEach(({ advisory, entry }) => {
+      this.log(
+        `Accepted risk — ${entry.ghsa} ${advisory.module_name} ${advisory.severity} (path ${entry.path}, expires ${entry.expires}): ${advisory.title} — ${entry.reason}`,
+        "cyan",
+      );
+    });
+    lowOnly.forEach((advisory) => {
+      this.log(
+        `Low-severity advisory (not gated) — ${advisory.github_advisory_id ?? advisory.id} ${advisory.module_name}: ${advisory.title}`,
+        "cyan",
+      );
+    });
+
+    // An entry whose advisory no longer appears is dead weight: it makes the
+    // accepted list look larger than the real exposure and hides that
+    // something was fixed upstream. A warning rather than an error — a stale
+    // acceptance is tidy-up, not a vulnerability, and failing the build for it
+    // would break unrelated work the moment a dependency gets patched.
     //
     // Computed BEFORE the unaccepted-advisory return below. A run that fails on
     // a real advisory is exactly a run someone is about to read carefully, so
     // it is the worst moment to withhold the rest of what the scan noticed.
-    //
-    // The threshold is named explicitly: `actionable` drops low-severity
-    // advisories, so a package whose only open advisory is low would otherwise
-    // be described as having none at all.
-    const packagesWithLiveAdvisories = new Set(
-      actionable.map((a) => a.module_name),
+    const liveIds = new Set(
+      advisories
+        .map((a) => a.github_advisory_id)
+        .filter((id): id is string => typeof id === "string"),
     );
-    const staleAcceptances = Object.keys(ACCEPTED_RISK_PACKAGES).filter(
-      (pkg) => !packagesWithLiveAdvisories.has(pkg),
+    const staleAcceptances = ACCEPTED_RISK_ADVISORIES.filter(
+      (entry) => !liveIds.has(entry.ghsa),
     );
     if (staleAcceptances.length > 0) {
       this.addIssue(
         "warning",
         "dependencies",
-        `Accepted-risk entries with no live moderate-or-higher advisory (safe to remove from ACCEPTED_RISK_PACKAGES): ${staleAcceptances.join(", ")}`,
+        `Accepted-risk entries with no live advisory (safe to remove from ACCEPTED_RISK_ADVISORIES): ${staleAcceptances
+          .map((e) => `${e.ghsa} (${e.package})`)
+          .join(", ")}`,
       );
     }
 
+    this.writeDependencyStepSummary(accepted, unaccepted, lowOnly);
+
     if (unaccepted.length > 0) {
       const behind = commitsBehindRelease();
-      unaccepted.forEach((a) => {
-        const entry = ACCEPTED_RISK_PACKAGES[a.module_name];
-        const why = entry
-          ? `exceeds the accepted ${entry.maxSeverity} ceiling for ${a.module_name}`
-          : `${a.module_name} is not an accepted-risk package`;
+      unaccepted.forEach(({ advisory: a, why }) => {
         // Say so when the branch, not the dependency, is the problem. Ordered
         // most specific first, because a contributor reading a red gate needs
         // the strongest available statement about whose fault it is.
-        //
-        // The accepted-risk check is skipped when this branch already has an
-        // entry: a local ceiling that is merely too low is a real review
-        // decision about a package that got worse, not staleness.
-        const acceptedOnRelease = entry
-          ? undefined
-          : releaseAcceptsPackage(a.module_name);
+        const acceptedOnRelease = releaseAcceptsAdvisory(
+          a.github_advisory_id,
+          a.module_name,
+        );
         const overriddenOnRelease = releaseOverridesPackage(a.module_name);
         const rebase = `Rebase onto origin/release and re-run before investigating your own changes.`;
         let staleBase = "";
@@ -661,7 +792,7 @@ class SecurityValidator {
             `${behind ? `, being ${behind} commit(s) behind` : ""}. ${rebase}`;
         } else if (acceptedOnRelease) {
           staleBase =
-            ` — NOTE: origin/release accepts ${a.module_name} at a ${acceptedOnRelease} ceiling ` +
+            ` — NOTE: origin/release accepts ${acceptedOnRelease} ` +
             `and this branch does not${behind ? `, being ${behind} commit(s) behind` : ""}. ${rebase}`;
         } else if (behind && behind > 0) {
           // No specific signal, but staleness alone is worth saying: advisories
@@ -675,11 +806,16 @@ class SecurityValidator {
         this.addIssue(
           "error",
           "dependencies",
-          `Unaccepted ${a.severity} advisory ${a.id} in ${a.module_name} (${why}): ${a.title}${staleBase}`,
+          `Unaccepted ${a.severity} advisory ${a.github_advisory_id ?? a.id} in ${a.module_name} (${why}): ${a.title}${staleBase}`,
         );
       });
       this.results.dependencies.status = "failed";
-      this.results.dependencies.details = unaccepted;
+      this.results.dependencies.details = unaccepted.map((u) => u.advisory);
+      return;
+    }
+
+    if (tableProblems.length > 0) {
+      this.results.dependencies.status = "failed";
       return;
     }
 
@@ -692,6 +828,69 @@ class SecurityValidator {
       );
     }
     this.results.dependencies.status = "passed";
+  }
+
+  /**
+   * The accepted-risk decisions as a GitHub job summary, when one is being
+   * collected. The cyan log lines above are the only other place a decision
+   * is visible, and a line in a green job's log is a line nobody reads; the
+   * summary is on the run's front page.
+   */
+  writeDependencyStepSummary(
+    accepted: ReadonlyArray<{ advisory: PnpmAdvisory; entry: AcceptedRiskEntry }>,
+    unaccepted: ReadonlyArray<{ advisory: PnpmAdvisory; why: string }>,
+    lowOnly: readonly PnpmAdvisory[],
+  ): void {
+    const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+    if (!summaryPath) {
+      return;
+    }
+    const cell = (text: string): string =>
+      text.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+    const lines: string[] = ["## Dependency advisories (`pnpm audit --prod`)", ""];
+    if (unaccepted.length > 0) {
+      lines.push(`### Unaccepted — ${unaccepted.length} (build fails)`, "");
+      lines.push("| Advisory | Package | Severity | Why it is not accepted |");
+      lines.push("| --- | --- | --- | --- |");
+      for (const { advisory, why } of unaccepted) {
+        lines.push(
+          `| ${cell(advisory.github_advisory_id ?? String(advisory.id))} | ${cell(advisory.module_name)} | ${cell(advisory.severity)} | ${cell(why)} |`,
+        );
+      }
+      lines.push("");
+    }
+    lines.push(`### Accepted risk — ${accepted.length}`, "");
+    if (accepted.length === 0) {
+      lines.push("None. The accepted-risk table is empty.", "");
+    } else {
+      lines.push(
+        "| Advisory | Package | Severity | Declared path | Expires | Reason |",
+      );
+      lines.push("| --- | --- | --- | --- | --- | --- |");
+      for (const { advisory, entry } of accepted) {
+        lines.push(
+          `| ${cell(entry.ghsa)} | ${cell(entry.package)} | ${cell(advisory.severity)} | \`${cell(entry.path)}\` | ${cell(entry.expires)} | ${cell(entry.reason)} |`,
+        );
+      }
+      lines.push("");
+    }
+    if (lowOnly.length > 0) {
+      lines.push(
+        `### Low-severity, not gated — ${lowOnly.length}`,
+        "",
+        ...lowOnly.map(
+          (a) =>
+            `- ${cell(a.github_advisory_id ?? String(a.id))} ${cell(a.module_name)}: ${cell(a.title)}`,
+        ),
+        "",
+      );
+    }
+    try {
+      fs.appendFileSync(summaryPath, lines.join("\n") + "\n");
+    } catch {
+      // The summary is a convenience; failing to write it must not change the
+      // verdict, which has already been recorded through addIssue.
+    }
   }
 
   // 2. Professional Secret Detection with Gitleaks Integration
@@ -758,13 +957,9 @@ class SecurityValidator {
         // cannot be reported as a clean result.
         //
         // Scoped deliberately to the killed case. Gitleaks being ABSENT
-        // (ENOENT) is a different and already-handled situation: this repo
-        // treats it as "fall back to basic detection", CI runners do not all
-        // install it, and promoting that to a hard failure is a policy change
-        // this file has no business making as a side effect of adding a
-        // timeout. An earlier revision of this commit did exactly that and
-        // turned the `test` job red on a repo whose only fault was not having
-        // gitleaks on PATH.
+        // (ENOENT) is handled below: a hard failure where the scanner is
+        // required (CI installs a pinned binary first), the basic-pattern
+        // fallback on a developer machine. See gitleaksIsRequired().
         gitleaksUnavailable = true;
         if (err.code === "ETIMEDOUT" || err.code === "ERR_CHILD_KILLED") {
           gitleaksScanFailed = true;
@@ -866,30 +1061,41 @@ class SecurityValidator {
         // Gitleaks never ran, so "no findings" is an artefact of the empty
         // "[]" assigned in the catch above, not an observation about the tree.
         // Reporting "No secrets detected by Gitleaks" here was simply untrue,
-        // and it is what CI has been printing all along, since runners do not
+        // and it is what CI printed for a long time, since runners did not
         // install gitleaks: the professional scan was skipped AND the fallback
         // the catch below promises was never reached, because that catch only
         // fires on a throw and the inner one swallows the error.
         //
-        // Run the fallback that was always intended. Escalating to a hard
-        // failure instead is the other obvious option and it is wrong: absent
-        // tooling is a runner-configuration fact this project already tolerates
-        // by design, and turning it fatal broke the `test` job once already.
-        this.log(
-          "Gitleaks unavailable — running basic pattern detection instead",
-          "yellow",
-        );
-        this.addIssue(
-          "warning",
-          "secrets",
-          "Gitleaks not installed - using basic pattern detection only",
-        );
-        await this.basicSecretDetection();
+        // Where gitleaks is required (CI, or on request) an absent binary is a
+        // broken step and the gate fails. Elsewhere, run the fallback that was
+        // always intended, at warning volume.
+        if (gitleaksIsRequired()) {
+          this.log("Gitleaks unavailable and required — failing", "red");
+          this.addIssue("error", "secrets", GITLEAKS_REQUIRED_MESSAGE);
+          this.results.secrets.status = "failed";
+        } else {
+          this.log(
+            "Gitleaks unavailable — running basic pattern detection instead",
+            "yellow",
+          );
+          this.addIssue(
+            "warning",
+            "secrets",
+            "Gitleaks not installed - using basic pattern detection only",
+          );
+          await this.basicSecretDetection();
+        }
       } else {
         this.log("No secrets detected by Gitleaks", "green");
         this.results.secrets.status = "passed";
       }
     } catch (_gitleaksError: unknown) {
+      if (gitleaksIsRequired()) {
+        this.log("Gitleaks not available and required — failing", "red");
+        this.addIssue("error", "secrets", GITLEAKS_REQUIRED_MESSAGE);
+        this.results.secrets.status = "failed";
+        return;
+      }
       this.log(
         "Gitleaks not available, falling back to basic detection",
         "yellow",
@@ -1382,14 +1588,24 @@ class SecurityValidator {
   }
 }
 
-// Run the enhanced security validation
-const validator = new SecurityValidator();
-validator.run().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(
-    `${colors.red}[ERROR] Security validation failed: ${message}${colors.reset}`,
+// `--print-accepted-risks` prints the table as JSON and exits without scanning.
+// It is how the supply-chain suite (test/continuous-test-suite-security-
+// supply-chain.ts) reads the gate's own decisions through the gate's own
+// surface, instead of importing this file or scraping its source.
+if (process.argv.includes("--print-accepted-risks")) {
+  process.stdout.write(
+    `${JSON.stringify(ACCEPTED_RISK_ADVISORIES, null, 2)}\n`,
   );
-  process.exit(1);
-});
+} else {
+  // Run the enhanced security validation
+  const validator = new SecurityValidator();
+  validator.run().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(
+      `${colors.red}[ERROR] Security validation failed: ${message}${colors.reset}`,
+    );
+    process.exit(1);
+  });
+}
 
 export default SecurityValidator;

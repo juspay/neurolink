@@ -169,26 +169,89 @@ labels:
     color: "008672"
     description: "Extra attention is needed"
 
-# Branch protection rules
-# ⚠️ This file is NOT what currently gates merges on `release`.
+# Branch protection — the INTENDED configuration for `release`.
 #
-# It is consumed by https://github.com/repository-settings/app, which
-# reconciles on every push to the default branch. Live protection has five
-# required contexts; the list below had four, one of which
-# ("Yama PR Review") points at a workflow that is disabled. An active app
-# would therefore have overwritten live protection long ago — it has not, so
-# the app is not installed or not running here.
+# ⚠️ This file is NOT what gates merges today, and it describes two layers.
 #
-# That makes this file documentation which two workflows already treat as
-# authoritative (yama-review.yml says "keep the two in sync";
-# live-matrix.yml cites "settings.yml's branch-protection contexts"), while
-# it had silently drifted. The contexts below are now reconciled against
-# live, so installing the app would preserve the gates rather than remove
-# them.
+# It is consumed by https://github.com/repository-settings/app, which is not
+# installed here (an active app would have reconciled live protection to this
+# file long ago, and it has not). It is documentation that two workflows treat
+# as authoritative (yama-review.yml, live-matrix.yml), so it is kept exact.
 #
-# Check before trusting it:
-#   gh api repos/juspay/neurolink/branches/release/protection \
-#     --jq '.required_status_checks.contexts[]'
+# GitHub enforces the UNION of classic branch protection and rulesets. Live
+# state on 2026-10-26 (read with `gh api`):
+#
+#   ruleset 11413189 "release"   deletion · non_fast_forward ·
+#                                required_linear_history ·
+#                                required_status_checks (test,
+#                                provider-safety-net, build-check,
+#                                🔒 Single Commit Policy Validation)
+#                                NO pull_request rule, NO required_signatures,
+#                                bypass_actors: [] (nobody can bypass)
+#   classic protection           the same four contexts + security-suites;
+#                                enforcement_level: non_admins (admins bypass);
+#                                required_pull_request_reviews: not readable
+#                                with a pull-only token — may be absent
+#   ruleset 14041340             Copilot code review on the default branch
+#
+# The target is the ruleset below, which is the one layer that binds everyone.
+# The classic block mirrors it so an installed settings app would not remove
+# anything, and because `security-suites` is required ONLY there today.
+#
+# What has to change on the live ruleset 11413189 (not possible from a file;
+# a repository admin applies it — see .github/BRANCH_PROTECTION_CONFIG.md):
+#   1. add a `pull_request` rule: 1 approving review, dismiss stale reviews on
+#      push, require approval of the most recent push, require conversation
+#      resolution, no code-owner requirement (CODEOWNERS was removed: every
+#      team it named was unknown to GitHub, 33 validation errors)
+#   2. add `security-suites` to required_status_checks, so a migration off
+#      classic protection cannot silently drop it
+#   3. keep bypass_actors EMPTY — in particular never add github-actions[bot]
+#      (yama-learn.yml used to ask for exactly that; it now opens a PR instead)
+#   4. consider `required_signatures`
+#
+# Check before trusting any of it:
+#   gh api repos/juspay/neurolink/rulesets/11413189 --jq '.rules[].type'
+#   gh api repos/juspay/neurolink/branches/release \
+#     --jq '.protection.required_status_checks.contexts[]'
+# .github/workflows/branch-protection-audit.yml sweeps both hourly and fails
+# when a required context or the pull_request rule is missing.
+rulesets:
+  - name: release
+    target: branch
+    enforcement: active
+    # Empty on purpose. Anyone listed here can push past every rule below.
+    bypass_actors: []
+    conditions:
+      ref_name:
+        include: ["~DEFAULT_BRANCH"]
+        exclude: []
+    rules:
+      - type: deletion
+      - type: non_fast_forward
+      - type: required_linear_history
+      - type: pull_request
+        parameters:
+          required_approving_review_count: 1
+          dismiss_stale_reviews_on_push: true
+          require_last_push_approval: true
+          required_review_thread_resolution: true
+          require_code_owner_review: false
+      - type: required_status_checks
+        parameters:
+          strict_required_status_checks_policy: false
+          required_status_checks:
+            - context: "test"
+            - context: "provider-safety-net"
+            - context: "build-check"
+            - context: "🔒 Single Commit Policy Validation"
+            - context: "security-suites"
+            # "Yama PR Review" is deliberately NOT required. It is an AI
+            # reviewer that reads untrusted pull-request text; it posts
+            # COMMENTED / CHANGES_REQUESTED reviews only and never approves
+            # (yama-review.yml enforces that), and a required check whose
+            # workflow skips on fork PRs would otherwise block them.
+
 branches:
   - name: release
     protection:
@@ -199,22 +262,21 @@ branches:
           - "build-check"
           - "provider-safety-net"
           - "🔒 Single Commit Policy Validation"
-          # Classic-protection only. Absent from ruleset 11413189, so a
-          # ruleset-only query reports it optional — see CLAUDE.md's
+          # Classic-protection only today. Also listed on the ruleset above so a
+          # ruleset-only query stops reporting it optional — see CLAUDE.md's
           # "Required status checks and the release bot".
           - "security-suites"
-          # "Yama PR Review" is deliberately NOT listed. The workflow is
-          # state=disabled_manually (backlog D1), and a required check whose
-          # workflow never runs can never report — applying it would block
-          # every pull request permanently, which is the
-          # "GH013 ... required status checks are expected" failure applied
-          # to the whole queue at once. Re-add it in the same change that
-          # re-enables the workflow, not before.
-      enforce_admins: false
+      # Live value is false (admins bypass the classic layer). The ruleset
+      # above has no bypass actors, which is the enforcement that counts.
+      enforce_admins: true
       required_pull_request_reviews:
         required_approving_review_count: 1
         dismiss_stale_reviews: true
-        require_code_owner_reviews: true
+        require_last_push_approval: true
+        # No CODEOWNERS file exists (see above), so this must stay false; true
+        # with no valid owners would make every pull request unmergeable.
+        require_code_owner_reviews: false
+      required_conversation_resolution: true
       restrictions: null
       allow_force_pushes: false
       allow_deletions: false

@@ -53,7 +53,24 @@ async function resolveRequestToolFilter(
   return undefined;
 }
 import { AgentInputError, resolveAgentInput } from "../utils/agentInput.js";
+import { shapeRouteError } from "../utils/clientError.js";
 import { createStreamRedactor } from "../utils/redaction.js";
+
+/** The route's error response for an exception: a fixed message, the detail logged. */
+function agentFailure(
+  ctx: ServerContext,
+  error: unknown,
+  code = "EXECUTION_FAILED",
+): ReturnType<typeof createErrorResponse> {
+  const shaped = shapeRouteError("agentRoutes", ctx.requestId, error);
+  return createError(
+    shaped.status === 500 ? code : shaped.code,
+    shaped.message,
+    undefined,
+    ctx.requestId,
+    shaped.status,
+  );
+}
 import {
   AgentExecuteRequestSchema,
   type createErrorResponse,
@@ -343,6 +360,9 @@ export function createAgentRoutes(
                 request.tools,
               );
 
+              // The adapter's signal: the client went away, or the request
+              // ran past the server's timeout. Either stops the generation
+              // instead of leaving it running for nobody.
               const result = await ctx.neurolink.generate({
                 input,
                 provider: request.provider,
@@ -351,6 +371,7 @@ export function createAgentRoutes(
                 temperature: request.temperature,
                 maxTokens: request.maxTokens,
                 ...(requestToolFilter ? { toolFilter: requestToolFilter } : {}),
+                ...(ctx.abortSignal ? { abortSignal: ctx.abortSignal } : {}),
                 context: callerContext(ctx, request),
               });
 
@@ -415,6 +436,7 @@ export function createAgentRoutes(
             temperature: request.temperature,
             maxTokens: request.maxTokens,
             ...(streamToolFilter ? { toolFilter: streamToolFilter } : {}),
+            ...(ctx.abortSignal ? { abortSignal: ctx.abortSignal } : {}),
             context: callerContext(ctx, request),
           });
 
@@ -518,14 +540,7 @@ export function createAgentRoutes(
               },
             );
           } catch (error) {
-            return createError(
-              "EXECUTION_FAILED",
-              error instanceof Error
-                ? error.message
-                : "Embedding generation failed",
-              undefined,
-              ctx.requestId,
-            );
+            return agentFailure(ctx, error);
           }
         },
         description: "Generate embedding for a single text",
@@ -585,14 +600,7 @@ export function createAgentRoutes(
               },
             );
           } catch (error) {
-            return createError(
-              "EXECUTION_FAILED",
-              error instanceof Error
-                ? error.message
-                : "Batch embedding generation failed",
-              undefined,
-              ctx.requestId,
-            );
+            return agentFailure(ctx, error);
           }
         },
         description: "Generate embeddings for multiple texts in a batch",
@@ -610,12 +618,7 @@ export function createAgentRoutes(
             const skills = await manager.list(ctx.query.scopeId);
             return { skills, count: skills.length };
           } catch (error) {
-            return createError(
-              "EXECUTION_FAILED",
-              error instanceof Error ? error.message : "Skills listing failed",
-              undefined,
-              ctx.requestId,
-            );
+            return agentFailure(ctx, error);
           }
         },
         description:
@@ -642,12 +645,7 @@ export function createAgentRoutes(
             }
             return skill;
           } catch (error) {
-            return createError(
-              "EXECUTION_FAILED",
-              error instanceof Error ? error.message : "Skill lookup failed",
-              undefined,
-              ctx.requestId,
-            );
+            return agentFailure(ctx, error);
           }
         },
         description: "Fetch one skill (by id or exact name) with instructions",
@@ -679,12 +677,7 @@ export function createAgentRoutes(
             });
             return result;
           } catch (error) {
-            return createError(
-              "EXECUTION_FAILED",
-              error instanceof Error ? error.message : "Skill create failed",
-              undefined,
-              ctx.requestId,
-            );
+            return agentFailure(ctx, error);
           }
         },
         description:
@@ -718,14 +711,18 @@ export function createAgentRoutes(
             });
             return result;
           } catch (error) {
+            // "not found" is this server's own wording for an unknown id, so
+            // it may be said; anything else is reduced to its category.
             const message =
               error instanceof Error ? error.message : "Skill update failed";
-            return createError(
-              message.includes("not found") ? "NOT_FOUND" : "EXECUTION_FAILED",
-              message,
-              undefined,
-              ctx.requestId,
-            );
+            return message.includes("not found")
+              ? createError(
+                  "NOT_FOUND",
+                  `Skill "${ctx.params.id}" not found`,
+                  undefined,
+                  ctx.requestId,
+                )
+              : agentFailure(ctx, error);
           }
         },
         description: "Update a skill (patch semantics; version is bumped)",
@@ -750,12 +747,14 @@ export function createAgentRoutes(
           } catch (error) {
             const message =
               error instanceof Error ? error.message : "Skill delete failed";
-            return createError(
-              message.includes("not found") ? "NOT_FOUND" : "EXECUTION_FAILED",
-              message,
-              undefined,
-              ctx.requestId,
-            );
+            return message.includes("not found")
+              ? createError(
+                  "NOT_FOUND",
+                  `Skill "${ctx.params.id}" not found`,
+                  undefined,
+                  ctx.requestId,
+                )
+              : agentFailure(ctx, error);
           }
         },
         description: "Soft-delete (deprecate) a skill",

@@ -9,9 +9,12 @@ import type {
   MCPServerStatusResponse,
   RouteGroup,
   ServerContext,
+  ServerSensitiveRouteOptions,
 } from "../../types/index.js";
 import { withSpan } from "../../telemetry/withSpan.js";
 import { tracers } from "../../telemetry/tracers.js";
+import { shapeRouteError } from "../utils/clientError.js";
+import { refuseUnauthenticatedExecution } from "./toolRoutes.js";
 import {
   createErrorResponse,
   ServerNameParamSchema,
@@ -19,6 +22,23 @@ import {
   validateParams,
   validateRequest,
 } from "../utils/validation.js";
+
+/** The route's error response for an exception: a fixed message, the detail logged. */
+function mcpFailure(
+  code: string,
+  ctx: ServerContext,
+  error: unknown,
+  details?: unknown,
+): ReturnType<typeof createErrorResponse> {
+  const shaped = shapeRouteError("mcpRoutes", ctx.requestId, error);
+  return createErrorResponse(
+    code,
+    shaped.message,
+    details,
+    ctx.requestId,
+    shaped.status,
+  );
+}
 
 /**
  * Wrap a route handler with an OTel span for HTTP observability.
@@ -240,12 +260,7 @@ async function handleReconnectServer(ctx: ServerContext) {
       },
     };
   } catch (error) {
-    return createErrorResponse(
-      "RECONNECT_FAILED",
-      error instanceof Error ? error.message : String(error),
-      undefined,
-      ctx.requestId,
-    );
+    return mcpFailure("RECONNECT_FAILED", ctx, error);
   }
 }
 
@@ -297,12 +312,7 @@ async function handleRemoveServer(ctx: ServerContext) {
       },
     };
   } catch (error) {
-    return createErrorResponse(
-      "REMOVE_FAILED",
-      error instanceof Error ? error.message : String(error),
-      undefined,
-      ctx.requestId,
-    );
+    return mcpFailure("REMOVE_FAILED", ctx, error);
   }
 }
 
@@ -419,12 +429,9 @@ async function handleExecuteTool(ctx: ServerContext) {
       },
     };
   } catch (error) {
-    return createErrorResponse(
-      "EXECUTION_FAILED",
-      error instanceof Error ? error.message : String(error),
-      { duration: Date.now() - startTime },
-      ctx.requestId,
-    );
+    return mcpFailure("EXECUTION_FAILED", ctx, error, {
+      duration: Date.now() - startTime,
+    });
   }
 }
 
@@ -469,8 +476,23 @@ async function handleMCPHealth(ctx: ServerContext) {
 
 /**
  * Create MCP server management routes
+ *
+ * @param options - `hasAuthentication` / `allowUnauthenticated`: whether the
+ *   routes that change or use servers (reconnect, remove, execute a tool)
+ *   answer an unauthenticated caller (see `ServerSensitiveRouteOptions`).
  */
-export function createMCPRoutes(basePath: string = "/api"): RouteGroup {
+export function createMCPRoutes(
+  basePath: string = "/api",
+  options?: ServerSensitiveRouteOptions,
+): RouteGroup {
+  const guarded =
+    <T>(
+      handler: (ctx: ServerContext) => Promise<T>,
+    ): ((
+      ctx: ServerContext,
+    ) => Promise<T | ReturnType<typeof createErrorResponse>>) =>
+    async (ctx) =>
+      refuseUnauthenticatedExecution(ctx, options) ?? (await handler(ctx));
   return {
     prefix: `${basePath}/mcp`,
     routes: [
@@ -502,7 +524,7 @@ export function createMCPRoutes(basePath: string = "/api"): RouteGroup {
         handler: tracedMcpHandler(
           "http.mcp.reconnectServer",
           `${basePath}/mcp/servers/:name/reconnect`,
-          handleReconnectServer,
+          guarded(handleReconnectServer),
         ),
         description: "Reconnect to an MCP server",
         tags: ["mcp"],
@@ -513,7 +535,7 @@ export function createMCPRoutes(basePath: string = "/api"): RouteGroup {
         handler: tracedMcpHandler(
           "http.mcp.removeServer",
           `${basePath}/mcp/servers/:name`,
-          handleRemoveServer,
+          guarded(handleRemoveServer),
         ),
         description: "Remove an MCP server",
         tags: ["mcp"],
@@ -535,7 +557,7 @@ export function createMCPRoutes(basePath: string = "/api"): RouteGroup {
         handler: tracedMcpHandler(
           "http.mcp.executeTool",
           `${basePath}/mcp/servers/:name/tools/:toolName/execute`,
-          handleExecuteTool,
+          guarded(handleExecuteTool),
         ),
         description: "Execute a tool from a specific MCP server",
         tags: ["mcp", "tools"],

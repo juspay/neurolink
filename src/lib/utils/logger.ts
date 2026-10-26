@@ -16,6 +16,11 @@
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { LogEntry, LogEventEmitter, LogLevel } from "../types/index.js";
+import {
+  isSensitiveLogKey,
+  sanitizeForLog,
+  sanitizeRecord,
+} from "./logSanitize.js";
 
 /**
  * Identifies which NeuroLink instance is emitting, for the async operation
@@ -100,6 +105,73 @@ function cloneLogData(data: unknown): unknown {
   } catch {
     return data;
   }
+}
+
+/**
+ * Per-string cap for central redaction. Deliberately far above anything a
+ * debug payload carries, so this pass redacts without truncating — the
+ * logger's "zero truncation" promise for debug data stands.
+ */
+const REDACTION_STRING_CAP = 1_000_000;
+
+/** Depth past which a payload is handed to `sanitizeRecord` wholesale. */
+const REDACTION_MAX_DEPTH = 32;
+
+function isPlainObject(value: object): boolean {
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+/**
+ * Central redaction for `debug` / `info` payloads — the same key list and
+ * secret patterns as `sanitizeRecord`, applied to plain objects and arrays.
+ *
+ * `sanitizeRecord` itself is not used directly on the whole payload because
+ * its `Object.entries` walk flattens what debug data is full of: an `Error`
+ * becomes `{}` (message and stack gone), a `Buffer` becomes thousands of
+ * numeric keys, a `Date`/`Map`/`Set` becomes `{}`. Those are left as they are
+ * — `serializeData` and `structuredClone` already know how to carry them —
+ * and only plain containers are walked, with sensitive keys masked and
+ * string values scrubbed of bearer tokens and known key prefixes. An `Error`
+ * gets its message scrubbed in place of the instance.
+ *
+ * Cost: one recursive pass over objects a call site already chose to log,
+ * and only when `shouldLog(level)` was true. Nothing runs for the 99% of
+ * `logger.debug` calls that are filtered out.
+ */
+function redactLogData(data: unknown, depth = 0): unknown {
+  if (data === null || data === undefined) {
+    return data;
+  }
+  if (typeof data === "string") {
+    return sanitizeForLog(data, REDACTION_STRING_CAP);
+  }
+  if (typeof data !== "object") {
+    return data;
+  }
+  if (data instanceof Error) {
+    const copy = new Error(sanitizeForLog(data.message, REDACTION_STRING_CAP));
+    copy.name = data.name;
+    copy.stack = data.stack
+      ? sanitizeForLog(data.stack, REDACTION_STRING_CAP)
+      : undefined;
+    return copy;
+  }
+  if (depth >= REDACTION_MAX_DEPTH) {
+    return sanitizeRecord(data, REDACTION_STRING_CAP);
+  }
+  if (Array.isArray(data)) {
+    return data.map((item) => redactLogData(item, depth + 1));
+  }
+  if (!isPlainObject(data)) {
+    // Buffer, Date, Map, Set, class instances: carried as they are.
+    return data;
+  }
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+    out[key] = isSensitiveLogKey(key) ? "***" : redactLogData(value, depth + 1);
+  }
+  return out;
 }
 
 class NeuroLinkLogger {
@@ -425,10 +497,20 @@ class NeuroLinkLogger {
    * @param message - The message text to log
    * @param data - Optional additional context data to include
    */
-  private log(level: LogLevel, message: string, data?: unknown): void {
+  private log(level: LogLevel, message: string, rawData?: unknown): void {
     if (!this.shouldLog(level)) {
       return;
     }
+
+    // Central redaction: a `debug`/`info` payload is masked by key
+    // (`apiKey`, `authorization`, `credentials`, …) and scrubbed of
+    // bearer/known-prefix tokens before it is stored, emitted or printed, so
+    // the next `logger.debug("…", options)` cannot leak a credential into
+    // `getLogs()`, a `log-event` sink or the console. `warn`/`error` are
+    // left verbatim: they carry the diagnostics an operator is debugging
+    // with, and every credential-bearing path already redacts at source.
+    const data =
+      level === "debug" || level === "info" ? redactLogData(rawData) : rawData;
 
     const entry: LogEntry = {
       level,

@@ -70,6 +70,13 @@ export type TokenStorageData = {
   providers: Record<string, StoredProviderTokens>;
 };
 
+/** Owner record written into the token store's cross-process lock file. */
+export type TokenStoreLockOwner = {
+  pid: number;
+  token: string;
+  acquiredAt: number;
+};
+
 /**
  * Per-provider token storage structure
  */

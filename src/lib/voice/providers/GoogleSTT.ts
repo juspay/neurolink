@@ -7,6 +7,7 @@
  */
 
 import { logger } from "../../utils/logger.js";
+import { redactUrlsInText } from "../../utils/logSanitize.js";
 import { STTError } from "../errors.js";
 import type {
   TTSAudioFormat,
@@ -258,10 +259,9 @@ export class GoogleSTT implements STTHandler {
         } as GoogleRecognitionAudio,
       };
 
-      // Build URL with API key
-      const url = this.apiKey
-        ? `${this.baseUrl}/speech:recognize?key=${this.apiKey}`
-        : `${this.baseUrl}/speech:recognize`;
+      // The key travels in the `x-goog-api-key` header, never in the URL:
+      // a URL is what proxies, access logs and `fetch failed` causes record.
+      const url = `${this.baseUrl}/speech:recognize`;
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -271,6 +271,7 @@ export class GoogleSTT implements STTHandler {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            ...(this.apiKey ? { "x-goog-api-key": this.apiKey } : {}),
             ...(this.credentialsPath && !this.apiKey
               ? { Authorization: `Bearer ${await this.getAccessToken()}` }
               : {}),
@@ -286,7 +287,15 @@ export class GoogleSTT implements STTHandler {
             fetchErr,
           );
         }
-        throw fetchErr;
+        // A transport error embeds the request URL; scrub any URL (and its
+        // query) before the message reaches a log or a caller.
+        throw STTError.transcriptionFailed(
+          redactUrlsInText(
+            fetchErr instanceof Error ? fetchErr.message : String(fetchErr),
+          ),
+          "google-stt",
+          fetchErr instanceof Error ? fetchErr : undefined,
+        );
       } finally {
         clearTimeout(timeoutId);
       }

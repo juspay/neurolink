@@ -32,6 +32,22 @@ const PEEK_TOKENS_TIMEOUT_MS = 2_000;
 
 const refreshesInFlight = new Map<string, Promise<SharedRefreshResult>>();
 
+/**
+ * An upstream refresh error body is logged for diagnosis, never verbatim: a
+ * token endpoint can echo the grant it rejected, and anything that looks like
+ * a credential is masked before the line is written.
+ */
+export function redactRefreshErrorBody(body: string): string {
+  return body
+    .replace(
+      /("?(?:access_token|refresh_token|id_token|client_secret|code)"?\s*[:=]\s*"?)[^",\s]+/gi,
+      "$1[REDACTED]",
+    )
+    .replace(/\bsk-ant-[A-Za-z0-9_-]+/g, "sk-ant-[REDACTED]")
+    .replace(/\b[A-Za-z0-9_-]{64,}\b/g, "[REDACTED]")
+    .slice(0, 300);
+}
+
 function expiresWithin(account: RefreshableAccount, bufferMs: number): boolean {
   return !!(
     account.expiresAt &&
@@ -101,7 +117,7 @@ async function performTokenRefresh(
           `[token-refresh] failed for ${account.label} at ${redactUrlForError(url)}`,
           {
             status: resp.status,
-            error: errorBody.slice(0, 500),
+            error: redactRefreshErrorBody(errorBody),
           },
         );
         const failure = {

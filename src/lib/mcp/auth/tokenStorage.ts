@@ -89,18 +89,36 @@ export class FileTokenStorage implements TokenStorage {
     }
   }
 
+  /**
+   * Persist the token map. These are bearer credentials, so the directory is
+   * created `0700` and the file lands `0600`: written to a uniquely named
+   * temporary file opened with `wx` (a pre-planted file or symlink at that
+   * name fails instead of being followed), then renamed into place so a
+   * reader never sees a torn file.
+   */
   private async saveToFile(): Promise<void> {
     try {
       const fs = await import("fs/promises");
       const path = await import("path");
+      const { randomBytes } = await import("crypto");
 
-      // Ensure directory exists
       const dir = path.dirname(this.filePath);
-      await fs.mkdir(dir, { recursive: true });
+      await fs.mkdir(dir, { recursive: true, mode: 0o700 });
 
-      // Write tokens to file
       const data = Object.fromEntries(this.tokens.entries());
-      await fs.writeFile(this.filePath, JSON.stringify(data, null, 2), "utf-8");
+      const tmp = `${this.filePath}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
+      try {
+        await fs.writeFile(tmp, JSON.stringify(data, null, 2), {
+          encoding: "utf-8",
+          mode: 0o600,
+          flag: "wx",
+        });
+        await fs.rename(tmp, this.filePath);
+        await fs.chmod(this.filePath, 0o600);
+      } catch (writeError) {
+        await fs.rm(tmp, { force: true });
+        throw writeError;
+      }
     } catch (error) {
       logger.error(
         `[FileTokenStorage] Error saving tokens: ${error instanceof Error ? error.message : String(error)}`,

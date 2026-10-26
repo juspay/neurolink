@@ -130,6 +130,26 @@ export type MCPServerInfo = {
   healthCheckInterval?: number; // Health check interval in milliseconds
 
   /**
+   * stdio only. By default a spawned server receives the MCP SDK's minimal
+   * default environment (`HOME`, `PATH`, `SHELL`, `TERM`, `USER`, `LOGNAME`
+   * on POSIX) plus `env`; the parent's provider keys and tokens are not
+   * inherited. Set `true` to restore the previous behaviour of handing the
+   * server the whole parent `process.env`. Prefer explicit pass-through:
+   * `"env": { "OPENAI_API_KEY": "${OPENAI_API_KEY}" }`.
+   */
+  inheritParentEnv?: boolean;
+
+  /**
+   * http / sse / websocket only. A transport URL must use `https:` or `wss:`
+   * unless its host is loopback, and its host must not resolve to a private,
+   * link-local, CGNAT or cloud-metadata address. Set `true` for a server on
+   * your own network: plaintext `http:` / `ws:` is then accepted for hosts
+   * that are (or resolve only to) private addresses. Public hosts still need
+   * TLS.
+   */
+  allowPrivateNetwork?: boolean;
+
+  /**
    * Minimum number of tools that must be discovered for this server's
    * registration to be considered ready (default: 0 — no minimum, so a
    * resource/prompt-only server that legitimately exposes zero tools still
@@ -2831,3 +2851,103 @@ export type OptimizeParametersParams = {
   optimizeFor: "speed" | "quality" | "cost" | "tokens";
   iterations: number;
 };
+
+// ---------------------------------------------------------------------------
+// Project `.mcp-config.json` trust (see src/lib/mcp/projectConfigTrust.ts)
+// ---------------------------------------------------------------------------
+
+/** One recorded acceptance of a project `.mcp-config.json`. */
+export type ProjectMcpConfigTrustEntry = {
+  /** Lower-case hex SHA-256 of the file's bytes when it was accepted. */
+  sha256: string;
+  /** ISO-8601 timestamp of the acceptance. */
+  trustedAt: string;
+};
+
+/**
+ * On-disk shape of `~/.neurolink/trusted-mcp-configs.json`: absolute config
+ * path → the hash the user accepted. A changed file no longer matches and
+ * has to be accepted again.
+ */
+export type ProjectMcpConfigTrustStore = {
+  version: 1;
+  entries: Record<string, ProjectMcpConfigTrustEntry>;
+};
+
+/**
+ * What a project config would do, reduced to what a human needs to see
+ * before trusting it. Header and `env` values are deliberately absent: only
+ * the `env` key names are listed, so a summary never echoes a secret.
+ */
+export type ProjectMcpConfigServerSummary = {
+  id: string;
+  transport: string;
+  command?: string;
+  args?: string[];
+  url?: string;
+  envKeys?: string[];
+};
+
+export type ProjectMcpConfigSummary = {
+  /** Absolute path of the config file. */
+  path: string;
+  /** Lower-case hex SHA-256 of the file's bytes. */
+  sha256: string;
+  servers: ProjectMcpConfigServerSummary[];
+  /** Set when the file is not valid JSON or has no `mcpServers` object. */
+  parseError?: string;
+};
+
+/**
+ * `trusted`: the store holds this path with this hash. `changed`: the store
+ * holds this path with a different hash. `untrusted`: never accepted.
+ */
+export type ProjectMcpConfigTrustStatus = "trusted" | "changed" | "untrusted";
+
+/**
+ * Which rule let a project config be loaded. `configPath` and
+ * `trustProjectConfig` come from the `NeuroLink` constructor's `mcp` option;
+ * `cliTrust` is the CLI's hash-pinned acceptance; `enableManualMCP` is the
+ * `ProviderRegistry` option a host set after construction.
+ */
+export type ProjectMcpConfigSource =
+  | "configPath"
+  | "trustProjectConfig"
+  | "cliTrust"
+  | "enableManualMCP";
+
+export type ProjectMcpConfigPathResolution = {
+  path: string;
+  source: ProjectMcpConfigSource;
+};
+
+/**
+ * Registered by the CLI entry point once it has decided what to do about the
+ * working directory's `.mcp-config.json`. Called with the candidate path the
+ * moment a `NeuroLink` instance would load it; returns the path to load or
+ * `null` to load nothing. A hook may also end the process (the CLI's
+ * non-interactive refusal does), which is why it is asynchronous.
+ */
+export type ProjectMcpConfigTrustHook = (
+  candidatePath: string,
+) => Promise<string | null>;
+
+/** Options for the MCP transport URL policy (`assertMcpTransportUrlAllowed`). */
+export type McpTransportUrlPolicyOptions = {
+  transport: MCPTransportType;
+  /** See {@link MCPServerInfo.allowPrivateNetwork}. */
+  allowPrivateNetwork?: boolean;
+  /**
+   * The host application supplied its own `fetch` (or dispatcher) for this
+   * server, so egress — which addresses are dialled, with which pins — is
+   * decided by that code, not by this policy. Only program code can pass a
+   * function; a config file never can. The scheme allow-list still applies;
+   * the plaintext and address classification is skipped.
+   */
+  hostOwnedEgress?: boolean;
+  /** Used only to name the server in error messages. */
+  serverId?: string;
+};
+
+/** How an address is classified by the MCP transport URL policy. */
+export type McpTransportAddressClass = "loopback" | "private" | "public";

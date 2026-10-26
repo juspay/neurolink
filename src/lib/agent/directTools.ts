@@ -5,6 +5,11 @@ import { execFile } from "child_process";
 import { logger } from "../utils/logger.js";
 import { CSVProcessor } from "../utils/csvProcessor.js";
 import { shouldEnableBashTool } from "../utils/toolUtils.js";
+import {
+  ARITHMETIC_CONSTANT_NAMES,
+  ARITHMETIC_FUNCTION_NAMES,
+  evaluateArithmetic,
+} from "./arithmeticEvaluator.js";
 import type {
   AllToolsMap,
   AnalyzeCsvToolArgs,
@@ -868,12 +873,13 @@ const policyFreeTools = {
   }),
 
   calculateMath: tool({
-    description: "Perform mathematical calculations safely",
+    description:
+      "Evaluate an arithmetic expression: numbers, + - * / % **, parentheses and Math functions such as sqrt, pow, sin, log, min, max (with or without the Math. prefix). Not a JavaScript evaluator.",
     inputSchema: z.object({
       expression: z
         .string()
         .describe(
-          'Mathematical expression to evaluate (e.g., "2 + 2", "Math.sqrt(16)")',
+          'Arithmetic expression to evaluate (e.g., "2 + 2", "Math.sqrt(16)", "pow(2, 10) % 7")',
         ),
       precision: z
         .number()
@@ -882,78 +888,24 @@ const policyFreeTools = {
         .default(2),
     }),
     execute: async ({ expression, precision }) => {
-      try {
-        // Simple safe evaluation - only allow basic math operations
-        const sanitizedExpression = expression.replace(/[^0-9+\-*/().\s]/g, "");
-
-        if (sanitizedExpression !== expression) {
-          // Try Math functions for more complex operations
-          const allowedMathFunctions = [
-            "Math.abs",
-            "Math.ceil",
-            "Math.floor",
-            "Math.round",
-            "Math.sqrt",
-            "Math.pow",
-            "Math.sin",
-            "Math.cos",
-            "Math.tan",
-            "Math.log",
-            "Math.exp",
-            "Math.PI",
-            "Math.E",
-          ];
-
-          let safeExpression = expression;
-          for (const func of allowedMathFunctions) {
-            safeExpression = safeExpression.replace(
-              new RegExp(func, "g"),
-              func,
-            );
-          }
-
-          // Remove remaining non-safe characters except Math functions
-          const mathSafe =
-            /^[0-9+\-*/().\s]|Math\.(abs|ceil|floor|round|sqrt|pow|sin|cos|tan|log|exp|PI|E)/g;
-          if (
-            !safeExpression
-              .split("")
-              .every(
-                (char: string) =>
-                  mathSafe.test(char) ||
-                  char === "(" ||
-                  char === ")" ||
-                  char === "," ||
-                  char === " ",
-              )
-          ) {
-            return {
-              success: false,
-              error: `Unsafe expression: Only basic math operations and Math functions are allowed`,
-            };
-          }
-        }
-
-        // Use Function constructor for safe evaluation
-        const result = new Function(`'use strict'; return (${expression})`)();
-        const roundedResult =
-          typeof result === "number"
-            ? Number(result.toFixed(precision))
-            : result;
-
-        return {
-          success: true,
-          expression,
-          result: roundedResult,
-          type: typeof result,
-        };
-      } catch (error) {
+      // The expression is model output. It is parsed and evaluated by
+      // `evaluateArithmetic` — a recursive-descent parser over numbers and a
+      // fixed list of Math functions — never run as JavaScript.
+      const evaluation = evaluateArithmetic(expression);
+      if (!evaluation.ok) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : String(error),
+          error: `${evaluation.error}. Only numbers, + - * / % ** parentheses and the Math functions ${ARITHMETIC_FUNCTION_NAMES.join(", ")} (constants ${ARITHMETIC_CONSTANT_NAMES.join(", ")}) are supported.`,
           expression,
         };
       }
+      const digits = Math.min(Math.max(Math.trunc(precision ?? 2), 0), 100);
+      return {
+        success: true,
+        expression,
+        result: Number(evaluation.value.toFixed(digits)),
+        type: "number",
+      };
     },
   }),
 
@@ -1130,7 +1082,7 @@ export function createDirectAgentTools(policy: FileToolRootPolicy) {
 export function createBashTool(policy: FileToolRootPolicy): Tool {
   return tool({
     description:
-      "Execute a bash/shell command and return stdout, stderr, and exit code. Supports full shell syntax including pipes, redirects, and variable expansion. Requires HITL confirmation when enabled. The command runs with the full privileges of the process: tool roots constrain only its starting directory (cwd), not where the command itself can reach.",
+      "Execute a bash/shell command and return stdout, stderr, and exit code. Supports full shell syntax including pipes, redirects, and variable expansion. When HITL is enabled on the NeuroLink instance, every call waits for a human to approve it before it runs. The command runs with the full privileges of the process: tool roots constrain only its starting directory (cwd), not where the command itself can reach.",
     inputSchema: z.object({
       command: z
         .string()

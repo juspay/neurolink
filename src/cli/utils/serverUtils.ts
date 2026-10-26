@@ -7,8 +7,11 @@ import { timingSafeEqual } from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { DEFAULT_SERVER_HOST } from "../../lib/server/abstract/baseServerAdapter.js";
 import { ConfigurationError } from "../../lib/server/errors.js";
 import { createAuthMiddleware } from "../../lib/server/middleware/auth.js";
+import { isLoopbackAddress } from "../../lib/server/utils/clientAddress.js";
+import { stripQuery } from "../../lib/server/utils/pathMatch.js";
 import type { MiddlewareDefinition } from "../../lib/types/index.js";
 
 // ============================================
@@ -17,8 +20,70 @@ import type { MiddlewareDefinition } from "../../lib/types/index.js";
 
 export const DEFAULT_SERVER_PORT = 3000;
 
-/** Comma-separated API keys; when set, every route except health needs one. */
+/** The interface `neurolink serve` binds unless told otherwise: this host only. */
+export { DEFAULT_SERVER_HOST };
+
+/** Comma-separated API keys; when set, every route except the health probes needs one. */
 export const SERVER_API_KEY_ENV = "NEUROLINK_SERVER_API_KEY";
+
+/**
+ * `=1` lets `neurolink serve` listen on a non-loopback host with no API key,
+ * and serves the tool and MCP execution routes to anyone who can reach it.
+ */
+export const SERVER_ALLOW_UNAUTHENTICATED_ENV =
+  "NEUROLINK_SERVER_ALLOW_UNAUTHENTICATED";
+
+/** `=1` keeps the built-in tools (filesystem among them) in the server's registry. */
+export const SERVER_ENABLE_BUILTIN_TOOLS_ENV =
+  "NEUROLINK_SERVER_ENABLE_BUILTIN_TOOLS";
+
+/** `=1` lets the transcription WebSocket take the API key as `?token=`. */
+export const SERVER_WS_ALLOW_QUERY_TOKEN_ENV =
+  "NEUROLINK_SERVER_WS_ALLOW_QUERY_TOKEN";
+
+/** Whether `name` is set to `1` (trimmed) in the environment. */
+export function envFlag(name: string): boolean {
+  return process.env[name]?.trim() === "1";
+}
+
+/** `true` when `host` names only this machine (`127.0.0.1`, `::1`, `localhost`). */
+export function isLoopbackHost(host: string): boolean {
+  return isLoopbackAddress(host);
+}
+
+/**
+ * Why `neurolink serve` must not start as asked, or `undefined` when it may.
+ * A listener the network can reach with no API key hands every route, tool
+ * execution included, to anyone who finds the port; the operator has to say so.
+ */
+export function unauthenticatedBindRefusal(options: {
+  host: string;
+  apiKeyCount: number;
+  allowUnauthenticated: boolean;
+}): string | undefined {
+  if (
+    options.apiKeyCount > 0 ||
+    options.allowUnauthenticated ||
+    isLoopbackHost(options.host)
+  ) {
+    return undefined;
+  }
+  return (
+    `Refusing to listen on ${options.host} without authentication: every route, including tool execution, would be open to anyone who can reach this port. ` +
+    `Set ${SERVER_API_KEY_ENV}, bind a loopback address (--host ${DEFAULT_SERVER_HOST}), or pass --allow-unauthenticated (${SERVER_ALLOW_UNAUTHENTICATED_ENV}=1) to run open on purpose.`
+  );
+}
+
+/**
+ * The paths a key never guards: the liveness, readiness and startup probes an
+ * orchestrator calls with no credentials, and the basic health check. An
+ * exact list: `/health/detailed` reports the runtime and the MCP inventory,
+ * and `/version` the Node version, so both need the key like any other route.
+ */
+export function healthExemptPaths(basePath: string): string[] {
+  const health = `${basePath.replace(/\/+$/, "")}/health`;
+  return [health, `${health}/live`, `${health}/ready`, `${health}/startup`];
+}
 
 /**
  * Resolve the listen port: --port, then the config file, then the PORT
@@ -52,8 +117,11 @@ const matchesKey = (key: Buffer, token: Buffer): boolean =>
 
 /**
  * Require one of `apiKeys` as `Authorization: Bearer <key>` or `X-API-Key`.
- * Health probes stay open so orchestrators can reach them, and the dev
- * playground header cannot bypass a key the operator configured.
+ * The health probes (see `healthExemptPaths`) stay open so orchestrators can
+ * reach them, and the dev playground header cannot bypass a key the operator
+ * configured. The exemption is an exact match on the path, made here rather
+ * than through the adapters' `excludePaths`, whose entries cover a subtree:
+ * `/health` used to exempt `/health/detailed` and even `/health/api/version`.
  *
  * Every holder of a key gets the same `{ id: "api-key" }`, marked `shared` so
  * the agent routes know it names no person and do not warn when a request
@@ -64,10 +132,11 @@ export function createServerApiKeyMiddleware(
   basePath: string,
 ): MiddlewareDefinition {
   const keys = apiKeys.map((key) => Buffer.from(key, "utf8"));
-  return createAuthMiddleware({
+  const exempt = new Set(healthExemptPaths(basePath));
+  const inner = createAuthMiddleware({
     type: "custom",
     extractToken: (ctx) => {
-      const bearer = /^Bearer\s+(.+)$/i.exec(
+      const bearer = /^Bearer\s+(\S.*)$/i.exec(
         ctx.headers["authorization"] ?? "",
       );
       return bearer?.[1] ?? ctx.headers["x-api-key"] ?? null;
@@ -78,9 +147,17 @@ export function createServerApiKeyMiddleware(
         ? { id: "api-key", shared: true }
         : null;
     },
-    skipPaths: [`${basePath.replace(/\/+$/, "")}/health`],
     skipDevPlayground: false,
   });
+  return {
+    ...inner,
+    name: "api-key",
+    excludePaths: undefined,
+    handler: (ctx, next) =>
+      exempt.has(stripQuery(ctx.path).replace(/\/+$/, "") || "/")
+        ? next()
+        : inner.handler(ctx, next),
+  };
 }
 
 // ============================================

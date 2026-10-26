@@ -42,9 +42,10 @@ assertDistFresh({ entrypoints: ["dist/index.js"] });
  *  3. Ordinary deadlines and the default (no deadline set) still let a slow
  *     answer through, so (1) is not just "everything fails fast".
  *  4. The shared `withTimeout` wrapper (reached from the public Fastify
- *     server's start-up and `/ready` check, whose deadline is the caller's
- *     `config.timeout`) never hands `setTimeout` a delay it would fire after
- *     1 ms. The workflow path only calls that wrapper with constants, so this
+ *     server's `/ready` check, whose deadline is the caller's
+ *     `config.timeout`) and the request deadline never hand `setTimeout` an
+ *     over-range delay it would fire after 1 ms. The workflow path only calls
+ *     that wrapper with constants, so this
  *     case watches the delays the built server arms while it starts and
  *     answers one real request: the wrapper cannot be told apart by timing,
  *     because a 1 ms deadline still lets a fast `listen()` or `listTools()`
@@ -56,7 +57,8 @@ assertDistFresh({ entrypoints: ["dist/index.js"] });
  *     the limit. Each delay is attributed to its wrapper by call stack, so no
  *     other timer can satisfy or break the assertion. Which values can reach a
  *     wrapper depends on the surface: the server replaces NaN and 0 with its
- *     own defaults (`timeout || default`), and `runWorkflow()` rejects NaN, 0,
+ *     own readiness default (`timeout || default`), startup always uses its
+ *     separate 30,000 ms budget, and `runWorkflow()` rejects NaN, 0,
  *     negative and infinite model timeouts at validation. Each case pins what
  *     that surface does with every one of the six values.
  */
@@ -300,9 +302,9 @@ async function timerDelaysDuring(run: () => Promise<void>): Promise<number[]> {
 
 /**
  * Start the public Fastify server with `timeout`, hit `/ready`, and return the
- * long delays armed meanwhile. Fastify hands `config.timeout` to nothing but
- * the shared `withTimeout` wrapper (start-up and the readiness check), unlike
- * Hono, whose request-timeout middleware arms its own timer from it.
+ * long delays armed meanwhile. Both the readiness check's `withTimeout`
+ * wrapper and the request deadline use `config.timeout`; startup uses its
+ * own fixed budget.
  */
 async function serverTimerDelays(
   timeout: number,
@@ -371,42 +373,41 @@ const WITH_TIMEOUT_FRAME = /at (?:async )?withTimeout \([^)]*errorHandling/;
 const EXECUTE_WITH_TIMEOUT_FRAME =
   /at (?:async )?executeWithTimeout \([^)]*ensembleExecutor/;
 
-/** Delays the shared `withTimeout` wrapper arms for the server's `config.timeout`. */
-async function serverWithTimeoutDelays(timeout: number): Promise<number[]> {
+/** Attribute startup and readiness wrapper delays separately. */
+async function serverWithTimeoutDelays(
+  timeout: number,
+): Promise<{ startup: number[]; readiness: number[] }> {
   const port = await freePort();
   const adapter = await createNeuroLinkServer(new NeuroLink(), {
     framework: "fastify",
     config: { port, host: "127.0.0.1", timeout },
   });
-  const delays = await delaysArmedBy(WITH_TIMEOUT_FRAME, async () => {
-    try {
+  try {
+    const startup = await delaysArmedBy(WITH_TIMEOUT_FRAME, async () => {
       await adapter.initialize();
       await adapter.start();
+    });
+    const readiness = await delaysArmedBy(WITH_TIMEOUT_FRAME, async () => {
       const response = await fetch(`http://127.0.0.1:${port}/api/ready`);
       await response.text();
-    } catch {
-      // A deadline of 0 or less may fail start-up; the delays armed so far are the evidence.
-    }
-  });
-  try {
+    });
+    return { startup, readiness };
+  } finally {
     await adapter.stop();
-  } catch {
-    // A server that never started has nothing to stop.
   }
-  return delays;
 }
 
 /**
  * [label, `config.timeout` asked for, delays `withTimeout` may be handed].
- * The server arms `config.timeout || default`, so NaN and 0 are replaced by
- * its own 30,000 ms start-up and 5,000 ms readiness defaults before the
- * wrapper sees them; everything else reaches the wrapper as given.
+ * Readiness arms `config.timeout || 5000`, so NaN and 0 are replaced by
+ * its default before the wrapper sees them; everything else reaches the
+ * wrapper as given. Startup always uses a separate 30,000 ms budget.
  */
 const SERVER_DEADLINE_BOUNDS: ReadonlyArray<
   readonly [string, number, readonly number[]]
 > = [
-  ["NaN", Number.NaN, [30_000, 5_000]],
-  ["zero", 0, [30_000, 5_000]],
+  ["NaN", Number.NaN, [5_000]],
+  ["zero", 0, [5_000]],
   ["negative", -1, [-1]],
   ["the timer limit itself", MAX_TIMER_MS, [MAX_TIMER_MS]],
   ["one above the timer limit", MAX_TIMER_MS + 1, [MAX_TIMER_MS]],
@@ -641,13 +642,14 @@ await runSuite(async () => {
     );
   });
 
-  await test("public server: NaN, zero, negative, boundary and infinite config.timeout reach setTimeout as the bound dictates", async () => {
+  await test("public server: startup has its own budget and readiness preserves config.timeout bounds", async () => {
     for (const [label, timeout, allowed] of SERVER_DEADLINE_BOUNDS) {
-      const delays = await serverWithTimeoutDelays(timeout);
+      const { startup, readiness } = await serverWithTimeoutDelays(timeout);
+      assert.deepEqual(startup, [30_000], `${label}: startup budget changed`);
       // Precondition: the wrapper really armed a timer for this setting.
-      assert(delays.length >= 1, `${label}: withTimeout armed no timer`);
+      assert(readiness.length >= 1, `${label}: readiness armed no timer`);
       assert(
-        delays.every((delay) => allowed.some((ok) => Object.is(delay, ok))),
+        readiness.every((delay) => allowed.some((ok) => Object.is(delay, ok))),
         `${label}: a delay other than the expected one reached setTimeout`,
       );
     }

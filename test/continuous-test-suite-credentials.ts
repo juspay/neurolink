@@ -1066,7 +1066,9 @@ async function testAnthropicBaseURLCredential(): Promise<void> {
 }
 
 async function testDotenvStripIsHonoured(): Promise<void> {
-  logSection("SECTION 6: Implicit .env load honours DOTENV_CONFIG_PATH");
+  logSection(
+    "SECTION 6: .env loading is explicit for the SDK and honours DOTENV_CONFIG_PATH",
+  );
 
   // Both cases run the SHIPPED entry point in a child process, because the
   // thing under test happens once per process at module load and cannot be
@@ -1121,16 +1123,22 @@ async function testDotenvStripIsHonoured(): Promise<void> {
     );
   });
 
-  await test("6.2 with no DOTENV_CONFIG_PATH the implicit .env load is unchanged", async () => {
-    // The other half of the contract, and the reason the fix is additive:
-    // SDK consumers who rely on NeuroLink picking up a .env must see exactly
-    // what they saw before. Without this case, 6.1 would also pass if the
-    // load were simply deleted.
-    const value = probeInChildWith({});
+  await test("6.2 importing the SDK does not read the working directory's .env unless asked", async () => {
+    // Importing the package used to load `<cwd>/.env` as a side effect, so a
+    // repository's .env could redirect an exported key through *_BASE_URL.
+    // The load is now explicit: NEUROLINK_DOTENV=1 (or loadDotenv()) opts in,
+    // and the CLI keeps loading it itself. Both halves are pinned here so the
+    // opt-in cannot silently stop working either.
+    const byDefault = probeInChildWith({});
+    assert(
+      byDefault === undefined,
+      "the working directory's .env reached the environment on a bare import",
+    );
+    const optedIn = probeInChildWith({ NEUROLINK_DOTENV: "1" });
     assertEqual(
-      value,
+      optedIn,
       "loaded-from-dotenv",
-      "the working directory's .env no longer reaches the environment by default",
+      "NEUROLINK_DOTENV=1 no longer loads the working directory's .env",
     );
   });
 

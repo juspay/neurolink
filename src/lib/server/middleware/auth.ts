@@ -98,6 +98,7 @@ export function createAuthMiddleware(
     name: "authentication",
     order: 10, // Run early but after request ID
     excludePaths: skipPaths,
+    authenticates: true,
     handler: async (ctx, next) => {
       // The playground header is a development convenience, so it is honoured
       // only when NODE_ENV is exactly "development". An unset NODE_ENV (the
@@ -380,13 +381,16 @@ export function createBearerAuthMiddleware(
     name: "bearer-auth",
     order: 10,
     excludePaths: skipPaths,
+    authenticates: true,
     handler: async (ctx, next) => {
       const authHeader = ctx.headers[headerName.toLowerCase()];
 
-      // Extract bearer token
+      // Extract bearer token. The token must open with a non-whitespace
+      // character, as in extractToken(): with `\s+(.+)` a header that failed
+      // to match was retried at every split, quadratic in its length.
       let token: string | null = null;
       if (authHeader) {
-        const match = authHeader.match(/^Bearer\s+(.+)$/i);
+        const match = authHeader.match(/^Bearer\s+(\S.*)$/i);
         token = match ? match[1] : null;
       }
 

@@ -3,6 +3,7 @@
  */
 
 import type { ImageWithAltText } from "./multimodal.js";
+import type { AttachmentPolicy } from "./attachments.js";
 
 /**
  * Supported file types for multimodal input
@@ -791,6 +792,13 @@ export type FileDetectorOptions = {
    * filesystem access; SDK callers loading their own files can omit it.
    */
   allowedBaseDir?: string;
+  /**
+   * Instance attachment policy: `allowedRoots` containment (when
+   * `allowedBaseDir` is not set), the URL rules (HTTPS-only, public hosts,
+   * re-validated redirects) and the global size cap. The environment-derived
+   * default applies when absent.
+   */
+  attachmentPolicy?: AttachmentPolicy;
   audioOptions?: AudioProcessorOptions;
   csvOptions?: CSVProcessorOptions;
   officeOptions?: OfficeProcessorOptions;

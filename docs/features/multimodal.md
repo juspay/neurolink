@@ -161,6 +161,12 @@ a payload that would usually breach the inline ceiling anyway.
 
 ## Image Input
 
+> **Security:** an image or file given as a URL is fetched only over HTTPS from
+> a public host, with redirects re-checked per hop; one given as a path is read
+> from anywhere unless `attachments.allowedRoots` is set. Both are controlled
+> by the `attachments` constructor option — see
+> [Attachment Security](/docs/features/attachment-security).
+
 ### Quick Start
 
 **CLI:**

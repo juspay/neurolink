@@ -45,7 +45,10 @@ const full = await store.retrieve(ref.id);
 
 `string`
 
-Storage directory; defaults to `tmpdir()/neurolink-artifacts`
+Storage directory; defaults to
+`tmpdir()/neurolink-artifacts-<uid>` (per unix user, so two accounts on
+one host never share a directory; plain `neurolink-artifacts` where the
+platform has no uid)
 
 ##### options?
 

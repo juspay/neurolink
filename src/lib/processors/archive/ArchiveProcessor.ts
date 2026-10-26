@@ -43,6 +43,7 @@ import {
   isDecompressionBoundExceeded,
   readZipEntryWithinLimit,
 } from "./zipEntryReader.js";
+import { indexZipEntriesByName } from "./zipEntryIndex.js";
 import type {
   ArchiveDecompressionResult,
   ArchiveEntry,
@@ -739,8 +740,21 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
 
       let cumulativeUncompressedSize = 0;
 
+      // A name that appears twice is one listing with two possible contents:
+      // the first occurrence is what every reader here opens, and the
+      // repeat is reported rather than listed as if it were a second file.
+      const seenNames = new Set<string>();
+
       for (const entry of zipEntries) {
         const entryName = entry.entryName;
+
+        if (seenNames.has(entryName)) {
+          securityWarnings.push(
+            `Duplicate entry name "${entryName}" - only the first occurrence is read; the repeat is skipped`,
+          );
+          continue;
+        }
+        seenNames.add(entryName);
 
         // Security: path traversal check
         if (this.hasPathTraversal(entryName)) {
@@ -1594,6 +1608,10 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
     try {
       const AdmZip = (await import("adm-zip")).default;
       const zip = new AdmZip(buffer);
+      // Read from the iterated entries, first occurrence per name — the same
+      // entry the listing described. `zip.getEntry(name)` resolves the LAST
+      // duplicate and would open a different member than the one listed.
+      const { byName } = indexZipEntriesByName(zip.getEntries());
 
       // Filter to extractable text-based entries within size limits
       const candidates = entries
@@ -1626,7 +1644,7 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
         }
 
         try {
-          const zipEntry = zip.getEntry(entry.name);
+          const zipEntry = byName.get(entry.name);
           if (!zipEntry) {
             continue;
           }

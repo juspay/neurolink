@@ -49,12 +49,12 @@ export async function readBoundedBuffer(
   );
   if (contentLength > 0 && contentLength > maxBytes) {
     throw new Error(
-      `${label} download too large: ${contentLength} bytes (max ${maxBytes})`,
+      `File too large: ${label} declares ${contentLength} bytes, over the ${maxBytes}-byte size cap`,
     );
   }
   const exceeded = (bytes: number): Error =>
     new Error(
-      `${label} download exceeded size cap after fetch: ${bytes} bytes (max ${maxBytes})`,
+      `File too large: ${label} exceeded the ${maxBytes}-byte size cap after fetch (${bytes} bytes received)`,
     );
 
   const body: ReadableStream<Uint8Array> | null | undefined = response.body;

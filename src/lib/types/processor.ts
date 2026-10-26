@@ -8,6 +8,7 @@
  */
 
 import type { FileErrorCode } from "../processors/errors/FileErrorCode.js";
+import type { AttachmentPolicy } from "./attachments.js";
 
 // =============================================================================
 // FILE INFORMATION
@@ -180,8 +181,16 @@ export type ProcessorRetryConfig = {
  * Allows customization of download behavior and retry logic.
  */
 export type ProcessOptions = {
-  /** Authentication headers for download requests */
+  /**
+   * Authentication headers for download requests. Sent on the first request
+   * only — never replayed to a redirect target.
+   */
   authHeaders?: Record<string, string>;
+  /**
+   * Attachment policy for the download (URL rules, size cap). The
+   * environment-derived default applies when absent.
+   */
+  attachmentPolicy?: AttachmentPolicy;
   /** Override default timeout (in milliseconds) */
   timeout?: number;
   /** Retry configuration for transient failures */
@@ -1014,6 +1023,9 @@ export type BoundedZipEntry = {
   getCompressedData: () => Buffer;
   header: { method: number; crc: number };
 };
+
+/** The minimum an indexable adm-zip entry carries (see `zipEntryIndex.ts`). */
+export type NamedZipEntry = { entryName: string };
 
 export type ArchiveEntryReadResult =
   | { readonly status: "ok"; readonly buffer: Buffer }

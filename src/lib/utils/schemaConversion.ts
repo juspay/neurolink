@@ -1,40 +1,49 @@
 import { createRequire } from "node:module";
 import type { zodToJsonSchema as ZodToJsonSchemaFn } from "zod-to-json-schema";
-import type { jsonSchemaToZod as JsonSchemaToZodFn } from "json-schema-to-zod";
 import * as zodModule from "zod";
 import { z } from "zod";
 import type {
+  SchemaConversionContext,
+  SchemaConversionNode,
+  SchemaRegexDrop,
   ZodUnknownSchema,
   ZodToJsonSchemaInput,
   Zod4NativeTarget,
   Zod4NativeParams,
 } from "../types/index.js";
 import { logger } from "./logger.js";
+import { vetRegexPattern } from "../middleware/utils/regexSafety.js";
 
 /**
- * zod-to-json-schema and json-schema-to-zod are loaded synchronously via
- * require() on first actual use, not via a top-level import, so merely
- * importing this module no longer pulls in either package for the many
- * callers who never convert a schema. Both ship a CJS `require` export
- * condition (checked against their package.json), so require() works on
- * any Node >=22.0.0 — no experimental flag, unlike require(esm) of a local
- * ES module (which only works unflagged from Node >=22.12). Zod itself
- * stays a normal static import: its runtime schemas (`z`, `zodModule`) are
- * public exports used well beyond schema conversion. Follows the pattern in
- * src/lib/proxy/otelLogSink.ts — construction stays one synchronous call,
- * exactly as before; only the *import* is deferred.
+ * zod-to-json-schema is loaded synchronously via require() on first actual
+ * use, not via a top-level import, so merely importing this module no longer
+ * pulls in the package for the many callers who never convert a schema. It
+ * ships a CJS `require` export condition (checked against its package.json),
+ * so require() works on any Node >=22.0.0 — no experimental flag, unlike
+ * require(esm) of a local ES module (which only works unflagged from Node
+ * >=22.12). Zod itself stays a normal static import: its runtime schemas
+ * (`z`, `zodModule`) are public exports used well beyond schema conversion.
+ * Follows the pattern in src/lib/proxy/otelLogSink.ts — construction stays
+ * one synchronous call, exactly as before; only the *import* is deferred.
+ *
+ * The reverse direction (JSON Schema → Zod, `convertJsonSchemaToZod`) no
+ * longer uses a package at all. It used to run `json-schema-to-zod`'s
+ * generated source through `new Function`; the input to that generator is a
+ * tool schema a host or a remote MCP server supplies, so the process's safety
+ * rested on the generator escaping every string position correctly. The
+ * converter below builds the Zod schema directly from the JSON Schema object
+ * and never evaluates text.
  *
  * A require() made through createRequire() is invisible to bundlers, so a
- * consumer that bundles the SDK without these packages next to the output can
- * no longer resolve them, and listing them as external changes nothing for the
+ * consumer that bundles the SDK without the package next to the output can
+ * no longer resolve it, and listing it as external changes nothing for the
  * same reason: the bundler never sees the call. That must not pass for a
- * schema that simply had no properties: the failure is reported once per
- * package at error level (the only level shown without NEUROLINK_DEBUG),
- * remembered so later calls neither retry the lookup nor repeat the report,
- * and the caller degrades exactly as it does when a conversion throws. The
- * browser artifact is the one bundle we build ourselves;
- * scripts/build-browser.mjs bundles both packages into it and serves them from
- * its `module` stub.
+ * schema that simply had no properties: the failure is reported once at error
+ * level (the only level shown without NEUROLINK_DEBUG), remembered so later
+ * calls neither retry the lookup nor repeat the report, and the caller
+ * degrades exactly as it does when a conversion throws. The browser artifact
+ * is the one bundle we build ourselves; scripts/build-browser.mjs bundles the
+ * package into it and serves it from its `module` stub.
  */
 const require = createRequire(import.meta.url);
 
@@ -83,10 +92,6 @@ function lazyPackageFunction<Fn extends (...args: never[]) => unknown>(
 const loadZodToJsonSchema = lazyPackageFunction<typeof ZodToJsonSchemaFn>(
   "zod-to-json-schema",
   "zodToJsonSchema",
-);
-const loadJsonSchemaToZod = lazyPackageFunction<typeof JsonSchemaToZodFn>(
-  "json-schema-to-zod",
-  "jsonSchemaToZod",
 );
 
 // Zod 4 ships a built-in `z.toJSONSchema(...)`. Zod 3 does not — it returned
@@ -860,112 +865,591 @@ export function isZod4Schema(value: unknown): boolean {
   return !!(value && typeof value === "object" && "_zod" in value);
 }
 
+// ---------------------------------------------------------------------------
+// JSON Schema → Zod, without evaluating generated code
+// ---------------------------------------------------------------------------
+
+/** Deepest JSON Schema nesting the converter follows before giving up. */
+const MAX_JSON_SCHEMA_DEPTH = 32;
+
 /**
- * Convert JSON Schema to Zod schema format using official json-schema-to-zod library
- * This ensures complete preservation of all schema structure and validation rules
+ * Property names that must never become keys of a Zod object shape. Building a
+ * shape with `shape[name] = schema` for `__proto__` would replace the shape's
+ * prototype instead of adding a property, and Zod reads the shape by its keys.
+ * A tool whose argument is literally called `__proto__` is hostile, not real.
+ */
+const FORBIDDEN_PROPERTY_NAMES: ReadonlySet<string> = new Set([
+  "__proto__",
+  "constructor",
+  "prototype",
+]);
+
+function isSchemaConversionNode(value: unknown): value is SchemaConversionNode {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isLiteralValue(
+  value: unknown,
+): value is string | number | boolean | null {
+  return (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  );
+}
+
+/**
+ * Resolve a local `#/definitions/x` or `#/$defs/x` pointer against the root.
+ * Anything else — a remote `$ref`, a pointer into an unknown place — resolves
+ * to `undefined` and the caller falls back to `z.unknown()`.
+ */
+function resolveLocalRef(
+  ref: string,
+  root: SchemaConversionNode,
+): SchemaConversionNode | undefined {
+  if (!ref.startsWith("#/")) {
+    return undefined;
+  }
+  const segments = ref
+    .slice(2)
+    .split("/")
+    .map((segment) => segment.replace(/~1/g, "/").replace(/~0/g, "~"));
+  let current: unknown = root;
+  for (const segment of segments) {
+    if (
+      !isSchemaConversionNode(current) ||
+      FORBIDDEN_PROPERTY_NAMES.has(segment)
+    ) {
+      return undefined;
+    }
+    if (!Object.prototype.hasOwnProperty.call(current, segment)) {
+      return undefined;
+    }
+    current = current[segment];
+  }
+  return isSchemaConversionNode(current) ? current : undefined;
+}
+
+function literalSchema(
+  value: string | number | boolean | null,
+): ZodUnknownSchema {
+  return value === null ? z.null() : z.literal(value);
+}
+
+function unionOf(members: ZodUnknownSchema[]): ZodUnknownSchema {
+  if (members.length === 0) {
+    return z.unknown();
+  }
+  if (members.length === 1) {
+    return members[0];
+  }
+  return z.union(
+    members as [ZodUnknownSchema, ZodUnknownSchema, ...ZodUnknownSchema[]],
+  );
+}
+
+function convertStringSchema(
+  schema: SchemaConversionNode,
+  path: string,
+  context: SchemaConversionContext,
+): ZodUnknownSchema {
+  let result = z.string();
+  if (typeof schema.minLength === "number" && schema.minLength >= 0) {
+    result = result.min(Math.floor(schema.minLength));
+  }
+  if (typeof schema.maxLength === "number" && schema.maxLength >= 0) {
+    result = result.max(Math.floor(schema.maxLength));
+  }
+  if (typeof schema.pattern === "string") {
+    const verdict = vetRegexPattern(schema.pattern);
+    if (verdict.safe) {
+      try {
+        result = result.regex(new RegExp(schema.pattern, "u"));
+      } catch {
+        context.onRegexDrop({
+          path: `${path}/pattern`,
+          pattern: schema.pattern,
+          reason: "the pattern is not a valid regular expression",
+        });
+      }
+    } else {
+      context.onRegexDrop({
+        path: `${path}/pattern`,
+        pattern: schema.pattern,
+        reason: verdict.reason,
+      });
+    }
+  }
+  return result;
+}
+
+function convertNumberSchema(
+  schema: SchemaConversionNode,
+  integer: boolean,
+): ZodUnknownSchema {
+  let result = integer ? z.number().int() : z.number();
+  if (typeof schema.minimum === "number") {
+    result = result.min(schema.minimum);
+  }
+  if (typeof schema.maximum === "number") {
+    result = result.max(schema.maximum);
+  }
+  if (typeof schema.exclusiveMinimum === "number") {
+    result = result.gt(schema.exclusiveMinimum);
+  }
+  if (typeof schema.exclusiveMaximum === "number") {
+    result = result.lt(schema.exclusiveMaximum);
+  }
+  if (typeof schema.multipleOf === "number" && schema.multipleOf > 0) {
+    result = result.multipleOf(schema.multipleOf);
+  }
+  return result;
+}
+
+function convertArraySchema(
+  schema: SchemaConversionNode,
+  path: string,
+  context: SchemaConversionContext,
+  depth: number,
+): ZodUnknownSchema {
+  if (Array.isArray(schema.items)) {
+    const members = schema.items.map((item, index) =>
+      convertSchemaNode(item, `${path}/items/${index}`, context, depth + 1),
+    );
+    if (members.length === 0) {
+      return z.tuple([]);
+    }
+    return z.tuple(members as [ZodUnknownSchema, ...ZodUnknownSchema[]]);
+  }
+  const itemSchema =
+    schema.items === undefined
+      ? z.unknown()
+      : convertSchemaNode(schema.items, `${path}/items`, context, depth + 1);
+  let result = z.array(itemSchema);
+  if (typeof schema.minItems === "number" && schema.minItems >= 0) {
+    result = result.min(Math.floor(schema.minItems));
+  }
+  if (typeof schema.maxItems === "number" && schema.maxItems >= 0) {
+    result = result.max(Math.floor(schema.maxItems));
+  }
+  return result;
+}
+
+function convertObjectSchema(
+  schema: SchemaConversionNode,
+  path: string,
+  context: SchemaConversionContext,
+  depth: number,
+): ZodUnknownSchema {
+  const required = new Set<string>(
+    Array.isArray(schema.required)
+      ? schema.required.filter(
+          (name): name is string => typeof name === "string",
+        )
+      : [],
+  );
+  const shape: Record<string, ZodUnknownSchema> = {};
+  if (isSchemaConversionNode(schema.properties)) {
+    for (const [name, propertySchema] of Object.entries(schema.properties)) {
+      if (FORBIDDEN_PROPERTY_NAMES.has(name)) {
+        logger.debug(
+          `[SCHEMA-CONVERSION] Dropped property "${name}" at ${path}: the name is reserved`,
+        );
+        continue;
+      }
+      const converted = convertSchemaNode(
+        propertySchema,
+        `${path}/properties/${name}`,
+        context,
+        depth + 1,
+      );
+      shape[name] = required.has(name) ? converted : converted.optional();
+    }
+  }
+  const base = z.object(shape);
+  const additional = schema.additionalProperties;
+  if (additional === false) {
+    return base.strict();
+  }
+  if (additional === true) {
+    return base.passthrough();
+  }
+  if (isSchemaConversionNode(additional)) {
+    return base.catchall(
+      convertSchemaNode(
+        additional,
+        `${path}/additionalProperties`,
+        context,
+        depth + 1,
+      ),
+    );
+  }
+  return base;
+}
+
+function convertTypedSchema(
+  type: string,
+  schema: SchemaConversionNode,
+  path: string,
+  context: SchemaConversionContext,
+  depth: number,
+): ZodUnknownSchema {
+  switch (type) {
+    case "string":
+      return convertStringSchema(schema, path, context);
+    case "number":
+      return convertNumberSchema(schema, false);
+    case "integer":
+      return convertNumberSchema(schema, true);
+    case "boolean":
+      return z.boolean();
+    case "null":
+      return z.null();
+    case "array":
+      return convertArraySchema(schema, path, context, depth);
+    case "object":
+      return convertObjectSchema(schema, path, context, depth);
+    default:
+      return z.unknown();
+  }
+}
+
+function convertSchemaNode(
+  node: unknown,
+  path: string,
+  context: SchemaConversionContext,
+  depth: number,
+): ZodUnknownSchema {
+  if (node === true || node === undefined) {
+    return z.unknown();
+  }
+  if (node === false) {
+    return z.never();
+  }
+  if (!isSchemaConversionNode(node)) {
+    return z.unknown();
+  }
+  if (depth > MAX_JSON_SCHEMA_DEPTH) {
+    logger.debug(
+      `[SCHEMA-CONVERSION] Schema at ${path} nests deeper than ${MAX_JSON_SCHEMA_DEPTH}; accepting any value there`,
+    );
+    return z.unknown();
+  }
+
+  let result: ZodUnknownSchema;
+
+  if (typeof node.$ref === "string") {
+    const target = resolveLocalRef(node.$ref, context.root);
+    if (target === undefined || context.refStack.has(node.$ref)) {
+      result = z.unknown();
+    } else {
+      context.refStack.add(node.$ref);
+      try {
+        result = convertSchemaNode(target, path, context, depth + 1);
+      } finally {
+        context.refStack.delete(node.$ref);
+      }
+    }
+  } else if (Array.isArray(node.enum)) {
+    const literals = node.enum.filter(isLiteralValue);
+    const allStrings =
+      literals.length > 0 &&
+      literals.length === node.enum.length &&
+      literals.every((value) => typeof value === "string");
+    result = allStrings
+      ? z.enum(literals as [string, ...string[]])
+      : unionOf(
+          literals
+            .map(literalSchema)
+            .concat(literals.length === node.enum.length ? [] : [z.unknown()]),
+        );
+  } else if ("const" in node) {
+    result = isLiteralValue(node.const)
+      ? literalSchema(node.const)
+      : z.unknown();
+  } else if (Array.isArray(node.anyOf) || Array.isArray(node.oneOf)) {
+    const options = (node.anyOf ?? node.oneOf) as unknown[];
+    const keyword = Array.isArray(node.anyOf) ? "anyOf" : "oneOf";
+    result = unionOf(
+      options.map((option, index) =>
+        convertSchemaNode(
+          option,
+          `${path}/${keyword}/${index}`,
+          context,
+          depth + 1,
+        ),
+      ),
+    );
+  } else if (Array.isArray(node.allOf)) {
+    const parts = node.allOf.map((part, index) =>
+      convertSchemaNode(part, `${path}/allOf/${index}`, context, depth + 1),
+    );
+    result =
+      parts.length === 0
+        ? z.unknown()
+        : parts.reduce((left, right) => z.intersection(left, right));
+  } else if (Array.isArray(node.type)) {
+    const types = node.type.filter(
+      (entry): entry is string => typeof entry === "string",
+    );
+    result = unionOf(
+      types.map((type) => convertTypedSchema(type, node, path, context, depth)),
+    );
+  } else if (typeof node.type === "string") {
+    result = convertTypedSchema(node.type, node, path, context, depth);
+  } else if (isSchemaConversionNode(node.properties)) {
+    result = convertObjectSchema(node, path, context, depth);
+  } else if (node.items !== undefined) {
+    result = convertArraySchema(node, path, context, depth);
+  } else {
+    result = z.unknown();
+  }
+
+  if (node.nullable === true) {
+    result = result.nullable();
+  }
+  if (typeof node.description === "string") {
+    result = result.describe(node.description);
+  }
+  if ("default" in node && node.default !== undefined) {
+    result = result.default(node.default);
+  }
+  return result;
+}
+
+/**
+ * Convert a JSON Schema object to a Zod schema.
+ *
+ * Built directly from the schema object — no generated source, no
+ * `new Function` — so a hostile `description`, `pattern`, `default`, `const`,
+ * `enum` or property name is data, never code. Covers the subset tool
+ * schemas use: object/array/string/number/integer/boolean/null, `enum`,
+ * `const`, `anyOf`/`oneOf`/`allOf`, type unions, local `$ref`s, `nullable`,
+ * `required`, `additionalProperties`, `description`, `default` and the common
+ * length/range bounds. A `pattern` is compiled only after `vetRegexPattern`
+ * accepts it; a pattern that could stall the process is dropped from the
+ * schema and reported once at warn level. Unknown constructs validate as
+ * `unknown` rather than failing the conversion.
+ *
+ * Returns `z.object({}).passthrough()` for input that is not a schema object,
+ * exactly as the previous implementation did on any failure.
  */
 export function convertJsonSchemaToZod(
   jsonSchema: Record<string, unknown>,
 ): ZodUnknownSchema {
   const startTime = Date.now();
 
-  try {
-    // Handle empty or invalid schemas
-    if (!jsonSchema || typeof jsonSchema !== "object") {
-      logger.debug(
-        "🔍 [SCHEMA-CONVERSION] Invalid or empty JSON schema, using fallback",
-      );
-      return z.object({}).passthrough();
-    }
-
-    // Log detailed input schema for debugging
+  if (!isSchemaConversionNode(jsonSchema)) {
     logger.debug(
-      "🔍 [SCHEMA-CONVERSION] ===== STARTING OFFICIAL LIBRARY CONVERSION =====",
+      "🔍 [SCHEMA-CONVERSION] Invalid or empty JSON schema, using fallback",
     );
-    logger.debug("🔍 [SCHEMA-CONVERSION] Input JSON Schema:", {
-      type: jsonSchema.type,
-      hasProperties: !!jsonSchema.properties,
-      propertiesCount: jsonSchema.properties
-        ? Object.keys(jsonSchema.properties as object).length
-        : 0,
-      requiredCount: Array.isArray(jsonSchema.required)
-        ? jsonSchema.required.length
-        : 0,
-      required: jsonSchema.required,
-      sampleProperties: jsonSchema.properties
-        ? Object.keys(jsonSchema.properties as object).slice(0, 5)
-        : [],
-    });
+    return z.object({}).passthrough();
+  }
 
-    // Use official library to convert JSON Schema to Zod code
-    const convertToZodCode = loadJsonSchemaToZod();
-    if (!convertToZodCode) {
-      return z.object({}).passthrough();
-    }
-    const zodCodeResult = convertToZodCode(jsonSchema, {
-      module: "esm",
-      name: "schema",
-    });
-
-    logger.debug("🔍 [SCHEMA-CONVERSION] Generated Zod code:", {
-      codeLength: zodCodeResult.length,
-      codePreview: zodCodeResult.substring(0, 200) + "...",
-    });
-
-    // Extract the actual Zod schema expression from the generated code
-    // Generated code looks like: "import { z } from "zod"\n\nexport const schema = z.object({...})\n"
-    const schemaMatch = zodCodeResult.match(
-      /export const schema = (z\..+?)(?:\n|$)/s,
+  const drops: SchemaRegexDrop[] = [];
+  try {
+    const zodSchema = convertSchemaNode(
+      jsonSchema,
+      "#",
+      {
+        root: jsonSchema,
+        refStack: new Set<string>(),
+        onRegexDrop: (drop) => drops.push(drop),
+      },
+      0,
     );
-    if (!schemaMatch) {
-      throw new Error("Could not extract Zod schema from generated code");
+
+    if (drops.length > 0) {
+      logger.warn(
+        `[SCHEMA-CONVERSION] Dropped ${drops.length} regular expression pattern(s) that could stall the process; the affected fields validate without them`,
+        {
+          drops: drops.map(({ path, reason }) => ({ path, reason })),
+        },
+      );
     }
-
-    const schemaExpression = schemaMatch[1].trim();
-    logger.debug("🔍 [SCHEMA-CONVERSION] Extracted schema expression:", {
-      expression: schemaExpression.substring(0, 300) + "...",
-    });
-
-    // Use Function constructor instead of eval for better scope control
-    const createZodSchema = new Function("z", `return ${schemaExpression}`);
-    const zodSchema = createZodSchema(z);
-
-    const conversionTime = Date.now() - startTime;
 
     logger.debug("🔍 [SCHEMA-CONVERSION] ===== CONVERSION SUCCESSFUL =====", {
       inputType: jsonSchema.type,
-      propertiesCount: jsonSchema.properties
-        ? Object.keys(jsonSchema.properties as object).length
+      propertiesCount: isSchemaConversionNode(jsonSchema.properties)
+        ? Object.keys(jsonSchema.properties).length
         : 0,
       requiredCount: Array.isArray(jsonSchema.required)
         ? jsonSchema.required.length
         : 0,
-      conversionSuccess: true,
-      conversionTimeMs: conversionTime,
-      libraryUsed: "json-schema-to-zod-official",
-      zodSchemaType: zodSchema?.constructor?.name || "unknown",
+      droppedPatterns: drops.length,
+      conversionTimeMs: Date.now() - startTime,
     });
 
     return zodSchema;
   } catch (error) {
-    const conversionTime = Date.now() - startTime;
-
     logger.warn(
-      "🚨 [SCHEMA-CONVERSION] Official library conversion failed, using passthrough fallback",
+      "🚨 [SCHEMA-CONVERSION] JSON Schema conversion failed, using passthrough fallback",
       {
         error: error instanceof Error ? error.message : String(error),
         errorType:
           error instanceof Error ? error.constructor.name : typeof error,
-        inputSchemaType: jsonSchema?.type,
-        inputSchemaKeys:
-          jsonSchema && typeof jsonSchema === "object"
-            ? Object.keys(jsonSchema)
-            : [],
-        conversionTimeMs: conversionTime,
-        libraryUsed: "json-schema-to-zod-official-FAILED",
+        inputSchemaType: jsonSchema.type,
+        inputSchemaKeys: Object.keys(jsonSchema),
+        conversionTimeMs: Date.now() - startTime,
       },
     );
 
     return z.object({}).passthrough();
+  }
+}
+
+/**
+ * Keys whose string value is a regular expression source in JSON Schema.
+ * `patternProperties` is handled separately: there the KEYS are the patterns.
+ */
+const REGEX_VALUED_KEYWORDS: ReadonlySet<string> = new Set(["pattern"]);
+
+function collectUnsafePatterns(
+  node: unknown,
+  path: string,
+  depth: number,
+  drops: SchemaRegexDrop[],
+): void {
+  if (
+    depth > MAX_JSON_SCHEMA_DEPTH ||
+    node === null ||
+    typeof node !== "object"
+  ) {
+    return;
+  }
+  if (Array.isArray(node)) {
+    node.forEach((item, index) =>
+      collectUnsafePatterns(item, `${path}/${index}`, depth + 1, drops),
+    );
+    return;
+  }
+  for (const [key, value] of Object.entries(node as SchemaConversionNode)) {
+    if (REGEX_VALUED_KEYWORDS.has(key) && typeof value === "string") {
+      const verdict = vetRegexPattern(value);
+      if (!verdict.safe) {
+        drops.push({
+          path: `${path}/${key}`,
+          pattern: value,
+          reason: verdict.reason,
+        });
+      }
+      continue;
+    }
+    if (key === "patternProperties" && isSchemaConversionNode(value)) {
+      for (const [pattern, subSchema] of Object.entries(value)) {
+        const verdict = vetRegexPattern(pattern);
+        if (!verdict.safe) {
+          drops.push({
+            path: `${path}/patternProperties/${pattern}`,
+            pattern,
+            reason: verdict.reason,
+          });
+        }
+        collectUnsafePatterns(
+          subSchema,
+          `${path}/patternProperties/${pattern}`,
+          depth + 1,
+          drops,
+        );
+      }
+      continue;
+    }
+    collectUnsafePatterns(value, `${path}/${key}`, depth + 1, drops);
+  }
+}
+
+function removeUnsafePatterns(
+  node: unknown,
+  unsafe: ReadonlySet<string>,
+  path: string,
+  depth: number,
+): unknown {
+  if (
+    depth > MAX_JSON_SCHEMA_DEPTH ||
+    node === null ||
+    typeof node !== "object"
+  ) {
+    return node;
+  }
+  if (Array.isArray(node)) {
+    return node.map((item, index) =>
+      removeUnsafePatterns(item, unsafe, `${path}/${index}`, depth + 1),
+    );
+  }
+  const out: SchemaConversionNode = {};
+  for (const [key, value] of Object.entries(node as SchemaConversionNode)) {
+    if (REGEX_VALUED_KEYWORDS.has(key) && typeof value === "string") {
+      if (unsafe.has(`${path}/${key}`)) {
+        continue;
+      }
+      Object.defineProperty(out, key, {
+        value,
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
+      continue;
+    }
+    if (key === "patternProperties" && isSchemaConversionNode(value)) {
+      const kept: SchemaConversionNode = {};
+      for (const [pattern, subSchema] of Object.entries(value)) {
+        const subPath = `${path}/patternProperties/${pattern}`;
+        if (unsafe.has(subPath)) {
+          continue;
+        }
+        Object.defineProperty(kept, pattern, {
+          value: removeUnsafePatterns(subSchema, unsafe, subPath, depth + 1),
+          enumerable: true,
+          writable: true,
+          configurable: true,
+        });
+      }
+      Object.defineProperty(out, key, {
+        value: kept,
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
+      continue;
+    }
+    Object.defineProperty(out, key, {
+      value: removeUnsafePatterns(value, unsafe, `${path}/${key}`, depth + 1),
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+  }
+  return out;
+}
+
+/**
+ * Remove from a JSON Schema every `pattern` and every `patternProperties` key
+ * that `vetRegexPattern` refuses, so a validator built from the result (the
+ * `@cfworker/json-schema` validator compiles each with `new RegExp` on every
+ * check) cannot be stalled by a schema a remote server chose.
+ *
+ * Returns the input object itself when nothing had to be removed, so the
+ * common case costs one walk and no allocation. Otherwise a deep copy with the
+ * offending keywords left out, and `drops` names each one. Never throws.
+ */
+export function stripUnsafeRegexPatterns(schema: Record<string, unknown>): {
+  schema: Record<string, unknown>;
+  drops: SchemaRegexDrop[];
+} {
+  const drops: SchemaRegexDrop[] = [];
+  try {
+    collectUnsafePatterns(schema, "#", 0, drops);
+    if (drops.length === 0) {
+      return { schema, drops };
+    }
+    const unsafe = new Set(drops.map((drop) => drop.path));
+    const stripped = removeUnsafePatterns(schema, unsafe, "#", 0);
+    return {
+      schema: isSchemaConversionNode(stripped) ? stripped : schema,
+      drops,
+    };
+  } catch {
+    return { schema, drops };
   }
 }

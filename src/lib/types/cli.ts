@@ -937,6 +937,10 @@ export type ProxyStartArgs = {
   envFile?: string;
   passthrough?: boolean;
   dev?: boolean;
+  /** Bearer every inbound caller must present; also `NEUROLINK_PROXY_INBOUND_TOKEN`. */
+  inboundToken?: string;
+  /** Operator's explicit choice to bind off-loopback with no inbound auth. */
+  allowUnauthenticated?: boolean;
 };
 
 /** Arguments accepted by `neurolink proxy status` */

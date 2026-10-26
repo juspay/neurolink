@@ -119,6 +119,14 @@ import {
 } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawn as spawnProcess, spawnSync } from "node:child_process";
+
+// The FileDetector contract cases below serve their fixtures from plain-http
+// servers on 127.0.0.1. Since the 2026-10 hardening the SDK's attachment
+// loaders refuse plain http and loopback targets by default (SSRF guard), so
+// this suite opts in for its own process; the refusal itself is covered by
+// test/continuous-test-suite-security-ingestion.ts.
+process.env.NEUROLINK_ATTACHMENT_ALLOW_INSECURE_URLS = "1";
+process.env.NEUROLINK_ATTACHMENT_ALLOW_PRIVATE_NETWORK = "1";
 import { MockAgent, setGlobalDispatcher, getGlobalDispatcher } from "undici";
 import http from "node:http";
 import AdmZip from "adm-zip";

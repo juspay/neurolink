@@ -47,7 +47,18 @@ let routeCount = 0;
 async function viaWebLoader(html: string): Promise<string> {
   const route = `/doc-${routeCount++}`;
   pages.set(route, html);
-  const document = await loader.load(`${origin}${route}`, { timeout: 20_000 });
+  const document = await loader.load(`${origin}${route}`, {
+    timeout: 20_000,
+    // The document listener is owned by this suite and only binds loopback.
+    attachmentPolicy: {
+      kind: "neurolink-attachment-policy",
+      allowedRoots: undefined,
+      allowInsecureUrls: true,
+      allowPrivateNetwork: true,
+      followRedirects: true,
+      maxBytes: undefined,
+    },
+  });
   return document.getContent();
 }
 

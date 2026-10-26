@@ -1,39 +1,31 @@
-# Yama learn — post-merge knowledge update for the `release` mainline.
+# Yama learn — post-merge knowledge update, delivered as a pull request.
 #
 # The merge event is the only trigger that reliably identifies which pull
 # request merged. Learn runs ONE agent turn (.yama/config.json `learnPrompt`)
 # that reads the merged PR's discussion and distills durable learnings into the
 # COMMITTED memory database at .yama/memory/hippocampus.sqlite — read by every
-# later review — then yama's deterministic write path commits exactly that
-# file: `chore(yama): learn from #N [skip ci]`, staged set read back out of
-# git, never a force push.
+# later review — then yama's deterministic write path commits exactly that file
+# locally. This workflow pushes that commit to a `yama/memory-<pr>-<run>` branch
+# and opens a pull request against `release`; it never pushes to `release`.
 #
-# TRUST BOUNDARY — READ BEFORE GRANTING THE PUSH BYPASS BELOW: what learn
-# writes is DERIVED FROM PULL-REQUEST DISCUSSION, and anyone who can comment on
-# a pull request that later merges can influence that text. The memory it
-# commits is read by every later review as this repository's own settled
-# knowledge. The guards are real but coarse: only MERGED, human-authored pull
-# requests are learned from, and the commit lands in git history where it can
-# be read and reverted. They do not make the input trusted. Treat a memory
-# commit as a change to the review rulebook — because that is what it is.
+# TRUST BOUNDARY: what learn writes is DERIVED FROM PULL-REQUEST DISCUSSION,
+# and anyone who can comment on a pull request that later merges can influence
+# that text. The memory it commits is read by every later review as this
+# repository's own settled knowledge, so a memory change is a change to the
+# review rulebook and gets the same path as any other change: a pull request,
+# CI, and a human review. An earlier version of this file asked for a branch
+# protection bypass so the bot could push to `release` directly with [skip ci];
+# that request is withdrawn and must not be granted — it would let an external
+# commenter's text land on the default branch with no checks run.
 #
-# PUSH PERMISSION: the commit is pushed with the workflow's own GITHUB_TOKEN
-# (this job declares `contents: write`). `release` is protected — for the push
-# to land, branch protection needs a bypass entry for github-actions[bot].
-# Until that exists, learn computes, commits locally, and fails LOUDLY at the
-# push — nothing is lost, and the run can be re-dispatched after the bypass is
-# added. YAMA_GITHUB_TOKEN stays the API/MCP read credential only.
-#
-# Loop guards: [skip ci] on the subject, the bot-author refusal below, and
-# GITHUB_TOKEN pushes not triggering workflows at all.
+# Loop guards: the merged-and-human-authored refusal below, and the pull request
+# this opens is authored by github-actions[bot], which the refusal excludes.
 
 name: Yama learn
 
 on:
   # Chained AFTER the release workflow on the default branch: the release run
-  # has finished (its version commit pushed and all) before learn is even
-  # queued, so learn's push cannot race the release bot's. `pull_request:
-  # closed` or a plain `push` would both re-open that race.
+  # has finished before learn is even queued.
   workflow_run:
     workflows: ["Release and Publish"]
     types: [completed]
@@ -49,15 +41,17 @@ on:
         required: true
         type: string
 
-# Serialised: two learn runs would race each other pushing to release, and the
-# loser would be rebased onto a memory it never read.
+# Serialised: two learn runs would each start from the same memory and the
+# second pull request would conflict with the first.
 concurrency:
   group: yama-learn
   cancel-in-progress: false
 
+# `contents: write` is for the push to the yama/memory-* branch only — `release`
+# is protected and nothing here targets it. `pull-requests: write` opens the PR.
 permissions:
   contents: write
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   learn:
@@ -93,6 +87,7 @@ jobs:
             echo "run=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          [[ "$PR" =~ ^[0-9]+$ ]] || { echo "::error::'${PR}' is not a pull request number"; exit 1; }
           merged=$(gh api "repos/${REPOSITORY}/pulls/${PR}" --jq '.merged')
           author=$(gh api "repos/${REPOSITORY}/pulls/${PR}" --jq '.user.login')
           [ "$merged" = "true" ] || { echo "::error::PR #${PR} is not merged"; exit 1; }
@@ -103,19 +98,19 @@ jobs:
 
       - name: Checkout
         if: steps.target.outputs.run == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Named, not detached: learn refuses to commit on a detached HEAD.
           ref: ${{ github.event.repository.default_branch }}
-          # The WORKFLOW token is the push credential (see PUSH PERMISSION
-          # above). YAMA_GITHUB_TOKEN is the API/MCP read credential only.
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # No credential in .git/config while the agent and its dependency tree
+          # run; the push step below supplies the token for that one command.
+          persist-credentials: false
 
       - name: Setup Node.js
         if: steps.target.outputs.run == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version: "22.23.4"
 
       - name: Set the commit identity
         if: steps.target.outputs.run == 'true'
@@ -128,30 +123,76 @@ jobs:
 
       - name: Learn
         if: steps.target.outputs.run == 'true'
+        id: learn
         # One agent turn reads the merged pull request through the github MCP
         # server and distills learnings into memory/hippocampus.sqlite; yama
         # then waits for the memory write to land, checkpoints the WAL, stages
-        # exactly that file, reads the staged set back, and commits + pushes
-        # with [skip ci] — never a force push. A refused or failed write exits
-        # non-zero, so a silent no-op cannot pass for a successful learn.
+        # exactly that file, reads the staged set back, and commits LOCALLY
+        # (.yama/config.json `learn.push` is false). A refused or failed write
+        # exits non-zero, so a silent no-op cannot pass for a successful learn.
         #
-        # Same floor as yama-review.yml: 6.1.1 pulls the NeuroLink that observes
-        # stdio MCP server death (juspay/neurolink #1610).
+        # Exact version, same pin as yama-review.yml; bump both together.
         env:
+          YAMA_VERSION: "6.1.1"
           YAMA_GITHUB_TOKEN: ${{ secrets.YAMA_GITHUB_TOKEN }}
           LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY }}
           LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
           PR_NUMBER: ${{ steps.target.outputs.pr }}
         working-directory: .yama
         run: |
-          npx --yes @juspay/yama@^6.1.1 learn "pr=$PR_NUMBER" 2>&1 | tee learn-run.log
+          before="$(git rev-parse HEAD)"
+          echo "before=${before}" >> "$GITHUB_OUTPUT"
+          npx --yes "@juspay/yama@${YAMA_VERSION}" learn "pr=$PR_NUMBER" 2>&1 | tee learn-run.log
           exit "${PIPESTATUS[0]}"
+
+      - name: Open a pull request with the memory change
+        if: steps.target.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.target.outputs.pr }}
+          BEFORE: ${{ steps.learn.outputs.before }}
+          RUN_ID: ${{ github.run_id }}
+          BASE: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          after="$(git rev-parse HEAD)"
+          if [ "$after" = "$BEFORE" ]; then
+            echo "::notice::learn committed nothing for PR #${PR_NUMBER} (no durable learnings); no pull request to open."
+            exit 0
+          fi
+          # Exactly one commit, touching exactly the memory database. Anything
+          # else means the agent wrote outside its lane and must not be proposed.
+          count="$(git rev-list --count "${BEFORE}..${after}")"
+          [ "$count" = "1" ] || { echo "::error::learn produced ${count} commits; expected exactly 1"; exit 1; }
+          changed="$(git diff --name-only "${BEFORE}" "${after}")"
+          [ "$changed" = ".yama/memory/hippocampus.sqlite" ] || {
+            echo "::error::learn changed files other than the memory database:"; echo "$changed"; exit 1; }
+          # The commit message is rewritten here so no CI-skip directive from the
+          # tool's defaults can reach the branch (GitHub honours [skip ci] in the
+          # body as well as the subject, and a PR whose head carries one never
+          # gets its required checks).
+          git commit --amend --quiet -m "chore(yama): learn from #${PR_NUMBER}" \
+            -m "Memory update distilled from the discussion on #${PR_NUMBER} by .github/workflows/yama-learn.yml (run ${RUN_ID}). Review it as a change to the review rulebook."
+          branch="yama/memory-${PR_NUMBER}-${RUN_ID}"
+          auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${auth}" \
+            push origin "HEAD:refs/heads/${branch}"
+          gh pr create --base "$BASE" --head "$branch" \
+            --title "chore(yama): learn from #${PR_NUMBER}" \
+            --label "automated" \
+            --body "$(printf '%s\n' \
+              "Yama's post-merge retrospective of #${PR_NUMBER} wrote new learnings into \`.yama/memory/hippocampus.sqlite\`." \
+              "" \
+              "Every later automated review reads this file as settled project knowledge, and its content is derived from the pull-request discussion — text anyone with a GitHub account could have written. Review it as a change to the review rulebook: the run log is attached to run ${RUN_ID} as \`yama-learn-${PR_NUMBER}-${RUN_ID}\`." \
+              "" \
+              "Opened by .github/workflows/yama-learn.yml.")"
 
       - name: Archive the run log
         # A run that failed still logged what it did, and that is what you read.
         if: always()
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: yama-learn-${{ steps.target.outputs.pr || 'none' }}-${{ github.run_id }}
           path: .yama/learn-run.log

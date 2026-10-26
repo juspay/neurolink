@@ -31,6 +31,12 @@ self-hosted engine, or add a dictionary and correction.
 
 ## SDK
 
+> **Security:** `audio` given as a URL must be HTTPS to a public host (set
+> `attachments.allowInsecureUrls` / `allowPrivateNetwork` on the instance to
+> relax that) and is capped while it downloads; `audio` given as a path is
+> bounded by `attachments.allowedRoots` when configured. See
+> [Attachment Security](/docs/features/attachment-security).
+
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
 
@@ -780,7 +786,16 @@ import { attachTranscribeWebSocket } from "@juspay/neurolink/server";
 
 const server = http.createServer(handler);
 const socket = await attachTranscribeWebSocket(server, neurolink, {
-  authToken: process.env.TRANSCRIBE_WS_TOKEN, // Authorization: Bearer, or ?token=
+  // Authorization: Bearer <token>, or the subprotocol "neurolink-api-key.<token>"
+  // offered next to "neurolink" (browsers cannot set headers). The token in the
+  // URL (?token=) is refused unless `allowQueryToken: true`: URLs are logged.
+  authToken: process.env.TRANSCRIBE_WS_TOKEN,
+  // Defaults: 100 sockets in all, 16 per remote address (a further upgrade is
+  // answered 503 before the handshake), a socket paused above 8 MiB of queued
+  // audio, 512 MiB queued across the process. `mode: "file"` on a non-loopback
+  // listener needs the token unless `allowUnauthenticatedFileMode: true`.
+  maxConnections: 100,
+  maxConnectionsPerAddress: 16,
 });
 server.listen(3000);
 ```
@@ -893,15 +908,26 @@ the profile named `default`, or the server's defaults. The client's `prompt`
 becomes correction context where the profile corrects; it is never sent to the
 engine, which could echo it. `attachTranscribeWebSocket()` takes
 `realtimeProfiles` (merged over the env) and `realtimePath` (`false` turns the
-route off). Auth is the server's API key, as `Authorization: Bearer`, `?token=`,
-or the `openai-insecure-api-key.<key>` subprotocol OpenAI's browser SDK sends.
+route off). Auth is the server's API key, as `Authorization: Bearer`, the
+`neurolink-api-key.<key>` subprotocol, or the `openai-insecure-api-key.<key>`
+subprotocol OpenAI's browser SDK sends; `?token=` only with
+`allowQueryToken: true`.
 
 ### STT evaluation: `POST /v1/evals/stt`
 
 A call can run two STTs on the same audio: the one people see (`primary`) and
 one run only to be compared (`shadow`). The sender posts both transcripts here
 in batches, and reads back how far apart they were per speaker. The server's
-API key guards it like every other route.
+API key guards it like every other route. **The collector is off by default**:
+it stores every transcript it is sent and reads them back to whoever asks. Mount
+it with `transcribe: { evals: {} }` in the route options (any
+`ServerSTTEvalOptions` object) or `NEUROLINK_STT_EVAL_ENABLED=1`; `evals: false`
+keeps it off whatever the environment says. Memory is bounded by `evals.maxBytes`
+(64 MiB of segments by default; the least recently updated calls are evicted,
+and stay on disk when a directory is set). When the server identifies callers
+(per-person authentication with `carryMiddlewareState`), a call belongs to the
+caller that created it: others cannot list, read or append to it. Calls made
+under no authentication or a shared key stay visible to every holder.
 
 ```jsonc
 POST /v1/evals/stt
@@ -943,7 +969,8 @@ Neither side is ground truth: a disagreement says the STTs differ, not which
 one is right. Calls live in memory unless `NEUROLINK_STT_EVAL_DIR` (or the
 `evals.dir` route option) names a directory, where each batch is appended to
 one JSON-lines file per call and replayed on start. `evals: false` in the
-transcribe route options removes the routes.
+transcribe route options keeps the routes off; so does leaving `evals` unset
+without `NEUROLINK_STT_EVAL_ENABLED=1`.
 
 **Langfuse.** With `NEUROLINK_STT_EVAL_LANGFUSE_PUBLIC_KEY` and
 `NEUROLINK_STT_EVAL_LANGFUSE_SECRET_KEY` set (and

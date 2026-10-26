@@ -207,12 +207,28 @@ Borrowed traffic is somebody else's conversation, so on the lender's node:
 
 - **Request and response bodies are never captured** for a borrowed request.
 - **`x-neurolink-account` and the pool counters are stripped** from borrowed
-  responses — that header carries the lender's account label, which for an OAuth
-  account is their email address.
-- **`GET /limits` is refused for borrowed traffic.** The operator view names
-  every account and its quota; a borrower gets `/peer/limits` instead.
+  responses on both the Claude and the Codex door — that header carries the
+  lender's account label, which for an OAuth account is their email address.
+- **Error messages name no account.** A borrower whose request ends in a 401 or
+  403 is told how many pooled accounts need attention, never which ones.
+- **`GET /limits` and `GET /accounts` are refused for borrowed traffic.** Both
+  operator views name every account with its quota and spend, and a live
+  refresh drives usage-API calls under the lender's tokens; a borrower gets
+  `/peer/limits` instead.
 - **`/status` releases account identity only to the update-control token** once
   the gate is on, since a gated proxy is by definition one that may be exposed.
+  With an inbound token configured, `/status` is refused outright without it.
+- **The borrower's own headers stay on the lender's node.** Only protocol
+  headers travel upstream; the share token, `x-neurolink-*`, trace context and
+  CDN/forwarding identity (`cf-connecting-ip`, `x-forwarded-for`, …) are
+  dropped, so a borrower's real address is never presented to the provider
+  under the lender's identity.
+- **Borrowed Codex requests cannot touch account-side state.**
+  `previous_response_id`, `prompt_cache_key`, `metadata` and `user` are
+  dropped and `store` is forced to `false`; `instructions` is the borrower's
+  own prompt and is kept.
+- **Borrowed requests never write the header snapshot.** The per-account
+  identity snapshot is captured only from the lender's own Claude Code client.
 
 The borrower still receives the quota and grant headers their routing needs.
 
@@ -479,9 +495,11 @@ NEUROLINK_PROXY_SHARE_LISTENER=0 neurolink proxy start   # or not at all
 ```
 
 `NEUROLINK_PROXY_REQUIRE_GRANT=1` still exists and now means something narrower:
-gate the **main** port as well. Reach for it only when you bind `0.0.0.0` with
-nothing in front of it — it refuses your own client too, which is what made it
-awkward in the first place.
+gate the **main** port as well. It is one of the three things that permit a
+non-loopback bind (the others are an inbound token and an explicit
+`--allow-unauthenticated`; see the Claude proxy guide's "Inbound
+authentication"). It refuses your own client too, which is what made it awkward
+in the first place — an inbound token is usually the better fit.
 
 ## Exposure
 

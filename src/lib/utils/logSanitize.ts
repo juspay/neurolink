@@ -95,6 +95,15 @@ const SENSITIVE_OBJECT_KEYS = [
 ];
 
 /**
+ * Whether `key` names a value that must never appear in a log — the same list
+ * {@link sanitizeRecord} masks, matched case-insensitively.
+ */
+export function isSensitiveLogKey(key: string): boolean {
+  const lower = key.toLowerCase();
+  return SENSITIVE_OBJECT_KEYS.some((name) => name.toLowerCase() === lower);
+}
+
+/**
  * Truncate `text` to `maxLen` chars then replace embedded secrets with `***`.
  *
  * Use this for free-form text logged from response/request bodies. For

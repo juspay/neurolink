@@ -170,6 +170,32 @@ HTTP transport-specific options
 
 ---
 
+### inheritParentEnv?
+
+> `optional` **inheritParentEnv?**: `boolean`
+
+stdio only. By default a spawned server receives the MCP SDK's minimal
+default environment (`HOME`, `PATH`, `SHELL`, `TERM`, `USER`, `LOGNAME`
+on POSIX) plus `env`; the parent's provider keys and tokens are not
+inherited. Set `true` to restore the previous behaviour of handing the
+server the whole parent `process.env`. Prefer explicit pass-through:
+`"env": { "OPENAI_API_KEY": "${OPENAI_API_KEY}" }`.
+
+---
+
+### allowPrivateNetwork?
+
+> `optional` **allowPrivateNetwork?**: `boolean`
+
+http / sse / websocket only. A transport URL must use `https:` or `wss:`
+unless its host is loopback, and its host must not resolve to a private,
+link-local, CGNAT or cloud-metadata address. Set `true` for a server on
+your own network: plaintext `http:` / `ws:` is then accepted for hosts
+that are (or resolve only to) private addresses. Public hosts still need
+TLS.
+
+---
+
 ### minTools?
 
 > `optional` **minTools?**: `number`

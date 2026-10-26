@@ -33,5 +33,6 @@
     "lenis": "^1.3.17",
     "satori": "^0.19.2",
     "satori-html": "^0.3.2"
-  }
+  },
+  "packageManager": "pnpm@10.34.7+sha512.upirxYVTmTM3W1lx9LxtbHOhtLftxKh559EC/lQj0eAjCdZ8YKEfBJVQk6luUhrZw7E4zdZUylvlY/N4s65IvQ=="
 }

@@ -225,6 +225,15 @@ export type NeurolinkConstructorConfig = {
    * See {@link MiddlewareFactoryOptions}.
    */
   middleware?: MiddlewareFactoryOptions;
+  /**
+   * What this instance may read or fetch when a call names a file path or URL
+   * (`input.files`, `input.images`, `rag.files`, `transcribe({ audio })`,
+   * Director Mode segment images). Unset: URLs must be HTTPS to a public host
+   * (redirects re-checked per hop), local paths are unrestricted but warn once.
+   * Set `allowedRoots` whenever the strings come from untrusted callers. See
+   * {@link AttachmentsConfig}.
+   */
+  attachments?: AttachmentsConfig;
 };
 
 /**
@@ -239,6 +248,20 @@ export type NeurolinkConstructorConfig = {
  * - middleware: Global tool execution middleware chain (empty by default)
  */
 export type MCPEnhancementsConfig = {
+  /**
+   * Explicit path of a project MCP configuration (`.mcp-config.json` shape)
+   * to load when MCP initialises. Relative paths resolve against the
+   * working directory. This is the SDK's only way to load a project file:
+   * the working directory is never searched implicitly, because a directory
+   * is not a trust boundary — a cloned repository's `.mcp-config.json`
+   * would otherwise run its servers with your credentials.
+   */
+  configPath?: string;
+  /**
+   * Load `<cwd>/.mcp-config.json` without naming it. Set this only when the
+   * working directory is one you control. Default: false.
+   */
+  trustProjectConfig?: boolean;
   /** Tool result caching. Default: enabled. Set enabled: false to opt out. */
   cache?: {
     enabled?: boolean;
@@ -632,6 +655,7 @@ import type {
   ToolRoutingConfig,
 } from "./index.js";
 import type { ModelAliasConfig } from "./generate.js";
+import type { AttachmentsConfig } from "./attachments.js";
 
 /** Timeout category keys from TOOL_TIMEOUTS. */
 export type TimeoutCategory = keyof typeof TOOL_TIMEOUTS;
@@ -714,4 +738,42 @@ export type NativeThinkingConfig = {
   includeThoughts: boolean;
   thinkingLevel?: ThinkingLevel;
   thinkingBudget?: number;
+};
+
+// ---------------------------------------------------------------------------
+// Implicit `.env` bootstrap (see src/lib/utils/dotenvBootstrap.ts)
+// ---------------------------------------------------------------------------
+
+export type DotenvBootstrapOptions = {
+  /**
+   * Who is loading. The CLI prints its notices to stderr; an SDK caller
+   * (opted in with `NEUROLINK_DOTENV=1` or by calling `loadDotenv()`) gets
+   * the same notices through `notify`, which defaults to stderr as well.
+   */
+  caller?: "cli" | "sdk";
+  /** Receives one human-readable line per notice. Default: `process.stderr`. */
+  notify?: (line: string) => void;
+};
+
+export type DotenvBootstrapResult = {
+  /** Whether a `.env` file was read. */
+  loaded: boolean;
+  /** Absolute path of the file that was (or would have been) read. */
+  path?: string;
+  /** Variables the file supplied that were absent from the environment. */
+  supplied: string[];
+  /**
+   * The subset of `supplied` that redirects traffic or file access: provider
+   * `*_BASE_URL` / `*_ENDPOINT(S)` variables, `NEUROLINK_*_DIR` directories
+   * and `DOTENV_CONFIG_PATH`. Still set unless listed under `refused`.
+   */
+  endpointOverrides: string[];
+  /**
+   * Endpoint overrides deleted again because the file is not owned by the
+   * current user or is group/world-writable. Export them in the shell to use
+   * them.
+   */
+  refused: string[];
+  /** Why loading was skipped or overrides were refused, when either happened. */
+  reason?: string;
 };

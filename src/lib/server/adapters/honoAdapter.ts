@@ -24,6 +24,9 @@ import type {
   HonoRateLimitEntry,
 } from "../../types/index.js";
 import { markContextCarried } from "../utils/carriedContextMark.js";
+import { resolveClientAddress } from "../utils/clientAddress.js";
+import { shapeRouteError } from "../utils/clientError.js";
+import { pathMatchesAny } from "../utils/pathMatch.js";
 import { isErrorResponse } from "../utils/validation.js";
 import {
   isRawBodyContentType,
@@ -63,9 +66,13 @@ export class HonoServerAdapter extends BaseServerAdapter {
   // Populated by initializeFramework's dynamic imports; used by methods that
   // run after initialization (route registration, streaming) and so cannot
   // rely on initializeFramework's own local closure variables.
-  private HTTPExceptionCtor!: typeof import("hono/http-exception").HTTPException;
   private streamSSEFn!: typeof import("hono/streaming").streamSSE;
   private parseFormBody!: typeof import("hono/utils/body").parseBody;
+  // The runtime's view of the TCP peer (Node, Bun or Deno); undefined where the
+  // runtime offers none, and then requests carry no address.
+  private getConnInfoFn?: typeof import("@hono/node-server/conninfo").getConnInfo;
+  // The rate limiter counts nothing it cannot attribute, and says so once.
+  private warnedNoClientAddress = false;
 
   constructor(neurolink: NeuroLink, config: ServerAdapterConfig = {}) {
     super(neurolink, config);
@@ -80,16 +87,12 @@ export class HonoServerAdapter extends BaseServerAdapter {
   ) => Promise<Response | void> {
     return async (c: HonoContext, next: Next): Promise<Response | void> => {
       // Skip rate limiting for excluded paths
-      if (this.config.rateLimit.skipPaths) {
-        for (const skipPath of this.config.rateLimit.skipPaths) {
-          if (c.req.path.startsWith(skipPath)) {
-            return next();
-          }
-        }
+      if (pathMatchesAny(c.req.path, this.config.rateLimit.skipPaths)) {
+        return next();
       }
 
       // Use custom keyGenerator if provided, otherwise default to IP-based key
-      let key: string;
+      let key: string | undefined;
       if (this.config.rateLimit.keyGenerator) {
         // Build minimal context for keyGenerator
         const headers: Record<string, string> = {};
@@ -108,13 +111,30 @@ export class HonoServerAdapter extends BaseServerAdapter {
           externalServerManager: this.externalServerManager,
           timestamp: Date.now(),
           metadata: {},
+          remoteAddress: this.remoteAddressFor(c),
         };
         key = this.config.rateLimit.keyGenerator(minCtx as ServerContext);
       } else {
-        key =
-          c.req.header("x-forwarded-for") ||
-          c.req.header("x-real-ip") ||
-          "unknown";
+        // The TCP peer, or behind a declared proxy the client it reports. A
+        // header alone used to be the key, so one shared "unknown" bucket
+        // served every direct client and a rotating X-Forwarded-For escaped
+        // the limit; a request with no attributable address is now let
+        // through rather than pooled with every other such request.
+        key = resolveClientAddress({
+          remoteAddress: this.remoteAddressFor(c),
+          forwardedFor: c.req.header("x-forwarded-for"),
+          trustProxy: this.config.rateLimit.trustProxy,
+          trustedProxies: this.config.rateLimit.trustedProxies,
+        });
+        if (key === undefined) {
+          if (!this.warnedNoClientAddress) {
+            this.warnedNoClientAddress = true;
+            logger.alwaysStderr(
+              "[HonoAdapter] The runtime reports no peer address for requests, so the rate limiter cannot count them; configure rateLimit.keyGenerator to limit by another key.",
+            );
+          }
+          return next();
+        }
       }
       const now = Date.now();
       const windowMs = this.config.rateLimit.windowMs;
@@ -217,9 +237,9 @@ export class HonoServerAdapter extends BaseServerAdapter {
       ),
     ]);
 
-    this.HTTPExceptionCtor = HTTPException;
     this.streamSSEFn = streamSSE;
     this.parseFormBody = parseBody;
+    this.getConnInfoFn = await this.loadConnInfo();
 
     this.app = new Hono();
 
@@ -357,6 +377,7 @@ export class HonoServerAdapter extends BaseServerAdapter {
       // Track connection for graceful shutdown
       this.trackConnection(connectionId, undefined, requestId);
 
+      let abort: ReturnType<typeof this.attachRequestAbort> | undefined;
       try {
         // Extract path parameters
         const params = c.req.param() as Record<string, string>;
@@ -386,6 +407,17 @@ export class HonoServerAdapter extends BaseServerAdapter {
           }
           ctx = created;
         }
+
+        // The handler learns of a client that went away through the request's
+        // own signal, and of the request timeout through the same controller
+        // (Hono's timeout middleware answers 504; this stops the work).
+        abort = this.attachRequestAbort(ctx, {
+          onClientClose: (listener) =>
+            c.req.raw.signal.addEventListener("abort", listener, {
+              once: true,
+            }),
+          applyTimeout: !route.streaming?.enabled,
+        });
 
         // Emit request event
         this.emit("request", {
@@ -482,17 +514,25 @@ export class HonoServerAdapter extends BaseServerAdapter {
           },
         });
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-
-        logger.error("[HonoAdapter] Handler error", {
+        // The exception's text stays in the log under this request id; the
+        // client gets a fixed message for its category. It used to get the
+        // text itself, environment variable names and upstream bodies included.
+        const shaped = shapeRouteError("HonoAdapter", requestId, error);
+        this.emit("response", {
           requestId,
-          route: route.path,
-          error: errorMessage,
-        });
-
-        throw new this.HTTPExceptionCtor(500, { message: errorMessage });
+          statusCode: shaped.status,
+          duration: Date.now() - startTime,
+          timestamp: new Date(),
+        } satisfies ServerAdapterEvents["response"]);
+        return c.json(
+          {
+            error: { code: shaped.code, message: shaped.message },
+            metadata: { requestId, timestamp: new Date().toISOString() },
+          },
+          shaped.status as ContentfulStatusCode,
+        );
       } finally {
+        abort?.release();
         // Untrack connection when request completes
         this.untrackConnection(connectionId);
         // Clean up context store to prevent memory leaks
@@ -567,13 +607,14 @@ export class HonoServerAdapter extends BaseServerAdapter {
           data: "[DONE]",
         });
       } catch (error) {
+        const shaped = shapeRouteError("HonoAdapter", ctx.requestId, error);
         await stream.writeSSE({
           data: JSON.stringify({
             type: "error",
             error: {
-              code: "STREAM_ERROR",
-              message: error instanceof Error ? error.message : "Stream error",
-              status: 500,
+              code: shaped.code,
+              message: shaped.message,
+              status: shaped.status,
             },
             timestamp: Date.now(),
           }),
@@ -642,7 +683,7 @@ export class HonoServerAdapter extends BaseServerAdapter {
     for (const path of paths) {
       this.app.use(path, async (c, next) => {
         // Skip excluded paths
-        if (middleware.excludePaths?.some((p) => c.req.path.startsWith(p))) {
+        if (pathMatchesAny(c.req.path, middleware.excludePaths)) {
           return next();
         }
 
@@ -738,6 +779,7 @@ export class HonoServerAdapter extends BaseServerAdapter {
       this.lifecycleState = "running";
 
       logger.info(`[HonoAdapter] Server started on ${host}:${port}`);
+      this.warnIfSensitiveRoutesUnauthenticated();
 
       this.emit("started", {
         port,
@@ -880,6 +922,47 @@ export class HonoServerAdapter extends BaseServerAdapter {
     return headers;
   }
 
+  /**
+   * The runtime's connection-info helper: `@hono/node-server`'s on Node, the
+   * Bun or Deno adapter's there. Absent on a runtime that offers none.
+   */
+  private async loadConnInfo(): Promise<
+    typeof import("@hono/node-server/conninfo").getConnInfo | undefined
+  > {
+    try {
+      if (typeof Bun !== "undefined") {
+        const bun = await import("hono/bun");
+        return bun.getConnInfo;
+      }
+      if (typeof Deno !== "undefined") {
+        const deno = await import("hono/deno");
+        return deno.getConnInfo;
+      }
+      const node = await import("@hono/node-server/conninfo");
+      return node.getConnInfo;
+    } catch (error) {
+      logger.debug("[HonoAdapter] No connection-info helper for this runtime", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return undefined;
+    }
+  }
+
+  /** The TCP peer of this request, when the runtime reports one. */
+  private remoteAddressFor(c: HonoContext): string | undefined {
+    if (!this.getConnInfoFn) {
+      return undefined;
+    }
+    try {
+      const address = this.getConnInfoFn(c).remote.address;
+      return typeof address === "string" && address.length > 0
+        ? address
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   private extractQuery(c: HonoContext): Record<string, string> {
     const query: Record<string, string> = {};
     const url = new URL(c.req.url);
@@ -932,6 +1015,7 @@ export class HonoServerAdapter extends BaseServerAdapter {
       query: this.extractQuery(c),
       params,
       body,
+      remoteAddress: this.remoteAddressFor(c),
     });
   }
 

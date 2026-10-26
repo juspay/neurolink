@@ -541,6 +541,48 @@ export type AllToolsMap = {
 };
 
 /**
+ * Outcome of evaluating a `calculateMath` expression with the built-in
+ * arithmetic parser (no dynamic code). A result that is not a finite number
+ * is reported as an error rather than as `Infinity`/`NaN`.
+ */
+export type ArithmeticEvaluation =
+  | { ok: true; value: number }
+  | { ok: false; error: string };
+
+/** One lexical token of a `calculateMath` expression (`at` is its offset). */
+export type ArithmeticToken =
+  | { kind: "number"; value: number; at: number }
+  | { kind: "identifier"; name: string; at: number }
+  | { kind: "operator"; value: "+" | "-" | "*" | "/" | "%" | "**"; at: number }
+  | { kind: "paren"; value: "(" | ")"; at: number }
+  | { kind: "comma"; at: number }
+  | { kind: "end"; at: number };
+
+/** A JSON Schema node as the JSON-Schema-to-Zod converter walks it. */
+export type SchemaConversionNode = Record<string, unknown>;
+
+/** State threaded through one JSON-Schema-to-Zod conversion. */
+export type SchemaConversionContext = {
+  /** The document root, for resolving local `$ref`s. */
+  root: SchemaConversionNode;
+  /** `$ref` targets on the current path, so a self-referential schema terminates. */
+  refStack: Set<string>;
+  /** Called for each `pattern` the converter refused to compile. */
+  onRegexDrop: (drop: SchemaRegexDrop) => void;
+};
+
+/**
+ * One regular expression removed from a JSON Schema before the schema is
+ * compiled, because `vetRegexPattern` judged it able to stall the process.
+ * `path` is the JSON-pointer-like location of the keyword (`properties/name/pattern`).
+ */
+export type SchemaRegexDrop = {
+  path: string;
+  pattern: string;
+  reason: string;
+};
+
+/**
  * Tool registry entry
  */
 export type ToolRegistryEntry = {

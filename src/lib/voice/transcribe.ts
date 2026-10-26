@@ -13,9 +13,12 @@
  * @module voice/transcribe
  */
 
-import { promises as fs } from "fs";
 import { extname } from "path";
 import { fileURLToPath } from "url";
+import {
+  downloadAttachment,
+  readAttachmentFile,
+} from "../utils/attachmentPolicy.js";
 import {
   guardEngineResult,
   promptTermsOf,
@@ -26,6 +29,7 @@ import { alignWordsToText } from "./correction/align.js";
 import { normalizeLanguageCode } from "./languages.js";
 import { outputLanguagesOf, renderOutputs } from "./output/render.js";
 import type {
+  AttachmentPolicy,
   STTDictionaryEntry,
   STTLanguageScore,
   STTOptions,
@@ -113,6 +117,13 @@ function correctionLinesDisabled(): boolean {
 /** Default timeout for fetching an `http(s)://` audio input. */
 const URL_FETCH_TIMEOUT_MS = 60_000;
 
+/**
+ * Ceiling for a recording named by path or URL: 512 MiB, the same budget the
+ * transcription WebSocket allows a file-mode upload. `attachments.maxBytes`
+ * lowers it.
+ */
+const TRANSCRIBE_AUDIO_MAX_BYTES = 512 * 1024 * 1024;
+
 /** Container names an extension or magic number can map to. */
 const KNOWN_FORMATS: readonly TTSAudioFormat[] = [
   "mp3",
@@ -199,6 +210,7 @@ export function audioFormatFromBytes(
 export async function loadTranscribeAudio(
   input: TranscribeAudioInput,
   timeoutMs?: number,
+  attachmentPolicy?: AttachmentPolicy,
 ): Promise<{ buffer: Buffer; formatHint?: TTSAudioFormat }> {
   if (Buffer.isBuffer(input)) {
     return { buffer: input };
@@ -222,19 +234,20 @@ export async function loadTranscribeAudio(
 
   const source = input.trim();
   if (/^https?:\/\//i.test(source)) {
-    const controller = new AbortController();
     const limit = timeoutMs ?? URL_FETCH_TIMEOUT_MS;
-    const timer = setTimeout(() => controller.abort(), limit);
     try {
-      const response = await fetch(source, { signal: controller.signal });
-      if (!response.ok) {
-        throw STTError.audioLoadFailed(
-          `fetching the audio URL returned HTTP ${response.status}`,
-        );
-      }
-      const buffer = Buffer.from(await response.arrayBuffer());
+      // The instance's attachment policy: HTTPS to a public host unless it
+      // says otherwise, the connection pinned to the vetted addresses,
+      // redirects re-validated per hop, and the body bounded while it
+      // streams rather than read whole with `arrayBuffer()`.
+      const downloaded = await downloadAttachment(source, {
+        policy: attachmentPolicy,
+        maxBytes: TRANSCRIBE_AUDIO_MAX_BYTES,
+        label: "audio URL",
+        timeoutMs: limit,
+      });
       return {
-        buffer,
+        buffer: downloaded.buffer,
         formatHint: audioFormatFromName(new URL(source).pathname),
       };
     } catch (error) {
@@ -248,8 +261,6 @@ export async function loadTranscribeAudio(
           : `fetching the audio URL failed: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error : undefined,
       );
-    } finally {
-      clearTimeout(timer);
     }
   }
 
@@ -263,16 +274,27 @@ export async function loadTranscribeAudio(
     );
   }
   try {
+    // Roots containment when configured, O_NOFOLLOW open of the real path,
+    // regular files only, bounded read.
+    const read = await readAttachmentFile(path, {
+      policy: attachmentPolicy,
+      maxBytes: TRANSCRIBE_AUDIO_MAX_BYTES,
+      label: "audio file",
+    });
     return {
-      buffer: await fs.readFile(path),
+      buffer: read.buffer,
       formatHint: audioFormatFromName(path),
     };
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException | undefined)?.code;
+    const code = (error as { code?: unknown } | undefined)?.code;
+    const detail =
+      typeof code === "string" && code.startsWith("ATTACHMENT_")
+        ? error instanceof Error
+          ? error.message
+          : String(error)
+        : `reading the file failed${code ? ` (${String(code)})` : ""}`;
     throw STTError.audioLoadFailed(
-      code === "ENOENT"
-        ? "no file at the given path"
-        : `reading the file failed${code ? ` (${code})` : ""}`,
+      code === "ENOENT" ? "no file at the given path" : detail,
       error instanceof Error ? error : undefined,
     );
   }
@@ -761,6 +783,7 @@ async function transcribeLayers(
   const { buffer, formatHint } = await loadTranscribeAudio(
     options.audio,
     options.timeoutMs,
+    deps.attachmentPolicy,
   );
   if (buffer.length === 0) {
     throw STTError.audioEmpty(options.provider);

@@ -22,7 +22,12 @@ import { TOOL_EVENTS_WRAPPED } from "../../types/index.js";
 import { getKeyCount } from "../../utils/transformationUtils.js";
 import { extractIsErrorText } from "../../utils/toolResultStatus.js";
 import { createToolExecutionId } from "../../utils/toolExecutionId.js";
-import { convertJsonSchemaToZod } from "../../utils/schemaConversion.js";
+import {
+  convertJsonSchemaToZod,
+  stripUnsafeRegexPatterns,
+} from "../../utils/schemaConversion.js";
+import { HITLUserRejectedError } from "../../hitl/hitlErrors.js";
+import type { HITLManager } from "../../types/index.js";
 import {
   generateToolOutputPreview,
   DEFAULT_MAX_PREVIEW_BYTES,
@@ -60,19 +65,64 @@ function makeToolAbortError(): Error {
 }
 
 /**
- * Compiled-validator cache, keyed by the ORIGINAL MCP tool inputSchema
- * object. createExternalMCPTool runs once per external tool on EVERY
- * getAllTools() (i.e. every generation call), and the schema object identity
- * is stable for the lifetime of a server connection — without the cache the
- * same JSON Schema is recompiled on every generate() (hot-path CPU for
- * 50+-tool deployments). Rediscovery produces new schema objects, so stale
- * entries fall out via WeakMap semantics. `undefined` values (schemas that
- * failed to compile) are cached too — hence has()/get() rather than a
- * get()-only check.
+ * Built-in tools that change the machine. While HITL is enabled they require
+ * confirmation on every call, whatever `dangerousActions` lists, unless the
+ * host sets `hitl.confirmBuiltinTools: false`. The other built-ins (clock,
+ * arithmetic, reads, directory listings, CSV analysis, web search) are gated
+ * by `dangerousActions` keywords and `customRules` like every other tool.
  */
-const mcpValidatorCache = new WeakMap<
+const HITL_ALWAYS_CONFIRM_DIRECT_TOOLS: ReadonlySet<string> = new Set([
+  "writeFile",
+  "executeBashCommand",
+]);
+
+/** serverId the registry uses for the built-in tools; reused in HITL requests. */
+const DIRECT_TOOL_SERVER_ID = "direct";
+
+/** Tool names a provider accepts: 1-64 characters from this set. */
+const TOOL_NAME_SAFE_CHARS = /[^A-Za-z0-9_-]/g;
+const MAX_TOOL_NAME_LENGTH = 64;
+
+/**
+ * `<serverId>__<tool>`, reduced to the characters every provider accepts and
+ * to 64 characters, keeping the tool name's tail (the distinctive part) when
+ * the two together are too long.
+ */
+function qualifyToolName(serverId: string, toolName: string): string {
+  const safeServer = serverId.replace(TOOL_NAME_SAFE_CHARS, "_") || "server";
+  const safeTool = toolName.replace(TOOL_NAME_SAFE_CHARS, "_") || "tool";
+  const joined = `${safeServer}__${safeTool}`;
+  if (joined.length <= MAX_TOOL_NAME_LENGTH) {
+    return joined;
+  }
+  const room = MAX_TOOL_NAME_LENGTH - safeTool.length - 2;
+  return room > 0
+    ? `${safeServer.slice(0, room)}__${safeTool}`
+    : joined.slice(-MAX_TOOL_NAME_LENGTH);
+}
+
+/**
+ * Per-schema cache of the prepared declaration and compiled validator, keyed
+ * by the ORIGINAL MCP tool inputSchema object. createExternalMCPTool runs once
+ * per external tool on EVERY getAllTools() (i.e. every generation call), and
+ * the schema object identity is stable for the lifetime of a server connection
+ * — without the cache the same JSON Schema is cloned, vetted and recompiled on
+ * every generate() (hot-path CPU for 50+-tool deployments). Rediscovery
+ * produces new schema objects, so stale entries fall out via WeakMap
+ * semantics. An `undefined` validator (a schema that failed to compile) is
+ * cached too — hence has()/get() rather than a get()-only check.
+ *
+ * `schema` is the declaration the model sees: strict-mode fixed and with every
+ * regular expression `vetRegexPattern` refused removed. The removal
+ * happens once per schema object, so its warning fires once per schema, not
+ * once per request.
+ */
+const mcpSchemaCache = new WeakMap<
   Record<string, unknown>,
-  Awaited<ReturnType<typeof buildMCPSchemaValidator>>
+  {
+    schema: Record<string, unknown>;
+    validate: Awaited<ReturnType<typeof buildMCPSchemaValidator>>;
+  }
 >();
 
 /**
@@ -317,6 +367,90 @@ export class ToolsManager {
           ? await raceWithAbortSignal(inner, signal)
           : await inner;
       return this.truncateToolResult(toolName, result);
+    };
+  }
+
+  /**
+   * The HITL manager of the owning NeuroLink instance, when one is configured.
+   * It lives on the tool registry (`setHITLManager`), which is also where the
+   * registered-tool execution path reads it, so the two paths cannot disagree.
+   */
+  private resolveHITLManager(): HITLManager | undefined {
+    const registry = this.neurolink?.getToolRegistry?.();
+    const manager =
+      registry && typeof registry.getHITLManager === "function"
+        ? registry.getHITLManager()
+        : undefined;
+    return manager && manager.isEnabled() ? manager : undefined;
+  }
+
+  /**
+   * Whether a built-in tool call must be confirmed by a human first.
+   *
+   * Same rule as `MCPToolRegistry.executeTool` applies to registered tools —
+   * `dangerousActions` keywords and `customRules` — plus the built-in tools
+   * that change the machine (`HITL_ALWAYS_CONFIRM_DIRECT_TOOLS`), which are
+   * confirmed on every call unless `hitl.confirmBuiltinTools` is `false`.
+   */
+  private directToolNeedsConfirmation(
+    manager: HITLManager,
+    toolName: string,
+    params: unknown,
+  ): boolean {
+    if (manager.requiresConfirmation(toolName, params)) {
+      return true;
+    }
+    if (!HITL_ALWAYS_CONFIRM_DIRECT_TOOLS.has(toolName)) {
+      return false;
+    }
+    const confirmBuiltins = manager.getConfig().confirmBuiltinTools;
+    return confirmBuiltins !== false;
+  }
+
+  /**
+   * Gate a built-in (direct) tool's execute behind the instance's HITL
+   * manager, with the semantics of the registry path: a denial throws
+   * `HITLUserRejectedError` (the loop reports it to the model as a failed
+   * call), a timeout propagates the manager's `HITLTimeoutError` (or the
+   * auto-approval it is configured for), and user-modified arguments replace
+   * the model's. Without HITL the execute runs untouched.
+   *
+   * Direct tools reach the model through `getAllTools()` and are executed by
+   * the provider loops directly, never through `MCPToolRegistry.executeTool`
+   * — so before this wrapper the registry's HITL check never saw them, and
+   * `writeFile` / `executeBashCommand` ran unconfirmed while the bash tool's
+   * own description promised otherwise.
+   */
+  private wrapExecuteWithHITL(
+    toolName: string,
+    execute: (params: unknown, execOptions?: unknown) => Promise<unknown>,
+  ): (params: unknown, execOptions?: unknown) => Promise<unknown> {
+    return async (params: unknown, execOptions?: unknown): Promise<unknown> => {
+      const manager = this.resolveHITLManager();
+      if (
+        !manager ||
+        !this.directToolNeedsConfirmation(manager, toolName, params)
+      ) {
+        return execute(params, execOptions);
+      }
+      logger.info(`Built-in tool '${toolName}' requires HITL confirmation`);
+      const confirmation = await manager.requestConfirmation(toolName, params, {
+        serverId: DIRECT_TOOL_SERVER_ID,
+        sessionId: this.sessionId,
+        userId: this.userId,
+      });
+      if (!confirmation.approved) {
+        throw new HITLUserRejectedError(
+          `Tool execution rejected by user: ${confirmation.reason || "No reason provided"}`,
+          toolName,
+          confirmation.reason,
+        );
+      }
+      const finalParams =
+        confirmation.modifiedArguments !== undefined
+          ? confirmation.modifiedArguments
+          : params;
+      return execute(finalParams, execOptions);
     };
   }
 
@@ -964,10 +1098,12 @@ export class ToolsManager {
           }
         ).execute;
 
-        // Create a new tool with wrapped execute function (BZ-666/BZ-664 guards applied)
+        // Create a new tool with wrapped execute function (BZ-666/BZ-664 guards applied).
+        // HITL sits INSIDE the truncation wrapper so a pending confirmation is
+        // raced against the loop's abort signal like any other tool wait.
         const guardedExecute = this.wrapExecuteWithTruncation(
           toolName,
-          originalExecute,
+          this.wrapExecuteWithHITL(toolName, originalExecute),
         );
         tools[toolName] = markEventWrapped({
           ...(directTool as Tool),
@@ -1065,11 +1201,36 @@ export class ToolsManager {
     try {
       const externalTools = await this.neurolink.getExternalMCPTools();
 
+      // Which server owns each external name added in this pass, so a
+      // collision names both sides. Names present before this phase belong to
+      // a built-in or a registered tool.
+      const externalOwners = new Map<string, string>();
       let addedCount = 0;
       for (const tool of externalTools) {
-        const mcpTool = await this.createExternalMCPTool(tool);
-        if (mcpTool && !tools[tool.name]) {
-          tools[tool.name] = mcpTool;
+        const serverId = tool.serverId || "unknown";
+        let registeredName = tool.name;
+        if (tools[tool.name]) {
+          // A silent first-wins drop here left the losing server's tool
+          // unreachable, with the outcome depending on connection order
+          //. Keep both: the later one is registered
+          // under `<serverId>__<tool>` so the model can still call it.
+          const owner = externalOwners.get(tool.name);
+          const qualified = qualifyToolName(serverId, tool.name);
+          if (tools[qualified]) {
+            logger.warn(
+              `[ToolsManager] Tool name collision: '${tool.name}' from server '${serverId}' is already provided by ${owner ? `server '${owner}'` : "a built-in or registered tool"}, and the qualified name '${qualified}' is taken too; the '${serverId}' copy is not exposed to the model`,
+            );
+            continue;
+          }
+          logger.warn(
+            `[ToolsManager] Tool name collision: '${tool.name}' from server '${serverId}' is already provided by ${owner ? `server '${owner}'` : "a built-in or registered tool"}; the '${serverId}' copy is exposed as '${qualified}'`,
+          );
+          registeredName = qualified;
+        }
+        const mcpTool = await this.createExternalMCPTool(tool, registeredName);
+        if (mcpTool) {
+          tools[registeredName] = mcpTool;
+          externalOwners.set(registeredName, serverId);
           addedCount++;
         }
       }
@@ -1341,40 +1502,78 @@ export class ToolsManager {
   }
 
   /**
-   * Create an external MCP tool
+   * Prepare an external tool's declaration and validator from its inputSchema,
+   * once per schema object (see mcpSchemaCache).
+   *
+   * The schema is a remote server's data. Every `pattern` and every
+   * `patternProperties` key in it is compiled with `new RegExp` by the
+   * validator on each check, so one nested-quantifier pattern from a server
+   * could stall the event loop for seconds per tool call.
+   * Patterns `vetRegexPattern` refuses are removed before the validator is
+   * built and reported once, at warn level.
    */
-  private async createExternalMCPTool(tool: {
-    name: string;
-    description?: string;
-    inputSchema?: StandardRecord;
-    serverId?: string;
-  }): Promise<Tool | null> {
+  private async prepareExternalToolSchema(
+    toolName: string,
+    serverId: string,
+    originalSchema: Record<string, unknown>,
+  ): Promise<{
+    schema: Record<string, unknown>;
+    validate: Awaited<ReturnType<typeof buildMCPSchemaValidator>>;
+  }> {
+    const cached = mcpSchemaCache.get(originalSchema);
+    if (cached) {
+      return cached;
+    }
+    // Clone and fix the schema for OpenAI strict mode compatibility
+    const fixedSchema = this.utilities?.fixSchemaForOpenAIStrictMode
+      ? this.utilities.fixSchemaForOpenAIStrictMode(originalSchema)
+      : originalSchema;
+    const { schema, drops } = stripUnsafeRegexPatterns(fixedSchema);
+    if (drops.length > 0) {
+      logger.warn(
+        `[ToolsManager] Removed ${drops.length} regular expression pattern(s) from the schema of tool '${toolName}' (server '${serverId}') because they could stall the process; the affected fields are validated without them`,
+        { drops: drops.map(({ path, reason }) => ({ path, reason })) },
+      );
+    }
+    // A jsonSchema() wrapper WITHOUT a validate function is declarative
+    // only — the AI SDK passes any parsed arguments straight through
+    // (safeValidateTypes short-circuits on `validate == null`). That let
+    // malformed calls (missing required params, "123" for a number)
+    // reach execution, where the MCP-layer validator rejected them at
+    // the cost of a full model round-trip. Attach a real validator so
+    // invalid calls fail at parse time, where experimental_repairToolCall
+    // can still fix them silently.
+    const validate = await buildMCPSchemaValidator(toolName, schema);
+    const prepared = { schema, validate };
+    mcpSchemaCache.set(originalSchema, prepared);
+    return prepared;
+  }
+
+  /**
+   * Create an external MCP tool. `registeredName` is the key the tool is
+   * exposed under — normally `tool.name`, or `<serverId>__<tool.name>` after a
+   * collision — and is what events and spans report; execution always goes to
+   * the owning server by the tool's own name.
+   */
+  private async createExternalMCPTool(
+    tool: {
+      name: string;
+      description?: string;
+      inputSchema?: StandardRecord;
+      serverId?: string;
+    },
+    registeredName: string = tool.name,
+  ): Promise<Tool | null> {
     try {
       // Use original JSON Schema from MCP tool if available, otherwise use permissive schema
       let finalSchema;
       if (tool.inputSchema && typeof tool.inputSchema === "object") {
-        // Clone and fix the schema for OpenAI strict mode compatibility
-        const originalSchema = tool.inputSchema as Record<string, unknown>;
-        const fixedSchema = this.utilities?.fixSchemaForOpenAIStrictMode
-          ? this.utilities.fixSchemaForOpenAIStrictMode(originalSchema)
-          : originalSchema;
-        // A jsonSchema() wrapper WITHOUT a validate function is declarative
-        // only — the AI SDK passes any parsed arguments straight through
-        // (safeValidateTypes short-circuits on `validate == null`). That let
-        // malformed calls (missing required params, "123" for a number)
-        // reach execution, where the MCP-layer validator rejected them at
-        // the cost of a full model round-trip. Attach a real validator so
-        // invalid calls fail at parse time, where experimental_repairToolCall
-        // can still fix them silently. Compiled once per schema object —
-        // see mcpValidatorCache.
-        let validate: Awaited<ReturnType<typeof buildMCPSchemaValidator>>;
-        if (mcpValidatorCache.has(originalSchema)) {
-          validate = mcpValidatorCache.get(originalSchema);
-        } else {
-          validate = await buildMCPSchemaValidator(tool.name, fixedSchema);
-          mcpValidatorCache.set(originalSchema, validate);
-        }
-        finalSchema = jsonSchema(fixedSchema, validate ? { validate } : {});
+        const { schema, validate } = await this.prepareExternalToolSchema(
+          tool.name,
+          tool.serverId || "unknown",
+          tool.inputSchema as Record<string, unknown>,
+        );
+        finalSchema = jsonSchema(schema, validate ? { validate } : {});
       } else {
         finalSchema = this.utilities?.createPermissiveZodSchema
           ? this.utilities.createPermissiveZodSchema()
@@ -1398,7 +1597,7 @@ export class ToolsManager {
         );
       };
       const guardedExecute = this.wrapExecuteWithTruncation(
-        tool.name,
+        registeredName,
         rawExecute,
       );
 
@@ -1419,7 +1618,7 @@ export class ToolsManager {
         createAISDKTool<unknown, unknown>({
           description: tool.description || `External MCP tool ${tool.name}`,
           inputSchema: finalSchema, // AI SDK v6 uses inputSchema (not parameters)
-          execute: this.wrapExecuteWithEvents(tool.name, loggedExecute),
+          execute: this.wrapExecuteWithEvents(registeredName, loggedExecute),
         }),
       );
     } catch (toolCreationError) {

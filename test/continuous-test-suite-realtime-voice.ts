@@ -1684,8 +1684,10 @@ async function xaiStubSection(): Promise<void> {
             requestConfirmation: async () => true,
           });
           try {
+            // @livekit/agents >= 1.9 returns a `llm.ToolContext` instance; the
+            // registered names live on `.functionTools`, not on the object itself.
             assertSame(
-              Object.keys(toolset.tools),
+              Object.keys(toolset.tools.functionTools),
               ["lookup"],
               "tools the bridge registered",
             );
@@ -1815,12 +1817,15 @@ async function xaiStubSection(): Promise<void> {
             replies.length > 0,
           "the transcript, the metrics and the reply",
         );
+        // agents-plugin-xai >= 1.9 emits the completed transcription with
+        // `isFinal: false`; realtimeVoiceAgent treats an xAI transcript as
+        // final regardless (see its UserInputTranscribed handler).
         assertSame(
           userTranscripts[0],
           {
             itemId: "user_1",
             transcript: "what is on my calendar",
-            isFinal: true,
+            isFinal: false,
           },
           "user transcript",
         );
@@ -2117,10 +2122,12 @@ async function startRefusingStub(): Promise<{
 }
 
 async function xaiRefusedUpgradeSection(): Promise<void> {
-  // The plugin opens its socket with no 'error' listener, so a refused upgrade
-  // is an uncaught exception, and a process without a handler for it exits. The
-  // child absorbs that the way a worker's process guards do; what is under test
-  // is what this package did with the crash before that.
+  // Up to agents-plugin-xai 1.4 the plugin opened its socket with no 'error'
+  // listener, so a refused upgrade was an uncaught exception; since 1.9 the
+  // plugin reports it as its own session error, worded for OpenAI and naming
+  // no key. The child still guards against a crash the way a worker does; what
+  // is under test is that this package turns either report into one classified
+  // error naming the status and XAI_API_KEY, and ends its watch.
   await test("xai plugin against a server that refuses the upgrade with HTTP 400: the session reports one classified, unrecoverable error that names the key and not its value, and an unrelated crash is not taken for it", async () => {
     const stub = await startRefusingStub();
     try {
@@ -2130,9 +2137,12 @@ async function xaiRefusedUpgradeSection(): Promise<void> {
         XAI_REALTIME_BASE_URL: stub.url,
       });
       const outcome = refusedUpgradeSchema.parse(result);
+      // agents-plugin-xai >= 1.9 reports the refusal as its own session error
+      // instead of an uncaught exception; the xAI watch relabels that event and
+      // ends. Nothing may escape to the process any more.
       assert(
-        outcome.uncaught.includes("Unexpected server response: 400"),
-        "the plugin no longer leaves a refused upgrade as an uncaught exception, so this case no longer describes it",
+        outcome.uncaught.length === 0,
+        "a refused upgrade escaped as an uncaught exception again; the watch would then be the only report",
       );
       assert(
         outcome.errorsAfterUnrelatedCrash === 0,

@@ -24,7 +24,14 @@
  * to change them. Listeners receive every event of the speakers they follow,
  * tagged with `speaker`, and only the `output` events of their languages; a
  * session renders each utterance once into the union of its listeners'
- * languages. A session lives while a speaker or a listener is connected.
+ * languages. A session lives while a speaker or a listener is connected. The
+ * speaker that opens a session may add `&secret=<value>`; every later speaker
+ * and listener must then present the same secret, so a session id alone does
+ * not admit a stranger (`requireSessionSecret` makes the secret mandatory).
+ *
+ * Limits: sockets are capped in all and per remote address (503 before the
+ * handshake), a socket that sends faster than the engine takes is paused at a
+ * high-water mark, and queued audio is budgeted across the process.
  *
  * OpenAI Realtime transcription (default path `/v1/realtime`,
  * `?intent=transcription`): the same pipeline behind OpenAI's protocol, for
@@ -51,6 +58,7 @@ import type {
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 import { timingSafeEqualString } from "../voice/tokenCompare.js";
+import { canonicalAddress, isLoopbackAddress } from "../utils/clientAddress.js";
 import {
   TranscribeOutputControlSchema,
   TranscribeStreamConfigSchema,
@@ -58,7 +66,7 @@ import {
 } from "../utils/validation.js";
 import { fileModeStreamOptions } from "../../voice/transcribe.js";
 import { TranscriptionSession } from "../../voice/session/transcriptionSession.js";
-import { FrameQueue } from "./frameQueue.js";
+import { FrameQueue, totalQueuedFrameBytes } from "./frameQueue.js";
 import {
   resolveRealtimeProfiles,
   serveRealtimeTranscription,
@@ -70,6 +78,22 @@ const DEFAULT_REALTIME_PATH = "/v1/realtime";
 const MAX_QUEUED_BYTES = 16 * 1024 * 1024;
 /** In file mode the whole recording may be queued at once: 512 MB is about 4.5 hours of 16 kHz PCM. */
 const MAX_QUEUED_BYTES_FILE = 512 * 1024 * 1024;
+/** Queued audio per socket above which the socket is paused until the engine catches up. */
+const DEFAULT_HIGH_WATER_MARK = 8 * 1024 * 1024;
+/** Queued audio across every socket of the process. */
+const DEFAULT_MAX_TOTAL_QUEUED_BYTES = 512 * 1024 * 1024;
+const DEFAULT_MAX_CONNECTIONS = 100;
+const DEFAULT_MAX_CONNECTIONS_PER_ADDRESS = 16;
+/** Subprotocol carrying the server's API key for a browser, next to `neurolink`. */
+const SUBPROTOCOL_KEY_PREFIX = "neurolink-api-key.";
+/** OpenAI's browser SDK sends the key as this subprotocol; honoured on the realtime path. */
+const OPENAI_SUBPROTOCOL_KEY_PREFIX = "openai-insecure-api-key.";
+
+/** Answer an upgrade before the handshake, with a status the client can read. */
+function refuseUpgrade(socket: Duplex, status: number, reason: string): void {
+  socket.write(`HTTP/1.1 ${status} ${reason}\r\nConnection: close\r\n\r\n`);
+  socket.destroy();
+}
 
 /**
  * `true` when the upgrade's `Origin` is on the allow-list, the list allows
@@ -90,14 +114,36 @@ function isOriginAllowed(
   return allowed.some((o) => o.trim().toLowerCase() === wanted);
 }
 
-function isAuthorized(
-  req: IncomingMessage,
+/** The configured token(s), empty when the stream is open. */
+function configuredTokens(
   token: string | readonly string[] | undefined,
-  allowSubprotocolKey = false,
-): boolean {
-  const tokens = (typeof token === "string" ? [token] : (token ?? [])).filter(
+): string[] {
+  return (typeof token === "string" ? [token] : (token ?? [])).filter(
     (t) => t.length > 0,
   );
+}
+
+/** The subprotocols the client offered, trimmed. */
+function offeredProtocols(req: IncomingMessage): string[] {
+  return String(req.headers["sec-websocket-protocol"] ?? "")
+    .split(",")
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+}
+
+/**
+ * Whether the upgrade carries one of `tokens`. A browser cannot set headers,
+ * so besides `Authorization: Bearer` the key may ride in the subprotocol list
+ * as `neurolink-api-key.<key>` (and, on the realtime path, as OpenAI's
+ * `openai-insecure-api-key.<key>`). `?token=` in the URL is accepted only when
+ * the operator allows it: a URL is written to access logs and `Referer`
+ * headers, so a key there leaks.
+ */
+function isAuthorized(
+  req: IncomingMessage,
+  tokens: readonly string[],
+  options: { allowQueryToken: boolean; allowOpenAISubprotocolKey: boolean },
+): boolean {
   if (tokens.length === 0) {
     return true;
   }
@@ -107,27 +153,41 @@ function isAuthorized(
       ? header.slice(7)
       : undefined;
   let urlToken: string | undefined;
-  try {
-    urlToken =
-      new URL(req.url ?? "/", "http://localhost").searchParams.get("token") ??
-      undefined;
-  } catch {
-    urlToken = undefined;
+  if (options.allowQueryToken) {
+    try {
+      urlToken =
+        new URL(req.url ?? "/", "http://localhost").searchParams.get("token") ??
+        undefined;
+    } catch {
+      urlToken = undefined;
+    }
   }
-  // OpenAI's browser SDK cannot set headers, so it sends the key as the
-  // subprotocol "openai-insecure-api-key.<key>"; honoured on the realtime path.
-  const protocolToken = allowSubprotocolKey
-    ? String(req.headers["sec-websocket-protocol"] ?? "")
-        .split(",")
-        .map((p) => p.trim())
-        .find((p) => p.startsWith("openai-insecure-api-key."))
-        ?.slice("openai-insecure-api-key.".length)
-    : undefined;
-  const provided = headerToken ?? urlToken ?? protocolToken;
+  const protocols = offeredProtocols(req);
+  const protocolToken =
+    protocols
+      .find((p) => p.startsWith(SUBPROTOCOL_KEY_PREFIX))
+      ?.slice(SUBPROTOCOL_KEY_PREFIX.length) ??
+    (options.allowOpenAISubprotocolKey
+      ? protocols
+          .find((p) => p.startsWith(OPENAI_SUBPROTOCOL_KEY_PREFIX))
+          ?.slice(OPENAI_SUBPROTOCOL_KEY_PREFIX.length)
+      : undefined);
+  const provided = headerToken ?? protocolToken ?? urlToken;
   return (
     provided !== undefined &&
     tokens.some((t) => timingSafeEqualString(provided, t))
   );
+}
+
+/** `true` when the upgrade's URL carries a `?token=`, whether or not it is honoured. */
+function carriesQueryToken(req: IncomingMessage): boolean {
+  try {
+    return new URL(req.url ?? "/", "http://localhost").searchParams.has(
+      "token",
+    );
+  } catch {
+    return false;
+  }
 }
 
 function pathOf(req: IncomingMessage): string {
@@ -189,25 +249,63 @@ export async function attachTranscribeWebSocket(
       ? undefined
       : (options.realtimePath ?? DEFAULT_REALTIME_PATH);
   const realtimeProfiles = resolveRealtimeProfiles(options.realtimeProfiles);
+  const tokens = configuredTokens(options.authToken);
+  const allowQueryToken = options.allowQueryToken === true;
+  const maxConnections = options.maxConnections ?? DEFAULT_MAX_CONNECTIONS;
+  const maxPerAddress =
+    options.maxConnectionsPerAddress ?? DEFAULT_MAX_CONNECTIONS_PER_ADDRESS;
+  const highWaterMark = options.highWaterMark ?? DEFAULT_HIGH_WATER_MARK;
+  const maxTotalQueued =
+    options.maxTotalQueuedBytes ?? DEFAULT_MAX_TOTAL_QUEUED_BYTES;
   const wss = new WebSocketServer({
     noServer: true,
     maxPayload: options.maxPayload ?? 1_048_576,
-    // OpenAI's browser SDK offers "realtime" alongside its key subprotocol.
+    // OpenAI's browser SDK offers "realtime" alongside its key subprotocol;
+    // a browser on the stream path offers "neurolink" alongside
+    // "neurolink-api-key.<key>". The key-bearing protocol is never selected.
     handleProtocols: (protocols: Set<string>) =>
-      protocols.has("realtime") ? "realtime" : false,
+      protocols.has("realtime")
+        ? "realtime"
+        : protocols.has("neurolink")
+          ? "neurolink"
+          : false,
   });
 
-  // Sessions by id, alive while a speaker or a listener holds them.
+  // Sessions by id, alive while a speaker or a listener holds them. A session
+  // whose first speaker set `?secret=` admits only joins that present it.
   const sessions = new Map<
     string,
-    { session: TranscriptionSession; refs: number }
+    { session: TranscriptionSession; refs: number; secret: string | undefined }
   >();
-  const acquire = (id: string): TranscriptionSession => {
-    const entry = sessions.get(id) ?? {
+  /**
+   * Join `id` with `secret`, or the reason a join is refused: a session with a
+   * secret and a join without the same one, or (with `requireSessionSecret`) a
+   * new session that sets none.
+   */
+  const admit = (
+    id: string,
+    secret: string | undefined,
+  ): TranscriptionSession | "secret-mismatch" | "secret-required" => {
+    const existing = sessions.get(id);
+    if (existing) {
+      if (
+        existing.secret !== undefined &&
+        (secret === undefined ||
+          !timingSafeEqualString(secret, existing.secret))
+      ) {
+        return "secret-mismatch";
+      }
+      existing.refs++;
+      return existing.session;
+    }
+    if (options.requireSessionSecret && !secret) {
+      return "secret-required";
+    }
+    const entry = {
       session: new TranscriptionSession(neurolink, { id }),
-      refs: 0,
+      refs: 1,
+      secret,
     };
-    entry.refs++;
     sessions.set(id, entry);
     return entry.session;
   };
@@ -222,6 +320,26 @@ export async function attachTranscribeWebSocket(
       sessions.delete(id);
     }
   };
+  const sessionRefusal = (
+    verdict: "secret-mismatch" | "secret-required",
+  ): string =>
+    verdict === "secret-mismatch"
+      ? "This session requires its secret (?secret=)"
+      : "A new session must set ?secret=<value> on this server";
+
+  // Open sockets, in all and per remote address, counted from the upgrade so
+  // a flood of handshakes is refused before any engine is started. The raw
+  // socket's close releases the count whether or not the handshake completed.
+  let openConnections = 0;
+  const perAddress = new Map<string, number>();
+  const serverIsLoopback = (): boolean => {
+    const address = server.address();
+    return (
+      typeof address === "object" &&
+      address !== null &&
+      isLoopbackAddress(address.address)
+    );
+  };
 
   const onUpgrade = (req: IncomingMessage, socket: Duplex, head: Buffer) => {
     const requested = pathOf(req);
@@ -233,15 +351,49 @@ export async function attachTranscribeWebSocket(
       return; // Someone else's upgrade.
     }
     if (!isOriginAllowed(req, options.allowedOrigins)) {
-      socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
-      socket.destroy();
+      refuseUpgrade(socket, 403, "Forbidden");
       return;
     }
-    if (!isAuthorized(req, options.authToken, requested === realtimePath)) {
-      socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
-      socket.destroy();
+    if (
+      !isAuthorized(req, tokens, {
+        allowQueryToken,
+        allowOpenAISubprotocolKey: requested === realtimePath,
+      })
+    ) {
+      if (tokens.length > 0 && !allowQueryToken && carriesQueryToken(req)) {
+        logger.warn(
+          "[TranscribeWebSocket] refused an upgrade that carried the key in ?token= (allowQueryToken is off)",
+        );
+      }
+      refuseUpgrade(socket, 401, "Unauthorized");
       return;
     }
+    const peer = canonicalAddress(req.socket.remoteAddress ?? "") ?? "unknown";
+    const fromPeer = perAddress.get(peer) ?? 0;
+    if (openConnections >= maxConnections || fromPeer >= maxPerAddress) {
+      logger.warn("[TranscribeWebSocket] refused an upgrade: connection cap", {
+        open: openConnections,
+        fromPeer,
+      });
+      refuseUpgrade(socket, 503, "Service Unavailable");
+      return;
+    }
+    openConnections++;
+    perAddress.set(peer, fromPeer + 1);
+    let released = false;
+    socket.once("close", () => {
+      if (released) {
+        return;
+      }
+      released = true;
+      openConnections--;
+      const left = (perAddress.get(peer) ?? 1) - 1;
+      if (left <= 0) {
+        perAddress.delete(peer);
+      } else {
+        perAddress.set(peer, left);
+      }
+    });
     wss.handleUpgrade(req, socket, head, (client) => {
       wss.emit("connection", client, req);
     });
@@ -265,7 +417,19 @@ export async function attachTranscribeWebSocket(
       client.close(1008, "session required");
       return;
     }
-    const session = acquire(id);
+    const admitted = admit(id, queryParam(req, "secret"));
+    if (typeof admitted === "string") {
+      client.send(
+        JSON.stringify({
+          type: "error",
+          message: sessionRefusal(admitted),
+          recoverable: false,
+        }),
+      );
+      client.close(1008, "session refused");
+      return;
+    }
+    const session = admitted;
     let subscription: TranscriptionSubscription | undefined;
     const deliver = (event: TranscriptionSessionEvent): void => {
       if (client.readyState === WebSocket.OPEN) {
@@ -328,6 +492,19 @@ export async function attachTranscribeWebSocket(
       const queue = new FrameQueue();
       let started = false;
       let fileMode = false;
+      // Backpressure: above the high-water mark the socket stops reading until
+      // the engine has taken enough of the backlog (half the mark), so a fast
+      // sender is slowed by TCP instead of buffered without bound.
+      let paused = false;
+      queue.setLevelListener((level) => {
+        if (!paused && level > highWaterMark) {
+          paused = true;
+          client.pause();
+        } else if (paused && level <= highWaterMark / 2) {
+          paused = false;
+          client.resume();
+        }
+      });
       // Debugging: `NEUROLINK_STT_RECORD_DIR` keeps every session's config,
       // audio (PCM16LE) and events on disk, so a live session can be replayed
       // and compared against another engine. Off unless set.
@@ -359,6 +536,7 @@ export async function attachTranscribeWebSocket(
       // Output languages, changeable mid-stream by control frames.
       let liveLanguages: readonly string[] = [];
       const sessionId = subscribePath ? queryParam(req, "session") : undefined;
+      const sessionSecret = queryParam(req, "secret");
       // No name: the session assigns a unique one (speaker-1, speaker-2, …).
       const speaker = queryParam(req, "speaker") ?? "";
 
@@ -390,7 +568,16 @@ export async function attachTranscribeWebSocket(
         }
         // A session speaker: events go to the session's listeners and back to
         // this socket. The session is held until this speaker's audio ends.
-        const session = acquire(sessionId);
+        const admitted = admit(sessionId, sessionSecret);
+        if (typeof admitted === "string") {
+          const refusal = new Error(sessionRefusal(admitted));
+          return {
+            [Symbol.asyncIterator]: () => ({
+              next: () => Promise.reject(refusal),
+            }),
+          };
+        }
+        const session = admitted;
         const buffered: TranscriptionSessionEvent[] = [];
         let wake: (() => void) | undefined;
         let finished = false;
@@ -497,12 +684,43 @@ export async function attachTranscribeWebSocket(
             started = true;
             const { mode, ...rest } = config.data;
             fileMode = mode === "file";
+            // File mode buffers a whole recording (up to 512 MiB) for a
+            // caller; on a listener the network can reach, only a caller the
+            // server authenticated gets that, unless the operator opts out.
+            if (
+              fileMode &&
+              tokens.length === 0 &&
+              options.allowUnauthenticatedFileMode !== true &&
+              !serverIsLoopback()
+            ) {
+              send({
+                type: "error",
+                message:
+                  'mode "file" needs authentication on this server; stream live audio instead',
+                recoverable: false,
+              });
+              client.close(1008, "file mode requires authentication");
+              return;
+            }
             liveLanguages = rest.output?.languages ?? [];
             record("config.json", JSON.stringify(config.data, null, 1), false);
             void run(fileMode ? fileModeStreamOptions(rest) : rest);
             return;
           }
           if (isBinary) {
+            // The process-wide budget is checked before the frame is taken:
+            // one socket's burst must not take the others down with it.
+            if (totalQueuedFrameBytes() + frame.length > maxTotalQueued) {
+              send({
+                type: "error",
+                message:
+                  "The server is holding too much audio right now; try again later",
+                recoverable: false,
+              });
+              queue.end();
+              client.close(1013, "server busy");
+              return;
+            }
             record("audio.pcm", frame);
             queue.push(frame);
             if (

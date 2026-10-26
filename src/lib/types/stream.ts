@@ -54,6 +54,7 @@ import type { WorkflowConfig } from "./workflow.js";
 import type { LanguageModel, StepResult } from "./providers.js";
 import type { Tool, ToolChoice } from "./tools.js";
 import type { ProcessorPipelineConfig } from "./ioProcessor.js";
+import type { AttachmentPolicy } from "./attachments.js";
 
 /**
  * Progress tracking and metadata for streaming operations
@@ -826,6 +827,14 @@ export type StreamOptions = {
    * @internal Set by NeuroLink SDK — not typically used directly by consumers.
    */
   fileRegistry?: unknown;
+  /**
+   * Resolved attachment policy (roots, URL rules, size cap) the file and URL
+   * loaders apply on this call. Stamped from the instance's `attachments`
+   * config; the environment-derived default applies when absent.
+   *
+   * @internal Set by NeuroLink SDK — not typically used directly by consumers.
+   */
+  attachmentPolicy?: AttachmentPolicy;
   /** BZ-1341: Override fallback provider name (takes precedence over env/model config). */
   fallbackProvider?: string;
   /** BZ-1341: Override fallback model name (takes precedence over env/model config). */

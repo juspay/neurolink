@@ -15,16 +15,24 @@ import {
   SpanType,
 } from "../../observability/index.js";
 import { withTimeout } from "../../utils/errorHandling.js";
+import { MAX_TIMER_MS } from "../../constants/timeouts.js";
 import { logger } from "../../utils/logger.js";
 import { markContextCarried } from "../utils/carriedContextMark.js";
+import { isLoopbackAddress } from "../utils/clientAddress.js";
+import { pathStartsWithSegment } from "../utils/pathMatch.js";
 import { tryImport } from "../../utils/tryImport.js";
 import {
+  ConfigurationError,
   DrainTimeoutError,
   InvalidLifecycleStateError,
   MissingDependencyError,
   ServerAdapterError,
+  ServerTimeoutError,
   ShutdownTimeoutError,
 } from "../errors.js";
+
+/** The interface an adapter binds unless told otherwise: this host only. */
+export const DEFAULT_SERVER_HOST = "127.0.0.1";
 import type {
   MiddlewareDefinition,
   RedactionConfig,
@@ -71,6 +79,10 @@ export abstract class BaseServerAdapter extends EventEmitter {
   // other way in.
   private carryRequestedByRoutes = false;
 
+  // Set by noteSensitiveRoutes(); read when the server starts.
+  private sensitiveRoutesRegistered = false;
+  private sensitiveRoutesAllowedOpen = false;
+
   constructor(neurolink: NeuroLink, config: ServerAdapterConfig = {}) {
     super();
 
@@ -92,7 +104,9 @@ export abstract class BaseServerAdapter extends EventEmitter {
     // Apply defaults
     this.config = {
       port: config.port ?? 3000,
-      host: config.host ?? "0.0.0.0",
+      // Loopback unless the operator names an interface: the routes run tools
+      // and remove MCP servers, so reachability is opt-in.
+      host: config.host ?? DEFAULT_SERVER_HOST,
       basePath: config.basePath ?? "/api",
       cors: {
         enabled: config.cors?.enabled ?? true,
@@ -125,6 +139,8 @@ export abstract class BaseServerAdapter extends EventEmitter {
           "Too many requests, please try again later",
         skipPaths: config.rateLimit?.skipPaths,
         keyGenerator: config.rateLimit?.keyGenerator,
+        trustProxy: config.rateLimit?.trustProxy ?? false,
+        trustedProxies: config.rateLimit?.trustedProxies ?? [],
       },
       bodyParser: {
         enabled: config.bodyParser?.enabled ?? true,
@@ -147,6 +163,134 @@ export abstract class BaseServerAdapter extends EventEmitter {
       disableBuiltInHealth: config.disableBuiltInHealth ?? false,
       shutdown: this.shutdownConfig,
       carryMiddlewareState: config.carryMiddlewareState ?? false,
+    };
+
+    // A wildcard origin with credentials is what the CORS specification
+    // forbids and what an adapter reflecting the request's Origin would grant:
+    // any page could make credentialed calls. Refuse it for every adapter.
+    if (
+      this.config.cors.enabled &&
+      this.config.cors.credentials &&
+      this.config.cors.origins.includes("*")
+    ) {
+      throw new ConfigurationError(
+        'cors.credentials cannot be combined with the wildcard origin "*"; list the origins that may send credentials',
+        { origins: this.config.cors.origins },
+      );
+    }
+  }
+
+  /**
+   * Whether middleware marked `authenticates: true` is registered (the
+   * built-in authentication middleware marks itself). The tool and MCP
+   * execution routes ask on every request; `registerAllRoutes()` wires them.
+   */
+  public hasAuthenticationMiddleware(): boolean {
+    return this.middlewares.some(
+      (middleware) => middleware.authenticates === true,
+    );
+  }
+
+  /**
+   * Called by `registerAllRoutes()`: routes that act on the host (tool and
+   * MCP execution) are mounted, so `start()` warns when no authentication
+   * middleware guards them. The check runs at start, when the middleware set
+   * is final, so registering authentication after the routes is fine.
+   */
+  public noteSensitiveRoutes(options?: {
+    allowUnauthenticated?: boolean;
+  }): void {
+    this.sensitiveRoutesRegistered = true;
+    if (options?.allowUnauthenticated) {
+      this.sensitiveRoutesAllowedOpen = true;
+    }
+  }
+
+  /**
+   * The warning promised by `noteSensitiveRoutes()`, always on stderr: a
+   * `logger.warn` is dropped unless debug logging is on, which would hide a
+   * notice meant for the operator who just started the server.
+   */
+  protected warnIfSensitiveRoutesUnauthenticated(): void {
+    if (
+      !this.sensitiveRoutesRegistered ||
+      this.sensitiveRoutesAllowedOpen ||
+      this.hasAuthenticationMiddleware()
+    ) {
+      return;
+    }
+    const where = isLoopbackAddress(this.config.host)
+      ? `loopback only (${this.config.host})`
+      : `${this.config.host}, reachable from the network`;
+    logger.alwaysStderr(
+      `[ServerAdapter] WARNING: no authentication middleware is registered and the server listens on ${where}. ` +
+        "The tool and MCP execution routes answer 403 until authentication middleware (marked authenticates: true) is registered, " +
+        "or allowUnauthenticated: true / NEUROLINK_SERVER_ALLOW_UNAUTHENTICATED=1 opts out of that gate.",
+    );
+  }
+
+  /**
+   * Give the handler a way to notice that the client is gone or the request
+   * is over time. The controller is this request's own unless middleware
+   * already attached one that the adapter carried; `applyTimeout` arms the
+   * configured request timeout, which the caller leaves off for a streaming
+   * route (a stream legitimately outlives it, as under Hono's own timeout
+   * middleware). `release()` disarms the timer once the response is written.
+   */
+  protected attachRequestAbort(
+    ctx: ServerContext,
+    options: {
+      onClientClose: (listener: () => void) => void;
+      applyTimeout: boolean;
+    },
+  ): {
+    controller: AbortController;
+    deadline: Promise<never> | undefined;
+    timedOut: () => boolean;
+    release: () => void;
+  } {
+    const controller = ctx.abortController ?? new AbortController();
+    ctx.abortController = controller;
+    ctx.abortSignal = controller.signal;
+    let timedOut = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeoutMs = this.config.timeout;
+    // Node turns an over-range delay into 1 ms; keep long request budgets
+    // at the timer limit, as the readiness deadline does through withTimeout.
+    const delayMs = timeoutMs > MAX_TIMER_MS ? MAX_TIMER_MS : timeoutMs;
+    const deadline =
+      options.applyTimeout && timeoutMs > 0
+        ? new Promise<never>((_, reject) => {
+            timer = setTimeout(() => {
+              timedOut = true;
+              const error = new ServerTimeoutError(
+                timeoutMs,
+                `${ctx.method} ${ctx.path}`,
+                ctx.requestId,
+              );
+              controller.abort(error);
+              reject(error);
+            }, delayMs);
+          })
+        : undefined;
+    // A rejection nobody awaits (the handler won on the race) must not
+    // surface as unhandled.
+    deadline?.catch(() => undefined);
+    options.onClientClose(() => {
+      if (!controller.signal.aborted) {
+        controller.abort(new Error("Client disconnected"));
+      }
+    });
+    return {
+      controller,
+      deadline,
+      timedOut: () => timedOut,
+      release: () => {
+        if (timer) {
+          clearTimeout(timer);
+          timer = undefined;
+        }
+      },
     };
   }
 
@@ -373,12 +517,19 @@ export abstract class BaseServerAdapter extends EventEmitter {
     }
 
     // Register all routes in the group with prefix applied
+    const prefix = this.normalizePath(group.prefix);
+    // The group's root segment ("/api" of "/api/health"): a route whose path
+    // already lives under it is a full path, as every built-in route is.
+    // Testing only the whole prefix put `/api/version`, declared in the health
+    // group, at `/api/health/api/version`.
+    const root = `/${prefix.split("/").filter(Boolean)[0] ?? ""}`;
     for (const route of group.routes) {
-      // Only prepend prefix if route path doesn't already start with it
-      // (route definitions include full paths like /api/agent/execute)
-      const needsPrefix = !route.path.startsWith(group.prefix);
+      const needsPrefix =
+        prefix !== "/" &&
+        !pathStartsWithSegment(route.path, prefix) &&
+        !pathStartsWithSegment(route.path, root);
       const prefixedPath = this.normalizePath(
-        needsPrefix ? `${group.prefix}${route.path}` : route.path,
+        needsPrefix ? `${prefix}${route.path}` : route.path,
       );
       const prefixedRoute = {
         ...route,
@@ -485,6 +636,7 @@ export abstract class BaseServerAdapter extends EventEmitter {
     query?: Record<string, string>;
     params?: Record<string, string>;
     body?: unknown;
+    remoteAddress?: string;
   }): ServerContext {
     return {
       requestId: options.requestId,
@@ -494,6 +646,7 @@ export abstract class BaseServerAdapter extends EventEmitter {
       query: options.query ?? {},
       params: options.params ?? {},
       body: options.body,
+      remoteAddress: options.remoteAddress,
       neurolink: this.neurolink,
       toolRegistry: this.toolRegistry,
       externalServerManager: this.externalServerManager,

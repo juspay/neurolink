@@ -118,6 +118,8 @@ HTTP transport supports custom headers for authentication:
 }
 ```
 
+Header values are sent exactly as written. `${VAR}` references are **not** expanded in `headers` or `url` (a reference there would ship the variable's value to the remote host); they expand only in a server's `env` and `args`. To authenticate with a token from the environment, add the server programmatically with `addExternalMCPServer()` and build the header in code, or use `auth: { "type": "bearer", "token": "…" }` from a secrets manager. The `websocket` transport cannot carry headers or `auth` at all and fails to connect when either is configured — use `http` or `sse`.
+
 ### OAuth 2.1 Authentication
 
 For enterprise integrations requiring OAuth 2.1 with PKCE:
@@ -201,7 +203,7 @@ The `auth` configuration supports three authentication types:
 | ------------------ | -------- | -------- | --------- | -------- |
 | Local servers      | ✅       | ❌       | ❌        | ❌       |
 | Remote servers     | ❌       | ✅       | ✅        | ✅       |
-| Authentication     | Env vars | Headers  | Headers   | Headers  |
+| Authentication     | Env vars | Headers  | ❌ (none) | Headers  |
 | Streaming          | ✅       | ✅       | ✅        | ✅       |
 | Firewall friendly  | ✅       | ✅       | ⚠️        | ✅       |
 | Session management | ❌       | ⚠️       | ⚠️        | ✅       |
@@ -461,11 +463,12 @@ HTTP transport uses the `StreamableHTTPClientTransport` from the `@modelcontextp
 
 ### Security Considerations
 
-1. **HTTPS Required**: Always use HTTPS in production
-2. **Token Security**: Store tokens securely (environment variables, secrets management)
-3. **Header Sanitization**: Avoid logging sensitive headers
-4. **Network Security**: Use VPNs or private networks for internal APIs
-5. **Rate Limiting**: Implement client-side rate limiting for public APIs
+1. **TLS is enforced**: a non-loopback `url` must use `https:` (or `wss:`). Plaintext is accepted only for `localhost`, `127.0.0.0/8` and `::1`.
+2. **Private addresses are refused**: a host that is, or resolves to, an RFC 1918, link-local (cloud metadata), CGNAT or multicast address is rejected unless that server sets `"allowPrivateNetwork": true`, which also permits plaintext to private addresses. Public hosts always need TLS.
+3. **Token Security**: Store tokens securely (environment variables, secrets management). `${VAR}` is never expanded inside `headers` or `url`.
+4. **Header Sanitization**: Avoid logging sensitive headers
+5. **Project configs are trusted explicitly**: the SDK loads `.mcp-config.json` only through `mcp.configPath` / `mcp.trustProjectConfig`; the CLI asks, or needs `--trust-mcp-config`. See [MCP Integration](/docs/mcp/integration).
+6. **Rate Limiting**: Implement client-side rate limiting for public APIs
 
 ## Migration Guide
 

@@ -64,26 +64,53 @@ container platforms set:
 | Setting   | Order                                                 |
 | --------- | ----------------------------------------------------- |
 | Port      | `--port` → config `port` → `$PORT` → `3000`           |
-| Host      | `--host` → config `host` → `0.0.0.0`                  |
+| Host      | `--host` → config `host` → `127.0.0.1`                |
 | Framework | `--framework` → config `framework` → `hono`           |
 | Base path | `--basePath` → config `basePath` → `/api`             |
 | CORS      | `--cors` → config `cors.enabled` → enabled            |
 | Rate      | `--rate-limit` → config `rateLimit.maxRequests` → 100 |
 
+**Loopback by default.** `neurolink serve` listens on `127.0.0.1` unless `--host`
+(or config `host`) names an interface. Its routes run tools, remove MCP servers
+and read conversation memory on behalf of whoever reaches the port, so a listener
+the network can reach must be authenticated: with `--host 0.0.0.0` (or any other
+non-loopback address) and no `NEUROLINK_SERVER_API_KEY`, the command refuses to
+start and exits `1`. To run open on purpose — behind a reverse proxy that
+authenticates, say — pass `--allow-unauthenticated` or set
+`NEUROLINK_SERVER_ALLOW_UNAUTHENTICATED=1`; the banner then says in so many words
+that every route is open.
+
 **API key.** Set `NEUROLINK_SERVER_API_KEY` to one key, or several separated by
-commas for rotation, and every route except `<basePath>/health*` requires one,
-sent as `Authorization: Bearer <key>` or `X-API-Key: <key>`. Rejected requests get
-`401`. Without the variable the server is unauthenticated — keep it on a private
-network — and the startup banner says so. `neurolink server start` reads the
-same variable.
+commas for rotation, and every route requires one, sent as
+`Authorization: Bearer <key>` or `X-API-Key: <key>`, except the four probes an
+orchestrator calls without credentials: `<basePath>/health`,
+`<basePath>/health/live`, `<basePath>/health/ready` and `<basePath>/health/startup`.
+`<basePath>/health/detailed` (runtime and MCP inventory) and `<basePath>/version`
+need the key like any other route. Rejected requests get `401`. `neurolink server
+start` reads the same variable.
 
 ```bash
-NEUROLINK_SERVER_API_KEY=change-me PORT=8080 neurolink serve
+NEUROLINK_SERVER_API_KEY=change-me PORT=8080 neurolink serve --host 0.0.0.0
 curl -H "Authorization: Bearer change-me" http://localhost:8080/api/agent/providers
 ```
 
+**Built-in tools.** The server's registry holds none of NeuroLink's built-in
+tools (file reads and writes under the working directory among them) unless
+`--enable-builtin-tools` or `NEUROLINK_SERVER_ENABLE_BUILTIN_TOOLS=1` is given, so
+neither `POST <basePath>/tools/execute` nor a model behind `/agent/execute` can
+reach the host's filesystem by default. MCP tools from your configuration are
+unaffected.
+
+**Without a key, tool and MCP execution answer 403.** Even on loopback, a server
+with no authentication middleware refuses `POST <basePath>/tools/execute`,
+`POST <basePath>/tools/:name/execute`, and the MCP reconnect, remove and execute
+routes with `403 FORBIDDEN`; listing tools and servers stays open. The same
+`--allow-unauthenticated` / `NEUROLINK_SERVER_ALLOW_UNAUTHENTICATED=1` lifts it.
+
 **Container image.** The repository's `Dockerfile` builds an image that runs
-`neurolink serve` as a non-root user, configured by environment only:
+`neurolink serve --host 0.0.0.0` as a non-root user, configured by environment
+only. The container must therefore be given `NEUROLINK_SERVER_API_KEY` (or
+`NEUROLINK_SERVER_ALLOW_UNAUTHENTICATED=1`), or it exits at start:
 
 ```bash
 docker build --target production -t neurolink .
@@ -95,6 +122,15 @@ docker run -p 3000:3000 \
 
 Use `GET /api/health/live` for the liveness probe and `GET /api/health/ready` for
 readiness; both stay open when an API key is set. `SIGTERM` drains and exits `0`.
+
+**Transcription WebSocket.** `/v1/audio/transcriptions/stream` takes the same key,
+as `Authorization: Bearer <key>` or, from a browser, as the subprotocol
+`neurolink-api-key.<key>` offered next to `neurolink`. The key in the URL
+(`?token=`) is refused unless `NEUROLINK_SERVER_WS_ALLOW_QUERY_TOKEN=1`, because a
+URL is written to access logs and `Referer` headers. Sockets are capped (100 in
+all, 16 per address; a further upgrade is answered `503`), and `mode: "file"` on a
+non-loopback listener needs the key. See
+[/docs/features/transcribe](/docs/features/transcribe) for the protocol.
 
 The CLI configuration provides default values that can be overridden programmatically:
 
@@ -130,15 +166,15 @@ type ServerAdapterConfig = {
 
 ### Core Options
 
-| Option                 | Type      | Default     | Description                                      |
-| ---------------------- | --------- | ----------- | ------------------------------------------------ |
-| `port`                 | `number`  | `3000`      | Server port to listen on                         |
-| `host`                 | `string`  | `"0.0.0.0"` | Server host/interface to bind                    |
-| `basePath`             | `string`  | `"/api"`    | Base path prefix for all routes                  |
-| `timeout`              | `number`  | `30000`     | Request timeout in milliseconds                  |
-| `enableMetrics`        | `boolean` | `true`      | Enable metrics endpoint                          |
-| `enableSwagger`        | `boolean` | `false`     | Enable OpenAPI/Swagger documentation (see below) |
-| `disableBuiltInHealth` | `boolean` | `false`     | Disable built-in health routes                   |
+| Option                 | Type      | Default       | Description                                                                                                     |
+| ---------------------- | --------- | ------------- | --------------------------------------------------------------------------------------------------------------- |
+| `port`                 | `number`  | `3000`        | Server port to listen on                                                                                        |
+| `host`                 | `string`  | `"127.0.0.1"` | Interface to bind; loopback by default. `"0.0.0.0"` listens on every interface — register authentication first  |
+| `basePath`             | `string`  | `"/api"`      | Base path prefix for all routes                                                                                 |
+| `timeout`              | `number`  | `30000`       | Per-request timeout, on every adapter: a request past it is answered `504 REQUEST_TIMEOUT` and its work aborted |
+| `enableMetrics`        | `boolean` | `true`        | Enable metrics endpoint                                                                                         |
+| `enableSwagger`        | `boolean` | `false`       | Enable OpenAPI/Swagger documentation (see below)                                                                |
+| `disableBuiltInHealth` | `boolean` | `false`       | Disable built-in health routes                                                                                  |
 
 ### OpenAPI/Swagger Documentation (`enableSwagger`)
 
@@ -203,7 +239,7 @@ type CORSConfig = {
 | `credentials` | `boolean`  | `false`                                                | Allow credentials                  |
 | `maxAge`      | `number`   | `86400`                                                | Preflight cache max age in seconds |
 
-> **Security note:** With no `origins` listed, no web page can call the server cross-origin. List the origins you serve pages from, or set `["*"]` explicitly to allow any domain (then also set an API key). `neurolink serve --cors-origin https://myapp.com` does the same from the command line.
+> **Security note:** With no `origins` listed, no web page can call the server cross-origin. List the origins you serve pages from, or set `["*"]` explicitly to allow any domain (then also set an API key). `neurolink serve --cors-origin https://myapp.com` does the same from the command line. The wildcard is sent as the literal `*` on every adapter (never the request's own `Origin`), and `["*"]` together with `credentials: true` is refused when the server is created: a browser will not send credentials to a wildcard, and reflecting the origin to make it do so would let any page act as the user.
 
 ### Example: Restrictive CORS
 
@@ -232,17 +268,30 @@ type RateLimitConfig = {
   message?: string;
   skipPaths?: string[];
   keyGenerator?: (ctx: ServerContext) => string;
+  trustProxy?: boolean;
+  trustedProxies?: string[];
 };
 ```
 
-| Option         | Type       | Default                  | Description                                |
-| -------------- | ---------- | ------------------------ | ------------------------------------------ |
-| `enabled`      | `boolean`  | `true`                   | Enable rate limiting                       |
-| `windowMs`     | `number`   | `900000` (15 min)        | Time window in milliseconds                |
-| `maxRequests`  | `number`   | `100`                    | Maximum requests per window                |
-| `message`      | `string`   | `"Too many requests..."` | Error message when limit exceeded          |
-| `skipPaths`    | `string[]` | `[]`                     | Paths to exclude from rate limiting        |
-| `keyGenerator` | `function` | IP-based                 | Custom function to generate rate limit key |
+| Option           | Type       | Default                  | Description                                                                                                                                                                              |
+| ---------------- | ---------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`        | `boolean`  | `true`                   | Enable rate limiting                                                                                                                                                                     |
+| `windowMs`       | `number`   | `900000` (15 min)        | Time window in milliseconds                                                                                                                                                              |
+| `maxRequests`    | `number`   | `100`                    | Maximum requests per window                                                                                                                                                              |
+| `message`        | `string`   | `"Too many requests..."` | Error message when limit exceeded                                                                                                                                                        |
+| `skipPaths`      | `string[]` | `[]`                     | Paths to exclude, each matching itself and everything under it at a segment boundary (`/api/health` covers `/api/health/live`, not `/api/healthz`)                                       |
+| `keyGenerator`   | `function` | client address           | Custom function to generate the rate-limit key                                                                                                                                           |
+| `trustProxy`     | `boolean`  | `false`                  | Read the client address from `X-Forwarded-For`. Off, the header is ignored and the TCP peer is the key, so a client cannot choose its own bucket. Turn on only behind your reverse proxy |
+| `trustedProxies` | `string[]` | `[]`                     | Your proxies' addresses: their hops are skipped from the right of `X-Forwarded-For`, and the key is the last hop no trusted proxy added. Empty takes the rightmost entry                 |
+
+**What the key is.** Without a `keyGenerator`, every adapter counts requests per
+client address: the TCP peer, or, with `trustProxy`, the client the nearest
+trusted proxy reports. Hono and Koa used to key on `X-Forwarded-For` alone, which
+put every direct client in one shared bucket (100 requests exhausted it for
+everyone) and let a client escape the limit by rotating the header. A request
+the runtime cannot attribute to any address is let through, and the adapter says
+so once on stderr. `ctx.remoteAddress` carries the peer to a custom
+`keyGenerator`; read `X-Forwarded-For` there only if a proxy you control sets it.
 
 ### Example: Custom Rate Limiting
 
@@ -255,14 +304,18 @@ const server = await createServer(neurolink, {
       maxRequests: 30,
       skipPaths: ["/api/health", "/api/ready", "/api/version"],
       keyGenerator: (ctx) => {
-        // Rate limit by API key instead of IP
-        return (
-          ctx.headers["x-api-key"] ||
-          ctx.headers["x-forwarded-for"] ||
-          "unknown"
-        );
+        // Rate limit by API key, falling back to the TCP peer. An empty key
+        // means "do not count"; never key on a header the client controls.
+        return ctx.headers["x-api-key"] || ctx.remoteAddress || "";
       },
     },
+  },
+});
+
+// Behind one reverse proxy at 10.0.0.5 that appends the client to X-Forwarded-For:
+const proxied = await createServer(neurolink, {
+  config: {
+    rateLimit: { trustProxy: true, trustedProxies: ["10.0.0.5"] },
   },
 });
 ```
@@ -694,12 +747,21 @@ console.log(`Server running on http://localhost:8080`);
 
 The server adapters respect these environment variables:
 
-| Variable              | Description                           | Default       |
-| --------------------- | ------------------------------------- | ------------- |
-| `PORT`                | Server port                           | `3000`        |
-| `HOST`                | Server host                           | `0.0.0.0`     |
-| `NODE_ENV`            | Environment mode                      | `development` |
-| `npm_package_version` | Package version (for health endpoint) | `unknown`     |
+| Variable                                 | Description                                                                                                                                        | Default       |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `PORT`                                   | Server port (`neurolink serve`)                                                                                                                    | `3000`        |
+| `NEUROLINK_SERVER_API_KEY`               | Comma-separated API keys; every route except the health probes needs one                                                                           | unset         |
+| `NEUROLINK_SERVER_ALLOW_UNAUTHENTICATED` | `1` lets `neurolink serve` bind a non-loopback host with no key, and serves the tool and MCP execution routes to unauthenticated callers (SDK too) | unset         |
+| `NEUROLINK_SERVER_ENABLE_BUILTIN_TOOLS`  | `1` keeps NeuroLink's built-in tools (filesystem among them) in `neurolink serve`'s registry                                                       | unset         |
+| `NEUROLINK_SERVER_WS_ALLOW_QUERY_TOKEN`  | `1` lets the transcription WebSocket take the API key as `?token=`                                                                                 | unset         |
+| `NEUROLINK_SERVER_TIMEOUT_MS`            | Per-request timeout for `neurolink serve` (the config file's `timeout` wins)                                                                       | `30000`       |
+| `NEUROLINK_STT_EVAL_ENABLED`             | `1` mounts the STT evaluation collector (`/v1/evals/stt`), which is off by default                                                                 | unset         |
+| `NODE_ENV`                               | Environment mode                                                                                                                                   | `development` |
+| `npm_package_version`                    | Package version (for health endpoint)                                                                                                              | `unknown`     |
+
+The default host is `127.0.0.1` for the SDK's `createServer()` and for
+`neurolink serve`; there is no `HOST` variable — pass `--host` or set `host` in
+the config.
 
 ## Configuration Validation
 
@@ -741,19 +803,52 @@ The server adapters expose the following endpoints (all prefixed with `basePath`
 
 ### Tool Endpoints
 
-| Method | Endpoint       | Description             |
-| ------ | -------------- | ----------------------- |
-| GET    | `/tools`       | List available tools    |
-| POST   | `/tools/:name` | Execute a specific tool |
-| GET    | `/tools/:name` | Get tool metadata       |
+| Method | Endpoint               | Description                                  |
+| ------ | ---------------------- | -------------------------------------------- |
+| GET    | `/tools`               | List available tools                         |
+| GET    | `/tools/search`        | Search tools by name or description          |
+| POST   | `/tools/execute`       | Execute a tool named in the body (see below) |
+| POST   | `/tools/:name/execute` | Execute a specific tool (see below)          |
+| GET    | `/tools/:name`         | Get tool metadata                            |
 
 ### MCP Endpoints
 
-| Method | Endpoint       | Description                |
-| ------ | -------------- | -------------------------- |
-| GET    | `/mcp/servers` | List MCP servers           |
-| POST   | `/mcp/execute` | Execute MCP tool           |
-| GET    | `/mcp/health`  | MCP subsystem health check |
+| Method | Endpoint                                     | Description                       |
+| ------ | -------------------------------------------- | --------------------------------- |
+| GET    | `/mcp/servers`                               | List MCP servers                  |
+| GET    | `/mcp/servers/:name`                         | One server's status               |
+| POST   | `/mcp/servers/:name/reconnect`               | Reconnect a server (see below)    |
+| DELETE | `/mcp/servers/:name`                         | Remove a server (see below)       |
+| GET    | `/mcp/servers/:name/tools`                   | One server's tools                |
+| POST   | `/mcp/servers/:name/tools/:toolName/execute` | Execute one server's tool (below) |
+| GET    | `/mcp/health`                                | MCP subsystem health check        |
+
+**Execution routes refuse an unauthenticated server.** The routes marked "see
+below" act on the host. When the server has no middleware marked
+`authenticates: true` (the built-in `createAuthMiddleware`,
+`createBearerAuthMiddleware` and the CLI's API-key middleware mark themselves),
+they answer `403 FORBIDDEN` on every request. `registerAllRoutes()` wires the
+check; `createAllRoutes()` applies it only when given `hasAuthentication`. Opt
+out with `registerAllRoutes(server, "/api", { allowUnauthenticated: true })` or
+`NEUROLINK_SERVER_ALLOW_UNAUTHENTICATED=1`, or leave the tool routes out
+altogether with `{ tools: false }`. Set `authenticates: true` on your own
+authentication middleware so the routes recognise it.
+
+### Error responses
+
+A failed request answers with a fixed message for its category and the request
+id, never the exception's text, which stays in the server log under that id:
+
+| Code                      | Status | When                                                       |
+| ------------------------- | ------ | ---------------------------------------------------------- |
+| `VALIDATION_ERROR` etc.   | 4xx    | A message this server composed about the request           |
+| `PROVIDER_NOT_CONFIGURED` | 503    | A provider refused the server's credentials or has none    |
+| `UPSTREAM_RATE_LIMITED`   | 503    | A provider is rate limiting the server                     |
+| `REQUEST_TIMEOUT`         | 504    | The request ran past `timeout`; its generation was aborted |
+| `INTERNAL_ERROR`          | 500    | Anything else                                              |
+
+SSE error events on `/agent/stream` carry the same `code`, `message` and
+`requestId`.
 
 ### Memory Endpoints
 

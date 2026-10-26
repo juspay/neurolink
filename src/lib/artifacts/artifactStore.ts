@@ -20,7 +20,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { logger } from "../utils/logger.js";
@@ -35,6 +35,19 @@ import { generateArtifactPreview, isSafeArtifactId } from "./artifactReader.js";
 // ---------------------------------------------------------------------------
 // LocalTempArtifactStore
 // ---------------------------------------------------------------------------
+
+/**
+ * `tmpdir()/neurolink-artifacts-<uid>`: a per-user directory name, so two
+ * accounts on one host never contend for — or read — the same path. Where the
+ * platform has no uid the old shared name is kept.
+ */
+function defaultArtifactDir(): string {
+  const uid = typeof process.getuid === "function" ? process.getuid() : -1;
+  return join(
+    tmpdir(),
+    uid >= 0 ? `neurolink-artifacts-${uid}` : "neurolink-artifacts",
+  );
+}
 
 /**
  * Sidecar written beside every payload so a process that never called
@@ -120,8 +133,14 @@ export class LocalTempArtifactStore implements ArtifactStore {
   private readonly index: Map<string, IndexEntry> = new Map();
   private readonly rehydrateFromDisk: boolean;
 
+  /** Resolves once the directory has been created and judged ours. */
+  private dirReady: Promise<void> | undefined;
+
   /**
-   * @param dir - Storage directory; defaults to `tmpdir()/neurolink-artifacts`
+   * @param dir - Storage directory; defaults to
+   *   `tmpdir()/neurolink-artifacts-<uid>` (per unix user, so two accounts on
+   *   one host never share a directory; plain `neurolink-artifacts` where the
+   *   platform has no uid)
    * @param options - `rehydrateFromDisk` (default true) lets `retrieve()` and
    *   `delete()` fall back to the on-disk sidecar index on an in-memory miss,
    *   which makes artifacts READABLE AND DELETABLE ACROSS PROCESSES sharing
@@ -130,10 +149,47 @@ export class LocalTempArtifactStore implements ArtifactStore {
    *   isolation: ids not stored by this process resolve to nothing.
    */
   constructor(dir?: string, options?: { rehydrateFromDisk?: boolean }) {
-    this.dir = dir ?? join(tmpdir(), "neurolink-artifacts");
+    this.dir = dir ?? defaultArtifactDir();
     this.rehydrateFromDisk =
       options?.rehydrateFromDisk ??
       process.env.NEUROLINK_ARTIFACT_REHYDRATE !== "false";
+  }
+
+  /**
+   * Create the directory if needed and refuse one this user does not own.
+   *
+   * The OS temp directory is shared, so a pre-existing path with our name may
+   * have been planted by another local account: a symlink to somewhere we
+   * would then write into, or a directory they can read. Judge the directory
+   * with `lstat` (never following a link), require a real directory owned by
+   * this uid, and tighten its mode to 0o700 when it is ours but looser. Done
+   * once per instance, before the first write or read.
+   */
+  private ensureOwnedDir(): Promise<void> {
+    this.dirReady ??= (async () => {
+      await mkdir(this.dir, { recursive: true, mode: 0o700 });
+      const info = await lstat(this.dir);
+      if (info.isSymbolicLink() || !info.isDirectory()) {
+        throw new Error(
+          `[ArtifactStore] refusing to use "${this.dir}": not a plain directory`,
+        );
+      }
+      const uid = typeof process.getuid === "function" ? process.getuid() : -1;
+      if (uid >= 0 && info.uid !== uid) {
+        throw new Error(
+          `[ArtifactStore] refusing to use "${this.dir}": owned by uid ${info.uid}, not ${uid}`,
+        );
+      }
+      if (uid >= 0 && (info.mode & 0o077) !== 0) {
+        const { chmod } = await import("node:fs/promises");
+        await chmod(this.dir, 0o700);
+      }
+    })().catch((error: unknown) => {
+      // Let the next call retry rather than caching a transient failure.
+      this.dirReady = undefined;
+      throw error;
+    });
+    return this.dirReady;
   }
 
   generatePreview(payload: string): string {
@@ -144,7 +200,7 @@ export class LocalTempArtifactStore implements ArtifactStore {
     payload: string,
     meta: Omit<ArtifactMeta, "createdAt">,
   ): Promise<ArtifactRef> {
-    await mkdir(this.dir, { recursive: true, mode: 0o700 });
+    await this.ensureOwnedDir();
 
     const id = randomUUID();
     const ext = meta.contentType === "json" ? ".json" : ".txt";
@@ -176,7 +232,7 @@ export class LocalTempArtifactStore implements ArtifactStore {
   async retrieve(id: string): Promise<string | null> {
     const entry =
       this.index.get(id) ??
-      (this.rehydrateFromDisk ? await this.rehydrate(id) : undefined);
+      (this.rehydrateFromDisk ? await this.rehydrateChecked(id) : undefined);
     if (!entry) {
       logger.debug(`[ArtifactStore] Artifact ${id} not found on disk`);
       return null;
@@ -200,7 +256,7 @@ export class LocalTempArtifactStore implements ArtifactStore {
   async delete(id: string): Promise<void> {
     const entry =
       this.index.get(id) ??
-      (this.rehydrateFromDisk ? await this.rehydrate(id) : undefined);
+      (this.rehydrateFromDisk ? await this.rehydrateChecked(id) : undefined);
     if (!entry) {
       return;
     }
@@ -269,6 +325,22 @@ export class LocalTempArtifactStore implements ArtifactStore {
    * now that a miss probes `join(dir, id + ext)` the id — which arrives from
    * the model — reaches the path layer. See `isSafeArtifactId`.
    */
+  /**
+   * `rehydrate` after the directory has been judged ours: a sidecar in a
+   * directory another account controls is not a record to trust.
+   */
+  private async rehydrateChecked(id: string): Promise<IndexEntry | undefined> {
+    try {
+      await this.ensureOwnedDir();
+    } catch (error) {
+      logger.warn(
+        `[ArtifactStore] ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return undefined;
+    }
+    return this.rehydrate(id);
+  }
+
   private async rehydrate(id: string): Promise<IndexEntry | undefined> {
     if (!isSafeArtifactId(id)) {
       logger.debug(`[ArtifactStore] Rejected unsafe artifact id "${id}"`);

@@ -6,6 +6,7 @@
 import type { RouteGroup, ServerContext } from "../../types/index.js";
 import { withSpan } from "../../telemetry/withSpan.js";
 import { tracers } from "../../telemetry/tracers.js";
+import { shapeRouteError } from "../utils/clientError.js";
 import {
   createErrorResponse,
   IdParamSchema,
@@ -155,7 +156,7 @@ async function handleGetSessionMessages(ctx: ServerContext) {
   } catch (error) {
     return createErrorResponse(
       "MEMORY_ERROR",
-      error instanceof Error ? error.message : "Failed to get session messages",
+      shapeRouteError("memoryRoutes", ctx.requestId, error).message,
       undefined,
       ctx.requestId,
     );
@@ -255,7 +256,7 @@ async function handleGetSession(ctx: ServerContext) {
   } catch (error) {
     return createErrorResponse(
       "MEMORY_ERROR",
-      error instanceof Error ? error.message : "Failed to get session",
+      shapeRouteError("memoryRoutes", ctx.requestId, error).message,
       undefined,
       ctx.requestId,
     );
@@ -360,7 +361,7 @@ async function handleListSessions(ctx: ServerContext) {
   } catch (error) {
     return createErrorResponse(
       "MEMORY_ERROR",
-      error instanceof Error ? error.message : "Failed to list sessions",
+      shapeRouteError("memoryRoutes", ctx.requestId, error).message,
       undefined,
       ctx.requestId,
     );
@@ -397,7 +398,7 @@ async function handleGetStats(ctx: ServerContext) {
   } catch (error) {
     return createErrorResponse(
       "MEMORY_ERROR",
-      error instanceof Error ? error.message : "Failed to get statistics",
+      shapeRouteError("memoryRoutes", ctx.requestId, error).message,
       undefined,
       ctx.requestId,
     );
@@ -456,7 +457,7 @@ async function handleClearSession(ctx: ServerContext) {
   } catch (error) {
     return createErrorResponse(
       "MEMORY_ERROR",
-      error instanceof Error ? error.message : "Failed to clear session",
+      shapeRouteError("memoryRoutes", ctx.requestId, error).message,
       undefined,
       ctx.requestId,
     );
@@ -493,7 +494,7 @@ async function handleClearAllSessions(ctx: ServerContext) {
   } catch (error) {
     return createErrorResponse(
       "MEMORY_ERROR",
-      error instanceof Error ? error.message : "Failed to clear sessions",
+      shapeRouteError("memoryRoutes", ctx.requestId, error).message,
       undefined,
       ctx.requestId,
     );

@@ -14,7 +14,10 @@ import type { MCPToolRegistry } from "../mcp/toolRegistry.js";
 import type { NeuroLink } from "../neurolink.js";
 import type { JsonObject, JsonValue } from "./common.js";
 import type { ExternalMCPServerStatus } from "./externalMcp.js";
-import type { ProxyRuntimeConfigProvider } from "./proxy.js";
+import type {
+  ProxyInboundAuthOptions,
+  ProxyRuntimeConfigProvider,
+} from "./proxy.js";
 import type { TTSAudioFormat } from "./tts.js";
 import type {
   STTCorrectionOptions,
@@ -42,7 +45,12 @@ export type ServerAdapterConfig = {
   /** Server port (default: 3000) */
   port?: number;
 
-  /** Server host (default: "0.0.0.0") */
+  /**
+   * Interface to bind (default: `"127.0.0.1"`, loopback only). Pass
+   * `"0.0.0.0"` or `"::"` to listen on every interface; a server reachable from
+   * the network should register authentication middleware first, since the
+   * tool, MCP and memory routes act on this host.
+   */
   host?: string;
 
   /** Base path for all routes (default: "/api") */
@@ -189,11 +197,36 @@ export type RateLimitConfig = {
   /** Custom error message */
   message?: string;
 
-  /** Skip rate limiting for certain paths */
+  /**
+   * Skip rate limiting for certain paths. An entry matches the path itself and
+   * everything under it at a segment boundary: `/api/health` matches
+   * `/api/health` and `/api/health/live`, never `/api/healthz`.
+   */
   skipPaths?: string[];
 
-  /** Custom key generator function */
+  /**
+   * Custom key generator function. Without one, requests are counted per
+   * client address: the TCP peer, or, with `trustProxy`, the client address a
+   * trusted reverse proxy reports in `X-Forwarded-For`.
+   */
   keyGenerator?: (ctx: ServerContext) => string;
+
+  /**
+   * Read the client address from `X-Forwarded-For` (default: `false`). Off,
+   * the header is ignored and every request is counted against the TCP peer,
+   * so a client cannot pick its own bucket by sending the header. Turn it on
+   * only behind a reverse proxy that overwrites or appends to the header.
+   */
+  trustProxy?: boolean;
+
+  /**
+   * Addresses of the reverse proxies in front of this server, consulted with
+   * `trustProxy`. Hops listed here are skipped from the right of
+   * `X-Forwarded-For`, so the key is the last hop no trusted proxy added, i.e.
+   * the client the outermost trusted proxy saw. Empty (the default) takes the
+   * rightmost entry, the one the nearest proxy appended.
+   */
+  trustedProxies?: string[];
 };
 
 /**
@@ -206,6 +239,8 @@ export type RequiredRateLimitConfig = {
   message: string;
   skipPaths?: string[];
   keyGenerator?: (ctx: ServerContext) => string;
+  trustProxy: boolean;
+  trustedProxies: string[];
 };
 
 /**
@@ -392,6 +427,13 @@ export type ServerContext = {
 
   /** Request body (parsed) */
   body?: unknown;
+
+  /**
+   * The TCP peer's address, as the runtime reports it (`undefined` when the
+   * runtime does not expose it). Never read from a header, so a client cannot
+   * choose it; the rate limiters key on it.
+   */
+  remoteAddress?: string;
 
   /** NeuroLink SDK instance */
   neurolink: NeuroLink;
@@ -602,11 +644,24 @@ export type MiddlewareDefinition = {
   /** Middleware handler */
   handler: MiddlewareHandler;
 
-  /** Paths to apply middleware to (default: all) */
+  /**
+   * Paths to apply middleware to (default: all). An entry matches the path
+   * itself and everything under it at a segment boundary (`/api/agent` matches
+   * `/api/agent/execute`, never `/api/agents`).
+   */
   paths?: string[];
 
-  /** Paths to exclude from middleware */
+  /** Paths to exclude from middleware, matched the same way as `paths`. */
   excludePaths?: string[];
+
+  /**
+   * `true` when this middleware authenticates requests (sets `ctx.user` or
+   * refuses). `createAuthMiddleware` and `createBearerAuthMiddleware` set it.
+   * The adapter's `hasAuthenticationMiddleware()` reads it, and so the tool
+   * and MCP execution routes decide whether the server is open to anyone who
+   * can reach it. Set it on your own authentication middleware.
+   */
+  authenticates?: boolean;
 };
 
 /**
@@ -1672,6 +1727,14 @@ export type CreateRoutesOptions = {
   /** Enable the Gemini door on its own, for the same reason. */
   geminiProxy?: boolean;
   /**
+   * Inbound authentication for the Claude and Codex proxy route groups. The
+   * token defaults to `NEUROLINK_PROXY_INBOUND_TOKEN`; `allowUnauthenticated`
+   * falls back to the top-level `allowUnauthenticated`. Mounting a proxy door
+   * with neither logs a loud warning, because anyone who reaches the port can
+   * spend the pooled subscriptions.
+   */
+  proxyAuth?: ProxyInboundAuthOptions;
+  /**
    * Runtime config provider for engines that read it (currently: Codex
    * outbound fallback). NOTE: this option alone cannot make the Codex
    * outbound fallback's `anthropic` target reachable — that leg dispatches
@@ -1698,6 +1761,31 @@ export type CreateRoutesOptions = {
    * the top-level `perUserAuth`, which is why it is not accepted here.
    */
   agent?: Omit<ServerAgentRouteOptions, "perUserAuth">;
+  /**
+   * `false` leaves the tool routes (`GET/POST <basePath>/tools/*`) out. They
+   * execute whatever the server's registry holds, including the built-in
+   * filesystem tools when those are enabled, so a server that only generates
+   * text has no reason to mount them. Default: mounted.
+   */
+  tools?: boolean;
+  /**
+   * Serve the tool and MCP execution routes to callers the server has not
+   * authenticated. By default those routes answer 403 whenever the server has
+   * no authentication middleware (see `hasAuthentication`), because they run
+   * tools and remove MCP servers on behalf of anyone who can reach the port.
+   * `true` restores the open behaviour for a server that is protected some
+   * other way (a reverse proxy, a private network). The environment variable
+   * `NEUROLINK_SERVER_ALLOW_UNAUTHENTICATED=1` has the same effect.
+   */
+  allowUnauthenticated?: boolean;
+  /**
+   * Tells the tool and MCP execution routes whether the server authenticates
+   * its callers; read on every request. `registerAllRoutes()` supplies one
+   * that asks the adapter for middleware marked `authenticates: true`. With
+   * neither this nor `allowUnauthenticated`, `createAllRoutes()` cannot tell
+   * and leaves those routes open, as before.
+   */
+  hasAuthentication?: () => boolean;
   /**
    * Set to `true` when the authentication middleware identifies individual
    * people (one credential per person). The agent routes then take `userId`
@@ -1734,6 +1822,58 @@ export type CreateRoutesOptions = {
    * `X-Request-ID`, and every other request runs as anonymous.
    */
   perUserAuth?: boolean;
+};
+
+/**
+ * Options of the route groups that act on the host (tool execution, MCP
+ * server execution and removal). `createAllRoutes` derives them from
+ * `CreateRoutesOptions.allowUnauthenticated` / `hasAuthentication`.
+ */
+export type ServerSensitiveRouteOptions = {
+  /**
+   * Whether the server authenticates its callers, read on every request. When
+   * it answers `false` the execution routes refuse with 403. Omitted, the
+   * routes cannot tell and stay open.
+   */
+  hasAuthentication?: () => boolean;
+  /** Serve the execution routes to unauthenticated callers regardless. */
+  allowUnauthenticated?: boolean;
+};
+
+/** `neurolink serve` flags that relax its network hardening. */
+export type ServerServeHardeningArgs = {
+  /**
+   * `--allow-unauthenticated`: listen on a non-loopback host without
+   * `NEUROLINK_SERVER_API_KEY`, and serve the tool and MCP execution routes
+   * to anyone who can reach the port.
+   */
+  allowUnauthenticated?: boolean;
+  /**
+   * `--enable-builtin-tools`: keep NeuroLink's built-in tools (file reads and
+   * writes under the server's working directory among them) in the server's
+   * registry. Off by default, so `/tools/execute` and the agent routes cannot
+   * reach the host's filesystem.
+   */
+  enableBuiltinTools?: boolean;
+};
+
+/** What a route may tell the client about a failure, with the status to send it under. */
+export type ServerClientFacingError = {
+  code: string;
+  message: string;
+  status: number;
+};
+
+/** What `resolveClientAddress()` needs to name the client of a request. */
+export type ServerClientAddressInput = {
+  /** The TCP peer, as the runtime reports it. */
+  remoteAddress: string | undefined;
+  /** The request's `X-Forwarded-For` header, if any. */
+  forwardedFor: string | undefined;
+  /** Consult `forwardedFor` at all. */
+  trustProxy: boolean;
+  /** Reverse proxies whose hops are skipped from the right of `forwardedFor`. */
+  trustedProxies: readonly string[];
 };
 
 // =============================================================================
@@ -1784,7 +1924,10 @@ export type ServerTranscribeRouteOptions = {
   openaiBasePath?: string;
   /**
    * The STT evaluation collector, `POST <openaiBasePath>/v1/evals/stt`.
-   * On by default; `false` removes its routes.
+   * Off by default: it stores every transcript a caller posts and lets any
+   * caller read them back. Pass an options object (`{}` for the defaults) to
+   * mount it, or set `NEUROLINK_STT_EVAL_ENABLED=1`; `false` keeps it off
+   * whatever the environment says.
    */
   evals?: ServerSTTEvalOptions | false;
 };
@@ -1800,6 +1943,12 @@ export type ServerSTTEvalOptions = {
   maxCalls?: number;
   /** Segments kept per call; later new ids are counted as `ignored`. Default 50,000. */
   maxSegmentsPerCall?: number;
+  /**
+   * Bytes of segment text and metadata held in memory across every call;
+   * when a batch pushes the total over it the least recently updated calls
+   * are evicted (still on disk when `dir` is set). Default 64 MiB.
+   */
+  maxBytes?: number;
 };
 
 /** One finalized transcript segment, from the STT people saw or the one run alongside it. */
@@ -1830,6 +1979,11 @@ export type ServerSTTEvalBatchRequest = {
   final?: boolean;
   models: { primary: string; shadow: string };
   segments: ServerSTTEvalSegment[];
+};
+
+/** One line of a call's JSON-lines file: the batch as sent, plus who sent it when the server knew. */
+export type ServerSTTEvalStoredBatch = ServerSTTEvalBatchRequest & {
+  owner?: string;
 };
 
 /** Answer to `POST /v1/evals/stt`. */
@@ -1920,6 +2074,14 @@ export type ServerSTTEvalCallRecord = {
   batches: Set<number>;
   segments: Map<string, ServerSTTEvalSegment>;
   updatedAt: number;
+  /** Approximate bytes the call's segments take in memory; what `maxBytes` budgets. */
+  bytes: number;
+  /**
+   * The authenticated caller that created the call, when the server identified
+   * one; the call is then listed and readable only by that caller. `undefined`
+   * for a call made under no authentication or a shared key.
+   */
+  owner?: string;
 };
 
 /** Word edit distance between two readings, and the reference's word count. */
@@ -2023,11 +2185,57 @@ export type ServerTranscribeWebSocketOptions = {
   /** Upgrade path. Default `/v1/audio/transcriptions/stream`. */
   path?: string;
   /**
-   * Token(s) required on the upgrade (`Authorization: Bearer` header or
-   * `?token=`). `neurolink serve` passes the same keys as its HTTP routes
-   * (`NEUROLINK_SERVER_API_KEY`, comma-separated), so one setting guards both.
+   * Token(s) required on the upgrade, as `Authorization: Bearer <token>` or,
+   * for a browser (which cannot set headers), as the subprotocol
+   * `neurolink-api-key.<token>` offered next to `neurolink` in
+   * `Sec-WebSocket-Protocol` (the realtime path also takes OpenAI's
+   * `openai-insecure-api-key.<token>`). `neurolink serve` passes the same keys
+   * as its HTTP routes (`NEUROLINK_SERVER_API_KEY`, comma-separated), so one
+   * setting guards both.
    */
   authToken?: string | readonly string[];
+  /**
+   * Also accept the token as `?token=<token>` in the upgrade URL (default:
+   * `false`). A URL is written to access logs, proxies and `Referer` headers,
+   * so a key carried there leaks; prefer the subprotocol carrier.
+   */
+  allowQueryToken?: boolean;
+  /**
+   * Most sockets open at once across every path this attaches (default 100).
+   * A further upgrade is answered `503 Service Unavailable` before the
+   * handshake, so it costs no transcription engine.
+   */
+  maxConnections?: number;
+  /** Most sockets open at once from one remote address (default 16); the next is answered 503. */
+  maxConnectionsPerAddress?: number;
+  /**
+   * Queued audio bytes per socket above which the socket is paused until the
+   * engine catches up (TCP backpressure; default 8 MiB). Audio beyond
+   * `maxQueuedBytes` (16 MiB live, 512 MiB in file mode) still closes the
+   * socket with 1009.
+   */
+  highWaterMark?: number;
+  /**
+   * Queued audio bytes across every socket of this process (default 512 MiB).
+   * A socket whose frame would push the total past it is closed with 1013
+   * (try again later), so one burst of uploads cannot take the process down.
+   */
+  maxTotalQueuedBytes?: number;
+  /**
+   * Serve `mode: "file"` (whole recordings, buffered up to 512 MiB a socket)
+   * to callers the server has not authenticated while it listens on a
+   * non-loopback address (default: `false`, such a request is refused with
+   * 1008). With `authToken` set, or on a loopback listener, file mode is open.
+   */
+  allowUnauthenticatedFileMode?: boolean;
+  /**
+   * Require a session secret (default: `false`). A speaker that opens a
+   * session may pass `?secret=<value>`; from then on every speaker and
+   * listener joining that `?session=` must present the same secret, or is
+   * refused with 1008. `true` refuses a new session that sets no secret, so
+   * no session can be joined by guessing its id.
+   */
+  requireSessionSecret?: boolean;
   /**
    * Browser origins allowed to upgrade. A browser always sends `Origin` on a
    * WebSocket upgrade, and an upgrade whose `Origin` is not listed is refused

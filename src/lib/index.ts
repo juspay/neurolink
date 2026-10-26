@@ -752,7 +752,28 @@ export {
   createSelectRequest,
   createConfirmationRequest,
   createFormRequest,
+  // Project MCP config trust + transport URL policy (2026-10 security audit)
+  assertMcpTransportUrlAllowed,
+  classifyMcpTransportAddress,
+  resolveProjectMcpConfigPath,
+  setProjectMcpConfigTrustHook,
+  getProjectMcpConfigTrustHook,
+  summarizeProjectMcpConfig,
+  formatProjectMcpConfigSummary,
+  getProjectMcpConfigTrustStatus,
+  recordTrustedProjectMcpConfig,
+  readProjectMcpConfigTrustStore,
+  hashProjectMcpConfig,
+  getTrustedMcpConfigStorePath,
+  PROJECT_MCP_CONFIG_FILENAME,
+  TRUST_MCP_CONFIG_ENV,
+  TRUST_MCP_CONFIG_FLAG,
+  TRUSTED_MCP_CONFIGS_FILENAME,
 } from "./mcp/index.js";
+
+// Explicit `.env` loading for SDK hosts. Importing the SDK no longer reads
+// `<cwd>/.env` (2026-10 security hardening); call `loadDotenv()` to opt in.
+export { loadDotenv, loadProcessDotenv } from "./utils/dotenvBootstrap.js";
 
 // Tool signature deduplication utilities (opt-in, fail-open)
 export { computeToolSignature, dedupeTools } from "./core/toolDedup.js";

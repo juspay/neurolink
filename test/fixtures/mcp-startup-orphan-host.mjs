@@ -75,7 +75,12 @@ process.chdir(workDir);
 
 const dist = resolve(fixtureDir, "..", "..", "dist", "index.js");
 const { NeuroLink } = await import(pathToFileURL(dist).href);
-const sdk = new NeuroLink({ conversationMemory: { enabled: false } });
+// The SDK no longer reads `<cwd>/.mcp-config.json` on its own (the working
+// directory is not a trust boundary); this host names the file it wrote.
+const sdk = new NeuroLink({
+  conversationMemory: { enabled: false },
+  mcp: { configPath: join(workDir, ".mcp-config.json") },
+});
 
 const awaitsConnection = childKind.startsWith("connected-") || closing;
 let connected = false;

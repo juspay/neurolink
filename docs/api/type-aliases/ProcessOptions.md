@@ -17,7 +17,17 @@ Allows customization of download behavior and retry logic.
 
 > `optional` **authHeaders?**: `Record`\<`string`, `string`\>
 
-Authentication headers for download requests
+Authentication headers for download requests. Sent on the first request
+only — never replayed to a redirect target.
+
+---
+
+### attachmentPolicy?
+
+> `optional` **attachmentPolicy?**: [`AttachmentPolicy`](AttachmentPolicy.md)
+
+Attachment policy for the download (URL rules, size cap). The
+environment-derived default applies when absent.
 
 ---
 

@@ -15,6 +15,7 @@
 import pLimit from "p-limit";
 import { ErrorCategory, ErrorSeverity } from "../../constants/enums.js";
 import type {
+  AttachmentPolicy,
   ClipGenState,
   ClipResult,
   DirectorModeOptions,
@@ -25,6 +26,12 @@ import type {
   VideoOutputOptions,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
+import {
+  downloadAttachment,
+  getAttachmentPolicy,
+  readAttachmentFile,
+} from "../../utils/attachmentPolicy.js";
+import { MAX_IMAGE_BYTES } from "../../utils/sizeGuard.js";
 import { validateImageForVideo } from "../../utils/parameterValidation.js";
 import { VIDEO_ERROR_CODES } from "../../constants/videoErrors.js";
 import { extractFirstFrame, extractLastFrame } from "./frameExtractor.js";
@@ -71,6 +78,7 @@ const DEFAULT_TRANSITION_DURATION: 4 | 6 | 8 = 4;
 async function resolveImageToBuffer(
   image: Buffer | string | ImageWithAltText,
   segmentIndex: number,
+  policy: AttachmentPolicy,
 ): Promise<Buffer> {
   if (Buffer.isBuffer(image)) {
     return image;
@@ -78,8 +86,8 @@ async function resolveImageToBuffer(
 
   if (typeof image === "string") {
     return image.startsWith("http://") || image.startsWith("https://")
-      ? fetchImageFromUrl(image, segmentIndex)
-      : readImageFromDisk(image, segmentIndex);
+      ? fetchImageFromUrl(image, segmentIndex, policy)
+      : readImageFromDisk(image, segmentIndex, policy);
   }
 
   // ImageWithAltText
@@ -91,7 +99,7 @@ async function resolveImageToBuffer(
     if (typeof imgData === "string") {
       // Handle HTTP(S) URLs
       if (imgData.startsWith("http://") || imgData.startsWith("https://")) {
-        return fetchImageFromUrl(imgData, segmentIndex);
+        return fetchImageFromUrl(imgData, segmentIndex, policy);
       }
 
       // Handle data URIs (e.g., "data:image/png;base64,iVBORw0KG...")
@@ -113,7 +121,7 @@ async function resolveImageToBuffer(
 
       // Try as file path
       try {
-        return await readImageFromDisk(imgData, segmentIndex);
+        return await readImageFromDisk(imgData, segmentIndex, policy);
       } catch (fileError) {
         // Not a valid file path - throw clear error instead of silently treating as base64
         throw new VideoError({
@@ -147,52 +155,61 @@ async function resolveImageToBuffer(
   });
 }
 
-/** Fetch an image from an HTTP(S) URL with timeout. */
+/**
+ * Fetch an image from an HTTP(S) URL under the attachment policy: HTTPS to a
+ * public host unless the policy says otherwise, DNS-pinned, redirects
+ * re-validated per hop, body bounded while streaming.
+ */
 async function fetchImageFromUrl(
   url: string,
   segmentIndex: number,
+  policy: AttachmentPolicy,
 ): Promise<Buffer> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), IMAGE_IO_TIMEOUT_MS);
   try {
-    const response = await fetch(url, { signal: controller.signal });
-    if (!response.ok) {
-      throw new VideoError({
-        code: VIDEO_ERROR_CODES.INVALID_INPUT,
-        message: `Failed to fetch image for segment ${segmentIndex}: HTTP ${response.status}`,
-        category: ErrorCategory.EXECUTION,
-        severity: ErrorSeverity.HIGH,
-        retriable: response.status >= 500,
-        context: { segmentIndex, url: url.substring(0, 100) },
-      });
-    }
-    return Buffer.from(await response.arrayBuffer());
+    const downloaded = await downloadAttachment(url, {
+      policy,
+      maxBytes: MAX_IMAGE_BYTES,
+      label: `segment ${segmentIndex} image URL`,
+      timeoutMs: IMAGE_IO_TIMEOUT_MS,
+    });
+    return downloaded.buffer;
   } catch (error) {
     if (error instanceof VideoError) {
       throw error;
     }
+    const message = error instanceof Error ? error.message : String(error);
+    const status = /HTTP (\d{3})/.exec(message)?.[1];
+    const refused =
+      (error as { code?: unknown } | null)?.code === "ATTACHMENT_URL_REFUSED";
     throw new VideoError({
       code: VIDEO_ERROR_CODES.INVALID_INPUT,
-      message: `Failed to fetch image for segment ${segmentIndex}: ${error instanceof Error ? error.message : String(error)}`,
+      message: `Failed to fetch image for segment ${segmentIndex}: ${message}`,
       category: ErrorCategory.EXECUTION,
       severity: ErrorSeverity.HIGH,
-      retriable: true,
-      context: { segmentIndex },
+      retriable: !refused && (status === undefined || Number(status) >= 500),
+      context: { segmentIndex, url: url.substring(0, 100) },
       originalError: error instanceof Error ? error : undefined,
     });
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
-/** Read an image from the local filesystem. */
+/**
+ * Read an image from the local filesystem under the attachment policy: roots
+ * containment when configured, O_NOFOLLOW open of the real path, regular
+ * files only, bounded at the image cap.
+ */
 async function readImageFromDisk(
   filePath: string,
   segmentIndex: number,
+  policy: AttachmentPolicy,
 ): Promise<Buffer> {
-  const { readFile } = await import("node:fs/promises");
   try {
-    return await readFile(filePath);
+    const read = await readAttachmentFile(filePath, {
+      policy,
+      maxBytes: MAX_IMAGE_BYTES,
+      label: `segment ${segmentIndex} image file`,
+    });
+    return read.buffer;
   } catch (error) {
     throw new VideoError({
       code: VIDEO_ERROR_CODES.INVALID_INPUT,
@@ -256,6 +273,7 @@ async function generateSingleClip(
   videoOptions: VideoOutputOptions,
   region: string | undefined,
   state: ClipGenState,
+  policy: AttachmentPolicy,
 ): Promise<void> {
   if (state.circuitOpen) {
     throw new VideoError({
@@ -270,7 +288,11 @@ async function generateSingleClip(
 
   const clipStart = Date.now();
   try {
-    const imageBuffer = await resolveImageToBuffer(segment.image, index);
+    const imageBuffer = await resolveImageToBuffer(
+      segment.image,
+      index,
+      policy,
+    );
 
     // Validate image buffer (type, dimensions, size limits) before generation
     const imageValidation = validateImageForVideo(imageBuffer);
@@ -341,6 +363,7 @@ async function generateClips(
   segments: DirectorSegment[],
   videoOptions: VideoOutputOptions,
   region: string | undefined,
+  policy: AttachmentPolicy,
 ): Promise<ClipResult[]> {
   const limit = pLimit(CLIP_CONCURRENCY);
   const state: ClipGenState = {
@@ -352,7 +375,9 @@ async function generateClips(
   };
 
   const clipPromises = segments.map((segment, i) =>
-    limit(() => generateSingleClip(segment, i, videoOptions, region, state)),
+    limit(() =>
+      generateSingleClip(segment, i, videoOptions, region, state, policy),
+    ),
   );
 
   // Collect results — any failure is fatal
@@ -588,8 +613,17 @@ export async function executeDirectorPipeline(
     resolution: videoOptions.resolution ?? "720p",
   });
 
+  // The instance's attachment policy for segment images given as URLs or
+  // paths; the environment-derived default when the caller stamped none.
+  const attachmentPolicy = getAttachmentPolicy(directorOptions);
+
   // Phase 1: Generate all clips
-  const clipResults = await generateClips(segments, videoOptions, region);
+  const clipResults = await generateClips(
+    segments,
+    videoOptions,
+    region,
+    attachmentPolicy,
+  );
 
   logger.info("Phase 1 complete — all clips generated", {
     clipCount: clipResults.length,

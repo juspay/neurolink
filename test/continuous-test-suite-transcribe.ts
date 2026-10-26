@@ -1754,6 +1754,9 @@ const app: HonoLike = await (async () => {
     transcribe: {
       allowedAudioRoots: [ALLOWED_ROOT],
       maxAudioBytes: ROUTE_LIMIT,
+      // The STT evaluation collector is off unless asked for; the eval cases
+      // below drive it on this app.
+      evals: {},
     },
   });
   return adapter.getFrameworkInstance() as HonoLike;
@@ -3374,7 +3377,9 @@ await test("evals: batches export to the Langfuse project in the server's env â€
   const langfuse = await fakeLangfuse();
   const decoy = await fakeLangfuse();
   try {
-    const target = await withEvalLangfuseEnv(langfuse.url, () => evalApp({}));
+    const target = await withEvalLangfuseEnv(langfuse.url, () =>
+      evalApp({ evals: {} }),
+    );
     const call = `${NS}-eval-langfuse`;
     const first = await postEval(target, {
       call_id: call,
@@ -3446,7 +3451,7 @@ await test("evals: batches export to the Langfuse project in the server's env â€
 
 await test("evals: an unreachable Langfuse never fails the batch, and without the env nothing is exported", async () => {
   const down = await withEvalLangfuseEnv("http://127.0.0.1:9", () =>
-    evalApp({}),
+    evalApp({ evals: {} }),
   );
   const accepted = await postEval(down, {
     call_id: `${NS}-eval-langfuse-down`,
@@ -3458,7 +3463,7 @@ await test("evals: an unreachable Langfuse never fails the batch, and without th
 
   const langfuse = await fakeLangfuse();
   try {
-    const plain = await evalApp({});
+    const plain = await evalApp({ evals: {} });
     await postEval(plain, {
       call_id: `${NS}-eval-langfuse-off`,
       batch: 1,

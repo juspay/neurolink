@@ -195,9 +195,14 @@ inputs:
     required: false
     default: "false"
   neurolink_version:
-    description: "NeuroLink CLI version to install"
+    description: >-
+      Exact @juspay/neurolink CLI version to install (x.y.z). Empty installs the
+      version this action was released with (src/lib/action/cliVersion.ts), a
+      reviewed pin. The literal "latest" opts into the registry's moving tag and
+      logs a warning. The install runs with --ignore-scripts and is verified with
+      `npm audit signatures` (registry signatures + provenance attestations).
     required: false
-    default: "latest"
+    default: ""
   working_directory:
     description: "Working directory for CLI execution"
     required: false
@@ -230,5 +235,7 @@ outputs:
     description: "Error message if execution failed"
 
 runs:
-  using: "node20"
+  # Node 20 was removed from GitHub-hosted runners in September 2026; node20
+  # actions were already being forced onto Node 24 with a deprecation warning.
+  using: "node24"
   main: "action-dist/index.js"

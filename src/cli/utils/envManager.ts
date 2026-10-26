@@ -32,7 +32,13 @@ export function backupEnvFile(envPath: string = ".env"): EnvBackupResult {
     const backupPath = `${envPath}.backup.${timestamp}`;
 
     try {
-      fs.copyFileSync(envPath, backupPath);
+      // The backup holds the same provider keys as `.env`: owner-only, and
+      // never over an existing file (a second backup in the same second gets
+      // a fresh error rather than a silent overwrite).
+      fs.writeFileSync(backupPath, fs.readFileSync(envPath), {
+        mode: 0o600,
+        flag: "wx",
+      });
       result.backupPath = backupPath;
     } catch (error) {
       throw new Error(
@@ -199,9 +205,16 @@ export function updateEnvFile(
   // Generate new content
   const newContent = generateEnvContent(newVars, existingContent, keysToDelete);
 
-  // Write updated file
+  // Write updated file, owner-only. `mode` applies only when the file is
+  // created, so an existing `.env` is tightened explicitly as well; a
+  // platform without POSIX modes (Windows) ignores the chmod.
   try {
-    fs.writeFileSync(envPath, newContent, "utf8");
+    fs.writeFileSync(envPath, newContent, { encoding: "utf8", mode: 0o600 });
+    try {
+      fs.chmodSync(envPath, 0o600);
+    } catch {
+      // Not a POSIX file system; the write itself succeeded.
+    }
   } catch (error) {
     throw new Error(
       `Failed to write .env file: ${error instanceof Error ? error.message : String(error)}`,

@@ -8,6 +8,7 @@
  */
 
 import fs from "fs";
+import { ensurePrivateDirectorySync } from "../auth/secureFiles.js";
 import os from "os";
 import path from "path";
 import { randomUUID } from "node:crypto";
@@ -46,10 +47,9 @@ function resolveStatePath(overridePath?: string): string {
  * Ensure the parent directory of the given file path exists.
  */
 function ensureParentDir(filePath: string): void {
-  const dir = path.dirname(filePath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  // `~/.neurolink` holds credential material; whoever creates it first must
+  // create it owner-only, and re-assert the mode when it already exists.
+  ensurePrivateDirectorySync(path.dirname(filePath));
 }
 
 /** Reject malformed persisted failure metadata before it reaches status output. */

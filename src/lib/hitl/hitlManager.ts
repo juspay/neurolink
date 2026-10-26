@@ -73,6 +73,7 @@ export class HITLManager extends EventEmitter {
         : (config.autoApproveExclusions ?? []),
       auditLogging: config.auditLogging ?? false, // Default: false
       customRules: config.customRules ?? [], // Default: empty array
+      confirmBuiltinTools: config.confirmBuiltinTools ?? true, // Default: true (built-in write/bash tools prompt)
     };
 
     if (!configWithDefaults.enabled) {

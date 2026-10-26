@@ -19,8 +19,8 @@ import type {
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 import { MUSIC_ERROR_CODES, MusicError } from "../../utils/musicProcessor.js";
-import { MAX_AUDIO_BYTES, readBoundedBuffer } from "../../utils/sizeGuard.js";
-import { assertSafeUrl } from "../../utils/ssrfGuard.js";
+import { MAX_AUDIO_BYTES } from "../../utils/sizeGuard.js";
+import { safeDownload } from "../../utils/safeFetch.js";
 
 const DEFAULT_BASE_URL = "https://public-api.beatoven.ai";
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -314,26 +314,19 @@ export class BeatovenMusic implements MusicHandler {
   }
 
   private async downloadTrack(url: string): Promise<Buffer> {
+    // `safeDownload` validates the provider-returned URL (HTTPS, public host),
+    // pins the connection to the vetted addresses, refuses redirects and
+    // bounds the body while it streams — where this was a one-off URL check
+    // followed by a plain `fetch`, which left redirects and a rebinding
+    // resolver uncovered.
     try {
-      await assertSafeUrl(url);
-    } catch (err: unknown) {
-      throw new MusicError({
-        code: MUSIC_ERROR_CODES.GENERATION_FAILED,
-        message: `Beatoven track URL rejected: ${err instanceof Error ? err.message : String(err)}`,
-        category: ErrorCategory.VALIDATION,
-        severity: ErrorSeverity.HIGH,
-        retriable: false,
-        context: { url },
+      return await safeDownload(url, {
+        maxBytes: MAX_AUDIO_BYTES,
+        label: "Beatoven track",
+        timeoutMs: REQUEST_TIMEOUT_MS,
       });
-    }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-    let response: Response;
-    try {
-      response = await fetch(url, { signal: controller.signal });
     } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
       if (err instanceof Error && err.name === "AbortError") {
         throw new MusicError({
           code: MUSIC_ERROR_CODES.GENERATION_FAILED,
@@ -344,43 +337,34 @@ export class BeatovenMusic implements MusicHandler {
           originalError: err,
         });
       }
+      if (/rejected|permitted|blocked range|redirect/i.test(message)) {
+        throw new MusicError({
+          code: MUSIC_ERROR_CODES.GENERATION_FAILED,
+          message: `Beatoven track URL rejected: ${message}`,
+          category: ErrorCategory.VALIDATION,
+          severity: ErrorSeverity.HIGH,
+          retriable: false,
+          context: { url },
+        });
+      }
+      if (/too large|size cap/i.test(message)) {
+        throw new MusicError({
+          code: MUSIC_ERROR_CODES.GENERATION_FAILED,
+          message: `Beatoven track download exceeded size limit: ${message}`,
+          category: ErrorCategory.EXECUTION,
+          severity: ErrorSeverity.HIGH,
+          retriable: false,
+          context: { url },
+        });
+      }
+      const status = /HTTP (\d{3})/.exec(message)?.[1];
       throw new MusicError({
         code: MUSIC_ERROR_CODES.GENERATION_FAILED,
-        message: `Beatoven track download network error: ${err instanceof Error ? err.message : String(err)}`,
+        message: `Beatoven track download failed: ${message}`,
         category: ErrorCategory.NETWORK,
         severity: ErrorSeverity.MEDIUM,
-        retriable: true,
+        retriable: status === undefined || Number(status) >= 500,
         originalError: err instanceof Error ? err : undefined,
-        context: { url },
-      });
-    } finally {
-      clearTimeout(timeoutId);
-    }
-
-    if (!response.ok) {
-      throw new MusicError({
-        code: MUSIC_ERROR_CODES.GENERATION_FAILED,
-        message: `Beatoven track download failed: ${response.status}`,
-        category: ErrorCategory.NETWORK,
-        severity: ErrorSeverity.MEDIUM,
-        retriable: response.status >= 500,
-        context: { status: response.status, url },
-      });
-    }
-
-    try {
-      return await readBoundedBuffer(
-        response,
-        MAX_AUDIO_BYTES,
-        "Beatoven track",
-      );
-    } catch (err: unknown) {
-      throw new MusicError({
-        code: MUSIC_ERROR_CODES.GENERATION_FAILED,
-        message: `Beatoven track download exceeded size limit: ${err instanceof Error ? err.message : String(err)}`,
-        category: ErrorCategory.EXECUTION,
-        severity: ErrorSeverity.HIGH,
-        retriable: false,
         context: { url },
       });
     }

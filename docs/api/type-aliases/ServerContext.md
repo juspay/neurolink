@@ -69,6 +69,16 @@ Request body (parsed)
 
 ---
 
+### remoteAddress?
+
+> `optional` **remoteAddress?**: `string`
+
+The TCP peer's address, as the runtime reports it (`undefined` when the
+runtime does not expose it). Never read from a header, so a client cannot
+choose it; the rate limiters key on it.
+
+---
+
 ### neurolink
 
 > **neurolink**: [`NeuroLink`](../classes/NeuroLink.md)

@@ -41,7 +41,9 @@ the replacement for the entire anchored line range
 
 Post exactly ONE summary comment (an issue comment on the PR), marker `<!-- yama:summary -->`:
 
-- verdict at the top (**APPROVE** or **NEEDS_WORK**), one sentence of rationale,
+- verdict at the top (**NO_BLOCKERS** or **NEEDS_WORK**), one sentence of rationale. The
+  verdict is never a GitHub approval: an automated reviewer posts COMMENTED or
+  CHANGES_REQUESTED reviews only, and a human approval is always still required,
 - a short table of findings — severity, `file:line`, one-line description,
 - what was checked and found clean, so silence is distinguishable from absence.
 

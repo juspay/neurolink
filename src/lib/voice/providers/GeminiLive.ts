@@ -8,6 +8,7 @@
 
 import type WebSocket from "ws";
 import { logger } from "../../utils/logger.js";
+import { redactUrlsInText } from "../../utils/logSanitize.js";
 import { RealtimeError } from "../errors.js";
 import { BaseRealtimeHandler } from "../RealtimeVoiceAPI.js";
 import type {
@@ -18,6 +19,19 @@ import type {
   RealtimeConfig,
   RealtimeSession,
 } from "../../types/index.js";
+
+/**
+ * A copy of `err` whose message has every URL — and so the `?key=` the Live
+ * endpoint requires — reduced to origin + path. The original is left alone
+ * for anything still holding it; `cause` is not carried, since it would hold
+ * the unscrubbed text.
+ */
+function scrubUrlFromError(err: Error): Error {
+  const scrubbed = new Error(redactUrlsInText(err.message));
+  scrubbed.name = err.name;
+  scrubbed.stack = err.stack ? redactUrlsInText(err.stack) : undefined;
+  return scrubbed;
+}
 
 /**
  * Google Gemini Live Voice API Handler
@@ -76,7 +90,9 @@ export class GeminiLive extends BaseRealtimeHandler {
       const model =
         config.model ?? "gemini-2.5-flash-native-audio-preview-09-2025";
 
-      // Connect to Gemini Live API
+      // Connect to Gemini Live API. The Live endpoint authenticates with the
+      // key as a query parameter; every error below is scrubbed with
+      // `redactUrlsInText` so that URL never reaches a log or a caller.
       const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${this.apiKey}`;
 
       this.ws = new WebSocket(wsUrl);
@@ -97,7 +113,7 @@ export class GeminiLive extends BaseRealtimeHandler {
         const errorHandler = (err: Error) => {
           clearTimeout(timeout);
           ws.off("open", openHandler);
-          reject(err);
+          reject(scrubUrlFromError(err));
         };
         const timeout = setTimeout(() => {
           // C1: close the half-opened socket and detach temp listeners so we
@@ -122,7 +138,7 @@ export class GeminiLive extends BaseRealtimeHandler {
       });
 
       this.ws.on("error", (err) => {
-        this.emitError(err);
+        this.emitError(scrubUrlFromError(err));
       });
 
       // Send setup message
@@ -150,12 +166,13 @@ export class GeminiLive extends BaseRealtimeHandler {
       return this.session;
     } catch (err: unknown) {
       this.emitStateChange("error");
-      const errorMessage =
-        err instanceof Error ? err.message : String(err || "Unknown error");
+      const errorMessage = redactUrlsInText(
+        err instanceof Error ? err.message : String(err || "Unknown error"),
+      );
       throw RealtimeError.connectionFailed(
         errorMessage,
         "gemini-live",
-        err instanceof Error ? err : undefined,
+        err instanceof Error ? scrubUrlFromError(err) : undefined,
       );
     }
   }
@@ -176,8 +193,9 @@ export class GeminiLive extends BaseRealtimeHandler {
       this.emitStateChange("disconnected");
       logger.info("[GeminiLiveHandler] Disconnected");
     } catch (err: unknown) {
-      const errorMessage =
-        err instanceof Error ? err.message : String(err || "Unknown error");
+      const errorMessage = redactUrlsInText(
+        err instanceof Error ? err.message : String(err || "Unknown error"),
+      );
       throw RealtimeError.protocolError(
         `Disconnect failed: ${errorMessage}`,
         "gemini-live",

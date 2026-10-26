@@ -32,9 +32,12 @@ function parseArgs(argv) {
     dashboard: defaultDashboardPath,
     openobserveUrl: process.env.NEUROLINK_OPENOBSERVE_URL ?? "http://localhost:5080",
     org: process.env.NEUROLINK_OPENOBSERVE_ORG ?? "default",
-    user: process.env.NEUROLINK_OPENOBSERVE_USER ?? "root@example.com",
-    password:
-      process.env.NEUROLINK_OPENOBSERVE_PASSWORD ?? "Complexpass#123",
+    user: process.env.NEUROLINK_OPENOBSERVE_USER,
+    // No default. The previous fallback was OpenObserve's documented dev
+    // credential, shipped in the npm package (scripts/observability is in
+    // `files`); a script that logs into a dashboard host must be given its
+    // password, never assume one.
+    password: process.env.NEUROLINK_OPENOBSERVE_PASSWORD,
     replaceByTitle: false,
     dryRun: false,
   };
@@ -78,6 +81,11 @@ function parseArgs(argv) {
     }
   }
 
+  if (!options.user || !options.password) {
+    throw new Error(
+      "OpenObserve credentials are required: pass --user/--password or set NEUROLINK_OPENOBSERVE_USER and NEUROLINK_OPENOBSERVE_PASSWORD (there is no default).",
+    );
+  }
   return options;
 }
 

@@ -6,7 +6,7 @@
 
 # Function: prepareRAGTool()
 
-> **prepareRAGTool**(`ragConfig`, `fallbackProvider?`): `Promise`\<[`RAGPreparedTool`](../type-aliases/RAGPreparedTool.md)\>
+> **prepareRAGTool**(`ragConfig`, `fallbackProvider?`, `attachmentPolicy?`): `Promise`\<[`RAGPreparedTool`](../type-aliases/RAGPreparedTool.md)\>
 
 Prepare RAG tools from the provided configuration.
 
@@ -31,6 +31,10 @@ RAG configuration from generate/stream options
 `string`
 
 Provider to use for embeddings if not specified in ragConfig
+
+### attachmentPolicy?
+
+[`AttachmentPolicy`](../type-aliases/AttachmentPolicy.md) = `...`
 
 ## Returns
 

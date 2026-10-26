@@ -66,6 +66,16 @@ export const WebSocketAgentRequestSchema = z.object({
 });
 
 /**
+ * WebSocket `tool_call` message payload schema: a tool name the registry can
+ * look up and a JSON object of arguments. The payload used to reach
+ * `executeTool` unchecked.
+ */
+export const WebSocketToolCallSchema = z.object({
+  toolName: z.string().min(1, "toolName is required").max(256),
+  args: z.record(z.string(), z.unknown()).optional().default({}),
+});
+
+/**
  * Tool execute request schema
  */
 export const ToolExecuteRequestSchema = z.object({

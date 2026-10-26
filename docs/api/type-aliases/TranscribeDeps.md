@@ -66,3 +66,10 @@ Resolves `undefined`, `""` or an alias to a registered provider name, or throws 
 #### Returns
 
 [`STTHandler`](STTHandler.md) \| `undefined`
+
+### attachmentPolicy?
+
+> `optional` **attachmentPolicy?**: [`AttachmentPolicy`](AttachmentPolicy.md)
+
+Attachment policy applied when `audio` is a path or URL. The
+environment-derived default applies when absent.

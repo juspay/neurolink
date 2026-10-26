@@ -43,6 +43,7 @@ import AdmZip from "adm-zip";
 import * as zlib from "node:zlib";
 
 import { readZipEntryWithinLimit } from "../archive/zipEntryReader.js";
+import { indexZipEntriesByName } from "../archive/zipEntryIndex.js";
 import { SIZE_LIMITS } from "../config/index.js";
 
 /**
@@ -213,11 +214,14 @@ export class PptxProcessor {
     const zip = new AdmZip(content);
     const entries = zip.getEntries();
     const readEntry = createBoundedEntryReader();
+    // First occurrence per name: a deck with two `slide1.xml` members shows
+    // the slide the listing found first, and only once.
+    const { byName } = indexZipEntriesByName(entries);
 
     // Collect slide entries with their slide numbers for sorting
     const slides: Array<{ slideNumber: number; xml: string }> = [];
 
-    for (const entry of entries) {
+    for (const entry of byName.values()) {
       const match = entry.entryName.match(SLIDE_ENTRY_REGEX);
       if (match) {
         const slideNumber = parseInt(match[1], 10);
@@ -241,7 +245,7 @@ export class PptxProcessor {
     for (const slide of slides) {
       const texts = PptxProcessor.extractTextFromXml(slide.xml);
       const notes = PptxProcessor.extractNotesForSlide(
-        zip,
+        byName,
         slide.slideNumber,
         readEntry,
       );
@@ -276,11 +280,11 @@ export class PptxProcessor {
    * @returns The notes text (runs joined by a space), or null when absent
    */
   private static extractNotesForSlide(
-    zip: AdmZip,
+    byName: ReadonlyMap<string, AdmZip.IZipEntry>,
     slideNumber: number,
     readEntry: ReturnType<typeof createBoundedEntryReader>,
   ): string | null {
-    const relsXml = readEntry(zip.getEntry(SLIDE_RELS_NAME(slideNumber)));
+    const relsXml = readEntry(byName.get(SLIDE_RELS_NAME(slideNumber)));
     if (relsXml === null) {
       return null;
     }
@@ -307,7 +311,7 @@ export class PptxProcessor {
     const normalized = notesTarget
       .replace(/^\.\.\//, "ppt/")
       .replace(/^\/+/, "");
-    const notesXml = readEntry(zip.getEntry(normalized));
+    const notesXml = readEntry(byName.get(normalized));
     if (notesXml === null) {
       return null;
     }
@@ -414,10 +418,11 @@ export class PptxProcessor {
     const zip = new AdmZip(content);
     const entries = zip.getEntries();
     const readEntry = createBoundedEntryReader();
+    const { byName } = indexZipEntriesByName(entries);
 
     // Collect all slides
     const slides: Array<{ slideNumber: number; xml: string }> = [];
-    for (const entry of entries) {
+    for (const entry of byName.values()) {
       const match = entry.entryName.match(SLIDE_ENTRY_REGEX);
       if (match) {
         const slideNumber = parseInt(match[1], 10);
@@ -447,7 +452,7 @@ export class PptxProcessor {
     for (const slide of slides) {
       const texts = PptxProcessor.extractTextFromXml(slide.xml);
       const notes = PptxProcessor.extractNotesForSlide(
-        zip,
+        byName,
         slide.slideNumber,
         readEntry,
       );

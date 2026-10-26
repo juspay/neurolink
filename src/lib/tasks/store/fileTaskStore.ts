@@ -18,6 +18,7 @@ import {
 } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { logger } from "../../utils/logger.js";
+import { assertSafeStoreId } from "../../utils/safeStoreId.js";
 import { TaskError } from "../errors.js";
 import {
   type Task,
@@ -125,8 +126,9 @@ export class FileTaskStore implements TaskStore {
     this.tasks.delete(taskId);
     this.history.delete(taskId);
 
-    // Delete run log file
-    const logPath = join(this.logsPath, `${taskId}.jsonl`);
+    // Delete run log file. The id becomes a file name under `logsPath`;
+    // nanoid ids always pass, anything that could leave the directory does not.
+    const logPath = this.runLogPath(taskId);
     try {
       await unlink(logPath);
     } catch {
@@ -138,8 +140,14 @@ export class FileTaskStore implements TaskStore {
 
   // ── Run Logs ──────────────────────────────────────────
 
+  /** `{logsPath}/{taskId}.jsonl`, after refusing an id that is not a file name. */
+  private runLogPath(taskId: string): string {
+    assertSafeStoreId(taskId, "task id");
+    return join(this.logsPath, `${taskId}.jsonl`);
+  }
+
   async appendRun(taskId: string, run: TaskRunResult): Promise<void> {
-    const logPath = join(this.logsPath, `${taskId}.jsonl`);
+    const logPath = this.runLogPath(taskId);
     mkdirSync(dirname(logPath), { recursive: true });
     await appendFile(logPath, JSON.stringify(run) + "\n", "utf-8");
     await this.pruneRunLog(logPath);
@@ -149,7 +157,7 @@ export class FileTaskStore implements TaskStore {
     taskId: string,
     options?: { limit?: number; status?: string },
   ): Promise<TaskRunResult[]> {
-    const logPath = join(this.logsPath, `${taskId}.jsonl`);
+    const logPath = this.runLogPath(taskId);
 
     if (!existsSync(logPath)) {
       return [];

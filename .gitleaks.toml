@@ -50,11 +50,21 @@ paths = [
   '''(^|/)[^/]*\.bundle\.js$''',
   '''^\.git/''',
   '''^docs/(.+/)?[^/]+\.md$''',
-  '''^examples/''',
+  # Generated, gitignored outputs of a local docs-site build: copies and
+  # renderings of the allowlisted docs/ pages above (the AWS documentation
+  # example key pair in provider-setup.md lands in each of them). CI never
+  # builds the site in the job that runs this scan; a developer who did would
+  # otherwise fail the pre-commit hook on text that is already exempt at its
+  # source.
+  '''^docs-site/(build|docs|\.docusaurus)/''',
+  '''^docs-site/static/llms(-full)?\.txt$''',
   '''^test/(.+/)?[^/]+\.json$''',
-  '''^tools/''',
   '''^memory-bank/''',
 ]
+# tools/ and examples/ are deliberately NOT listed. They hold runnable code that
+# reads real credentials from the environment, which is exactly where a pasted
+# key ends up; a path exemption there meant a key committed under either
+# directory was never reported by the pre-commit hook or CI.
 regexes = [
   '''your[-_]api[-_]key[-_]here''',
   '''replace[-_]with[-_]your''',
@@ -72,16 +82,20 @@ regexes = [
   # JSDoc: the only two places the default rules read it as a key.
   '''abc123''',
 ]
+# Stopwords suppress a finding whose MATCHED SECRET contains the word. The list
+# used to hold generic English ("test", "demo", "mock", "template", "sample",
+# "example"), so any real key that happened to sit next to such a token in the
+# match — `sk-test-…` live test-mode keys included — was silently dropped.
+# Only tokens that are unambiguously placeholder text remain; a placeholder
+# built from an ordinary word is covered by the regex allowlist above.
 stopwords = [
-  "example",
-  "test",
-  "dummy",
   "placeholder",
-  "sample",
-  "demo",
-  "fake",
-  "mock",
-  "template",
+  "your-api-key",
+  "your_api_key",
+  "replace-me",
+  "replace_me",
+  "changeme",
+  "xxxxxxxx",
 ]
 
 # The scan runs with `--no-git`, which walks every file under the root and
@@ -164,3 +178,63 @@ condition = "AND"
 targetRules = ["private-key"]
 paths = ['''^\.env\.example$''']
 regexes = ['''your-project\.iam\.gserviceaccount\.com''']
+
+# --- Fixtures that the removed blanket exemptions (tools/, examples/) and the
+# --- generic stopwords ("test", "fake", "mock", ...) used to hide. Each one is
+# --- scoped to a rule, a path and the planted marker on the line, so a real
+# --- credential in the same file is still reported.
+
+# A truncated JWT header used as an illustration (`eyJhbGciOiJIUzI1NiIs...`).
+[[allowlists]]
+description = "Truncated JWT placeholder in the MCP HTTP transport demo"
+condition = "AND"
+targetRules = ["custom-bearer-token"]
+regexTarget = "line"
+paths = ['''^examples/projects/mcp-tools-demo/src/demo/http-transport\.ts$''']
+regexes = ['''eyJhbGciOiJIUzI1NiIs\.\.\.''']
+
+# Bearer values the suites plant to prove a header reaches (or never reaches)
+# the wire: `test-token-for-header-verification`, `test-fake-<x>-credential`,
+# `BP01-AUTHORIZATION-VALUE`. None has entropy; each names itself a fixture.
+[[allowlists]]
+description = "Planted bearer tokens in header-verification suites"
+condition = "AND"
+targetRules = ["custom-bearer-token"]
+regexTarget = "line"
+paths = [
+  '''^test/continuous-test-suite-mcp-http\.ts$''',
+  '''^test/continuous-test-suite-providers-mocked\.ts$''',
+  '''^test/continuous-test-suite-observability-adv-proxy\.ts$''',
+]
+regexes = [
+  '''test-token-for-header-verification''',
+  '''test-fake-[a-z-]+-credential''',
+  '''BP01-AUTHORIZATION-VALUE''',
+]
+
+# Short synthetic secrets (`xk-plain-4821`, `sk-v05-second-…`, `pw-v05-…`) that
+# the redaction suites plant and then assert never reach a span or a log.
+[[allowlists]]
+description = "Planted secrets in redaction suites"
+condition = "AND"
+targetRules = ["generic-api-key"]
+regexTarget = "line"
+paths = [
+  '''^test/continuous-test-suite-decide-engine\.ts$''',
+  '''^test/continuous-test-suite-observability-adv-setup\.ts$''',
+]
+regexes = [
+  '''xk-plain-\d+''',
+  '''(sk|pw)-v05-[a-z0-9-]+''',
+]
+
+# A key-SHAPED string carrying a shell-injection payload (`"; touch ${marker};`)
+# that the .env-escaping regression test writes and then proves is quoted; it is
+# not a key, and the PEM markers are what the test is about.
+[[allowlists]]
+description = "PEM-shaped shell-injection fixture in the .env escaping test"
+condition = "AND"
+targetRules = ["private-key"]
+regexTarget = "line"
+paths = ['''^test/continuous-test-suite-bugfixes\.ts$''']
+regexes = ['''touch \$\{marker\}''']

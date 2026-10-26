@@ -230,6 +230,13 @@ export {
   ServerAdapterErrorCode,
 } from "../types/index.js";
 export { createStreamRedactor, redactStreamChunk } from "./utils/redaction.js";
+// The address a request is counted against (for a custom rate-limit
+// keyGenerator behind a reverse proxy) and the loopback test the adapters use.
+export {
+  isLoopbackAddress,
+  resolveClientAddress,
+} from "./utils/clientAddress.js";
+export { clientFacingError } from "./utils/clientError.js";
 // ============================================
 // Validation Utilities
 // ============================================

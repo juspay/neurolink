@@ -1,6 +1,7 @@
 import type { Tool } from "./tools.js";
 import type { EmbedInput } from "./providers.js";
 import type { DecisionCallerFn } from "./decision.js";
+import type { AttachmentPolicy } from "./attachments.js";
 
 /**
  * RAG Type Definitions
@@ -593,6 +594,14 @@ export type LoaderOptions = {
 export type WebLoaderOptions = LoaderOptions & {
   /** Request timeout in milliseconds */
   timeout?: number;
+  /**
+   * Attachment policy for the fetch: HTTPS-only and public hosts unless it
+   * says otherwise, redirects re-validated per hop. The environment-derived
+   * default applies when absent.
+   */
+  attachmentPolicy?: AttachmentPolicy;
+  /** Cap on the fetched document in bytes. Default 25 MiB. */
+  maxBytes?: number;
   /** Custom headers for request */
   headers?: Record<string, string>;
   /** Extract only main content (remove navigation, ads, etc.) */

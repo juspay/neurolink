@@ -55,3 +55,15 @@ Required rate limit configuration
 #### Returns
 
 `string`
+
+---
+
+### trustProxy
+
+> **trustProxy**: `boolean`
+
+---
+
+### trustedProxies
+
+> **trustedProxies**: `string`[]

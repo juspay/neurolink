@@ -24,9 +24,85 @@ Upgrade path. Default `/v1/audio/transcriptions/stream`.
 
 > `optional` **authToken?**: `string` \| readonly `string`[]
 
-Token(s) required on the upgrade (`Authorization: Bearer` header or
-`?token=`). `neurolink serve` passes the same keys as its HTTP routes
-(`NEUROLINK_SERVER_API_KEY`, comma-separated), so one setting guards both.
+Token(s) required on the upgrade, as `Authorization: Bearer <token>` or,
+for a browser (which cannot set headers), as the subprotocol
+`neurolink-api-key.<token>` offered next to `neurolink` in
+`Sec-WebSocket-Protocol` (the realtime path also takes OpenAI's
+`openai-insecure-api-key.<token>`). `neurolink serve` passes the same keys
+as its HTTP routes (`NEUROLINK_SERVER_API_KEY`, comma-separated), so one
+setting guards both.
+
+---
+
+### allowQueryToken?
+
+> `optional` **allowQueryToken?**: `boolean`
+
+Also accept the token as `?token=<token>` in the upgrade URL (default:
+`false`). A URL is written to access logs, proxies and `Referer` headers,
+so a key carried there leaks; prefer the subprotocol carrier.
+
+---
+
+### maxConnections?
+
+> `optional` **maxConnections?**: `number`
+
+Most sockets open at once across every path this attaches (default 100).
+A further upgrade is answered `503 Service Unavailable` before the
+handshake, so it costs no transcription engine.
+
+---
+
+### maxConnectionsPerAddress?
+
+> `optional` **maxConnectionsPerAddress?**: `number`
+
+Most sockets open at once from one remote address (default 16); the next is answered 503.
+
+---
+
+### highWaterMark?
+
+> `optional` **highWaterMark?**: `number`
+
+Queued audio bytes per socket above which the socket is paused until the
+engine catches up (TCP backpressure; default 8 MiB). Audio beyond
+`maxQueuedBytes` (16 MiB live, 512 MiB in file mode) still closes the
+socket with 1009.
+
+---
+
+### maxTotalQueuedBytes?
+
+> `optional` **maxTotalQueuedBytes?**: `number`
+
+Queued audio bytes across every socket of this process (default 512 MiB).
+A socket whose frame would push the total past it is closed with 1013
+(try again later), so one burst of uploads cannot take the process down.
+
+---
+
+### allowUnauthenticatedFileMode?
+
+> `optional` **allowUnauthenticatedFileMode?**: `boolean`
+
+Serve `mode: "file"` (whole recordings, buffered up to 512 MiB a socket)
+to callers the server has not authenticated while it listens on a
+non-loopback address (default: `false`, such a request is refused with
+1008). With `authToken` set, or on a loopback listener, file mode is open.
+
+---
+
+### requireSessionSecret?
+
+> `optional` **requireSessionSecret?**: `boolean`
+
+Require a session secret (default: `false`). A speaker that opens a
+session may pass `?secret=<value>`; from then on every speaker and
+listener joining that `?session=` must present the same secret, or is
+refused with 1008. `true` refuses a new session that sets no secret, so
+no session can be joined by guessing its id.
 
 ---
 

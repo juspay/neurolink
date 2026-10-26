@@ -43,4 +43,7 @@ Prefix of the OpenAI-compatible route. Default `""`, so the route is
 > `optional` **evals?**: [`ServerSTTEvalOptions`](ServerSTTEvalOptions.md) \| `false`
 
 The STT evaluation collector, `POST <openaiBasePath>/v1/evals/stt`.
-On by default; `false` removes its routes.
+Off by default: it stores every transcript a caller posts and lets any
+caller read them back. Pass an options object (`{}` for the defaults) to
+mount it, or set `NEUROLINK_STT_EVAL_ENABLED=1`; `false` keeps it off
+whatever the environment says.
