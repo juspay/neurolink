@@ -21,7 +21,12 @@
  *     looked right";
  *   - out-of-order transcripts, duplicate deliveries, barge-in and a shutdown
  *     that has about a second left, none of which a live model can be made to
- *     produce on demand.
+ *     produce on demand;
+ *   - the `conversation:titleGenerated` announcement, which follows a title
+ *     written by a background model call. The live memory suite sees it only
+ *     with credentials and a reachable Redis, so the title generator is
+ *     stubbed here and this suite is what stops the emit from vanishing
+ *     unnoticed in CI.
  * Everything comes from `src`, never `dist`. Nothing here touches the network:
  * Redis is a small in-process fake that implements only the commands the
  * manager uses, and the LiveKit side is driven with synthetic events. A real
@@ -33,11 +38,13 @@
 // First, so that no developer `.env` is loaded: a Langfuse key in it would make
 // NeuroLink register its own tracer provider before the span capture below can.
 import "./helpers/credentialFreeEnv.js";
+import { EventEmitter } from "node:events";
 import { defineSuite, assert, assertEqual, delay } from "./helpers/harness.js";
 import { installSpanCapture } from "./helpers/spanCapture.js";
 import { NeuroLink } from "../src/lib/neurolink.js";
 import { ConversationMemoryManager } from "../src/lib/core/conversationMemoryManager.js";
 import { RedisConversationMemoryManager } from "../src/lib/core/redisConversationMemoryManager.js";
+import { deserializeConversation } from "../src/lib/utils/redis.js";
 import {
   VOICE_MEMORY_MAX_TTL_SECONDS,
   isValidVoiceSessionId,
@@ -51,9 +58,12 @@ import { createVoiceBrain } from "../src/lib/voice/livekit/brain.js";
 import type {
   ChatMessage,
   ConversationMemoryConfig,
+  ConversationTitleGeneratedEvent,
+  NeuroLinkEvents,
   RecordConversationTurnOptions,
   StreamOptions,
   StreamResult,
+  TypedEventEmitter,
   VoiceTurnRecord,
 } from "../src/lib/types/index.js";
 
@@ -89,6 +99,9 @@ class FakeRedis {
     members.add(member);
     this.sets.set(key, members);
     return 1;
+  }
+  async sMembers(key: string): Promise<string[]> {
+    return [...(this.sets.get(key) ?? [])];
   }
   async get(key: string): Promise<string | null> {
     return this.strings.get(key) ?? null;
@@ -158,11 +171,13 @@ class FakeRedis {
 
 const KEY_PREFIX = "test:conv:";
 
-const makeRedisManager = () => {
-  const manager = new RedisConversationMemoryManager(memoryConfig(), {
-    keyPrefix: KEY_PREFIX,
-    ttl: 0,
-  });
+/** What the stubbed title generator returns for every new conversation. */
+const STUB_TITLE = "Test conversation";
+
+/** Point a manager at an in-process Redis and keep it from calling a model. */
+const attachFakeRedis = (
+  manager: RedisConversationMemoryManager,
+): FakeRedis => {
   const fake = new FakeRedis();
   const internals = manager as unknown as {
     isInitialized: boolean;
@@ -172,8 +187,19 @@ const makeRedisManager = () => {
   internals.isInitialized = true;
   internals.redisClient = fake;
   // The title is made by a model in the background; nothing here may call one.
-  internals.generateConversationTitle = async () => "Test conversation";
-  return { manager, fake };
+  internals.generateConversationTitle = async () => STUB_TITLE;
+  return fake;
+};
+
+const makeRedisManager = (
+  eventEmitter?: TypedEventEmitter<NeuroLinkEvents>,
+) => {
+  const manager = new RedisConversationMemoryManager(
+    memoryConfig(),
+    { keyPrefix: KEY_PREFIX, ttl: 0 },
+    eventEmitter,
+  );
+  return { manager, fake: attachFakeRedis(manager) };
 };
 
 const voiceTurn = (
@@ -193,6 +219,112 @@ const voiceTurn = (
 
 const newNeuroLink = () =>
   new NeuroLink({ conversationMemory: memoryConfig() });
+
+/** An emitter shaped like the SDK's own, for managers built outside the SDK. */
+const newEventEmitter = (): TypedEventEmitter<NeuroLinkEvents> => {
+  const emitter: unknown = new EventEmitter();
+  return emitter as TypedEventEmitter<NeuroLinkEvents>;
+};
+
+type TitleAnnouncement = {
+  payload: unknown;
+  /** The title the stored conversation carried at the moment of the event. */
+  titleInRedis: string | undefined;
+};
+
+/**
+ * Collect every `conversation:titleGenerated` event, and read the stored
+ * conversation inside the listener: listeners run synchronously within
+ * `emit`, so this is the state at the moment of the announcement and shows
+ * whether the title was already written.
+ */
+const collectTitleAnnouncements = (
+  emitter: TypedEventEmitter<NeuroLinkEvents>,
+  fake: FakeRedis,
+): TitleAnnouncement[] => {
+  const seen: TitleAnnouncement[] = [];
+  emitter.on("conversation:titleGenerated", (...args: unknown[]) => {
+    seen.push({
+      payload: args[0],
+      titleInRedis: deserializeConversation(
+        fake.strings.get(`${KEY_PREFIX}${USER}:${SESSION}`) ?? null,
+      )?.title,
+    });
+  });
+  return seen;
+};
+
+/** The title is written by a background task, so give it a bounded moment. */
+const untilAnnounced = async (
+  seen: readonly TitleAnnouncement[],
+  count: number,
+  budgetMs = 2000,
+): Promise<void> => {
+  const deadline = Date.now() + budgetMs;
+  while (seen.length < count && Date.now() < deadline) {
+    await delay(5);
+  }
+};
+
+const asTitleEvent = (payload: unknown): ConversationTitleGeneratedEvent => {
+  const candidate = (
+    typeof payload === "object" && payload !== null ? payload : {}
+  ) as Record<string, unknown>;
+  assert(
+    typeof candidate.sessionId === "string" &&
+      typeof candidate.userId === "string" &&
+      typeof candidate.title === "string" &&
+      typeof candidate.timestamp === "number",
+    `payload is not { sessionId, userId, title, timestamp }: ${JSON.stringify(payload)}`,
+  );
+  return candidate as ConversationTitleGeneratedEvent;
+};
+
+/**
+ * The shared contract: one announcement for the first turn, naming the
+ * conversation and its owner, carrying the title that is already stored and
+ * the one `listSessions` reports, and no second one for a later turn.
+ */
+const assertTitleAnnouncedOnce = async (
+  seen: readonly TitleAnnouncement[],
+  startedAt: number,
+  storeLaterTurn: () => Promise<void>,
+  listTitles: () => Promise<Array<{ id: string; title: string }>>,
+): Promise<void> => {
+  await untilAnnounced(seen, 1);
+  assertEqual(
+    seen.length,
+    1,
+    "exactly one conversation:titleGenerated event after the first turn",
+  );
+  const event = asTitleEvent(seen[0].payload);
+  assertEqual(event.sessionId, SESSION, "the session the title belongs to");
+  assertEqual(event.userId, USER, "the user who owns the session");
+  assertEqual(event.title, STUB_TITLE, "the generated title");
+  assert(
+    event.timestamp >= startedAt && event.timestamp <= Date.now(),
+    `timestamp ${event.timestamp} is outside the test window [${startedAt}, ${Date.now()}]`,
+  );
+  assertEqual(
+    seen[0].titleInRedis,
+    STUB_TITLE,
+    "the event must follow the write: the title was not yet stored when it fired",
+  );
+  const listed = (await listTitles()).find((s) => s.id === SESSION);
+  assertEqual(
+    listed?.title,
+    event.title,
+    "listSessions reports the title the event carried",
+  );
+
+  await storeLaterTurn();
+  await delay(50);
+  assertEqual(
+    seen.length,
+    1,
+    "a later turn of the same conversation must not announce another title",
+  );
+};
 
 const roomMetadata = (memory: unknown): string =>
   Buffer.from(
@@ -409,6 +541,80 @@ void runSuite(async () => {
     assertEqual(after.length, 4, "voice turn appended after the legacy ones");
     assertEqual(after[0].id, "m1", "legacy order kept");
     assertEqual(after[3].metadata?.modality, "voice", "new turn marked");
+  });
+
+  // -------------------------------------------------------------------------
+  // The title of a new conversation is announced as conversation:titleGenerated
+  // -------------------------------------------------------------------------
+
+  await test("the Redis manager announces a new conversation's title once, after storing it", async () => {
+    const emitter = newEventEmitter();
+    const { manager, fake } = makeRedisManager(emitter);
+    const seen = collectTitleAnnouncements(emitter, fake);
+    const startedAt = Date.now();
+    await manager.storeConversationTurn(voiceTurn());
+    await assertTitleAnnouncedOnce(
+      seen,
+      startedAt,
+      () => manager.storeConversationTurn(voiceTurn({ turnId: "item-2" })),
+      () => manager.listSessions(USER),
+    );
+  });
+
+  await test("the SDK announces a title on its own event emitter when memory is Redis", async () => {
+    // The wiring from the SDK to the manager is what a refactor drops quietly,
+    // so build the manager the way the SDK does. Every public entry point
+    // connects to Redis straight after building it, so the private step that
+    // builds it is called directly and the in-process Redis is attached
+    // before anything connects.
+    const nl = new NeuroLink({
+      conversationMemory: {
+        ...memoryConfig(),
+        redisConfig: { host: "redis.invalid", keyPrefix: KEY_PREFIX, ttl: 0 },
+      },
+    });
+    const sdk = nl as unknown as {
+      conversationMemory: unknown;
+      lazyInitializeConversationMemory: (
+        id: string,
+        startedAt: number,
+        hrStart: bigint,
+      ) => Promise<void>;
+    };
+    try {
+      await sdk.lazyInitializeConversationMemory(
+        "title-event",
+        Date.now(),
+        process.hrtime.bigint(),
+      );
+      const manager = sdk.conversationMemory;
+      if (!(manager instanceof RedisConversationMemoryManager)) {
+        throw new Error(
+          `the SDK built ${manager?.constructor?.name ?? String(manager)}, not a Redis manager`,
+        );
+      }
+      const fake = attachFakeRedis(manager);
+      const seen = collectTitleAnnouncements(nl.getEventEmitter(), fake);
+      const startedAt = Date.now();
+      await manager.storeConversationTurn(voiceTurn());
+      await assertTitleAnnouncedOnce(
+        seen,
+        startedAt,
+        () => manager.storeConversationTurn(voiceTurn({ turnId: "item-2" })),
+        () => nl.listSessions(USER),
+      );
+    } finally {
+      // Detach the in-process Redis so shutdown does not try to release it.
+      const attached = sdk.conversationMemory as {
+        redisClient: unknown;
+        isInitialized: boolean;
+      } | null;
+      if (attached) {
+        attached.redisClient = null;
+        attached.isInitialized = false;
+      }
+      await nl.shutdown?.().catch(() => {});
+    }
   });
 
   // -------------------------------------------------------------------------
