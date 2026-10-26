@@ -24,6 +24,9 @@ import type {
   ServerContext,
   KoaRateLimitEntry,
 } from "../../types/index.js";
+import { resolveClientAddress } from "../utils/clientAddress.js";
+import { shapeRouteError } from "../utils/clientError.js";
+import { pathMatchesAny } from "../utils/pathMatch.js";
 import { isErrorResponse } from "../utils/validation.js";
 import {
   isRawBodyContentType,
@@ -46,6 +49,8 @@ export class KoaServerAdapter extends BaseServerAdapter {
   private rateLimitStore = new Map<string, KoaRateLimitEntry>();
   private rateLimitCleanupInterval?: ReturnType<typeof setInterval>;
   private sockets: Set<Socket> = new Set();
+  // The rate limiter counts nothing it cannot attribute, and says so once.
+  private warnedNoClientAddress = false;
   // Middleware from registerMiddleware(). It runs through one dispatcher that
   // is mounted ahead of the router: app.use() after the router is mounted
   // would only ever see requests no route matched.
@@ -114,14 +119,16 @@ export class KoaServerAdapter extends BaseServerAdapter {
           error instanceof ServerAdapterError ? error : undefined;
         const statusCode =
           adapterError?.getHttpStatus() || err.status || err.statusCode || 500;
+        // A 4xx carries a message this server or Koa composed; any 5xx's
+        // text stays in the log.
+        const serverSide = statusCode >= 500;
         ctx.status = statusCode;
         ctx.body = {
           error: {
             code:
               adapterError?.code ??
-              (statusCode === 500 ? "INTERNAL_ERROR" : `HTTP_${statusCode}`),
-            message:
-              statusCode === 500 ? "An internal error occurred" : err.message,
+              (serverSide ? "INTERNAL_ERROR" : `HTTP_${statusCode}`),
+            message: serverSide ? "An internal error occurred" : err.message,
           },
           metadata: {
             requestId,
@@ -140,10 +147,13 @@ export class KoaServerAdapter extends BaseServerAdapter {
       this.app.use(
         cors({
           origin: (ctx) => {
-            const origin = ctx.request.headers.origin || "*";
+            // The wildcard is sent as the literal "*": reflecting the
+            // request's Origin instead would grant any page a credentialed
+            // allowance the wildcard itself cannot carry.
             if (this.config.cors.origins.includes("*")) {
-              return origin;
+              return "*";
             }
+            const origin = ctx.request.headers.origin ?? "";
             return this.config.cors.origins.includes(origin) ? origin : "";
           },
           allowMethods: this.config.cors.methods?.join(","),
@@ -235,20 +245,43 @@ export class KoaServerAdapter extends BaseServerAdapter {
       next: Koa.Next,
     ): Promise<void> => {
       // Skip rate limiting for excluded paths
-      if (this.config.rateLimit.skipPaths) {
-        for (const skipPath of this.config.rateLimit.skipPaths) {
-          if (ctx.path.startsWith(skipPath)) {
-            await next();
-            return;
-          }
-        }
+      if (pathMatchesAny(ctx.path, this.config.rateLimit.skipPaths)) {
+        await next();
+        return;
       }
 
-      const key =
-        ctx.get("x-forwarded-for") ||
-        ctx.get("x-real-ip") ||
-        ctx.ip ||
-        "unknown";
+      // The TCP peer, or behind a declared proxy the client it reports. A
+      // header alone used to be the key, so a rotating X-Forwarded-For escaped
+      // the limit; a request with no attributable address is let through
+      // rather than pooled with every other such request.
+      const key = this.config.rateLimit.keyGenerator
+        ? this.config.rateLimit.keyGenerator(
+            this.createContext({
+              requestId: ctx.state.requestId,
+              method: ctx.method,
+              path: ctx.path,
+              headers: ctx.headers as Record<string, string>,
+              query: ctx.query as Record<string, string>,
+              params: {},
+              remoteAddress: ctx.req.socket?.remoteAddress,
+            }),
+          )
+        : resolveClientAddress({
+            remoteAddress: ctx.req.socket?.remoteAddress,
+            forwardedFor: ctx.get("x-forwarded-for") || undefined,
+            trustProxy: this.config.rateLimit.trustProxy,
+            trustedProxies: this.config.rateLimit.trustedProxies,
+          });
+      if (key === undefined) {
+        if (!this.warnedNoClientAddress) {
+          this.warnedNoClientAddress = true;
+          logger.alwaysStderr(
+            "[KoaAdapter] A request arrived with no peer address, so the rate limiter cannot count it; configure rateLimit.keyGenerator to limit by another key.",
+          );
+        }
+        await next();
+        return;
+      }
       const now = Date.now();
       const windowMs = this.config.rateLimit.windowMs;
       const maxRequests = this.config.rateLimit.maxRequests;
@@ -347,6 +380,7 @@ export class KoaServerAdapter extends BaseServerAdapter {
         query: ctx.query as Record<string, string>,
         params: ctx.params as Record<string, string>,
         body: ctx.request.body,
+        remoteAddress: ctx.req.socket?.remoteAddress,
       });
 
       // Copy response headers from middleware (stored in ctx.state by middleware)
@@ -354,6 +388,19 @@ export class KoaServerAdapter extends BaseServerAdapter {
         serverCtx.responseHeaders = { ...ctx.state.responseHeaders };
       }
       this.restoreCarriedContext(serverCtx, ctx.state.carriedContext);
+
+      // The handler learns of a client that went away, and a request over
+      // `config.timeout` is answered 504 and its work aborted. Koa applied no
+      // request timeout at all.
+      const abort = this.attachRequestAbort(serverCtx, {
+        onClientClose: (listener) =>
+          ctx.req.on("close", () => {
+            if (!ctx.res.writableFinished) {
+              listener();
+            }
+          }),
+        applyTimeout: !route.streaming?.enabled,
+      });
 
       // Emit request event
       this.emit("request", {
@@ -363,43 +410,77 @@ export class KoaServerAdapter extends BaseServerAdapter {
         timestamp: new Date(),
       } satisfies ServerAdapterEvents["request"]);
 
-      // Handle streaming if configured
-      if (route.streaming?.enabled) {
-        return this.handleStreamingResponse(ctx, serverCtx, route);
-      }
-
-      // Execute handler
-      const result = await route.handler(serverCtx);
-      const duration = Date.now() - startTime;
-
-      // A route that answers in its own wire format returns a web Response.
-      if (isWebResponse(result)) {
-        const raw = await readWebResponse(result);
-        this.emit("response", {
-          requestId,
-          statusCode: raw.status,
-          duration,
-          timestamp: new Date(),
-        } satisfies ServerAdapterEvents["response"]);
-        for (const [key, value] of Object.entries({
-          ...serverCtx.responseHeaders,
-          ...raw.headers,
-        })) {
-          ctx.set(key, value);
+      try {
+        // Handle streaming if configured
+        if (route.streaming?.enabled) {
+          return await this.handleStreamingResponse(ctx, serverCtx, route);
         }
-        ctx.status = raw.status;
-        ctx.body = raw.body;
-        return;
-      }
 
-      // Check if result is an error response
-      if (isErrorResponse(result)) {
-        const statusCode = result.httpStatus ?? 500;
+        // Execute handler
+        const result = abort.deadline
+          ? await Promise.race([route.handler(serverCtx), abort.deadline])
+          : await route.handler(serverCtx);
+        const duration = Date.now() - startTime;
 
-        // Emit response event with error status
+        // A route that answers in its own wire format returns a web Response.
+        if (isWebResponse(result)) {
+          const raw = await readWebResponse(result);
+          this.emit("response", {
+            requestId,
+            statusCode: raw.status,
+            duration,
+            timestamp: new Date(),
+          } satisfies ServerAdapterEvents["response"]);
+          for (const [key, value] of Object.entries({
+            ...serverCtx.responseHeaders,
+            ...raw.headers,
+          })) {
+            ctx.set(key, value);
+          }
+          ctx.status = raw.status;
+          ctx.body = raw.body;
+          return;
+        }
+
+        // Check if result is an error response
+        if (isErrorResponse(result)) {
+          const statusCode = result.httpStatus ?? 500;
+
+          // Emit response event with error status
+          this.emit("response", {
+            requestId,
+            statusCode,
+            duration,
+            timestamp: new Date(),
+          } satisfies ServerAdapterEvents["response"]);
+
+          // Apply response headers from middleware and handler
+          if (serverCtx.responseHeaders) {
+            for (const [key, value] of Object.entries(
+              serverCtx.responseHeaders,
+            )) {
+              ctx.set(key, value);
+            }
+          }
+
+          // Return error response with proper status code
+          ctx.status = statusCode;
+          ctx.body = {
+            error: result.error,
+            metadata: {
+              ...result.metadata,
+              requestId,
+              timestamp: new Date().toISOString(),
+              duration,
+            },
+          };
+          return;
+        }
+
+        // Emit response event
         this.emit("response", {
           requestId,
-          statusCode,
+          statusCode: 200,
           duration,
           timestamp: new Date(),
         } satisfies ServerAdapterEvents["response"]);
@@ -413,44 +494,42 @@ export class KoaServerAdapter extends BaseServerAdapter {
           }
         }
 
-        // Return error response with proper status code
-        ctx.status = statusCode;
+        // Return formatted response
         ctx.body = {
-          error: result.error,
+          data: result,
           metadata: {
-            ...result.metadata,
             requestId,
             timestamp: new Date().toISOString(),
             duration,
           },
         };
-        return;
-      }
-
-      // Emit response event
-      this.emit("response", {
-        requestId,
-        statusCode: 200,
-        duration,
-        timestamp: new Date(),
-      } satisfies ServerAdapterEvents["response"]);
-
-      // Apply response headers from middleware and handler
-      if (serverCtx.responseHeaders) {
-        for (const [key, value] of Object.entries(serverCtx.responseHeaders)) {
-          ctx.set(key, value);
-        }
-      }
-
-      // Return formatted response
-      ctx.body = {
-        data: result,
-        metadata: {
+      } catch (error) {
+        // The exception's text stays in the log under this request id; the
+        // client gets a fixed message for its category.
+        const shaped = shapeRouteError("KoaAdapter", requestId, error);
+        this.emitRequestError({
           requestId,
-          timestamp: new Date().toISOString(),
-          duration,
-        },
-      };
+          error: error instanceof Error ? error : new Error(String(error)),
+          timestamp: new Date(),
+        });
+        this.emit("response", {
+          requestId,
+          statusCode: shaped.status,
+          duration: Date.now() - startTime,
+          timestamp: new Date(),
+        } satisfies ServerAdapterEvents["response"]);
+        if (ctx.res.headersSent) {
+          ctx.res.end();
+          return;
+        }
+        ctx.status = shaped.status;
+        ctx.body = {
+          error: { code: shaped.code, message: shaped.message },
+          metadata: { requestId, timestamp: new Date().toISOString() },
+        };
+      } finally {
+        abort.release();
+      }
     });
   }
 
@@ -497,10 +576,14 @@ export class KoaServerAdapter extends BaseServerAdapter {
       stream.write(`data: \n\n`);
       stream.end();
     } catch (error) {
+      const shaped = shapeRouteError("KoaAdapter", serverCtx.requestId, error);
       stream.write(`event: error\n`);
       stream.write(
         `data: ${JSON.stringify({
-          error: error instanceof Error ? error.message : "Stream error",
+          error: shaped.message,
+          code: shaped.code,
+          status: shaped.status,
+          requestId: serverCtx.requestId,
         })}\n\n`,
       );
       stream.end();
@@ -516,14 +599,12 @@ export class KoaServerAdapter extends BaseServerAdapter {
     this.registeredMiddleware.push(
       async (ctx: Koa.ParameterizedContext, next: Koa.Next) => {
         // Skip excluded paths
-        if (middleware.excludePaths?.some((p) => ctx.path.startsWith(p))) {
+        if (pathMatchesAny(ctx.path, middleware.excludePaths)) {
           return next();
         }
 
         // Check if path matches
-        const paths = middleware.paths || ["/"];
-        const matches = paths.some((p) => ctx.path.startsWith(p) || p === "*");
-        if (!matches) {
+        if (!pathMatchesAny(ctx.path, middleware.paths || ["/"])) {
           return next();
         }
 
@@ -541,6 +622,7 @@ export class KoaServerAdapter extends BaseServerAdapter {
           query: ctx.query as Record<string, string>,
           params: ctx.params as Record<string, string>,
           body: ctx.request.body,
+          remoteAddress: ctx.req.socket?.remoteAddress,
         });
 
         // Copy existing response headers to context
@@ -606,6 +688,7 @@ export class KoaServerAdapter extends BaseServerAdapter {
           this.isRunning = true;
           this.startTime = new Date();
           this.lifecycleState = "running";
+          this.warnIfSensitiveRoutesUnauthenticated();
 
           // Track connections for graceful shutdown
           this.server?.on("connection", (socket: Socket) => {

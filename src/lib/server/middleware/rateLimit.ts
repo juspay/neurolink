@@ -11,6 +11,7 @@ import type {
   RateLimitStore,
   ServerContext,
 } from "../../types/index.js";
+import { logger } from "../../utils/logger.js";
 import { RateLimitError as ServerRateLimitError } from "../errors.js";
 
 /**
@@ -119,6 +120,9 @@ export function createRateLimitMiddleware(
     excludePaths: skipPaths,
     handler: async (ctx, next) => {
       const key = keyGenerator(ctx);
+      if (!key) {
+        return next(); // Nothing to attribute the request to: see defaultKeyGenerator.
+      }
       const { count, resetAt } = await store.increment(key, windowMs);
 
       // Set rate limit headers in responseHeaders (adapters read from here)
@@ -155,13 +159,29 @@ export function createRateLimitMiddleware(
 }
 
 /**
- * Default key generator using IP address
+ * Default key: the TCP peer the adapter recorded on the context. Never a
+ * header, which the client writes: keyed on `X-Forwarded-For`, one shared
+ * bucket served every direct client and a rotating header escaped the limit.
+ * Behind a reverse proxy, pass a `keyGenerator` that reads the proxy's header
+ * (see `resolveClientAddress`). An empty key means "do not count".
  */
 function defaultKeyGenerator(ctx: ServerContext): string {
-  return (
-    ctx.headers["x-forwarded-for"]?.split(",")[0].trim() ||
-    ctx.headers["x-real-ip"] ||
-    "unknown"
+  const address = ctx.remoteAddress?.trim();
+  if (!address) {
+    warnNoAddressOnce();
+    return "";
+  }
+  return address;
+}
+
+let warnedNoAddress = false;
+function warnNoAddressOnce(): void {
+  if (warnedNoAddress) {
+    return;
+  }
+  warnedNoAddress = true;
+  logger.alwaysStderr(
+    "[rateLimit] A request carried no peer address (ctx.remoteAddress), so the rate limiter let it through uncounted; pass a keyGenerator to limit by another key.",
   );
 }
 
@@ -208,6 +228,9 @@ export function createSlidingWindowRateLimitMiddleware(
     excludePaths: skipPaths,
     handler: async (ctx, next) => {
       const key = keyGenerator(ctx);
+      if (!key) {
+        return next();
+      }
       const now = Date.now();
 
       // Get existing timestamps and filter old ones
@@ -299,6 +322,9 @@ export function createFixedWindowRateLimitMiddleware(
     excludePaths: skipPaths,
     handler: async (ctx, next) => {
       const key = keyGenerator(ctx);
+      if (!key) {
+        return next();
+      }
       const { count, resetAt } = await rateLimitStore.increment(key, windowMs);
 
       // Set rate limit headers in responseHeaders (adapters read from here)

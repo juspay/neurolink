@@ -16,7 +16,7 @@
 import { promises as fs } from "fs";
 import { join } from "path";
 import { homedir } from "os";
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { logger } from "../utils/logger.js";
 import { TokenStoreError } from "../types/index.js";
 import { AsyncMutex } from "../utils/asyncMutex.js";
@@ -24,11 +24,37 @@ import { withSpan } from "../telemetry/withSpan.js";
 import { tracers } from "../telemetry/tracers.js";
 import type {
   TokenStorageData,
+  TokenStoreLockOwner,
   StoredOAuthTokens,
   TokenRefresher,
 } from "../types/index.js";
+import {
+  ensurePrivateDirectory,
+  writePrivateFileAtomically,
+} from "./secureFiles.js";
 
-const { readFile, writeFile, mkdir, unlink, access, chmod, rename } = fs;
+const { readFile, unlink, access, rename, open, rm, stat } = fs;
+
+/** Marks a store written with the UTF-8-safe codec; older files carry no prefix. */
+const OBFUSCATION_V2_PREFIX = "nlts2:";
+/** Cross-process lock: how long a writer waits for another process's turn. */
+const FILE_LOCK_TIMEOUT_MS = 5_000;
+/** A lock older than this whose owner is gone is abandoned and removed. */
+const FILE_LOCK_STALE_MS = 30_000;
+const FILE_LOCK_RETRY_MS = 25;
+
+function processIsRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 // =============================================================================
 // TOKEN STORE CLASS
@@ -71,13 +97,13 @@ export class TokenStore {
   private static readonly NEUROLINK_DIR = ".neurolink";
   private static readonly TOKEN_FILE = "tokens.json";
   private static readonly FILE_PERMISSIONS = 0o600;
-  private static readonly DIR_PERMISSIONS = 0o700;
   /** Default expiration buffer: 1 hour (proactive refresh before actual expiry) */
   private static readonly DEFAULT_EXPIRY_BUFFER_MS = 60 * 60 * 1000;
 
   private readonly storagePath: string;
   private readonly encryptionEnabled: boolean;
   private readonly encryptionKey: string;
+  private readonly encryptionKeyBytes: Buffer;
   private readonly tokenRefreshers: Map<string, TokenRefresher> = new Map();
   private readonly inFlightRefreshes = new Map<
     string,
@@ -103,6 +129,7 @@ export class TokenStore {
 
     this.encryptionEnabled = encryptionEnabled;
     this.encryptionKey = this.deriveEncryptionKey();
+    this.encryptionKeyBytes = this.deriveEncryptionKeyBytes();
 
     if (customStoragePath) {
       this.storagePath = customStoragePath;
@@ -147,7 +174,7 @@ export class TokenStore {
         },
       },
       async () =>
-        this._mutex.runExclusive(async () => {
+        this.runExclusiveLocked(async () => {
           await this._saveTokensInternal(provider, tokens);
         }),
     );
@@ -163,8 +190,7 @@ export class TokenStore {
     // Validate tokens before saving
     this.validateTokens(tokens);
 
-    const storageDir = join(this.storagePath, "..");
-    await this.ensureDirectory(storageDir);
+    await this.ensureDirectory(join(this.storagePath, ".."));
 
     // Load existing data or create new
     let storageData: TokenStorageData;
@@ -202,20 +228,7 @@ export class TokenStore {
     storageData.lastModified = now;
 
     try {
-      const content = this.encryptionEnabled
-        ? this.obfuscate(JSON.stringify(storageData))
-        : JSON.stringify(storageData, null, 2);
-
-      // Write to temporary file first for atomic operation
-      // Use PID-scoped temp file to avoid cross-process race conditions
-      const tempPath = `${this.storagePath}.tmp.${process.pid}`;
-      await writeFile(tempPath, content, "utf-8");
-
-      // Set restrictive permissions before moving to final location
-      await chmod(tempPath, TokenStore.FILE_PERMISSIONS);
-
-      // Rename to final location (atomic on most filesystems)
-      await fs.rename(tempPath, this.storagePath);
+      await this.writeStorageFile(storageData);
 
       logger.debug("OAuth tokens saved successfully", {
         provider,
@@ -324,9 +337,10 @@ export class TokenStore {
         return null;
       }
 
-      // Update last accessed time
+      // Access time is bookkeeping, not state: rewriting the whole store on
+      // every read raced other processes' writes (a stale snapshot written late
+      // reverted a rotated refresh token or a disable flag).
       providerData.lastAccessed = Date.now();
-      await this.saveStorageData(storageData);
 
       logger.debug("OAuth tokens retrieved successfully", {
         provider,
@@ -361,7 +375,7 @@ export class TokenStore {
   }
 
   private async _clearTokensImpl(provider: string): Promise<void> {
-    return this._mutex.runExclusive(async () => {
+    return this.runExclusiveLocked(async () => {
       // Clear in-memory refresh state so re-adding an account starts fresh
       this.inFlightRefreshes.delete(provider);
       this.tokenRefreshers.delete(provider);
@@ -521,7 +535,7 @@ export class TokenStore {
       // Also guard against resurrecting cleared/disabled entries:
       // if the entry was removed or disabled during the in-flight refresh,
       // skip the save to avoid re-creating a dead entry.
-      const persistedTokens = await this._mutex.runExclusive(async () => {
+      const persistedTokens = await this.runExclusiveLocked(async () => {
         // Guard: do not resurrect cleared entries
         const current = await this._loadTokensInternal(provider);
         if (!current) {
@@ -659,7 +673,7 @@ export class TokenStore {
    * @param reason - Optional human-readable reason (e.g., "refresh_failed")
    */
   async markDisabled(provider: string, reason?: string): Promise<void> {
-    return this._mutex.runExclusive(async () => {
+    return this.runExclusiveLocked(async () => {
       let storageData: TokenStorageData;
       try {
         storageData = await this.loadStorageData();
@@ -707,7 +721,7 @@ export class TokenStore {
     >,
     reason?: string,
   ): Promise<boolean> {
-    return this._mutex.runExclusive(async () => {
+    return this.runExclusiveLocked(async () => {
       let storageData: TokenStorageData;
       try {
         storageData = await this.loadStorageData();
@@ -753,7 +767,7 @@ export class TokenStore {
    * @param provider - The provider key (e.g., "anthropic:user@example.com")
    */
   async markEnabled(provider: string): Promise<void> {
-    return this._mutex.runExclusive(async () => {
+    return this.runExclusiveLocked(async () => {
       let storageData: TokenStorageData;
       try {
         storageData = await this.loadStorageData();
@@ -864,7 +878,7 @@ export class TokenStore {
    * @returns Array of provider keys that were removed
    */
   async pruneExpired(bufferMs: number = 0): Promise<string[]> {
-    return this._mutex.runExclusive(async () => {
+    return this.runExclusiveLocked(async () => {
       let storageData: TokenStorageData;
       try {
         storageData = await this.loadStorageData();
@@ -915,7 +929,7 @@ export class TokenStore {
    * @throws TokenStoreError if deletion fails
    */
   async clearAllTokens(): Promise<void> {
-    return this._mutex.runExclusive(async () => {
+    return this.runExclusiveLocked(async () => {
       // Clear all in-memory refresh state so re-adding accounts starts fresh
       this.inFlightRefreshes.clear();
       this.tokenRefreshers.clear();
@@ -939,31 +953,10 @@ export class TokenStore {
       throw new TokenStoreError("Token storage file not found", "NOT_FOUND");
     }
 
+    let content: string;
     try {
-      const content = await readFile(this.storagePath, "utf-8");
-
-      let storageData: TokenStorageData;
-
-      if (this.encryptionEnabled) {
-        const decrypted = this.deobfuscate(content);
-        storageData = JSON.parse(decrypted);
-      } else {
-        storageData = JSON.parse(content);
-      }
-
-      // Validate storage data structure
-      if (!storageData.providers || !storageData.version) {
-        throw new TokenStoreError(
-          "Invalid token storage format",
-          "VALIDATION_ERROR",
-        );
-      }
-
-      return storageData;
+      content = await readFile(this.storagePath, "utf-8");
     } catch (error) {
-      if (error instanceof TokenStoreError) {
-        throw error;
-      }
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       logger.error("Failed to read token storage", { error: errorMessage });
@@ -972,6 +965,92 @@ export class TokenStore {
         "STORAGE_ERROR",
       );
     }
+
+    const storageData = this.encryptionEnabled
+      ? this.parseObfuscatedStorage(content)
+      : this.parseStorageJson(content);
+    if (storageData) {
+      return storageData;
+    }
+
+    // An unreadable store used to throw from every caller, which took the whole
+    // pool offline with no repair path short of deleting the file by hand. Set
+    // it aside under a dated name instead: the proxy starts with an empty pool,
+    // `auth login` can repopulate it, and the bytes are still there to inspect.
+    await this.quarantineStorageFile();
+    throw new TokenStoreError("Token storage file not found", "NOT_FOUND");
+  }
+
+  /** Parse plain-JSON storage; null when it is not a usable store. */
+  private parseStorageJson(content: string): TokenStorageData | null {
+    try {
+      const parsed = JSON.parse(content) as TokenStorageData;
+      if (
+        !parsed ||
+        typeof parsed !== "object" ||
+        !parsed.providers ||
+        typeof parsed.providers !== "object" ||
+        !parsed.version
+      ) {
+        return null;
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Decode a store written by either codec.
+   *
+   * The current codec is prefixed and XORs UTF-8 bytes. The older one XORed
+   * UTF-16 code units and then truncated each to a byte, so a store holding a
+   * single non-Latin-1 character (an emoji in a label, a smart quote in a
+   * disable reason) could never be read back. Older files carry no prefix and
+   * are read the old way; the next save rewrites them with the new codec.
+   */
+  private parseObfuscatedStorage(content: string): TokenStorageData | null {
+    const trimmed = content.trim();
+    if (trimmed.startsWith(OBFUSCATION_V2_PREFIX)) {
+      try {
+        return this.parseStorageJson(this.deobfuscateV2(trimmed));
+      } catch {
+        return null;
+      }
+    }
+    try {
+      const legacy = this.parseStorageJson(this.deobfuscateLegacy(trimmed));
+      if (legacy) {
+        return legacy;
+      }
+    } catch {
+      // Fall through to the other codec and the plain-JSON reading.
+    }
+    try {
+      const current = this.parseStorageJson(this.deobfuscateV2(trimmed));
+      if (current) {
+        return current;
+      }
+    } catch {
+      // Not the current codec either.
+    }
+    return this.parseStorageJson(trimmed);
+  }
+
+  private async quarantineStorageFile(): Promise<void> {
+    const quarantinePath = `${this.storagePath}.corrupt-${Date.now()}`;
+    try {
+      await rename(this.storagePath, quarantinePath);
+      logger.error(
+        "Token storage could not be parsed and was quarantined; the pool starts empty",
+        { path: this.storagePath, quarantinedTo: quarantinePath },
+      );
+    } catch (error) {
+      logger.error("Token storage could not be parsed or quarantined", {
+        path: this.storagePath,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   /**
@@ -979,15 +1058,7 @@ export class TokenStore {
    */
   private async saveStorageData(data: TokenStorageData): Promise<void> {
     try {
-      const content = this.encryptionEnabled
-        ? this.obfuscate(JSON.stringify(data))
-        : JSON.stringify(data, null, 2);
-
-      // Use PID-scoped temp file to avoid cross-process race conditions
-      const tmpPath = `${this.storagePath}.tmp.${process.pid}`;
-      await writeFile(tmpPath, content, "utf-8");
-      await chmod(tmpPath, TokenStore.FILE_PERMISSIONS);
-      await rename(tmpPath, this.storagePath);
+      await this.writeStorageFile(data);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -995,6 +1066,128 @@ export class TokenStore {
         `Failed to save token storage: ${errorMessage}`,
         "STORAGE_ERROR",
       );
+    }
+  }
+
+  /**
+   * Serialize and write the store: owner-only from creation, under an
+   * unpredictable temp name, renamed into place. See `secureFiles`.
+   */
+  private async writeStorageFile(data: TokenStorageData): Promise<void> {
+    const content = this.encryptionEnabled
+      ? this.obfuscate(JSON.stringify(data))
+      : JSON.stringify(data, null, 2);
+    await writePrivateFileAtomically(this.storagePath, content);
+  }
+
+  /**
+   * Take the in-process mutex, then the cross-process file lock, around a
+   * read-modify-write. The CLI and a running proxy share one file; without
+   * the second lock a stale snapshot written late reverted the other's
+   * rotated refresh token or disable flag.
+   */
+  private runExclusiveLocked<T>(fn: () => Promise<T>): Promise<T> {
+    return this._mutex.runExclusive(async () => {
+      const release = await this.acquireFileLock();
+      try {
+        return await fn();
+      } finally {
+        await release();
+      }
+    });
+  }
+
+  private get lockPath(): string {
+    return `${this.storagePath}.lock`;
+  }
+
+  private async readLockOwner(): Promise<TokenStoreLockOwner | null> {
+    try {
+      const parsed = JSON.parse(
+        await readFile(this.lockPath, "utf8"),
+      ) as Partial<TokenStoreLockOwner>;
+      if (
+        typeof parsed.pid !== "number" ||
+        typeof parsed.token !== "string" ||
+        typeof parsed.acquiredAt !== "number"
+      ) {
+        return null;
+      }
+      return {
+        pid: parsed.pid,
+        token: parsed.token,
+        acquiredAt: parsed.acquiredAt,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private async removeAbandonedLock(): Promise<boolean> {
+    const owner = await this.readLockOwner();
+    try {
+      const lockStat = await stat(this.lockPath);
+      const oldEnough = Date.now() - lockStat.mtimeMs >= FILE_LOCK_STALE_MS;
+      const ownerRunning = owner ? processIsRunning(owner.pid) : false;
+      if ((owner && !ownerRunning) || oldEnough) {
+        await rm(this.lockPath, { force: true });
+        return true;
+      }
+      return false;
+    } catch (error) {
+      return (error as NodeJS.ErrnoException).code === "ENOENT";
+    }
+  }
+
+  /**
+   * Best-effort cross-process lock. When another process holds it past the
+   * timeout the write proceeds anyway with a warning: a stuck lock must not
+   * take the pool offline, which is worse than the race it guards against.
+   */
+  private async acquireFileLock(): Promise<() => Promise<void>> {
+    await ensurePrivateDirectory(join(this.storagePath, ".."));
+    const deadline = Date.now() + FILE_LOCK_TIMEOUT_MS;
+    for (;;) {
+      const owner: TokenStoreLockOwner = {
+        pid: process.pid,
+        token: randomUUID(),
+        acquiredAt: Date.now(),
+      };
+      let handle: Awaited<ReturnType<typeof open>> | undefined;
+      try {
+        handle = await open(this.lockPath, "wx", TokenStore.FILE_PERMISSIONS);
+        await handle.writeFile(JSON.stringify(owner));
+        const acquired = handle;
+        return async () => {
+          await acquired.close().catch(() => undefined);
+          const current = await this.readLockOwner();
+          if (current?.token === owner.token) {
+            await rm(this.lockPath, { force: true }).catch(() => undefined);
+          }
+        };
+      } catch (error) {
+        if (handle) {
+          await handle.close().catch(() => undefined);
+          await rm(this.lockPath, { force: true }).catch(() => undefined);
+        }
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+          logger.debug("Token store lock unavailable; proceeding unlocked", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return async () => undefined;
+        }
+      }
+      if (await this.removeAbandonedLock()) {
+        continue;
+      }
+      if (Date.now() >= deadline) {
+        logger.warn(
+          "Token store lock held by another process past the timeout; proceeding unlocked",
+          { lockPath: this.lockPath },
+        );
+        return async () => undefined;
+      }
+      await sleep(FILE_LOCK_RETRY_MS);
     }
   }
 
@@ -1051,19 +1244,9 @@ export class TokenStore {
    * Ensures the storage directory exists with proper permissions
    */
   private async ensureDirectory(dirPath: string): Promise<void> {
-    try {
-      await mkdir(dirPath, {
-        recursive: true,
-        mode: TokenStore.DIR_PERMISSIONS,
-      });
-    } catch {
-      // Directory might already exist, try to set permissions
-      try {
-        await chmod(dirPath, TokenStore.DIR_PERMISSIONS);
-      } catch {
-        // Ignore permission errors on existing directories
-      }
-    }
+    // `mkdir({recursive})` never throws for an existing directory, so the mode
+    // must be re-asserted every time rather than only on first creation.
+    await ensurePrivateDirectory(dirPath);
   }
 
   /**
@@ -1076,28 +1259,43 @@ export class TokenStore {
     return createHash("sha256").update(machineInfo).digest("hex");
   }
 
-  /**
-   * Simple XOR-based obfuscation
-   * Note: This is NOT cryptographically secure, just basic obfuscation
-   * For production use, consider using node:crypto with proper encryption
-   */
-  private obfuscate(data: string): string {
-    const key = this.encryptionKey;
-    let result = "";
-    for (let i = 0; i < data.length; i++) {
-      const charCode = data.charCodeAt(i) ^ key.charCodeAt(i % key.length);
-      result += String.fromCharCode(charCode);
-    }
-    // Encode as base64 for safe storage
-    return Buffer.from(result, "binary").toString("base64");
+  private deriveEncryptionKeyBytes(): Buffer {
+    const machineInfo = `${homedir()}-neurolink-token-store`;
+    return createHash("sha256").update(machineInfo).digest();
   }
 
   /**
-   * Reverses the XOR obfuscation
+   * XOR obfuscation over the UTF-8 bytes of the document, base64-encoded and
+   * prefixed so a reader can tell it from the older code-unit codec.
+   * Note: this is NOT cryptographically secure, just basic obfuscation.
    */
-  private deobfuscate(data: string): string {
+  private obfuscate(data: string): string {
+    const key = this.encryptionKeyBytes;
+    const bytes = Buffer.from(data, "utf8");
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] ^= key[i % key.length];
+    }
+    return `${OBFUSCATION_V2_PREFIX}${bytes.toString("base64")}`;
+  }
+
+  private deobfuscateV2(data: string): string {
+    const key = this.encryptionKeyBytes;
+    const bytes = Buffer.from(
+      data.slice(OBFUSCATION_V2_PREFIX.length),
+      "base64",
+    );
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] ^= key[i % key.length];
+    }
+    return bytes.toString("utf8");
+  }
+
+  /**
+   * The pre-UTF-8 codec, kept only to read stores written before it existed.
+   * It cannot round-trip any character above U+00FF.
+   */
+  private deobfuscateLegacy(data: string): string {
     const key = this.encryptionKey;
-    // Decode from base64
     const decoded = Buffer.from(data, "base64").toString("binary");
     let result = "";
     for (let i = 0; i < decoded.length; i++) {

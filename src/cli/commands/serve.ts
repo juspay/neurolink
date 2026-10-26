@@ -26,19 +26,27 @@ import type {
   ServerConfigFile,
   ServerFramework,
   ServerInstance,
+  ServerServeHardeningArgs,
 } from "../../lib/types/index.js";
 import { withTimeout } from "../../lib/utils/errorHandling.js";
 import { logger } from "../../lib/utils/logger.js";
 import {
   clearStateOnExit,
   createServerApiKeyMiddleware,
+  DEFAULT_SERVER_HOST,
+  envFlag,
   formatUptime,
+  isLoopbackHost,
   isOtherServerRunning,
   isProcessRunning,
   readServerApiKeys,
   resolveServerPort,
+  SERVER_ALLOW_UNAUTHENTICATED_ENV,
   SERVER_API_KEY_ENV,
+  SERVER_ENABLE_BUILTIN_TOOLS_ENV,
+  SERVER_WS_ALLOW_QUERY_TOKEN_ENV,
   StateFileManager,
+  unauthenticatedBindRefusal,
 } from "../utils/serverUtils.js";
 // ============================================
 // State Management
@@ -221,6 +229,7 @@ async function attachTranscriptionWebSocket(
   server: ServerInstance,
   neurolink: NeuroLink,
   serverConfig: ServerAdapterConfig,
+  hardening: ServerServeHardeningArgs,
 ): Promise<void> {
   const native = server.getNativeServer?.();
   if (!isNodeHttpServer(native)) {
@@ -239,10 +248,34 @@ async function attachTranscriptionWebSocket(
   await attachTranscribeWebSocket(native, neurolink, {
     ...(apiKeys.length > 0 ? { authToken: apiKeys } : {}),
     ...(allowedOrigins ? { allowedOrigins } : {}),
+    // The key rides in the Authorization header or the subprotocol; a URL is
+    // logged, so `?token=` is an explicit choice.
+    allowQueryToken: envFlag(SERVER_WS_ALLOW_QUERY_TOKEN_ENV),
+    // The same opt-out as the HTTP routes: whoever runs open on purpose also
+    // gets file mode without a key.
+    allowUnauthenticatedFileMode: hardening.allowUnauthenticated === true,
   });
   logger.debug(
     "[serve] transcription WebSocket attached at /v1/audio/transcriptions/stream",
   );
+}
+
+/**
+ * The hardening flags, from the command line or the environment:
+ * `--allow-unauthenticated` / NEUROLINK_SERVER_ALLOW_UNAUTHENTICATED=1 and
+ * `--enable-builtin-tools` / NEUROLINK_SERVER_ENABLE_BUILTIN_TOOLS=1.
+ */
+function resolveHardening(
+  argv: ServeCommandArgs & ServerServeHardeningArgs,
+): ServerServeHardeningArgs {
+  return {
+    allowUnauthenticated:
+      argv.allowUnauthenticated === true ||
+      envFlag(SERVER_ALLOW_UNAUTHENTICATED_ENV),
+    enableBuiltinTools:
+      argv.enableBuiltinTools === true ||
+      envFlag(SERVER_ENABLE_BUILTIN_TOOLS_ENV),
+  };
 }
 
 export class ServeCommandFactory {
@@ -289,7 +322,19 @@ export class ServeCommandFactory {
           .option("host", {
             type: "string",
             alias: "H",
-            description: "Host to bind to (default: 0.0.0.0)",
+            description: `Host to bind to (default: ${DEFAULT_SERVER_HOST}, this machine only; 0.0.0.0 listens on every interface and needs ${SERVER_API_KEY_ENV} or --allow-unauthenticated)`,
+          })
+          .option("allow-unauthenticated", {
+            type: "boolean",
+            alias: "allowUnauthenticated",
+            default: false,
+            description: `Listen on a non-loopback host with no ${SERVER_API_KEY_ENV}, and serve tool and MCP execution to anyone who can reach the port (${SERVER_ALLOW_UNAUTHENTICATED_ENV}=1)`,
+          })
+          .option("enable-builtin-tools", {
+            type: "boolean",
+            alias: "enableBuiltinTools",
+            default: false,
+            description: `Keep NeuroLink's built-in tools, file reads and writes under the working directory among them, in the server's registry (${SERVER_ENABLE_BUILTIN_TOOLS_ENV}=1)`,
           })
           .option("framework", {
             type: "string",
@@ -379,8 +424,8 @@ export class ServeCommandFactory {
             "Start server in watch mode (restart on changes)",
           )
           .example(
-            "NEUROLINK_SERVER_API_KEY=secret neurolink serve",
-            "Require 'Authorization: Bearer secret' (or X-API-Key) on every route except health",
+            "NEUROLINK_SERVER_API_KEY=secret neurolink serve --host 0.0.0.0",
+            "Listen on every interface; require 'Authorization: Bearer secret' (or X-API-Key) on every route except the health probes",
           )
           .example("neurolink serve status", "Show server status")
           .help();
@@ -389,7 +434,9 @@ export class ServeCommandFactory {
         // If subcommand is provided (like 'status'), it will be handled by the subcommand
         // Otherwise, start the server
         if (!argv.subcommand || argv.subcommand === "serve") {
-          await ServeCommandFactory.executeServe(argv as ServeCommandArgs);
+          await ServeCommandFactory.executeServe(
+            argv as ServeCommandArgs & ServerServeHardeningArgs,
+          );
         }
       },
     };
@@ -417,7 +464,9 @@ export class ServeCommandFactory {
   // Command Executors
   // ============================================
 
-  private static async executeServe(argv: ServeCommandArgs): Promise<void> {
+  private static async executeServe(
+    argv: ServeCommandArgs & ServerServeHardeningArgs,
+  ): Promise<void> {
     const spinner = argv.quiet
       ? null
       : ora("Starting NeuroLink server...").start();
@@ -431,9 +480,25 @@ export class ServeCommandFactory {
 
       // Merge CLI args with file config (CLI takes precedence)
       const port = resolveServerPort(argv.port, fileConfig.port);
-      const host = argv.host ?? fileConfig.host ?? "0.0.0.0";
+      const host = argv.host ?? fileConfig.host ?? DEFAULT_SERVER_HOST;
       const framework = argv.framework ?? fileConfig.framework ?? "hono";
       const basePath = argv.basePath ?? fileConfig.basePath ?? "/api";
+      const hardening = resolveHardening(argv);
+
+      // A listener the network can reach with no key is refused unless the
+      // operator asked for exactly that.
+      const refusal = unauthenticatedBindRefusal({
+        host,
+        apiKeyCount: readServerApiKeys().length,
+        allowUnauthenticated: hardening.allowUnauthenticated === true,
+      });
+      if (refusal) {
+        if (spinner) {
+          spinner.fail(chalk.red("Refusing to start"));
+        }
+        logger.error(chalk.red(refusal));
+        process.exit(1);
+      }
 
       // Build server adapter config from merged values
       const serverConfig = ServeCommandFactory.buildServerConfig(
@@ -452,13 +517,13 @@ export class ServeCommandFactory {
 
       // Create, register routes, initialize and start server
       const serverRef = await ServeCommandFactory.createAndStartServer(
-        { framework, serverConfig, basePath, port, host },
+        { framework, serverConfig, basePath, port, host, hardening },
         spinner,
       );
 
       // Save state and print startup banner
       ServeCommandFactory.saveAndPrintStartupInfo(
-        { argv, port, host, framework, basePath, serverConfig },
+        { argv, port, host, framework, basePath, serverConfig, hardening },
         spinner,
       );
 
@@ -470,6 +535,7 @@ export class ServeCommandFactory {
         basePath,
         port,
         host,
+        hardening,
       });
 
       // Register signal handlers for graceful shutdown
@@ -613,13 +679,14 @@ export class ServeCommandFactory {
       basePath: string;
       port: number;
       host: string;
+      hardening: ServerServeHardeningArgs;
     },
     spinner: ReturnType<typeof ora> | null,
   ): Promise<{ current: ServerInstance }> {
     const { createServer, registerAllRoutes } =
       await import("../../lib/server/index.js");
 
-    const neurolink = new NeuroLink();
+    const neurolink = ServeCommandFactory.createServerNeuroLink(opts.hardening);
 
     const serverRef: { current: ServerInstance } = {
       current: await createServer(neurolink, {
@@ -629,7 +696,9 @@ export class ServeCommandFactory {
     };
 
     ServeCommandFactory.applyApiKeyAuth(serverRef.current, opts.basePath);
-    registerAllRoutes(serverRef.current, opts.basePath);
+    registerAllRoutes(serverRef.current, opts.basePath, {
+      allowUnauthenticated: opts.hardening.allowUnauthenticated,
+    });
 
     if (spinner) {
       spinner.text = "Initializing server...";
@@ -660,13 +729,31 @@ export class ServeCommandFactory {
       serverRef.current,
       neurolink,
       opts.serverConfig,
+      opts.hardening,
     );
 
     return serverRef;
   }
 
   /**
-   * Put every route except health behind the API key(s) in
+   * The NeuroLink instance the server runs. Its registry holds no built-in
+   * tool unless `--enable-builtin-tools`: those tools read and write files
+   * under the server's working directory, and `/tools/execute` and the agent
+   * routes would hand them to every caller. The switch is the SDK's own
+   * (NEUROLINK_DISABLE_BUILTIN_TOOLS), set before the instance and its
+   * providers read it, so generate() in this process does not see them either.
+   */
+  private static createServerNeuroLink(
+    hardening: ServerServeHardeningArgs,
+  ): NeuroLink {
+    if (!hardening.enableBuiltinTools) {
+      process.env.NEUROLINK_DISABLE_BUILTIN_TOOLS = "true";
+    }
+    return new NeuroLink();
+  }
+
+  /**
+   * Put every route except the health probes behind the API key(s) in
    * NEUROLINK_SERVER_API_KEY. Must run before the routes are registered.
    */
   private static applyApiKeyAuth(
@@ -692,6 +779,7 @@ export class ServeCommandFactory {
       framework: string;
       basePath: string;
       serverConfig: ServerAdapterConfig;
+      hardening: ServerServeHardeningArgs;
     },
     spinner: ReturnType<typeof ora> | null,
   ): ServeState {
@@ -711,7 +799,7 @@ export class ServeCommandFactory {
       spinner.succeed(chalk.green("NeuroLink server started successfully"));
     }
 
-    const url = `http://${opts.host === "0.0.0.0" ? "localhost" : opts.host}:${opts.port}`;
+    const url = `http://${opts.host === "0.0.0.0" || opts.host === "::" ? "localhost" : opts.host}:${opts.port}`;
 
     const corsEnabled =
       opts.argv.cors ?? opts.serverConfig.cors?.enabled ?? true;
@@ -728,6 +816,7 @@ export class ServeCommandFactory {
 
     ServeCommandFactory.printStartupBanner({
       url,
+      host: opts.host,
       framework: opts.framework,
       basePath: opts.basePath,
       pid: state.pid,
@@ -740,6 +829,8 @@ export class ServeCommandFactory {
       swaggerEnabled,
       watchEnabled: opts.argv.watch ?? false,
       authEnabled: readServerApiKeys().length > 0,
+      allowUnauthenticated: opts.hardening.allowUnauthenticated === true,
+      builtinToolsEnabled: opts.hardening.enableBuiltinTools === true,
     });
 
     return state;
@@ -750,6 +841,7 @@ export class ServeCommandFactory {
    */
   private static printStartupBanner(info: {
     url: string;
+    host: string;
     framework: string;
     basePath: string;
     pid: number;
@@ -762,12 +854,25 @@ export class ServeCommandFactory {
     swaggerEnabled: boolean;
     watchEnabled: boolean;
     authEnabled: boolean;
+    allowUnauthenticated: boolean;
+    builtinToolsEnabled: boolean;
   }): void {
     logger.always("");
     logger.always(chalk.bold.cyan("NeuroLink Server"));
     logger.always(chalk.gray("=".repeat(50)));
     logger.always("");
     logger.always(`  ${chalk.bold("URL:")}        ${chalk.cyan(info.url)}`);
+    logger.always(
+      `  ${chalk.bold("Listening:")}  ${
+        isLoopbackHost(info.host)
+          ? chalk.green(`${info.host} (this machine only)`)
+          : info.authEnabled
+            ? chalk.green(`${info.host} (network; API key required)`)
+            : chalk.yellow(
+                `${info.host} (network, NO authentication — every route is open to anyone who can reach this port)`,
+              )
+      }`,
+    );
     logger.always(
       `  ${chalk.bold("Framework:")}  ${chalk.cyan(info.framework)}`,
     );
@@ -811,7 +916,25 @@ export class ServeCommandFactory {
       logger.always(`  Watch Mode:  ${chalk.green("enabled")}`);
     }
     logger.always(
-      `  API Key:     ${info.authEnabled ? chalk.green("required (health routes exempt)") : chalk.yellow(`disabled — set ${SERVER_API_KEY_ENV} before exposing this server`)}`,
+      `  API Key:     ${info.authEnabled ? chalk.green("required (health probes exempt)") : chalk.yellow(`disabled — set ${SERVER_API_KEY_ENV} before exposing this server`)}`,
+    );
+    if (!info.authEnabled) {
+      logger.always(
+        `  Tool/MCP:    ${
+          info.allowUnauthenticated
+            ? chalk.yellow("execution routes OPEN (--allow-unauthenticated)")
+            : chalk.green("execution routes answer 403 until a key is set")
+        }`,
+      );
+    }
+    logger.always(
+      `  Built-in:    ${
+        info.builtinToolsEnabled
+          ? chalk.yellow(
+              "tools enabled (file reads/writes under the working directory)",
+            )
+          : chalk.green("tools disabled (--enable-builtin-tools to allow)")
+      }`,
     );
     logger.always("");
 
@@ -869,6 +992,7 @@ export class ServeCommandFactory {
       basePath: string;
       port: number;
       host: string;
+      hardening: ServerServeHardeningArgs;
     },
   ): (() => void) | null {
     if (!argv.watch) {
@@ -897,14 +1021,18 @@ export class ServeCommandFactory {
         } = await import(`../../lib/server/index.js?t=${timestamp}`);
 
         // Create new server
-        const newNeurolink = new NeuroLink();
+        const newNeurolink = ServeCommandFactory.createServerNeuroLink(
+          ctx.hardening,
+        );
         const newServer = await createNewServer(newNeurolink, {
           framework: ctx.framework as ServerFramework,
           config: ctx.serverConfig,
         });
 
         ServeCommandFactory.applyApiKeyAuth(newServer, ctx.basePath);
-        registerNewRoutes(newServer, ctx.basePath);
+        registerNewRoutes(newServer, ctx.basePath, {
+          allowUnauthenticated: ctx.hardening.allowUnauthenticated,
+        });
 
         // Initialize and start with timeouts
         await withTimeout(
@@ -935,6 +1063,7 @@ export class ServeCommandFactory {
           newServer,
           newNeurolink,
           ctx.serverConfig,
+          ctx.hardening,
         );
 
         // Update the reference so signal handlers use the new server instance
@@ -1070,7 +1199,7 @@ export class ServeCommandFactory {
         status.startTime = state.startTime;
         status.uptime = Date.now() - new Date(state.startTime).getTime();
         status.configFile = state.configFile ?? null;
-        status.url = `http://${state.host === "0.0.0.0" ? "localhost" : state.host}:${state.port}`;
+        status.url = `http://${state.host === "0.0.0.0" || state.host === "::" ? "localhost" : state.host}:${state.port}`;
       }
 
       if (argv.format === "json") {

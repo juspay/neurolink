@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Triage Issue
-        uses: juspay/neurolink@v1
+        uses: juspay/neurolink@e42b4db89fa87946e2dd766cf2ab43929c689b8b # v13.8.16
         id: triage
         with:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}

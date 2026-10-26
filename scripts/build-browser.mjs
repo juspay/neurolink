@@ -49,7 +49,13 @@ const NODE_STUB_JS = `
 const noop = () => {};
 const noopAsync = async () => {};
 export default {};
-export const promises = { readFile: noopAsync, writeFile: noopAsync, mkdir: noopAsync, stat: noopAsync, readdir: noopAsync, unlink: noopAsync, access: noopAsync, rm: noopAsync, rename: noopAsync };
+export const mkdtemp = async (prefix) => (prefix || '/tmp/') + Math.random().toString(36).slice(2);
+export const lstat = async () => ({ isSymbolicLink: () => false, isDirectory: () => false, isFile: () => false, mode: 0, uid: 0 });
+export const promises = { readFile: noopAsync, writeFile: noopAsync, mkdir: noopAsync, stat: noopAsync, readdir: noopAsync, unlink: noopAsync, access: noopAsync, rm: noopAsync, rename: noopAsync, mkdtemp, lstat };
+// net.BlockList (used by the MCP transport URL policy) — nothing is blocked in the browser; the
+// policy only runs for Node transports, which the browser bundle never opens.
+export const BlockList = class BlockList { addAddress(){} addRange(){} addSubnet(){} check(){ return false; } };
+export const delimiter = ':';
 export const createHash = (algorithm) => {
   const chunks = [];
   return {
@@ -349,14 +355,16 @@ export const SEMRESATTRS_SERVICE_VERSION='service.version';
 export default{trace,context,propagation,metrics,diag,SpanStatusCode,SpanKind};
 `;
 
-// schemaConversion.ts loads these two through createRequire(import.meta.url),
-// which is what keeps Node consumers from paying for them at import time. It
-// also hides them from esbuild, and the generic `module` stub answers every
+// schemaConversion.ts loads this package through createRequire(import.meta.url),
+// which is what keeps Node consumers from paying for it at import time. It
+// also hides it from esbuild, and the generic `module` stub answers every
 // require() with `{}` — so without this the browser artifact would send every
-// Zod 3 tool, Zod 3 `schema` and JSON-Schema-defined tool to the model with no
-// parameters, and say nothing about it. Import them statically here so they are
-// bundled, and let the stub's require() hand them back.
-const REQUIRE_BACKED_PACKAGES = ['zod-to-json-schema', 'json-schema-to-zod'];
+// Zod 3 tool and Zod 3 `schema` to the model with no parameters, and say
+// nothing about it. (JSON-Schema-defined tools no longer need a package: the
+// 2026-10 security audit replaced json-schema-to-zod's codegen + `new Function`
+// with a direct converter.) Import it statically here so it is bundled, and let
+// the stub's require() hand it back.
+const REQUIRE_BACKED_PACKAGES = ['zod-to-json-schema'];
 const GENERIC_CREATE_REQUIRE = 'export const createRequire = () => () => ({});';
 
 if (!NODE_STUB_JS.includes(GENERIC_CREATE_REQUIRE)) {

@@ -583,7 +583,7 @@ await test("planCodexCooldown clamps a retry-after beyond the ceiling", () => {
 // Upstream headers
 // ---------------------------------------------------------------------------
 
-await test("buildCodexUpstreamHeaders replaces client credentials with the pooled account", () => {
+await test("buildCodexUpstreamHeaders replaces client credentials and forwards only protocol headers", () => {
   const headers = __testHooks.buildCodexUpstreamHeaders(
     {
       authorization: "Bearer client-token",
@@ -592,6 +592,13 @@ await test("buildCodexUpstreamHeaders replaces client credentials with the poole
       "chatgpt-account-id": "client-account",
       "accept-encoding": "gzip",
       "x-keep-me": "yes",
+      "X-Codex-Turn-Metadata": "turn-1",
+      session_id: "session-1",
+      conversation_id: "conversation-1",
+      "openai-beta": "responses=experimental",
+      "x-neurolink-share-token": "local-share-token",
+      "x-forwarded-for": "203.0.113.1",
+      traceparent: "local-trace",
     },
     account("a", { token: "pool-token", accountId: "pool-account" }),
   );
@@ -606,17 +613,32 @@ await test("buildCodexUpstreamHeaders replaces client credentials with the poole
     "pool-account",
     "the account id must match the pooled bearer, not the caller's",
   );
-  for (const blocked of ["x-api-key", "cookie", "accept-encoding"]) {
+  for (const blocked of [
+    "x-api-key",
+    "cookie",
+    "accept-encoding",
+    "x-keep-me",
+    "x-neurolink-share-token",
+    "x-forwarded-for",
+    "traceparent",
+  ]) {
     assert(
       headers[blocked] === undefined,
       `header must not be forwarded upstream: ${blocked}`,
     );
   }
-  assertEqual(
-    headers["x-keep-me"],
-    "yes",
-    "unrelated client headers must pass through",
-  );
+  for (const [name, value] of Object.entries({
+    "x-codex-turn-metadata": "turn-1",
+    session_id: "session-1",
+    conversation_id: "conversation-1",
+    "openai-beta": "responses=experimental",
+  })) {
+    assertEqual(
+      headers[name],
+      value,
+      `protocol header must pass through: ${name}`,
+    );
+  }
 });
 
 await test("buildCodexUpstreamHeaders defaults identity headers only when absent", () => {

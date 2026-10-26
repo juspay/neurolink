@@ -2,13 +2,26 @@
 
 ## Supported Versions
 
-We release security updates for the following versions of NeuroLink:
+NeuroLink releases continuously from the `release` branch with semantic
+versioning; the current major line is where fixes land. Versions as of
+2026-10-26 (`gh api repos/juspay/neurolink/tags`):
 
-| Version | Supported          | Status              |
-| ------- | ------------------ | ------------------- |
-| 9.x     | :white_check_mark: | Active development  |
-| 8.x     | :warning:          | Security fixes only |
-| < 8.0   | :x:                | No longer supported |
+| Version        | Supported          | Status                                                             |
+| -------------- | ------------------ | ------------------------------------------------------------------ |
+| 13.x (13.8.16) | :white_check_mark: | Active development — every fix ships here                          |
+| 12.x (12.59.0) | :warning:          | Security fixes on request, for a bounded period after 13.0 shipped |
+| < 12.0         | :x:                | No longer supported — upgrade                                      |
+
+Upgrade with `npm install @juspay/neurolink@latest` (or an exact version); the
+[migration guide](docs/guides/migration-guide.md) lists breaking changes per
+major.
+
+### Runtime
+
+NeuroLink requires a currently supported Node.js line with the latest security
+patches applied (`engines.node` in `package.json`). Node security releases are
+announced at <https://nodejs.org/en/blog/vulnerability/>; a NeuroLink release
+never backports a Node fix, so keep the runtime current independently.
 
 ## Reporting a Vulnerability
 
@@ -18,7 +31,14 @@ If you discover a security vulnerability in NeuroLink, please report it responsi
 
 ### How to Report
 
-**Email:** security@juspay.in
+**Preferred:** open a private vulnerability report at
+<https://github.com/juspay/neurolink/security/advisories/new>. It reaches the
+maintainers directly, stays private until a fix is published, and gives the
+report a GHSA id and a CVE if one is warranted. No account with write access is
+needed.
+
+**Alternative:** email **security@juspay.in**. Use this if the GitHub form is
+unavailable to you; please do not open a public issue or pull request.
 
 Please include the following information in your report:
 
@@ -241,21 +261,29 @@ const result = await neurolink.generate({
 });
 ```
 
-## Previous Security Advisories
+## Published Security Advisories
 
-We maintain a list of all security advisories:
+Every advisory for this package is published through GitHub Security Advisories
+and mirrored to the GitHub Advisory Database (so `npm audit` and Dependabot see
+it):
 
-- [GitHub Security Advisories](https://github.com/juspay/neurolink/security/advisories)
+- <https://github.com/juspay/neurolink/security/advisories>
 
-No security advisories have been published as of this document's creation.
+Advisories have been published there (for example GHSA-6jr6-6vw7-f9gx). Each one
+names the first fixed version. The repository's own dependency gate
+(`scripts/security-check.ts`) accepts a third-party advisory only by GHSA id,
+with a declared dependency path, an expiry date and a stated reason; the
+accepted-risk table is printed in every CI run's job summary.
 
 ## Security Updates
 
 Subscribe to security updates:
 
-- Watch the [NeuroLink repository](https://github.com/juspay/neurolink) for security announcements
-- Follow [@juspay](https://twitter.com/juspay) on Twitter
-- Subscribe to release notifications
+- Watch the [NeuroLink repository](https://github.com/juspay/neurolink) with
+  "Custom → Security alerts" enabled; published advisories are delivered there
+- Enable Dependabot alerts on your own repository: advisories for this package
+  reach the GitHub Advisory Database and `npm audit`
+- Subscribe to release notifications for the fixed versions
 
 ## Bug Bounty Program
 

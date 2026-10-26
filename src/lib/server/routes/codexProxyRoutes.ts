@@ -98,6 +98,14 @@ import {
   getProxyRequestTraceContext,
 } from "../../proxy/proxyTraceContext.js";
 import { isBorrowedRequest } from "../../proxy/shareContext.js";
+import {
+  authorizeInboundRequest,
+  inboundAuthRefusalResponse,
+  resolveInboundToken,
+  resolveMaxAccountsPerRequest,
+  warnIfProxyRoutesUnauthenticated,
+} from "../../proxy/inboundAuth.js";
+import { MAX_COOLDOWN_MS_BY_REASON } from "../../proxy/routingEvidence.js";
 import { ProxyTracer, recordFallbackAttempt } from "../../proxy/proxyTracer.js";
 import { parseRetryAfterMs } from "../../proxy/routingPolicy.js";
 import {
@@ -131,6 +139,7 @@ import type {
   ServerContext,
   ProxyPreparedContext,
   ProxyResponseTrackingObserver,
+  ProxyInboundAuthOptions,
   ProxyRuntimeConfigProvider,
   ResponseInfoContext,
   UsageContext,
@@ -280,20 +289,61 @@ async function refreshCodexTokenOnce(
   );
 }
 
-// Headers we never forward upstream (hop-by-hop, client creds, or things we
-// re-derive). The client's own auth is replaced with the pooled account's.
-const BLOCKED_UPSTREAM_HEADERS = new Set([
-  "host",
-  "connection",
-  "content-length",
-  "transfer-encoding",
-  "cookie",
-  "proxy-authorization",
-  "authorization",
-  "x-api-key",
-  "chatgpt-account-id",
-  "accept-encoding",
+/**
+ * Protocol headers a client may influence upstream: the documented Codex
+ * client fingerprint and content negotiation. Everything else — proxy-internal
+ * `x-neurolink-*` (a borrower's share token among them), trace context, CDN and
+ * forwarding identity, cookies, hop-by-hop — is dropped. The client's own
+ * credentials are replaced with the pooled account's, never forwarded.
+ */
+const FORWARDABLE_UPSTREAM_HEADERS = new Set([
+  "accept",
+  "content-type",
+  "user-agent",
+  "originator",
+  "session_id",
+  "conversation_id",
+  "openai-beta",
 ]);
+const FORWARDABLE_UPSTREAM_HEADER_PREFIXES = ["x-codex-"] as const;
+
+function isForwardableCodexHeader(lowerName: string): boolean {
+  return (
+    FORWARDABLE_UPSTREAM_HEADERS.has(lowerName) ||
+    FORWARDABLE_UPSTREAM_HEADER_PREFIXES.some((prefix) =>
+      lowerName.startsWith(prefix),
+    )
+  );
+}
+
+/**
+ * Body fields that reference or create account-side state at OpenAI. A
+ * borrower may not read another caller's stored response, pin a cache key or
+ * stamp `metadata`/`user` onto the lender's account; their own `instructions`
+ * are their prompt and stay.
+ */
+const BORROWER_STRIPPED_BODY_FIELDS = [
+  "previous_response_id",
+  "prompt_cache_key",
+  "metadata",
+  "user",
+] as const;
+
+function stripBorrowerAccountState<T extends Record<string, unknown>>(
+  body: T,
+): T {
+  if (!isBorrowedRequest()) {
+    return body;
+  }
+  const stripped: Record<string, unknown> = { ...body };
+  for (const field of BORROWER_STRIPPED_BODY_FIELDS) {
+    delete stripped[field];
+  }
+  if ("store" in stripped) {
+    stripped.store = false;
+  }
+  return stripped as T;
+}
 
 /** Build a Codex error body as a Response with the intended status. */
 function buildCodexErrorResponse(
@@ -452,7 +502,7 @@ function buildCodexUpstreamHeaders(
   const headers: Record<string, string> = {};
   for (const [name, value] of Object.entries(clientHeaders)) {
     const lower = name.toLowerCase();
-    if (BLOCKED_UPSTREAM_HEADERS.has(lower)) {
+    if (!isForwardableCodexHeader(lower) || typeof value !== "string") {
       continue;
     }
     headers[lower] = value;
@@ -536,16 +586,24 @@ function planCodexCooldown(
   // skew. Taken literally the account is eligible again immediately and the
   // pool re-sends to something the provider just rejected.
   const floor = now + DEFAULT_TRANSIENT_COOLDOWN_MS;
+  // A reset is upstream's claim about the future. Bound it by what the window
+  // can mean, as the Claude engine does: a bogus far-future reset must not park
+  // an account until someone edits the cooldown file by hand.
+  const clamp = (untilMs: number, reason: RateLimitCoolingReason): number =>
+    Math.min(
+      Math.max(untilMs, floor),
+      now + (MAX_COOLDOWN_MS_BY_REASON[reason] ?? MAX_TRANSIENT_COOLDOWN_MS),
+    );
   if (quota) {
     if (quota.weeklyStatus === "rejected" && quota.weeklyResetAt > 0) {
       return {
-        coolingUntil: Math.max(quota.weeklyResetAt * 1000, floor),
+        coolingUntil: clamp(quota.weeklyResetAt * 1000, "weekly"),
         reason: "weekly",
       };
     }
     if (quota.sessionStatus === "rejected" && quota.sessionResetAt > 0) {
       return {
-        coolingUntil: Math.max(quota.sessionResetAt * 1000, floor),
+        coolingUntil: clamp(quota.sessionResetAt * 1000, "session"),
         reason: "session",
       };
     }
@@ -554,7 +612,7 @@ function planCodexCooldown(
   if (bodyQuota) {
     if (bodyQuota.scope !== "unknown" && bodyQuota.resetAt > 0) {
       return {
-        coolingUntil: Math.max(bodyQuota.resetAt, floor),
+        coolingUntil: clamp(bodyQuota.resetAt, bodyQuota.scope),
         reason: bodyQuota.scope,
       };
     }
@@ -592,8 +650,13 @@ function publishCodexHeaders(
   if (!ctx.responseHeaders) {
     ctx.responseHeaders = {};
   }
-  ctx.responseHeaders["x-neurolink-account"] = account.label;
-  ctx.responseHeaders["x-neurolink-account-type"] = "codex-oauth";
+  // The label is the lender's identity (an email for a ChatGPT account). A
+  // borrower gets the quota it routes on, not whose account served it — the
+  // same redaction the Claude engine applies for borrowed traffic.
+  if (!isBorrowedRequest()) {
+    ctx.responseHeaders["x-neurolink-account"] = account.label;
+    ctx.responseHeaders["x-neurolink-account-type"] = "codex-oauth";
+  }
   ctx.responseHeaders["x-neurolink-served-by"] = "codex";
   ctx.responseHeaders["x-neurolink-attempt"] = String(attempt);
   ctx.responseHeaders["x-neurolink-quota-source"] = quota ? "live" : "none";
@@ -2064,6 +2127,32 @@ async function handleCodexUpstreamFailure(
     };
   }
 
+  // Any other 4xx is upstream's verdict on the request itself — a malformed
+  // body, an unknown model, an over-long input. Every other account would
+  // answer the same way, so trying them only multiplies the cost: end the
+  // request here, with the upstream status.
+  if (
+    upstream.status >= 400 &&
+    upstream.status < 500 &&
+    upstream.status !== 401 &&
+    upstream.status !== 403
+  ) {
+    const errorMessage = summarizeCodexUpstreamError(errText, "Codex error");
+    recordAttemptError(account.label, CODEX_ACCOUNT_TYPE, upstream.status);
+    writeAttempt(account, attempt, attemptStartedAt, upstream.status, {
+      errorType: "invalid_request_error",
+      errorMessage,
+      retryable: false,
+    });
+    return {
+      lastFailure: { errorType: "invalid_request_error", retryable: false },
+      lastErrorStatus: upstream.status,
+      lastErrorCode: getProxyUpstreamFailure({ responseBody: errText })?.code,
+      lastErrorMessage: errorMessage,
+      refusedRequest: true,
+    };
+  }
+
   // Other non-ok → record and rotate.
   if (upstream.status === 401 || upstream.status === 403) {
     // Reached when the account has no refresh token to retry with, or when
@@ -2331,7 +2420,7 @@ async function executeCodexResponsesRequest(
         body: state.body,
       });
       state.contextPreflight = preparedContext.evidence;
-      state.body = preparedContext.body;
+      state.body = stripBorrowerAccountState(preparedContext.body);
       state.bodyStr = JSON.stringify(state.body);
     } catch (error) {
       if (!(error instanceof ProxyContextPreflightError)) {
@@ -2357,13 +2446,15 @@ async function executeCodexResponsesRequest(
 
     const now = Date.now();
     const ordered = orderCodexAccounts(accounts, now);
-    const eligible = ordered.filter(
+    const notCooling = ordered.filter(
       (a) => !(a.coolingUntil !== undefined && a.coolingUntil > now),
     );
 
-    if (eligible.length === 0) {
+    if (notCooling.length === 0) {
       return respondCodexPoolCooling(rt, ordered, now);
     }
+    // One inbound request may be tried against at most this many accounts.
+    const eligible = notCooling.slice(0, resolveMaxAccountsPerRequest());
 
     let attempt = 0;
     let lastErrorMessage = "All Codex accounts failed";
@@ -2639,22 +2730,30 @@ async function handleCodexModelsRequest(ctx: ServerContext): Promise<Response> {
 
   const now = Date.now();
   const ordered = orderCodexAccounts(accounts, now);
-  // A cooling account is rate-limited for completions, not barred from
-  // answering what models exist. Healthy accounts go first, but a cooling one
-  // is still a candidate rather than a reason to fail discovery outright.
-  const isCooling = (a: (typeof ordered)[number]): boolean =>
-    a.coolingUntil !== undefined && a.coolingUntil > now;
-  const candidates = [
-    ...ordered.filter((a) => !isCooling(a)),
-    ...ordered.filter(isCooling),
-  ];
+  // Discovery used to reach every account, cooling ones included, and relay
+  // the client's whole query. Only healthy accounts answer it now, capped by
+  // the per-request account limit. Every call still reaches upstream: the
+  // limits it reports (context window, output ceiling) are recorded per model
+  // and must refresh whenever upstream changes them.
+  const candidates = ordered
+    .filter((a) => !(a.coolingUntil !== undefined && a.coolingUntil > now))
+    .slice(0, resolveMaxAccountsPerRequest());
+  if (candidates.length === 0) {
+    return buildCodexErrorResponse(
+      503,
+      "Every Codex account is cooling; model discovery is unavailable until one recovers.",
+    );
+  }
 
-  // Forward the CLI's own query — it sends client_version, and upstream
-  // *requires* it: without it ChatGPT answers 400 with a pydantic
-  // "Field required" on ('query','client_version'). Rebuild from ctx.query,
-  // not ctx.path: path carries no query string, so reading it there silently
-  // dropped the parameter and produced exactly that 400.
-  const params = new URLSearchParams(ctx.query ?? {});
+  // Forward only the CLI's `client_version` — upstream *requires* it: without
+  // it ChatGPT answers 400 with a pydantic "Field required" on
+  // ('query','client_version'). Rebuild from ctx.query, not ctx.path: path
+  // carries no query string. Nothing else a client puts in the query travels.
+  const params = new URLSearchParams();
+  const clientVersion = ctx.query?.client_version;
+  if (typeof clientVersion === "string" && clientVersion !== "") {
+    params.set("client_version", clientVersion);
+  }
   const query = params.toString();
   const url = query ? `${CODEX_MODELS_URL}?${query}` : CODEX_MODELS_URL;
 
@@ -2725,11 +2824,11 @@ async function handleCodexModelsRequest(ctx: ServerContext): Promise<Response> {
       // query was not forwarded correctly, and hiding it behind a retry would
       // bury the exact regression this route was added to fix.
       const body = await upstream.text();
+      const contentType =
+        upstream.headers.get("content-type") ?? "application/json";
       if (upstream.ok) {
         registerCodexDiscoveredLimits(body);
       }
-      const contentType =
-        upstream.headers.get("content-type") ?? "application/json";
       return new Response(body, {
         status: upstream.status,
         headers: { "content-type": contentType },
@@ -2821,12 +2920,26 @@ export function createCodexProxyRoutes(
   runtimeConfigProvider?: ProxyRuntimeConfigProvider,
   loopbackPort?: number,
   internalDispatch?: (request: Request) => Response | Promise<Response>,
+  inboundAuth?: ProxyInboundAuthOptions,
 ): RouteGroup {
   warnIfAnthropicOutboundFallbackUnreachable(
     runtimeConfigProvider,
     loopbackPort,
     internalDispatch,
   );
+  const inboundToken = resolveInboundToken(inboundAuth?.token);
+  warnIfProxyRoutesUnauthenticated("Codex", inboundAuth, inboundToken);
+  const guard =
+    (handler: (ctx: ServerContext) => Promise<Response>) =>
+    (ctx: ServerContext): Promise<Response> => {
+      if (inboundToken) {
+        const verdict = authorizeInboundRequest(ctx.headers, inboundToken);
+        if (!verdict.ok) {
+          return Promise.resolve(inboundAuthRefusalResponse());
+        }
+      }
+      return handler(ctx);
+    };
   return {
     prefix: `${basePath}/backend-api/codex`,
     routes: [
@@ -2834,19 +2947,20 @@ export function createCodexProxyRoutes(
         method: "POST",
         path: `${basePath}/backend-api/codex/responses`,
         description: "Codex ChatGPT-backend Responses API (account pool)",
-        handler: (ctx: ServerContext) =>
+        handler: guard((ctx: ServerContext) =>
           handleCodexResponsesRequest(
             ctx,
             runtimeConfigProvider,
             loopbackPort,
             internalDispatch,
           ),
+        ),
       },
       {
         method: "GET",
         path: `${basePath}/backend-api/codex/models`,
         description: "Codex model discovery, relayed upstream (account pool)",
-        handler: (ctx: ServerContext) => handleCodexModelsRequest(ctx),
+        handler: guard((ctx: ServerContext) => handleCodexModelsRequest(ctx)),
       },
     ],
   };

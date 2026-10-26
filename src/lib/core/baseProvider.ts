@@ -3981,7 +3981,14 @@ export abstract class BaseProvider implements AIProvider {
           executeDirectorPipeline(
             segments,
             generateOptions.output?.video ?? {},
-            generateOptions.output?.director ?? {},
+            {
+              ...(generateOptions.output?.director ?? {}),
+              // Director Mode fetches/reads reference images itself; hand it
+              // the same attachment policy the rest of the request runs under.
+              attachmentPolicy:
+                generateOptions.output?.director?.attachmentPolicy ??
+                options.attachmentPolicy,
+            },
             options.region,
           ),
         { timeout: directorTimeout, operationType: "generate" },

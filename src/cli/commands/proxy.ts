@@ -95,6 +95,13 @@ import type {
 } from "../../lib/types/index.js";
 import type { NeuroLink } from "../../lib/neurolink.js";
 import { configureProxyKeepAliveDispatcher } from "../../lib/proxy/proxyDispatcher.js";
+import {
+  evaluateProxyBindPolicy,
+  isUnauthenticatedBindAllowedByEnv,
+  resolveInboundToken,
+} from "../../lib/proxy/inboundAuth.js";
+import { isGrantRequiredByEnv } from "../../lib/proxy/shareGate.js";
+import { tightenProcessUmask } from "../../lib/auth/secureFiles.js";
 import { ProxyRuntimeConfigStore } from "../../lib/proxy/runtimeConfig.js";
 import { sessionAffinity } from "../../lib/proxy/sessionAffinity.js";
 import { startProxyLogCleanupScheduler } from "../../lib/proxy/logCleanupScheduler.js";
@@ -1948,6 +1955,10 @@ export async function createProxyStartApp(params: {
   updateControlToken?: string;
   /** Port of the gate-only share listener, when one is configured. */
   sharePort?: number;
+  /** Bearer every inbound caller must present; omitted means none is required. */
+  inboundToken?: string;
+  /** The bind policy already ran and accepted an unauthenticated listener. */
+  inboundAuthAcknowledged?: boolean;
 }) {
   const { createClaudeProxyRoutes } =
     await import("../../lib/server/routes/claudeProxyRoutes.js");
@@ -1964,9 +1975,22 @@ export async function createProxyStartApp(params: {
     await import("../../lib/proxy/shareGate.js");
   const { runWithShareContext } =
     await import("../../lib/proxy/shareContext.js");
+  const {
+    authorizeInboundRequest,
+    hasValidInboundToken,
+    isInboundAuthExemptPath,
+    secretsMatch,
+  } = await import("../../lib/proxy/inboundAuth.js");
   const { Hono } = await import("hono");
 
   const app = new Hono();
+  const inboundToken = params.inboundToken;
+  const inboundAuth = {
+    ...(inboundToken ? { token: inboundToken } : {}),
+    // The CLI ran the bind policy; a loopback or acknowledged listener must
+    // not re-trigger the route factories' unauthenticated-mount warning.
+    allowUnauthenticated: params.inboundAuthAcknowledged ?? true,
+  };
 
   /**
    * Is this request arriving on the gate-only share listener?
@@ -2146,7 +2170,7 @@ export async function createProxyStartApp(params: {
     const suppliedToken = c.req.header("x-neurolink-update-token");
     const expectedToken =
       params.updateControlToken ?? PROXY_UPDATE_CONTROL_TOKEN;
-    if (!suppliedToken || suppliedToken !== expectedToken) {
+    if (!suppliedToken || !secretsMatch(expectedToken, suppliedToken)) {
       return c.json({ error: "not_found" }, 404);
     }
     const payload = await c.req
@@ -2254,12 +2278,11 @@ export async function createProxyStartApp(params: {
     params.strategy,
     params.passthrough,
     params.primaryAccountKey,
-    runtimeConfigProvider
-      ? {
-          accountAllowlist: params.accountAllowlist,
-          runtimeConfigProvider,
-        }
-      : params.accountAllowlist,
+    {
+      accountAllowlist: params.accountAllowlist,
+      ...(runtimeConfigProvider ? { runtimeConfigProvider } : {}),
+      inboundAuth,
+    },
   );
 
   const openaiRouteGroup = createOpenAIProxyRoutes(
@@ -2279,6 +2302,7 @@ export async function createProxyStartApp(params: {
     // stay in this worker across supervisor generation switches, never
     // re-enter the public listener.
     (request) => app.fetch(request),
+    inboundAuth,
   );
   const geminiRouteGroup = createGeminiProxyRoutes(
     params.modelRouter,
@@ -2322,6 +2346,38 @@ export async function createProxyStartApp(params: {
           },
           503,
         );
+      }
+      // Inbound token, before the body is even read. A request carrying a
+      // share token is left to the share gate below; everything else on a
+      // non-exempt path must present the operator's token.
+      if (
+        inboundToken &&
+        metadata?.accountingScope !== "internal" &&
+        !isInboundAuthExemptPath(c.req.path)
+      ) {
+        const verdict = authorizeInboundRequest(
+          Object.fromEntries(c.req.raw.headers.entries()),
+          inboundToken,
+        );
+        if (!verdict.ok) {
+          for (const [key, value] of Object.entries(verdict.response.headers)) {
+            c.header(key, value);
+          }
+          if (metadata) {
+            metadata.terminalErrorType = "inbound_auth_required";
+            await recordRuntimeError(
+              metadata,
+              401,
+              "inbound_auth_required",
+              "Request did not present the inbound token",
+              {
+                clientMessage: verdict.response.body.error.message,
+                clientErrorType: verdict.response.body.error.type,
+              },
+            );
+          }
+          return c.json(verdict.response.body, 401);
+        }
       }
       const emptyBody = {};
       let body: unknown;
@@ -2608,6 +2664,26 @@ export async function createProxyStartApp(params: {
   });
 
   app.get("/status", async (c) => {
+    // `/status` is an operator surface. With an inbound token configured it
+    // is refused outright to anyone without it, not merely redacted.
+    if (
+      inboundToken &&
+      !hasValidInboundToken(
+        Object.fromEntries(c.req.raw.headers.entries()),
+        inboundToken,
+      )
+    ) {
+      return c.json(
+        {
+          type: "error",
+          error: {
+            type: "authentication_error",
+            message: "This proxy requires an inbound token.",
+          },
+        },
+        401,
+      );
+    }
     // A gated proxy is, by definition, one that may be exposed. `/status`
     // enumerates account labels — which for an OAuth account is an email — plus
     // quota and cooldown state, and it is not behind the request gate, so
@@ -2620,8 +2696,10 @@ export async function createProxyStartApp(params: {
     // liveness tooling keeps working.
     const statusIdentityAllowed =
       !isGatedListener(c) ||
-      c.req.header("x-neurolink-update-token") ===
-        (params.updateControlToken ?? PROXY_UPDATE_CONTROL_TOKEN);
+      secretsMatch(
+        params.updateControlToken ?? PROXY_UPDATE_CONTROL_TOKEN,
+        c.req.header("x-neurolink-update-token") ?? "",
+      );
     const runtimeConfig = params.runtimeConfigStore?.getSnapshot();
     const runtimeConfigStatus = params.runtimeConfigStore?.getStatus();
     const activeStrategy = runtimeConfig
@@ -4095,6 +4173,7 @@ async function runLaunchdProxySupervisor(
   }
   const host = argv.host ?? "127.0.0.1";
   const port = argv.port ?? 55669;
+  enforceProxyBindPolicy(host, argv, spinner);
   const workerArgs = process.argv.slice(2);
   const supervisorStartedAt = new Date().toISOString();
   configureProxyLifecycleLogger({
@@ -4311,7 +4390,42 @@ export function registerProxySupervisorReload(
   return () => process.off("SIGHUP", reload);
 }
 
+/**
+ * Decide whether this listener may bind where it was asked to, after the env
+ * file has been loaded (the inbound token may live there). Refusal exits the
+ * process: an open proxy on a routable address is not a configuration to
+ * start and warn about.
+ */
+function enforceProxyBindPolicy(
+  host: string,
+  argv: Pick<ProxyStartArgs, "inboundToken" | "allowUnauthenticated">,
+  spinner: ProxySpinner,
+): { inboundToken: string | undefined; acknowledged: boolean } {
+  const inboundToken = resolveInboundToken(argv.inboundToken);
+  const allowUnauthenticated =
+    argv.allowUnauthenticated === true || isUnauthenticatedBindAllowedByEnv();
+  const decision = evaluateProxyBindPolicy({
+    host,
+    inboundToken,
+    requireGrant: isGrantRequiredByEnv(),
+    allowUnauthenticated,
+  });
+  if (!decision.allowed) {
+    if (spinner) {
+      spinner.fail(chalk.red("Refusing to start an unauthenticated proxy"));
+    }
+    logger.error(chalk.red(decision.reason));
+    process.exit(1);
+  }
+  if (decision.warning) {
+    logger.always(chalk.yellow(`[proxy] WARNING: ${decision.warning}`));
+  }
+  return { inboundToken, acknowledged: true };
+}
+
 async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
+  // Everything this process creates under ~/.neurolink is owner-only.
+  tightenProcessUmask();
   const spinner = argv.quiet ? null : ora("Starting Claude proxy...").start();
   const isDev = argv.dev ?? false;
   const socketWorker = isProxySocketWorkerProcess();
@@ -4454,6 +4568,7 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
       mainPort: port,
     });
     const host = argv.host ?? "127.0.0.1";
+    const bindPolicy = enforceProxyBindPolicy(host, argv, spinner);
     const { app, readiness } = await createProxyStartApp({
       neurolink,
       modelRouter,
@@ -4466,6 +4581,8 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
       accountAllowlist,
       runtimeConfigStore,
       sharePort,
+      inboundToken: bindPolicy.inboundToken,
+      inboundAuthAcknowledged: bindPolicy.acknowledged,
     });
 
     await initializeProxyOpenTelemetry();
@@ -4533,7 +4650,24 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
         type: "string",
         alias: "H",
         default: "127.0.0.1",
-        description: "Host to bind to",
+        description:
+          "Host to bind to. A non-loopback host needs --inbound-token, " +
+          "NEUROLINK_PROXY_REQUIRE_GRANT=1 or --allow-unauthenticated",
+      })
+      .option("inbound-token", {
+        type: "string",
+        alias: "inboundToken",
+        description:
+          "Bearer every caller must present (x-neurolink-inbound-token or " +
+          "Authorization: Bearer). Also NEUROLINK_PROXY_INBOUND_TOKEN",
+      })
+      .option("allow-unauthenticated", {
+        type: "boolean",
+        alias: "allowUnauthenticated",
+        default: false,
+        description:
+          "Bind a non-loopback host with no inbound authentication (an " +
+          "authenticating reverse proxy must sit in front)",
       })
       .option("strategy", {
         type: "string",
@@ -6956,7 +7090,23 @@ export const proxyInstallCommand: CommandModule = {
       })
       .option("host", {
         type: "string",
-        description: "Proxy host",
+        description:
+          "Proxy host. A non-loopback host needs --inbound-token, " +
+          "NEUROLINK_PROXY_REQUIRE_GRANT=1 or --allow-unauthenticated",
+      })
+      .option("inbound-token", {
+        type: "string",
+        alias: "inboundToken",
+        description:
+          "Bearer every caller must present; persisted into the service " +
+          "environment as NEUROLINK_PROXY_INBOUND_TOKEN",
+      })
+      .option("allow-unauthenticated", {
+        type: "boolean",
+        alias: "allowUnauthenticated",
+        default: false,
+        description:
+          "Install a non-loopback service with no inbound authentication",
       })
       .option("env-file", {
         type: "string",
@@ -7060,9 +7210,25 @@ export const proxyInstallCommand: CommandModule = {
     }
 
     await loadProxyEnvFile({ explicitEnvFile: envFile });
+    tightenProcessUmask();
+    // The service inherits NEUROLINK_PROXY_* from this environment (see
+    // isProxyServiceEnvironmentKey), so a flag given here is persisted into
+    // the 0600 plist rather than echoed on the command line.
+    const installArgs = argv as {
+      inboundToken?: string;
+      allowUnauthenticated?: boolean;
+    };
+    if (installArgs.inboundToken?.trim()) {
+      process.env.NEUROLINK_PROXY_INBOUND_TOKEN =
+        installArgs.inboundToken.trim();
+    }
+    if (installArgs.allowUnauthenticated === true) {
+      process.env.NEUROLINK_PROXY_ALLOW_UNAUTHENTICATED = "1";
+    }
+    enforceProxyBindPolicy(host, installArgs, null);
     const logsDir = join(homedir(), ".neurolink", "logs");
     if (!isProxyOtelOnly() && !existsSync(logsDir)) {
-      mkdirSync(logsDir, { recursive: true });
+      mkdirSync(logsDir, { recursive: true, mode: 0o700 });
     }
 
     if (!existsSync(PLIST_DIR)) {

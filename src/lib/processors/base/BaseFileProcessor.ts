@@ -49,6 +49,7 @@ import { gunzip } from "zlib";
 
 import { SIZE_LIMITS } from "../config/index.js";
 import { isAbortError } from "../../utils/errorHandling.js";
+import { downloadAttachment } from "../../utils/attachmentPolicy.js";
 import { withSpan } from "../../telemetry/withSpan.js";
 import { tracers } from "../../telemetry/tracers.js";
 // Starts tracing at the first span, as this module always did: the shared
@@ -63,6 +64,7 @@ import {
 } from "../errors/index.js";
 
 import type {
+  AttachmentPolicy,
   BatchProcessingSummary,
   FailedFileInfo,
   FileInfo,
@@ -531,9 +533,16 @@ export abstract class BaseFileProcessor<T extends ProcessedFileBase> {
   /**
    * Download file from URL with authentication.
    *
+   * Goes through `downloadAttachment`, which applies the attachment policy
+   * (HTTPS and public hosts unless the instance says otherwise), pins the
+   * connection to the vetted addresses, re-validates every redirect hop and
+   * bounds the body while it streams. `authHeaders` ride on the first request
+   * only — they are never replayed to a redirect target.
+   *
    * @param url - URL to download from
    * @param authHeaders - Optional authentication headers
    * @param timeout - Optional timeout override
+   * @param attachmentPolicy - Policy for the fetch; the environment default when omitted
    * @returns Downloaded file content as Buffer
    * @throws Error if download fails
    */
@@ -541,154 +550,57 @@ export abstract class BaseFileProcessor<T extends ProcessedFileBase> {
     url: string,
     authHeaders?: Record<string, string>,
     timeout?: number,
+    attachmentPolicy?: AttachmentPolicy,
   ): Promise<Buffer> {
-    // Note: We intentionally use AbortController + setTimeout here rather than the shared
-    // withTimeout utility. AbortController.signal cancels the actual HTTP request via
-    // fetch's signal option, while withTimeout only races promises and would leave
-    // the fetch running in the background, consuming network resources.
-    const controller = new AbortController();
-    const effectiveTimeout = timeout ?? this.config.timeoutMs;
-    const timeoutId = setTimeout(() => {
-      controller.abort();
-    }, effectiveTimeout);
+    const maxBytes = this.config.maxSizeMB * 1024 * 1024;
+    const downloaded = await downloadAttachment(url, {
+      policy: attachmentPolicy,
+      maxBytes,
+      label: `${this.config.fileTypeName} download`,
+      headers: authHeaders,
+      timeoutMs: timeout ?? this.config.timeoutMs,
+    });
 
-    try {
-      const headers: Record<string, string> = {
-        ...authHeaders,
-      };
-
-      const response = await fetch(url, {
-        headers,
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      // Reject HTML responses - likely an error page or redirect
-      const contentType = response.headers.get("Content-Type");
-      if (contentType && contentType.includes("text/html")) {
-        throw new Error(
-          `Received HTML response instead of file content (Content-Type: ${contentType}). This usually means the download URL returned an error page.`,
-        );
-      }
-
-      const maxBytes = this.config.maxSizeMB * 1024 * 1024;
-      let buffer = await this.readBodyWithinLimit(response, maxBytes);
-
-      // Check for gzip encoding and decompress if needed
-      // Only decompress if the data actually starts with gzip magic bytes (0x1f 0x8b)
-      const contentEncoding = response.headers.get("Content-Encoding");
-      const isActuallyGzipped =
-        buffer.length >= 2 && buffer[0] === 0x1f && buffer[1] === 0x8b;
-
-      if (
-        contentEncoding?.toLowerCase().includes("gzip") &&
-        isActuallyGzipped
-      ) {
-        try {
-          // Bounded at the decoder. The size check that runs after the download
-          // only ever sees what already fits in memory, so a few KB of gzip
-          // declaring gigabytes was inflated in full before anything objected —
-          // the response passed the "is it small" test on its way in.
-          buffer = Buffer.from(
-            await gunzipAsync(buffer, { maxOutputLength: maxBytes }),
-          );
-        } catch (gzipError) {
-          if (isBufferTooLargeError(gzipError)) {
-            throw downloadTooLargeError(
-              this.config.maxSizeMB,
-              this.config.fileTypeName,
-            );
-          }
-          throw new Error(
-            `Failed to decompress gzip response: ${gzipError instanceof Error ? gzipError.message : String(gzipError)}`,
-            { cause: gzipError },
-          );
-        }
-      }
-
-      return buffer;
-    } finally {
-      clearTimeout(timeoutId);
-      // Release the connection on every early exit. Rejecting a response for
-      // its status or its Content-Type leaves the body unread, which keeps the
-      // socket out of the pool until the response is garbage-collected. After
-      // a successful read there is nothing left in flight, so this is a no-op.
-      controller.abort();
-    }
-  }
-
-  /**
-   * Read a response body, refusing it the moment it passes `maxBytes`.
-   *
-   * `response.arrayBuffer()` buffers whatever the server sends before anyone
-   * can object, so the size check further up only ever ran against a body that
-   * had already been paid for in full. Metering the stream makes the ceiling
-   * the configured limit instead of the server's choice, and cancelling the
-   * reader stops the transfer rather than merely stopping our interest in it.
-   *
-   * Content-Length is deliberately not trusted as the bound — it is a hint that
-   * can be absent or a lie — but it is worth honouring when present, because it
-   * refuses the honest oversized case without reading a byte.
-   *
-   * @param response - Fetch response whose body should be read
-   * @param maxBytes - Ceiling for the body, in bytes
-   * @returns The body as a Buffer
-   * @throws When the body exceeds `maxBytes`
-   */
-  private async readBodyWithinLimit(
-    response: Response,
-    maxBytes: number,
-  ): Promise<Buffer> {
-    const declared = Number(response.headers.get("Content-Length"));
-    if (Number.isFinite(declared) && declared > maxBytes) {
-      // Release the socket. An unread body keeps the connection out of the
-      // pool until the response is collected, so a run of oversized downloads
-      // would hold one socket open each.
-      await response.body?.cancel();
-      throw downloadTooLargeError(
-        this.config.maxSizeMB,
-        this.config.fileTypeName,
+    // Reject HTML responses - likely an error page or redirect
+    const contentType = downloaded.contentType;
+    if (contentType && contentType.includes("text/html")) {
+      throw new Error(
+        `Received HTML response instead of file content (Content-Type: ${contentType}). This usually means the download URL returned an error page.`,
       );
     }
 
-    // Some responses carry no readable stream (mocked fetch, polyfills). The
-    // buffered read is the fallback, still checked — just after the fact.
-    if (!response.body) {
-      const buffered = Buffer.from(await response.arrayBuffer());
-      if (buffered.length > maxBytes) {
-        throw downloadTooLargeError(
-          this.config.maxSizeMB,
-          this.config.fileTypeName,
+    let buffer = downloaded.buffer;
+
+    // Check for gzip encoding and decompress if needed
+    // Only decompress if the data actually starts with gzip magic bytes (0x1f 0x8b)
+    const contentEncoding = downloaded.contentEncoding;
+    const isActuallyGzipped =
+      buffer.length >= 2 && buffer[0] === 0x1f && buffer[1] === 0x8b;
+
+    if (contentEncoding.toLowerCase().includes("gzip") && isActuallyGzipped) {
+      try {
+        // Bounded at the decoder. The size check that runs after the download
+        // only ever sees what already fits in memory, so a few KB of gzip
+        // declaring gigabytes was inflated in full before anything objected —
+        // the response passed the "is it small" test on its way in.
+        buffer = Buffer.from(
+          await gunzipAsync(buffer, { maxOutputLength: maxBytes }),
+        );
+      } catch (gzipError) {
+        if (isBufferTooLargeError(gzipError)) {
+          throw downloadTooLargeError(
+            this.config.maxSizeMB,
+            this.config.fileTypeName,
+          );
+        }
+        throw new Error(
+          `Failed to decompress gzip response: ${gzipError instanceof Error ? gzipError.message : String(gzipError)}`,
+          { cause: gzipError },
         );
       }
-      return buffered;
     }
 
-    const reader = response.body.getReader();
-    const chunks: Buffer[] = [];
-    let total = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) {
-        break;
-      }
-      if (!value) {
-        continue;
-      }
-      total += value.byteLength;
-      if (total > maxBytes) {
-        await reader.cancel();
-        throw downloadTooLargeError(
-          this.config.maxSizeMB,
-          this.config.fileTypeName,
-        );
-      }
-      chunks.push(Buffer.from(value));
-    }
-    return Buffer.concat(chunks, total);
+    return buffer;
   }
 
   /**
@@ -721,6 +633,7 @@ export abstract class BaseFileProcessor<T extends ProcessedFileBase> {
           url,
           options?.authHeaders,
           options?.timeout,
+          options?.attachmentPolicy,
         );
         return { success: true, data: buffer };
       } catch (error) {

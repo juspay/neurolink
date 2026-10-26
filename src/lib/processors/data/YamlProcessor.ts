@@ -15,7 +15,10 @@
  * 2. **Billion Laughs Attack (Entity Expansion)**: YAML supports anchors (&) and aliases (*)
  *    for referencing content. Malicious YAML can use nested aliases to create exponential
  *    expansion (e.g., 10 levels of 10x expansion = 10^10 entities from a small file).
- *    We limit `maxAliasCount` to 100 to prevent memory exhaustion.
+ *    js-yaml parses aliases as SHARED references, so the parsed tree stays small — the
+ *    expansion happens at serialization. `asJson` is therefore produced by a bounded
+ *    serializer that stops at the processor's byte limit and reports `null` instead of
+ *    materialising the expanded document.
  *
  * 3. **Denial of Service**: Large or deeply nested YAML files can exhaust memory/CPU.
  *    Size limits are enforced by the base processor's maxSizeMB configuration.
@@ -54,6 +57,7 @@ import type {
 } from "../../types/index.js";
 import { SIZE_LIMITS_MB } from "../config/index.js";
 import { createFileError, FileErrorCode } from "../errors/index.js";
+import { logger } from "../../utils/logger.js";
 
 // Re-export for consumers who import from this module
 
@@ -244,7 +248,19 @@ export class YamlProcessor extends BaseFileProcessor<ProcessedYaml> {
     try {
       // Use secure parsing - validation already passed, but maintain consistent security
       parsed = this.parseYamlSecurely(content);
-      asJson = JSON.stringify(parsed, null, 2);
+      // Bounded: a 30-level alias chain is a few hundred bytes of YAML and a
+      // small shared-reference graph in memory, but 2^30 nodes once
+      // stringified. The serializer gives up at the processor's own byte
+      // limit rather than letting `JSON.stringify` expand it.
+      asJson = boundedJsonStringify(
+        parsed,
+        this.config.maxSizeMB * 1024 * 1024,
+      );
+      if (asJson === null) {
+        logger.warn(
+          `[YamlProcessor] "${this.getFilename(fileInfo)}" expands past the ${this.config.maxSizeMB}MB limit when serialized (alias expansion); asJson omitted`,
+        );
+      }
     } catch (error) {
       // This shouldn't happen since we validate, but handle gracefully
       valid = false;
@@ -263,6 +279,92 @@ export class YamlProcessor extends BaseFileProcessor<ProcessedYaml> {
       filename: this.getFilename(fileInfo),
     };
   }
+}
+
+// =============================================================================
+// BOUNDED SERIALIZATION
+// =============================================================================
+
+/**
+ * `JSON.stringify(value, null, 2)` that stops once the output would pass
+ * `maxChars`, returning `null` instead. Walks the value iteratively enough to
+ * visit shared references once per path (which is what expands an alias
+ * bomb) but counts output as it goes, so the work is bounded by the limit
+ * rather than by the document's expanded size. Cycles — which YAML anchors
+ * can also express — serialize as `"[Circular]"`.
+ */
+export function boundedJsonStringify(
+  value: unknown,
+  maxChars: number,
+): string | null {
+  const parts: string[] = [];
+  let length = 0;
+  const ancestors: object[] = [];
+  const push = (text: string): boolean => {
+    length += text.length;
+    if (length > maxChars) {
+      return false;
+    }
+    parts.push(text);
+    return true;
+  };
+  const walk = (node: unknown, indent: string): boolean => {
+    if (node === null || typeof node !== "object") {
+      if (node === undefined || typeof node === "function") {
+        return push("null");
+      }
+      if (typeof node === "number" && !Number.isFinite(node)) {
+        return push("null");
+      }
+      return push(JSON.stringify(node));
+    }
+    if (ancestors.includes(node)) {
+      return push('"[Circular]"');
+    }
+    ancestors.push(node);
+    try {
+      const inner = `${indent}  `;
+      if (Array.isArray(node)) {
+        if (node.length === 0) {
+          return push("[]");
+        }
+        if (!push("[\n")) {
+          return false;
+        }
+        for (let i = 0; i < node.length; i++) {
+          if (!push(inner) || !walk(node[i], inner)) {
+            return false;
+          }
+          if (!push(i < node.length - 1 ? ",\n" : "\n")) {
+            return false;
+          }
+        }
+        return push(`${indent}]`);
+      }
+      const entries = Object.entries(node as Record<string, unknown>).filter(
+        ([, v]) => v !== undefined && typeof v !== "function",
+      );
+      if (entries.length === 0) {
+        return push("{}");
+      }
+      if (!push("{\n")) {
+        return false;
+      }
+      for (let i = 0; i < entries.length; i++) {
+        const [key, child] = entries[i];
+        if (!push(`${inner}${JSON.stringify(key)}: `) || !walk(child, inner)) {
+          return false;
+        }
+        if (!push(i < entries.length - 1 ? ",\n" : "\n")) {
+          return false;
+        }
+      }
+      return push(`${indent}}`);
+    } finally {
+      ancestors.pop();
+    }
+  };
+  return walk(value, "") ? parts.join("") : null;
 }
 
 // =============================================================================

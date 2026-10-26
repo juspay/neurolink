@@ -1,12 +1,14 @@
-import { existsSync, readFileSync, statSync } from "fs";
-import {
-  open as openAsync,
-  readFile as readFileAsync,
-  stat as statAsync,
-} from "fs/promises";
+import { constants as fsConstants, existsSync, statSync } from "fs";
+import { open as openAsync, stat as statAsync } from "fs/promises";
 import type { FileHandle } from "fs/promises";
 import pLimit from "p-limit";
-import { redirectFollowingDispatcher } from "./redirectDispatcher.js";
+import {
+  downloadAttachment,
+  getAttachmentPolicy,
+  readAttachmentFile,
+  resolveAttachmentPath,
+  resolveAttachmentPolicy,
+} from "./attachmentPolicy.js";
 import {
   MultimodalLogger,
   ProviderImageAdapter,
@@ -28,6 +30,7 @@ import {
   SIZE_TIER_THRESHOLDS,
 } from "../types/index.js";
 import type {
+  AttachmentPolicy,
   ChatMessage,
   Content,
   CSVContent,
@@ -68,6 +71,7 @@ import {
 import { supportsNativeVideo } from "../adapters/videoFormatSupport.js";
 import { getImageCache } from "./imageCache.js";
 import { ImageProcessor, imageUtils } from "./imageProcessor.js";
+import { SIZE_LIMITS_BYTES } from "../processors/config/sizeLimits.js";
 import { logger } from "./logger.js";
 import { looksLikeSvgMarkup } from "./markupSniff.js";
 import { redactUrlForError } from "./logSanitize.js";
@@ -1189,6 +1193,14 @@ const PREPROCESSED_FILES = new WeakMap<object, Set<unknown>>();
 const FILE_READ_TIMEOUT_MS = 30_000;
 
 /**
+ * Ceiling for a local attachment read by path on the unified `files` path and
+ * the lazy registry. Matches FileDetector's own 200 MB default, so a file the
+ * detector would have accepted is not refused here; `attachments.maxBytes`
+ * lowers it.
+ */
+const ATTACHED_FILE_READ_CAP_BYTES = 200 * 1024 * 1024;
+
+/**
  * How many files may be detected and processed at once.
  *
  * A cap rather than unbounded `Promise.all`, and the cap is the point: this
@@ -1216,7 +1228,10 @@ const FILE_PROCESSING_CONCURRENCY = 4;
  * materialised by the time detection runs, and re-fetching a remote URL here
  * would issue a second network request behind the caller's back.
  */
-async function readFileInputBytes(file: FileInput): Promise<Buffer | null> {
+async function readFileInputBytes(
+  file: FileInput,
+  policy: AttachmentPolicy,
+): Promise<Buffer | null> {
   try {
     if (isFileWithMetadata(file)) {
       return file.buffer;
@@ -1225,37 +1240,21 @@ async function readFileInputBytes(file: FileInput): Promise<Buffer | null> {
       return file;
     }
     if (typeof file === "string") {
-      const { readFile, stat } = await import("node:fs/promises");
-      // Two different hangs live here, and they need different guards.
-      //
-      // A FIFO or device node blocks inside the read syscall, where neither a
-      // timeout nor an abort can reach it — measured: with a signal attached,
-      // a blocked FIFO read stays pending through both open and mid-read. The
-      // timeout would return while that read sat there forever. So refuse
-      // anything that is not a regular file up front; that is the only thing
-      // that actually prevents this case.
-      //
-      // A regular file on a slow or hung mount does return control between
-      // chunks, so there the signal works (measured: rejects with AbortError
-      // in flight) — and it matters, because racing the promise alone leaves
-      // the read filling a buffer nobody will collect. Aborting in `finally`
-      // covers both exits; after a resolved read it is a no-op.
-      //
-      // stat-then-read is a TOCTOU window, but a narrow one, and it is strictly
-      // better than the unbounded read it replaces.
-      const stats = await withTimeout(stat(file), FILE_READ_TIMEOUT_MS);
-      if (!stats.isFile()) {
-        return null;
-      }
-      const controller = new AbortController();
-      try {
-        return await withTimeout(
-          readFile(file, { signal: controller.signal }),
-          FILE_READ_TIMEOUT_MS,
-        );
-      } finally {
-        controller.abort();
-      }
+      // `readAttachmentFile` applies the instance's roots, opens the real path
+      // O_NOFOLLOW|O_NONBLOCK (so a FIFO cannot park a worker inside the read
+      // syscall — the hang a timeout alone can never reach), refuses anything
+      // that is not a regular file, and drains under the size cap through the
+      // same descriptor it stat'd. The timeout still bounds a slow or hung
+      // mount, where control does return between chunks.
+      const read = await withTimeout(
+        readAttachmentFile(file, {
+          policy,
+          maxBytes: ATTACHED_FILE_READ_CAP_BYTES,
+          label: "attached file",
+        }),
+        FILE_READ_TIMEOUT_MS,
+      );
+      return read.buffer;
     }
   } catch {
     // An unreadable file is not an error here: the metadata summary was
@@ -1332,7 +1331,10 @@ async function appendDetectedFileResult(
     // and is no worse off than before. This matters most where the frames are
     // absent — ffmpeg is optional, and without it the summary was everything
     // the model saw.
-    const videoBytes = await readFileInputBytes(file);
+    const videoBytes = await readFileInputBytes(
+      file,
+      getAttachmentPolicy(options),
+    );
     if (videoBytes) {
       options.input.nativeVideoFiles = [
         ...(options.input.nativeVideoFiles || []),
@@ -1354,7 +1356,10 @@ async function appendDetectedFileResult(
     // Carry the bytes forward as well as the summary. Whether they are used is
     // decided later, per provider: one that can listen receives the audio, one
     // that cannot still gets the summary above and is no worse off than before.
-    const audioBytes = await readFileInputBytes(file);
+    const audioBytes = await readFileInputBytes(
+      file,
+      getAttachmentPolicy(options),
+    );
     if (audioBytes) {
       options.input.nativeAudioFiles = [
         ...(options.input.nativeAudioFiles || []),
@@ -1568,6 +1573,9 @@ async function detectFileForUnifiedArray(
     provider: provider,
     mimetypeHint: fileMimetypeHint,
     filenameHint: fileFilenameHint,
+    // The instance's roots / URL rules / size cap, so a path or URL named in
+    // `files` is read under the same policy as every other attachment.
+    attachmentPolicy: getAttachmentPolicy(options),
   });
 }
 
@@ -1727,6 +1735,7 @@ export async function processUnifiedFilesArray(
               fileSize,
               fileRegistry,
               fileIdx,
+              getAttachmentPolicy(options),
             );
             if (registered) {
               logger.info(
@@ -1877,6 +1886,7 @@ async function processExplicitCsvFiles(
         FileDetector.detectAndProcess(csvFile, {
           allowedTypes: ["csv"],
           csvOptions: options.csvOptions,
+          attachmentPolicy: getAttachmentPolicy(options),
         }),
       ),
     ),
@@ -2116,6 +2126,7 @@ async function processExplicitPdfFiles(
         maxSize,
         allowedTypes: ["pdf"],
         provider: provider,
+        attachmentPolicy: getAttachmentPolicy(options),
       });
 
       if (Buffer.isBuffer(result.content)) {
@@ -2291,7 +2302,11 @@ export async function buildMultimodalModelMessages(
 
   // Detection can append images (PDF page renders, video keyframes, a HEIC
   // photo), so compatibility conversion has to run after it, not before.
-  await normalizeVisionImageFormats(inp, options.imageOptions?.outputFormat);
+  await normalizeVisionImageFormats(
+    inp,
+    options.imageOptions?.outputFormat,
+    getAttachmentPolicy(options),
+  );
 
   // Process explicit CSV files array
   await processExplicitCsvFiles(options);
@@ -2507,8 +2522,11 @@ export async function buildMultimodalModelMessages(
         provider,
         model,
         options.pdfOptions,
-        inp.nativeAudioFiles ?? [],
-        options.imageOptions?.outputFormat,
+        {
+          audioFiles: inp.nativeAudioFiles ?? [],
+          outputFormat: options.imageOptions?.outputFormat,
+          attachmentPolicy: getAttachmentPolicy(options),
+        },
       );
     } else if (
       (inp.images && inp.images.length > 0) ||
@@ -2532,6 +2550,7 @@ export async function buildMultimodalModelMessages(
         {
           audioFiles: inp.nativeAudioFiles ?? [],
           outputFormat: options.imageOptions?.outputFormat,
+          attachmentPolicy: getAttachmentPolicy(options),
         },
       );
     } else {
@@ -2647,9 +2666,13 @@ async function convertContentToProviderFormat(
   provider: string,
   model: string,
   pdfOptions?: GenerateOptions["pdfOptions"],
-  audioFiles: MultimodalAudioEntry[] = [],
-  outputFormat?: VisionImageOutputFormat,
+  mediaOptions: {
+    audioFiles?: MultimodalAudioEntry[];
+    outputFormat?: VisionImageOutputFormat;
+    attachmentPolicy?: AttachmentPolicy;
+  } = {},
 ): Promise<unknown> {
+  const { audioFiles = [], outputFormat, attachmentPolicy } = mediaOptions;
   const textContent = content.find((c) => c.type === "text");
   const imageContent = content.filter((c) => c.type === "image");
   const pdfContent = content.filter((c) => c.type === "pdf");
@@ -2730,6 +2753,7 @@ async function convertContentToProviderFormat(
     {
       audioFiles,
       outputFormat,
+      attachmentPolicy,
     },
   );
 }
@@ -2748,8 +2772,15 @@ function isInternetUrl(input: string): boolean {
  * Download image from URL and convert to base64 data URI
  * Rate-limited to 10 downloads per second to prevent DoS
  * Uses LRU cache to avoid redundant downloads of the same URL
+ *
+ * The fetch goes through `downloadAttachment`: HTTPS to a public host unless
+ * the instance's policy says otherwise, the connection pinned to the vetted
+ * addresses, redirects re-validated per hop, body bounded while streaming.
  */
-async function downloadImageFromUrl(url: string): Promise<string> {
+async function downloadImageFromUrl(
+  url: string,
+  policy: AttachmentPolicy,
+): Promise<string> {
   // Check cache first (before rate limiting)
   const cache = getImageCache();
   const cached = cache.get(url);
@@ -2762,26 +2793,15 @@ async function downloadImageFromUrl(url: string): Promise<string> {
   await urlDownloadRateLimiter.acquire();
 
   try {
-    // Dynamic import keeps undici off the package's static import graph —
-    // it is only needed once a URL-referenced image actually has to be
-    // fetched. See test/continuous-test-suite-import-cost.ts.
-    const { request } = await import("undici");
-    const response = await request(url, {
-      dispatcher: await redirectFollowingDispatcher(5),
-      method: "GET",
-      headersTimeout: 10000, // 10 second timeout for headers
-      bodyTimeout: 30000, // 30 second timeout for body,
+    const downloaded = await downloadAttachment(url, {
+      policy,
+      maxBytes: IMAGE_URL_MAX_BYTES,
+      label: "image URL",
+      timeoutMs: IMAGE_URL_TIMEOUT_MS,
     });
 
-    if (response.statusCode !== 200) {
-      throw new Error(
-        `HTTP ${response.statusCode}: Failed to download image from ${url}`,
-      );
-    }
-
     // Get content type from headers
-    const contentType =
-      (response.headers["content-type"] as string) || "image/jpeg";
+    const contentType = downloaded.contentType || "image/jpeg";
 
     // Validate it's an image
     if (!contentType.startsWith("image/")) {
@@ -2790,23 +2810,7 @@ async function downloadImageFromUrl(url: string): Promise<string> {
       );
     }
 
-    // Read the response body, enforcing the size cap INCREMENTALLY: a
-    // misbehaving/malicious server on a user-supplied URL must not be able to
-    // force unbounded memory growth by streaming gigabytes before we ever
-    // check the total (the previous code concat'd everything first).
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    const chunks: Buffer[] = [];
-    let totalSize = 0;
-    for await (const chunk of response.body) {
-      totalSize += chunk.length;
-      if (totalSize > maxSize) {
-        throw new Error(
-          `Image too large: exceeds ${maxSize} bytes while downloading from ${url}`,
-        );
-      }
-      chunks.push(chunk);
-    }
-    const buffer = Buffer.concat(chunks);
+    const buffer = downloaded.buffer;
 
     // Convert to base64 data URI
     const base64 = buffer.toString("base64");
@@ -2819,11 +2823,17 @@ async function downloadImageFromUrl(url: string): Promise<string> {
   } catch (error) {
     MultimodalLogger.logError("URL_DOWNLOAD_FAILED", error as Error, { url });
     throw new Error(
-      `Failed to download image from ${url}: ${error instanceof Error ? error.message : String(error)}`,
+      `Failed to download image from ${redactUrlForError(url)}: ${error instanceof Error ? error.message : String(error)}`,
       { cause: error },
     );
   }
 }
+
+/** 10 MB — the cap `downloadImageFromUrl` has always applied. */
+const IMAGE_URL_MAX_BYTES = 10 * 1024 * 1024;
+
+/** Headers plus body for an image URL; the previous 10 s + 30 s budgets, combined. */
+const IMAGE_URL_TIMEOUT_MS = 40_000;
 
 /**
  * Get MIME type from an image file extension.
@@ -2988,38 +2998,47 @@ function detectMimeTypeFromBuffer(buffer: Buffer): string | undefined {
  * Uses async fs so a large/slow-filesystem image never blocks the event loop
  * while the size guard (below) or the read itself is in flight.
  */
-async function convertFilePathToBase64(filePath: string): Promise<string> {
-  let stats;
+async function convertFilePathToBase64(
+  filePath: string,
+  policy: AttachmentPolicy,
+): Promise<string> {
+  const context = `image file "${filePath}"`;
+  let buffer: Buffer;
   try {
-    stats = await statAsync(filePath);
+    // Roots containment, O_NOFOLLOW open of the real path, regular files
+    // only, and a read bounded at the image cap through the same descriptor
+    // that was stat'd — so neither a symlink swap nor a file growing under
+    // the read gets past the size guard (#257).
+    ({ buffer } = await readAttachmentFile(filePath, {
+      policy,
+      maxBytes: SIZE_LIMITS_BYTES.IMAGE_MAX,
+      label: "image file",
+    }));
   } catch (error) {
+    if (error instanceof NeuroLinkError) {
+      throw error;
+    }
+    const code =
+      error instanceof Error ? (error as { code?: unknown }).code : undefined;
     // Only ENOENT means "not found" — EACCES/ELOOP/etc. are real access or
     // filesystem problems that must not be misreported as a missing file.
-    const code =
-      error instanceof Error
-        ? (error as NodeJS.ErrnoException).code
-        : undefined;
     if (code === "ENOENT") {
       throw new Error(`Image file not found: ${filePath}`, { cause: error });
+    }
+    if (code === "ATTACHMENT_NOT_A_FILE") {
+      throw new Error(`Image path is not a file: ${filePath}`, {
+        cause: error,
+      });
+    }
+    if (code === "ATTACHMENT_TOO_LARGE") {
+      // Preserve the typed IMAGE_TOO_LARGE error callers already match on.
+      ImageProcessor.validateSize(Number.MAX_SAFE_INTEGER, context);
     }
     throw new Error(
       `Cannot access image file ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
       { cause: error },
     );
   }
-  if (!stats.isFile()) {
-    throw new Error(`Image path is not a file: ${filePath}`);
-  }
-
-  // #257: check the file size via stat BEFORE reading it into memory, so a
-  // huge image path never triggers an unbounded read + base64 allocation.
-  // Delegates to ImageProcessor's shared guard (no local reimplementation).
-  const context = `image file "${filePath}"`;
-  ImageProcessor.validateSize(stats.size, context);
-  const buffer = await readFileAsync(filePath);
-  // TOCTOU: the file can grow, or a symlink can be swapped, between the stat
-  // above and this read completing. Re-validate the bytes actually read
-  // (not just the pre-read stat) before the base64 allocation.
   return ImageProcessor.safeBase64Convert(buffer, context);
 }
 
@@ -3036,6 +3055,7 @@ async function processImageToBase64(
   image: Buffer | string,
   index: number,
   outputFormat?: VisionImageOutputFormat,
+  policy: AttachmentPolicy = resolveAttachmentPolicy(),
 ): Promise<{ imageData: string; mimeType: string }> {
   let imageData: string;
   let mimeType = "image/jpeg"; // Default mime type
@@ -3073,7 +3093,7 @@ async function processImageToBase64(
     } else {
       // File path string - convert to raw base64
       try {
-        imageData = await convertFilePathToBase64(image);
+        imageData = await convertFilePathToBase64(image, policy);
         mimeType = getMimeTypeFromExtension(image);
       } catch (error) {
         MultimodalLogger.logError("FILE_PATH_CONVERSION", error as Error, {
@@ -3179,6 +3199,7 @@ async function processImageToBase64(
 export async function normalizeVisionImageFormats(
   input: GenerateOptions["input"],
   outputFormat?: VisionImageOutputFormat,
+  attachmentPolicy: AttachmentPolicy = resolveAttachmentPolicy(),
 ): Promise<void> {
   const images = input?.images;
   if (!images || images.length === 0) {
@@ -3195,7 +3216,10 @@ export async function normalizeVisionImageFormats(
       ? (entry as ImageWithAltText).data
       : (entry as Buffer | string);
 
-    const source = await readImageSourceForConversion(payload);
+    const source = await readImageSourceForConversion(
+      payload,
+      attachmentPolicy,
+    );
     if (
       !source ||
       (!needsVisionTranscode(source.mimeType) &&
@@ -3377,7 +3401,12 @@ async function probeFileExifOrientation(
   }
   let handle: FileHandle | undefined;
   try {
-    handle = await openAsync(path, "r");
+    // `path` is the symlink-resolved real path from `resolveAttachmentPath`;
+    // O_NOFOLLOW refuses a link swapped in since.
+    handle = await openAsync(
+      path,
+      fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0),
+    );
     const prefix = Buffer.alloc(window);
     const { bytesRead } = await handle.read(prefix, 0, prefix.length, 0);
     return probeExifOrientation(prefix.subarray(0, bytesRead), mimeType);
@@ -3390,6 +3419,7 @@ async function probeFileExifOrientation(
 
 async function readImageSourceForConversion(
   payload: Buffer | string,
+  policy: AttachmentPolicy,
 ): Promise<{ buffer: Buffer; mimeType: string } | undefined> {
   // Both in-memory shapes are size-checked before they can reach a decoder,
   // the same way the file-path branch below is. `withinConversionLimit`
@@ -3436,7 +3466,11 @@ async function readImageSourceForConversion(
     // without this a large local HEIC/TIFF/BMP was read fully into memory and
     // then re-encoded, with no limit applied at either step. The same applies
     // to a local JPEG read only for its EXIF tag: still bounded before the read.
-    const { size } = await statAsync(payload);
+    // Containment first: a path outside the instance's roots is refused
+    // before anything about it is read, and everything below opens the real
+    // path this returned.
+    const real = await resolveAttachmentPath(payload, policy, "image file");
+    const { size } = await statAsync(real);
     ImageProcessor.validateSize(size, `image at ${safeBasename(payload)}`);
     // A file whose only reason to be here is the orientation question gets
     // that question answered from its header, and is not read at all when the
@@ -3445,11 +3479,15 @@ async function readImageSourceForConversion(
     // overhead.
     if (
       !transcodable &&
-      (await probeFileExifOrientation(payload, mimeType, size)) === "absent"
+      (await probeFileExifOrientation(real, mimeType, size)) === "absent"
     ) {
       return undefined;
     }
-    const buffer = await readFileAsync(payload);
+    const { buffer } = await readAttachmentFile(real, {
+      policy,
+      maxBytes: SIZE_LIMITS_BYTES.IMAGE_MAX,
+      label: "image file",
+    });
     ImageProcessor.validateBufferSize(
       buffer,
       `image at ${safeBasename(payload)}`,
@@ -3479,6 +3517,7 @@ async function convertSimpleImagesToProviderFormat(
   provider: string,
   _model: string,
   outputFormat?: VisionImageOutputFormat,
+  attachmentPolicy: AttachmentPolicy = resolveAttachmentPolicy(),
 ): Promise<Array<TextPart | ImagePart>> {
   // Validate image count against provider-specific limits before processing
   ProviderImageAdapter.validateImageCount(images.length, provider, _model);
@@ -3525,7 +3564,10 @@ async function convertSimpleImagesToProviderFormat(
   // Download URL images and add to actual images
   for (const { url, altText } of urlImages) {
     try {
-      const downloadedDataUri = await downloadImageFromUrl(url);
+      const downloadedDataUri = await downloadImageFromUrl(
+        url,
+        attachmentPolicy,
+      );
       actualImages.push({ data: downloadedDataUri, altText });
     } catch (error) {
       MultimodalLogger.logError(
@@ -3554,6 +3596,7 @@ async function convertSimpleImagesToProviderFormat(
         image,
         index,
         outputFormat,
+        attachmentPolicy,
       );
 
       content.push({
@@ -3589,9 +3632,12 @@ async function convertMultimodalToProviderFormat(
   mediaOptions: {
     audioFiles?: MultimodalAudioEntry[];
     outputFormat?: VisionImageOutputFormat;
+    attachmentPolicy?: AttachmentPolicy;
   } = {},
 ): Promise<Array<TextPart | ImagePart | FilePart>> {
   const { audioFiles = [], outputFormat } = mediaOptions;
+  const attachmentPolicy =
+    mediaOptions.attachmentPolicy ?? resolveAttachmentPolicy();
   const content: Array<TextPart | ImagePart | FilePart> = [
     { type: "text", text },
   ];
@@ -3604,6 +3650,7 @@ async function convertMultimodalToProviderFormat(
       provider,
       model,
       outputFormat,
+      attachmentPolicy,
     );
     if (Array.isArray(imageContent)) {
       imageContent.forEach((item) => {
@@ -3980,16 +4027,24 @@ function getFileSize(file: FileInput): number {
  * For file paths: reads the file.
  * For URLs/data URIs: returns null (not supported for lazy registration).
  */
-async function getFileBuffer(file: FileInput): Promise<Buffer | null> {
+async function getFileBuffer(
+  file: FileInput,
+  policy: AttachmentPolicy,
+): Promise<Buffer | null> {
   if (isFileWithMetadata(file)) {
     return file.buffer;
   }
   if (Buffer.isBuffer(file)) {
     return file;
   }
-  if (typeof file === "string" && existsSync(file)) {
+  if (typeof file === "string" && getFileSource(file) === "path") {
     try {
-      return readFileSync(file) as Buffer;
+      const read = await readAttachmentFile(file, {
+        policy,
+        maxBytes: ATTACHED_FILE_READ_CAP_BYTES,
+        label: "attached file",
+      });
+      return read.buffer;
     } catch {
       return null;
     }
@@ -4175,9 +4230,10 @@ async function tryRegisterFileReference(
   fileSize: number,
   registry: FileReferenceRegistry,
   index: number = 0,
+  policy: AttachmentPolicy = resolveAttachmentPolicy(),
 ): Promise<boolean> {
   try {
-    const buffer = await getFileBuffer(file);
+    const buffer = await getFileBuffer(file, policy);
     if (!buffer) {
       return false;
     }

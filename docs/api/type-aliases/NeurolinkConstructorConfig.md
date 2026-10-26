@@ -272,3 +272,16 @@ Unset by default, in which case calls behave exactly as before. Note that
 `preset: "security"` only turns guardrails on: nothing is redacted until
 `middlewareConfig.guardrails.config` supplies `badWords` or `modelFilter`.
 See [MiddlewareFactoryOptions](MiddlewareFactoryOptions.md).
+
+---
+
+### attachments?
+
+> `optional` **attachments?**: [`AttachmentsConfig`](AttachmentsConfig.md)
+
+What this instance may read or fetch when a call names a file path or URL
+(`input.files`, `input.images`, `rag.files`, `transcribe({ audio })`,
+Director Mode segment images). Unset: URLs must be HTTPS to a public host
+(redirects re-checked per hop), local paths are unrestricted but warn once.
+Set `allowedRoots` whenever the strings come from untrusted callers. See
+[AttachmentsConfig](AttachmentsConfig.md).

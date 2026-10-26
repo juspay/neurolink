@@ -59,3 +59,21 @@ A call as the evaluation store holds it in memory.
 ### updatedAt
 
 > **updatedAt**: `number`
+
+---
+
+### bytes
+
+> **bytes**: `number`
+
+Approximate bytes the call's segments take in memory; what `maxBytes` budgets.
+
+---
+
+### owner?
+
+> `optional` **owner?**: `string`
+
+The authenticated caller that created the call, when the server identified
+one; the call is then listed and readable only by that caller. `undefined`
+for a call made under no authentication or a shared key.

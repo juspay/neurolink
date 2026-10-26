@@ -5,7 +5,6 @@
  */
 
 import { open, readFile, realpath } from "fs/promises";
-import { STATUS_CODES } from "node:http";
 import {
   basename,
   isAbsolute as isAbsolutePath,
@@ -13,7 +12,12 @@ import {
   resolve as resolvePath,
   sep,
 } from "path";
-import { redirectFollowingDispatcher } from "./redirectDispatcher.js";
+import {
+  AttachmentRefusedError,
+  downloadAttachment,
+  getAttachmentPolicy,
+  readAttachmentFile,
+} from "./attachmentPolicy.js";
 // Lazy-loaded processor singletons — avoids loading heavy media deps
 // (mediabunny, fluent-ffmpeg, music-metadata, adm-zip) on every generate() call.
 async function getVideoProcessor() {
@@ -29,6 +33,7 @@ async function getArchiveProcessor() {
   return mod.archiveProcessor;
 }
 import type {
+  AttachmentPolicy,
   AudioProcessorOptions,
   CSVProcessorOptions,
   DetectionStrategy,
@@ -60,11 +65,7 @@ import { detectIsoBmffImageMimeType, hasFtypBoxSignature } from "./isoBmff.js";
 import { logger } from "./logger.js";
 import { looksLikeSvgMarkup } from "./markupSniff.js";
 import { withTimeout } from "./errorHandling.js";
-import {
-  normalizeUrlForCache,
-  redactUrlForError,
-  sanitizeErrorCause,
-} from "./logSanitize.js";
+import { normalizeUrlForCache, sanitizeErrorCause } from "./logSanitize.js";
 import {
   mimeHintToExtension,
   mimeHintToFileType,
@@ -212,16 +213,62 @@ const RETRYABLE_STATUS_CODES = [429, 500, 502, 503, 504];
  * @param error - Error to check
  * @returns True if error is retryable (transient network issue)
  */
+/**
+ * The innermost `code` on an error's `cause` chain (bounded walk). Wrappers such
+ * as undici's "fetch failed" carry the Node transport code one level down.
+ */
+/** The deepest `Error` on a `cause` chain (bounded walk); the input when it has none. */
+function innermostError(error: unknown): unknown {
+  let cursor: unknown = error;
+  for (let depth = 0; depth < 6; depth++) {
+    const next = cursor instanceof Error ? cursor.cause : undefined;
+    if (!(next instanceof Error)) {
+      return cursor;
+    }
+    cursor = next;
+  }
+  return cursor;
+}
+
+function innermostErrorCode(error: unknown): string | undefined {
+  let found: string | undefined;
+  let cursor: unknown = error;
+  for (let depth = 0; depth < 6 && cursor instanceof Error; depth++) {
+    const code = (cursor as { code?: unknown }).code;
+    if (typeof code === "string") {
+      found = code;
+    }
+    cursor = cursor.cause;
+  }
+  return found;
+}
+
 function isRetryableNetworkError(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
   }
 
-  const errorMessage = error.message.toLowerCase();
+  // `fetch()` (undici) reports a transport failure as a bare "fetch failed"
+  // TypeError and keeps the real reason — ECONNRESET, ETIMEDOUT, ... — on
+  // `cause`. The safe downloader wraps that again. Walk the chain (bounded) so
+  // the classification sees the innermost code and message, not the wrapper.
+  const chain: Error[] = [];
+  let cursor: unknown = error;
+  while (cursor instanceof Error && chain.length < 6) {
+    chain.push(cursor);
+    cursor = cursor.cause;
+  }
+  const errorMessage = chain
+    .map((e) => e.message)
+    .join(" | ")
+    .toLowerCase();
 
-  // Extract error code from various error shapes
-  const errorWithCode = error as { code?: string; statusCode?: number };
-  const errorCode = errorWithCode.code?.toUpperCase();
+  // Extract error code from various error shapes, innermost first
+  const errorCode = chain
+    .map((e) => (e as { code?: string }).code)
+    .reverse()
+    .find((c): c is string => typeof c === "string")
+    ?.toUpperCase();
 
   // Check for retryable network error codes
   if (errorCode && RETRYABLE_ERROR_CODES.includes(errorCode)) {
@@ -882,7 +929,7 @@ export class FileDetector {
     const confidenceThreshold = options?.confidenceThreshold ?? 80;
     const strategies: DetectionStrategy[] = [
       new MagicBytesStrategy(),
-      new MimeTypeStrategy(responseMimeType),
+      new MimeTypeStrategy(responseMimeType, getAttachmentPolicy(options)),
       new ExtensionStrategy(),
       new ContentHeuristicStrategy(),
     ];
@@ -2163,70 +2210,31 @@ export class FileDetector {
   ): Promise<{ content: Buffer; contentType: string }> {
     const maxSize = options?.maxSize || 200 * 1024 * 1024; // 200MB default (matches Curator memory-safety cap)
     const timeout = options?.timeout || FileDetector.DEFAULT_NETWORK_TIMEOUT;
+    const policy = getAttachmentPolicy(options);
 
     return withRetry(
       async () => {
         try {
-          // Dynamic import keeps undici off the package's static import
-          // graph — it is only needed once a URL-referenced attachment
-          // actually has to be fetched. See
-          // test/continuous-test-suite-import-cost.ts.
-          const { request } = await import("undici");
-          const response = await request(url, {
-            dispatcher: await redirectFollowingDispatcher(5),
-            method: "GET",
-            headersTimeout: timeout,
-            bodyTimeout: timeout,
+          // `downloadAttachment` applies the instance's URL policy (HTTPS and
+          // public hosts unless opened up), pins the connection to the vetted
+          // addresses, re-validates every redirect hop and bounds the body
+          // while it streams — a declared oversize response is refused at
+          // the headers, an undeclared one as soon as it passes the cap.
+          const downloaded = await downloadAttachment(url, {
+            policy,
+            maxBytes: maxSize,
+            label: "attached URL",
+            // One budget for headers and body, where the two undici timeouts
+            // used to apply separately.
+            timeoutMs: timeout * 2,
           });
-
-          if (response.statusCode !== 200) {
-            // #360: pair the code with its standard reason phrase (e.g. 404 →
-            // "Not Found") so the message is readable rather than a bare
-            // number. Sourced from Node's own `http.STATUS_CODES` table
-            // rather than a hand-written map that could drift from it, and
-            // falls back gracefully for a non-standard code that table
-            // doesn't recognize. Query string / fragment stays stripped — a
-            // presigned URL's token must not be echoed into a thrown error.
-            const statusText = STATUS_CODES[response.statusCode];
-            throw new Error(
-              `HTTP ${response.statusCode}${statusText ? ` ${statusText}` : ""} fetching ${redactUrlForError(url)}`,
-            );
-          }
-
-          const contentType =
-            (response.headers["content-type"] as string) || "";
-          const declaredLength = Number(response.headers["content-length"]);
-          if (Number.isFinite(declaredLength) && declaredLength > maxSize) {
-            // `request()` resolves after response headers arrive. Close the
-            // unread stream before throwing so a declared oversize response
-            // never enters the body-reading loop or holds its connection.
-            // Undici emits an abort error asynchronously when the stream is
-            // destroyed, so consume that expected event before closing it.
-            response.body.once("error", () => {});
-            response.body.destroy();
-            throw new Error(
-              `File too large: ${formatFileSize(declaredLength)} (max: ${formatFileSize(maxSize)})`,
-            );
-          }
+          const contentType = downloaded.contentType;
 
           // #323: cache the Content-Type from this GET so a subsequent detection
           // of the same URL needs no HEAD.
           setCachedUrlContentType(url, contentType, Date.now());
 
-          const chunks: Buffer[] = [];
-          let totalSize = 0;
-
-          for await (const chunk of response.body) {
-            totalSize += chunk.length;
-            if (totalSize > maxSize) {
-              throw new Error(
-                `File too large: ${formatFileSize(totalSize)} (max: ${formatFileSize(maxSize)})`,
-              );
-            }
-            chunks.push(chunk);
-          }
-
-          return { content: Buffer.concat(chunks), contentType };
+          return { content: downloaded.buffer, contentType };
         } catch (error) {
           // Node/undici DNS, TLS, and connect-timeout errors embed the full
           // request URL (including a presigned query token) in
@@ -2244,10 +2252,13 @@ export class FileDetector {
           // string/object can just as easily carry the full URL), so there is
           // no unconditional `throw error` fallback that would bypass
           // redaction for that case.
-          const cause = sanitizeErrorCause(error);
+          // Read the transport code off the ORIGINAL chain before sanitizing:
+          // undici's "fetch failed" TypeError keeps ECONNRESET/ETIMEDOUT on
+          // `cause`, and the sanitized copy deliberately drops that chain.
+          const code = innermostErrorCode(error);
+          const cause = sanitizeErrorCause(innermostError(error));
           const redacted = new Error(cause.message, { cause });
           redacted.name = cause.name;
-          const code = (cause as NodeJS.ErrnoException).code;
           if (code !== undefined) {
             (redacted as NodeJS.ErrnoException).code = code;
           }
@@ -2288,6 +2299,37 @@ export class FileDetector {
     // check and the open() call routes the read outside the sandbox even
     // though validation passed (TOCTOU). With no sandbox configured there's no
     // boundary to defend, so the original path is used as given.
+    //
+    // Without an `allowedBaseDir` the instance's attachment policy decides:
+    // its `allowedRoots` (when configured) bound the read the same way, and
+    // either way the file is opened O_NOFOLLOW on its real path, regular
+    // files only, under the size cap — see `readAttachmentFile`.
+    if (!options?.allowedBaseDir) {
+      try {
+        const read = await readAttachmentFile(filePath, {
+          policy: getAttachmentPolicy(options),
+          maxBytes: maxSize,
+          label: "attached file",
+        });
+        return read.buffer;
+      } catch (error) {
+        if (error instanceof AttachmentRefusedError) {
+          throw error;
+        }
+        // A failed open/stat (ENOENT, EACCES, ELOOP, …) embeds the full path
+        // in its message. Throw a copy whose message and cause are redacted
+        // to the basename, keeping the code so callers can still classify it.
+        logger.debug("loadFromPath: read failed", { filePath, error });
+        const cause = sanitizeErrorCause(error, { filePath });
+        const failed = new Error(cause.message, { cause });
+        failed.name = cause.name;
+        const code = (cause as NodeJS.ErrnoException).code;
+        if (code !== undefined) {
+          (failed as NodeJS.ErrnoException).code = code;
+        }
+        throw failed;
+      }
+    }
     let pathToOpen = filePath;
     if (options?.allowedBaseDir) {
       let base: string;
@@ -3029,7 +3071,10 @@ class MagicBytesStrategy implements DetectionStrategy {
  * Detects file type from HTTP Content-Type headers
  */
 class MimeTypeStrategy implements DetectionStrategy {
-  constructor(private readonly responseMimeType?: string) {}
+  constructor(
+    private readonly responseMimeType?: string,
+    private readonly attachmentPolicy?: AttachmentPolicy,
+  ) {}
 
   async detect(input: FileInput): Promise<FileDetectionResult> {
     if (this.responseMimeType !== undefined) {
@@ -3056,21 +3101,19 @@ class MimeTypeStrategy implements DetectionStrategy {
       if (contentType === undefined) {
         // Wrap the whole HEAD (request + body drain) in withTimeout so a stalled
         // dump() can't hang detection, per the project's async-timeout guideline.
+        // The same guard as the GET: a HEAD to a private or loopback target
+        // is a request too, and the old pre-flight followed redirects to
+        // wherever they pointed.
         contentType = await withTimeout(
           (async () => {
-            // Dynamic import keeps undici off the package's static import
-            // graph — it is only needed once a URL-referenced attachment
-            // actually has to be fetched. See
-            // test/continuous-test-suite-import-cost.ts.
-            const { request } = await import("undici");
-            const response = await request(input, {
-              dispatcher: await redirectFollowingDispatcher(5),
+            const head = await downloadAttachment(input, {
+              policy: this.attachmentPolicy,
+              maxBytes: 0,
+              label: "attached URL",
               method: "HEAD",
-              headersTimeout: FileDetector.DEFAULT_HEAD_TIMEOUT,
-              bodyTimeout: FileDetector.DEFAULT_HEAD_TIMEOUT,
+              timeoutMs: FileDetector.DEFAULT_HEAD_TIMEOUT,
             });
-            await response.body.dump();
-            return (response.headers["content-type"] as string) || "";
+            return head.contentType;
           })(),
           FileDetector.DEFAULT_HEAD_TIMEOUT,
         );

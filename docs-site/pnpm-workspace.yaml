@@ -1,6 +1,13 @@
-# Standalone project — this file exists only to stop pnpm's upward workspace-root
+# Standalone project — this file exists to stop pnpm's upward workspace-root
 # search at this directory (mirrors landing/pnpm-workspace.yaml). Without it, pnpm walks
 # up to the repo-root pnpm-workspace.yaml and docs-site drops out of its own
 # `pnpm ls -r` / recursive command scope, since it is not listed in that file's
 # `packages:` patterns. docs-site keeps its own lockfile and package.json; it is not
-# part of the root workspace.
+# part of the root workspace. No `packages:` field here either.
+#
+# Supply-chain cooldown, matching the repository root: a freshly published release
+# of any dependency is not resolved here until it has been on the registry for
+# 3 days (4320 minutes), so a compromised publish has time to be caught before it
+# can land in docs-site/pnpm-lock.yaml. This tree is audited separately by the
+# quality gate and had no cooldown before (the file held only the comment above).
+minimumReleaseAge: 4320

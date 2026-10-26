@@ -11,6 +11,7 @@ import { ProviderFactory } from "../../factories/providerFactory.js";
 import { withSpan } from "../../telemetry/withSpan.js";
 import { tracers } from "../../telemetry/tracers.js";
 import { logger } from "../../utils/logger.js";
+import { vetRegexPattern } from "../../middleware/utils/regexSafety.js";
 import { rerank } from "../reranker/reranker.js";
 import type {
   MetadataFilter,
@@ -193,6 +194,13 @@ export function createVectorQueryTool(
   };
 }
 
+/** Longest `$regex` filter pattern accepted; a secondary cap behind vetting. */
+const MAX_FILTER_REGEX_LENGTH = 200;
+/** Longest metadata value a `$regex` filter is run against. */
+const MAX_FILTER_REGEX_SUBJECT = 10_000;
+/** Distinct patterns remembered per store before the verdict cache is reset. */
+const MAX_FILTER_REGEX_CACHE = 256;
+
 /**
  * In-memory vector store implementation for testing and development
  */
@@ -201,6 +209,9 @@ export class InMemoryVectorStore implements VectorStore {
     string,
     Map<string, { vector: number[]; metadata: Record<string, unknown> }>
   > = new Map();
+
+  /** Vetted `$regex` patterns: the compiled expression, or null when refused. */
+  private readonly regexFilterCache = new Map<string, RegExp | null>();
 
   /**
    * Add vectors to an index
@@ -393,23 +404,17 @@ export class InMemoryVectorStore implements VectorStore {
             return false;
           }
           if ("$regex" in ops) {
-            const pattern = ops.$regex as string;
-            let regexMatches = false;
-            // Guard against ReDoS: reject excessively long patterns and limit
-            // the tested string length to prevent pathological backtracking.
-            if (pattern.length <= 200) {
-              try {
-                const re = new RegExp(pattern);
-                const testValue =
-                  typeof fieldValue === "string"
-                    ? fieldValue.slice(0, 10_000)
-                    : "";
-                regexMatches = re.test(testValue);
-              } catch {
-                // Invalid regex pattern — treat as non-match
-                regexMatches = false;
-              }
-            }
+            // The pattern is chosen by the model and the value it runs on
+            // comes from ingested documents, so both halves of a ReDoS are
+            // attacker-influenced. A length cap alone does not bound
+            // backtracking (`^(a+)+$` is 7 characters); `vetRegexPattern`
+            // reads the pattern's structure and refuses the ones that can
+            // backtrack catastrophically. A refused or invalid pattern is a
+            // non-match, as an invalid one always was.
+            const regexMatches = this.matchesRegexFilter(
+              ops.$regex,
+              fieldValue,
+            );
             if (!regexMatches) {
               return false;
             }
@@ -424,6 +429,48 @@ export class InMemoryVectorStore implements VectorStore {
     }
 
     return true;
+  }
+
+  /**
+   * Evaluate a `$regex` filter operator. Patterns are vetted once per store
+   * and the verdict cached, so a refused pattern costs one analysis.
+   */
+  private matchesRegexFilter(pattern: unknown, fieldValue: unknown): boolean {
+    if (
+      typeof pattern !== "string" ||
+      pattern.length > MAX_FILTER_REGEX_LENGTH
+    ) {
+      return false;
+    }
+    let compiled = this.regexFilterCache.get(pattern);
+    if (compiled === undefined) {
+      const verdict = vetRegexPattern(pattern);
+      if (verdict.safe) {
+        try {
+          compiled = new RegExp(pattern);
+        } catch {
+          compiled = null;
+        }
+      } else {
+        logger.debug(
+          "[InMemoryVectorStore] Refused a $regex filter pattern that could stall the process",
+          { reason: verdict.reason },
+        );
+        compiled = null;
+      }
+      if (this.regexFilterCache.size >= MAX_FILTER_REGEX_CACHE) {
+        this.regexFilterCache.clear();
+      }
+      this.regexFilterCache.set(pattern, compiled);
+    }
+    if (compiled === null) {
+      return false;
+    }
+    const testValue =
+      typeof fieldValue === "string"
+        ? fieldValue.slice(0, MAX_FILTER_REGEX_SUBJECT)
+        : "";
+    return compiled.test(testValue);
   }
 
   /**

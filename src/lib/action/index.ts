@@ -17,10 +17,15 @@ export {
 export {
   buildCliArgs,
   installNeurolink,
+  resolveInstallSpec,
   executeNeurolink,
   runNeurolink,
   transformCliResponse,
 } from "./actionExecutor.js";
+export {
+  DEFAULT_NEUROLINK_CLI_VERSION,
+  EXACT_VERSION_PATTERN,
+} from "./cliVersion.js";
 
 // GitHub integration
 export {

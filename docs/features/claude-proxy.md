@@ -184,7 +184,7 @@ Account sources are checked in priority order:
 
 #### Designating a primary (home) account
 
-By default the "first" account is the first key in token-store insertion order. To override this without re-OAuthing or editing the encrypted token store, set `routing.primary-account` in the proxy config. The proxy resolves the email to a stable token-store key per request, so the choice survives account additions/removals and only takes effect when that account is currently authenticated:
+By default the "first" account is the first key in token-store insertion order. To override this without re-OAuthing or editing the obfuscated token store (`~/.neurolink/tokens.json` is XOR-obfuscated, not encrypted — treat the file as a secret), set `routing.primary-account` in the proxy config. The proxy resolves the email to a stable token-store key per request, so the choice survives account additions/removals and only takes effect when that account is currently authenticated:
 
 ```bash
 neurolink auth set-primary alice@example.com
@@ -312,6 +312,53 @@ accounts:
 | `host`   | 127.0.0.1                        | Host to bind to     |
 | `config` | `~/.neurolink/proxy-config.yaml` | Path to config file |
 
+### Inbound authentication
+
+Every request the proxy serves spends one of the pooled subscriptions, so the
+proxy decides at start-up whether anything authenticates its callers:
+
+- **Loopback (`127.0.0.1`, `localhost`, `::1`) binds always start.** The only
+  callers are processes on this machine.
+- **Any other `--host` is refused** unless one of these is in place:
+  - an **inbound token** — `--inbound-token <secret>` or
+    `NEUROLINK_PROXY_INBOUND_TOKEN`. Every caller must then send it as
+    `x-neurolink-inbound-token: <secret>` or `Authorization: Bearer <secret>`
+    (the proxy replaces `Authorization` upstream, so an Anthropic SDK client can
+    simply use the token as its `ANTHROPIC_AUTH_TOKEN`). A request carrying a
+    share token is judged by the share gate instead. `/health` stays open;
+    `/peer/*` authenticates itself; `/internal/update-control` has its own
+    token.
+  - the **share gate** — `NEUROLINK_PROXY_REQUIRE_GRANT=1`, which refuses any
+    request without a valid share token (including the operator's own client).
+  - `--allow-unauthenticated` (or `NEUROLINK_PROXY_ALLOW_UNAUTHENTICATED=1`),
+    which records that an authenticating reverse proxy sits in front. The
+    proxy starts and logs a warning.
+
+`GET /limits`, `GET /accounts` and `GET /status` are operator surfaces: they
+name every account (an email for an OAuth account) with its quota and spend.
+They are refused to borrowers and, when an inbound token is configured, to any
+caller without it.
+
+Other inbound-trust guarantees, regardless of bind address:
+
+- Only protocol headers travel upstream (`content-type`, `accept*`,
+  `anthropic-version`, `anthropic-beta`, `user-agent`, `x-app`,
+  `x-stainless-*`, `x-claude-code-session-id`, …). `x-neurolink-*`,
+  `traceparent`/`tracestate`/`baggage`, `cf-*`, `x-forwarded-*`, `x-real-ip`,
+  `via`, `forwarded`, cookies and hop-by-hop headers never reach Anthropic.
+- A client may only add `anthropic-beta` values the proxy would send itself,
+  unless it is Claude Code (both `x-claude-code-session-id` and a
+  `claude-cli/` user-agent). A rejected client-supplied beta never re-ranks the
+  pool.
+- One request is tried against at most `NEUROLINK_PROXY_MAX_ACCOUNTS_PER_REQUEST`
+  accounts (default 3; `0` removes the cap).
+- The per-account header snapshot (`~/.neurolink/header-snapshots/`) is
+  captured only from Claude Code itself, never from a borrowed request, and
+  holds only the identity tuple (device id, session id, normalised billing
+  header). The agent `system` block is compiled in and never taken from a
+  request; a snapshot written by an earlier release that carries one is
+  rewritten without it on first load.
+
 ## CLI Commands
 
 ### `neurolink proxy setup`
@@ -331,7 +378,15 @@ Install the proxy as a persistent macOS launchd service. The service auto-restar
 ```bash
 neurolink proxy install              # Install with defaults (port 55669)
 neurolink proxy install --port 9000  # Install on custom port
-neurolink proxy install --host 0.0.0.0  # Bind to all interfaces
+neurolink proxy install --host 0.0.0.0 --inbound-token "$(openssl rand -hex 32)"  # All interfaces, callers must present the token
+```
+
+A non-loopback `--host` without `--inbound-token`, `NEUROLINK_PROXY_REQUIRE_GRANT=1`
+or `--allow-unauthenticated` is refused — see [Inbound authentication](#inbound-authentication).
+The token is persisted into the service's environment (the plist is `0600`).
+
+```bash
+
 ```
 
 **Options:**
@@ -365,17 +420,19 @@ neurolink proxy start --env-file ./proxy.env    # Load provider keys from dedica
 
 **Options:**
 
-| Flag                | Alias | Default                          | Description                                                |
-| ------------------- | ----- | -------------------------------- | ---------------------------------------------------------- |
-| `--port`            | `-p`  | 55669                            | Port to listen on                                          |
-| `--host`            | `-H`  | 127.0.0.1                        | Host to bind to                                            |
-| `--strategy`        | `-s`  | fill-first                       | Account selection strategy (`fill-first` or `round-robin`) |
-| `--health-interval` |       | 30                               | Health check interval (seconds)                            |
-| `--config`          | `-c`  | `~/.neurolink/proxy-config.yaml` | Config file path                                           |
-| `--quiet`           | `-q`  | false                            | Suppress output                                            |
-| `--debug`           | `-d`  | false                            | Enable debug output                                        |
-| `--passthrough`     |       | false                            | Transparent forwarding (no retry, rotation, or polyfill)   |
-| `--env-file`        |       |                                  | Path to .env file for provider API keys                    |
+| Flag                      | Alias | Default                          | Description                                                                                                                     |
+| ------------------------- | ----- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `--port`                  | `-p`  | 55669                            | Port to listen on                                                                                                               |
+| `--host`                  | `-H`  | 127.0.0.1                        | Host to bind to. Non-loopback needs `--inbound-token`, `NEUROLINK_PROXY_REQUIRE_GRANT=1` or `--allow-unauthenticated`           |
+| `--inbound-token`         |       |                                  | Bearer every caller must present (`x-neurolink-inbound-token` or `Authorization: Bearer`); also `NEUROLINK_PROXY_INBOUND_TOKEN` |
+| `--allow-unauthenticated` |       | false                            | Bind a non-loopback host with no inbound authentication (an authenticating reverse proxy must sit in front)                     |
+| `--strategy`              | `-s`  | fill-first                       | Account selection strategy (`fill-first` or `round-robin`)                                                                      |
+| `--health-interval`       |       | 30                               | Health check interval (seconds)                                                                                                 |
+| `--config`                | `-c`  | `~/.neurolink/proxy-config.yaml` | Config file path                                                                                                                |
+| `--quiet`                 | `-q`  | false                            | Suppress output                                                                                                                 |
+| `--debug`                 | `-d`  | false                            | Enable debug output                                                                                                             |
+| `--passthrough`           |       | false                            | Transparent forwarding (no retry, rotation, or polyfill)                                                                        |
+| `--env-file`              |       |                                  | Path to .env file for provider API keys                                                                                         |
 
 **Strategy choices:** `round-robin`, `fill-first`
 
@@ -924,7 +981,7 @@ Every proxy response — streaming, non-streaming, and errors including 429 — 
 
 > **`quota-source` matters.** When a fallback provider serves the request, or Anthropic returns no quota headers, the proxy reports `none` and omits the headroom figures rather than echoing a stale snapshot. Treat `snapshot` as "last known", not "current".
 
-Account labels are frequently email addresses and are emitted as-is; the proxy binds to `127.0.0.1` by default. If you expose it beyond localhost, terminate and authenticate it in front — the proxy performs no inbound authentication of its own.
+Account labels are frequently email addresses and are emitted as-is to the operator's own clients; they are stripped from borrowed responses and from borrowers' error messages. The proxy binds to `127.0.0.1` by default and refuses any other bind address unless an inbound token, the share gate or `--allow-unauthenticated` is configured — see [Inbound authentication](#inbound-authentication).
 
 **Consuming from the SDK.** The Anthropic provider parses these headers on every request in both auth modes and surfaces them on `result.limits` and `result.analytics.limits`, logs one line per request (escalating to WARN below 15% session headroom or on a `throttled`/`rejected` status), and sets `neurolink.claude.quota.*` span attributes alongside `gen_ai.usage.*`. This works without the proxy too — direct subscription traffic returns the same unified headers.
 

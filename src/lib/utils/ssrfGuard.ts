@@ -27,7 +27,32 @@
 
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
-import type { PinnedAddress } from "../types/index.js";
+import type { PinnedAddress, SsrfGuardOptions } from "../types/index.js";
+import { redactUrlForError } from "./logSanitize.js";
+
+/**
+ * Parse `url` and enforce the scheme rule. HTTPS only unless the caller
+ * explicitly allowed `http:`; nothing else is ever a download URL.
+ */
+function parseGuardedUrl(url: string, options?: SsrfGuardOptions): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Invalid URL: "${url}"`);
+  }
+  if (parsed.protocol === "https:") {
+    return parsed;
+  }
+  if (parsed.protocol === "http:" && options?.allowInsecure === true) {
+    return parsed;
+  }
+  throw new Error(
+    options?.allowInsecure === true
+      ? `Only HTTP(S) URLs are permitted; got "${parsed.protocol}//" in "${url}"`
+      : `Only HTTPS URLs are permitted; got "${parsed.protocol}//" in "${url}"`,
+  );
+}
 
 /**
  * Blocked IPv4 CIDRs.
@@ -319,7 +344,9 @@ export async function assertSafeUrl(url: string): Promise<void> {
     return; // routable IP literal — safe
   }
   if (literalCheck !== "not-an-ip") {
-    throw new Error(`URL "${url}" rejected: ${literalCheck}`);
+    throw new Error(
+      `URL "${redactUrlForError(url)}" rejected: ${literalCheck}`,
+    );
   }
 
   // Hostname — resolve BOTH A and AAAA. Reject if either family yields a
@@ -338,6 +365,7 @@ export async function assertSafeUrl(url: string): Promise<void> {
 async function resolveAndValidateHost(
   url: string,
   host: string,
+  allowPrivate = false,
 ): Promise<{ v4: string[]; v6: string[] }> {
   const [a, aaaa] = await Promise.allSettled([
     lookup(host, { family: 4, all: true }),
@@ -377,15 +405,34 @@ async function resolveAndValidateHost(
           ? aaaa.reason.message
           : String(aaaa.reason)
         : "ok";
-    throw new Error(
-      `URL "${url}" rejected: hostname ${host} could not be resolved (A: ${aErr}; AAAA: ${aaaaErr})`,
+    // Keep the resolver's own error on the chain (and its code, e.g.
+    // ENOTFOUND) so a caller's retry classification and cause-aware redaction
+    // see the real failure rather than this wrapper.
+    const resolverError =
+      a.status === "rejected" && a.reason instanceof Error
+        ? a.reason
+        : aaaa.status === "rejected" && aaaa.reason instanceof Error
+          ? aaaa.reason
+          : undefined;
+    const unresolved = new Error(
+      `URL "${redactUrlForError(url)}" rejected: hostname ${host} could not be resolved (A: ${aErr}; AAAA: ${aaaaErr})`,
+      resolverError ? { cause: resolverError } : undefined,
     );
+    const resolverCode = (resolverError as NodeJS.ErrnoException | undefined)
+      ?.code;
+    if (resolverCode !== undefined) {
+      (unresolved as NodeJS.ErrnoException).code = resolverCode;
+    }
+    throw unresolved;
   }
 
+  if (allowPrivate) {
+    return { v4: v4Addresses, v6: v6Addresses };
+  }
   for (const addr of v4Addresses) {
     if (isBlockedIPv4(addr)) {
       throw new Error(
-        `URL "${url}" rejected: hostname ${host} resolves to ${addr} (IPv4 in blocked range)`,
+        `URL "${redactUrlForError(url)}" rejected: hostname ${host} resolves to ${addr} (IPv4 in blocked range)`,
       );
     }
   }
@@ -395,7 +442,7 @@ async function resolveAndValidateHost(
     const reason = checkHostLiteral(addr.toLowerCase());
     if (reason && reason !== "not-an-ip") {
       throw new Error(
-        `URL "${url}" rejected: hostname ${host} resolves to ${addr} (IPv6 ${reason})`,
+        `URL "${redactUrlForError(url)}" rejected: hostname ${host} resolves to ${addr} (IPv6 ${reason})`,
       );
     }
   }
@@ -432,30 +479,31 @@ const INTERNAL_HOST_SUFFIXES: readonly string[] = [
  *
  * Same throw semantics as {@link assertSafeUrl}.
  */
-export function assertSafeUrlForProxy(url: string): void {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    throw new Error(`Invalid URL: "${url}"`);
-  }
-  if (parsed.protocol !== "https:") {
-    throw new Error(
-      `Only HTTPS URLs are permitted; got "${parsed.protocol}//" in "${url}"`,
-    );
-  }
+export function assertSafeUrlForProxy(
+  url: string,
+  options?: SsrfGuardOptions,
+): void {
+  const parsed = parseGuardedUrl(url, options);
   const host = stripBrackets(parsed.hostname).toLowerCase();
   const literalCheck = checkHostLiteral(host);
   if (literalCheck === null) {
     return; // routable IP literal
   }
   if (literalCheck !== "not-an-ip") {
-    throw new Error(`URL "${url}" rejected: ${literalCheck}`);
+    if (options?.allowPrivateNetwork === true) {
+      return; // a blocked range the caller explicitly opened
+    }
+    throw new Error(
+      `URL "${redactUrlForError(url)}" rejected: ${literalCheck}`,
+    );
+  }
+  if (options?.allowPrivateNetwork === true) {
+    return; // internal names are exactly what the caller asked to reach
   }
   const name = host.endsWith(".") ? host.slice(0, -1) : host;
   if (!name.includes(".")) {
     throw new Error(
-      `URL "${url}" rejected: "${name}" is a single-label host name`,
+      `URL "${redactUrlForError(url)}" rejected: "${name}" is a single-label host name`,
     );
   }
   if (
@@ -464,7 +512,7 @@ export function assertSafeUrlForProxy(url: string): void {
     )
   ) {
     throw new Error(
-      `URL "${url}" rejected: "${name}" is an internal host name`,
+      `URL "${redactUrlForError(url)}" rejected: "${name}" is an internal host name`,
     );
   }
 }
@@ -486,31 +534,28 @@ export function assertSafeUrlForProxy(url: string): void {
  * This is the canonical entry point for binary downloads where DNS-rebinding
  * pinning matters — see `safeFetch.ts`.
  */
-export async function validateAndResolveUrl(url: string): Promise<{
+export async function validateAndResolveUrl(
+  url: string,
+  options?: SsrfGuardOptions,
+): Promise<{
   url: string;
   ip: string;
   family: 4 | 6;
   addresses: readonly PinnedAddress[];
 }> {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    throw new Error(`Invalid URL: "${url}"`);
-  }
-  if (parsed.protocol !== "https:") {
-    throw new Error(
-      `Only HTTPS URLs are permitted; got "${parsed.protocol}//" in "${url}"`,
-    );
-  }
+  const parsed = parseGuardedUrl(url, options);
   const host = stripBrackets(parsed.hostname).toLowerCase();
+  // Only an explicit opt-in relaxes the range check; the default stays the
+  // server path's deny list. The resolve-and-pin step runs either way, so an
+  // opened-up caller still gets rebinding protection.
+  const allowPrivate = options?.allowPrivateNetwork === true;
 
   // IP literal — normalise + check, return canonical form
   const v4 = normalizeIPv4(host);
   if (v4) {
-    if (isBlockedIPv4(v4)) {
+    if (!allowPrivate && isBlockedIPv4(v4)) {
       throw new Error(
-        `URL "${url}" rejected: IPv4 ${host} → ${v4} is in a blocked range`,
+        `URL "${redactUrlForError(url)}" rejected: IPv4 ${host} → ${v4} is in a blocked range`,
       );
     }
     return { url, ip: v4, family: 4, addresses: [{ ip: v4, family: 4 }] };
@@ -518,9 +563,9 @@ export async function validateAndResolveUrl(url: string): Promise<{
   if (host.includes(":")) {
     const v4FromMapped = extractIPv4FromMapped(host);
     if (v4FromMapped) {
-      if (isBlockedIPv4(v4FromMapped)) {
+      if (!allowPrivate && isBlockedIPv4(v4FromMapped)) {
         throw new Error(
-          `URL "${url}" rejected: IPv4-mapped IPv6 ${host} → ${v4FromMapped} is in a blocked range`,
+          `URL "${redactUrlForError(url)}" rejected: IPv4-mapped IPv6 ${host} → ${v4FromMapped} is in a blocked range`,
         );
       }
       return {
@@ -533,12 +578,12 @@ export async function validateAndResolveUrl(url: string): Promise<{
     const expanded = expandIPv6(host);
     if (!expanded) {
       throw new Error(
-        `URL "${url}" rejected: IPv6 ${host} could not be parsed`,
+        `URL "${redactUrlForError(url)}" rejected: IPv6 ${host} could not be parsed`,
       );
     }
-    if (isBlockedIPv6(expanded)) {
+    if (!allowPrivate && isBlockedIPv6(expanded)) {
       throw new Error(
-        `URL "${url}" rejected: IPv6 ${host} is in a blocked range`,
+        `URL "${redactUrlForError(url)}" rejected: IPv6 ${host} is in a blocked range`,
       );
     }
     return { url, ip: host, family: 6, addresses: [{ ip: host, family: 6 }] };
@@ -551,6 +596,7 @@ export async function validateAndResolveUrl(url: string): Promise<{
   const { v4: v4Addresses, v6: v6Addresses } = await resolveAndValidateHost(
     url,
     host,
+    allowPrivate,
   );
   const addresses: PinnedAddress[] = [
     ...v4Addresses.map((ip): PinnedAddress => ({ ip, family: 4 })),
@@ -561,7 +607,7 @@ export async function validateAndResolveUrl(url: string): Promise<{
     // Both lookups "succeeded" but returned zero addresses — treat exactly
     // like a resolution failure rather than pinning nothing.
     throw new Error(
-      `URL "${url}" rejected: hostname ${host} resolved to an empty address set`,
+      `URL "${redactUrlForError(url)}" rejected: hostname ${host} resolved to an empty address set`,
     );
   }
   return { url, ip: first.ip, family: first.family, addresses };

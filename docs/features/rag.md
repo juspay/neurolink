@@ -907,6 +907,12 @@ neurolink rag index ./docs/guide.md --indexName my-docs --graph --provider verte
 
 ## Simplified RAG API (`rag: { files }`)
 
+> **Security:** `rag.files` paths are read under the instance's
+> `attachments.allowedRoots` (a path outside them is skipped with a warning),
+> each file is capped at 50 MiB, and `WebLoader` fetches only HTTPS public
+> hosts unless its `attachmentPolicy` says otherwise. See
+> [Attachment Security](/docs/features/attachment-security).
+
 > **Since**: v9.2.0 | **Recommended** for most use cases
 
 Instead of manually creating chunkers, vector stores, and tools, pass `rag: { files }` directly to `generate()` or `stream()`. NeuroLink handles the entire pipeline automatically.

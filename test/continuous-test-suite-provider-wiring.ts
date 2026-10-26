@@ -1265,6 +1265,7 @@ await runSuite(async () => {
                 "dist/cli/index.js",
                 command,
                 PROMPT,
+                "--disable-tools",
                 "--provider",
                 "bedrock",
                 "--model",
@@ -2568,7 +2569,11 @@ await runSuite(async () => {
           "the fixture must bind a port",
         );
         const origin = `http://127.0.0.1:${(address as { port: number }).port}`;
-        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        const nl = new NeuroLink({
+          conversationMemory: { enabled: false },
+          // Only this owned HTTP fixture needs the network-policy opt-ins.
+          attachments: { allowInsecureUrls: true, allowPrivateNetwork: true },
+        });
         const result = await nl.generate({
           input: {
             text: "Describe the image.",

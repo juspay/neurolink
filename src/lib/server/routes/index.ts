@@ -5,8 +5,10 @@
 
 import type {
   CreateRoutesOptions,
+  ProxyInboundAuthOptions,
   RouteDefinition,
   RouteGroup,
+  ServerSensitiveRouteOptions,
 } from "../../types/index.js";
 import { createAgentRoutes } from "./agentRoutes.js";
 import { createClaudeProxyRoutes } from "./claudeProxyRoutes.js";
@@ -51,13 +53,32 @@ export function createAllRoutes(
   basePath: string = "/api",
   options?: CreateRoutesOptions,
 ): RouteGroup[] {
+  // The tool and MCP execution routes act on the host. They refuse callers
+  // the server has not authenticated, when they can tell: registerAllRoutes()
+  // tells them through `hasAuthentication`; an explicit opt-out, by option or
+  // by NEUROLINK_SERVER_ALLOW_UNAUTHENTICATED=1, opens them regardless.
+  const sensitive: ServerSensitiveRouteOptions = {
+    allowUnauthenticated:
+      options?.allowUnauthenticated === true || allowUnauthenticatedFromEnv(),
+    hasAuthentication: options?.hasAuthentication,
+  };
+  // The proxy doors spend pooled subscriptions; their inbound token defaults to
+  // NEUROLINK_PROXY_INBOUND_TOKEN and the factories warn loudly without one.
+  const proxyAuth: ProxyInboundAuthOptions = {
+    ...options?.proxyAuth,
+    allowUnauthenticated:
+      options?.proxyAuth?.allowUnauthenticated ??
+      options?.allowUnauthenticated === true,
+  };
   const routes: RouteGroup[] = [
     createAgentRoutes(basePath, {
       ...options?.agent,
       perUserAuth: options?.perUserAuth,
     }),
-    createToolRoutes(basePath),
-    createMCPRoutes(basePath),
+    ...(options?.tools === false
+      ? []
+      : [createToolRoutes(basePath, sensitive)]),
+    createMCPRoutes(basePath, sensitive),
     createMemoryRoutes(basePath),
     createHealthRoutes(basePath),
     createTranscribeRoutes(basePath, options?.transcribe),
@@ -78,7 +99,16 @@ export function createAllRoutes(
   const enableGeminiProxy = options?.proxy || options?.geminiProxy;
 
   if (enableClaudeProxy) {
-    routes.push(createClaudeProxyRoutes(undefined, basePath));
+    routes.push(
+      createClaudeProxyRoutes(
+        undefined,
+        basePath,
+        "fill-first",
+        false,
+        undefined,
+        { inboundAuth: proxyAuth },
+      ),
+    );
   }
 
   if (enableOpenAIProxy) {
@@ -87,7 +117,13 @@ export function createAllRoutes(
 
   if (enableCodexProxy) {
     routes.push(
-      createCodexProxyRoutes(basePath, options?.runtimeConfigProvider),
+      createCodexProxyRoutes(
+        basePath,
+        options?.runtimeConfigProvider,
+        undefined,
+        undefined,
+        proxyAuth,
+      ),
     );
   }
 
@@ -114,6 +150,10 @@ export function registerAllRoutes(
     registerRouteGroup: (group: RouteGroup) => void;
     listRoutes?: () => RouteDefinition[];
     enableMiddlewareStateCarry?: () => void;
+    hasAuthenticationMiddleware?: () => boolean;
+    noteSensitiveRoutes?: (options?: {
+      allowUnauthenticated?: boolean;
+    }) => void;
   },
   basePath: string = "/api",
   options?: CreateRoutesOptions,
@@ -121,13 +161,30 @@ export function registerAllRoutes(
   if (options?.perUserAuth) {
     adapter.enableMiddlewareStateCarry?.();
   }
+  const allowUnauthenticated =
+    options?.allowUnauthenticated === true || allowUnauthenticatedFromEnv();
+  // The adapter knows whether authentication middleware is registered, and is
+  // asked on every request, so authentication registered after the routes
+  // counts. It also warns at start() when the routes that act on the host are
+  // mounted with no such middleware (see BaseServerAdapter).
+  adapter.noteSensitiveRoutes?.({ allowUnauthenticated });
   // If adapter has listRoutes and getRoutes not provided, use adapter's listRoutes
   const routeOptions: CreateRoutesOptions = {
     ...options,
     getRoutes: options?.getRoutes ?? adapter.listRoutes?.bind(adapter),
+    hasAuthentication:
+      options?.hasAuthentication ??
+      (adapter.hasAuthenticationMiddleware
+        ? () => adapter.hasAuthenticationMiddleware?.() === true
+        : undefined),
   };
   const routeGroups = createAllRoutes(basePath, routeOptions);
   for (const group of routeGroups) {
     adapter.registerRouteGroup(group);
   }
+}
+
+/** `NEUROLINK_SERVER_ALLOW_UNAUTHENTICATED=1`: the operator's opt-out, read when routes are built. */
+function allowUnauthenticatedFromEnv(): boolean {
+  return process.env.NEUROLINK_SERVER_ALLOW_UNAUTHENTICATED?.trim() === "1";
 }

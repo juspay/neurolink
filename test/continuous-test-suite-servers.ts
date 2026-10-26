@@ -2876,12 +2876,18 @@ async function testServeCliSharedKeyNamesNoWarning(): Promise<boolean | null> {
       },
       { Authorization: "Bearer key-one" },
     );
-    // Preconditions: the key was accepted (not 401), the body validated (not
-    // 400), and the request got as far as generate(), which refused the
-    // provider. callerContext(), where the warning is raised, runs before
-    // generate() is called. The server's own error log of that failure goes to
-    // the same stderr the warning would, so seeing it shows the capture is live.
-    if (res.status !== 500 || !res.body.includes("no-such-provider")) {
+    // Preconditions: the key was accepted (not 401) and the body validated (not
+    // 400). Since the 2026-10 security audit the client-facing error body is a
+    // fixed message that never echoes provider or environment names, so the
+    // body must NOT name the provider; that the request got as far as
+    // generate() is proven by the server's own stderr below. callerContext(),
+    // where the warning is raised, runs before generate() is called, and the
+    // server's error log goes to the same stderr the warning would, so seeing
+    // it shows the capture is live.
+    if (
+      (res.status !== 500 && res.status !== 503) ||
+      res.body.includes("no-such-provider")
+    ) {
       logTest(
         "serve shared key warning",
         "FAIL",

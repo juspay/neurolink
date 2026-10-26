@@ -150,11 +150,43 @@ function watchForRefusedUpgrade(session: XaiObservedSession): () => void {
  * than the one asked for, and report a refused upgrade as a session error.
  * `requestedModel` is the id the session was configured with.
  */
+/** The plugin's own wording for a refused upgrade (agents-plugin-xai >= 1.9). */
+const PLUGIN_REFUSAL = /refused the connection: (\d{3})/;
+
 export function observeXaiSession(
   session: XaiObservedSession,
   requestedModel: string,
 ): void {
   const stopWatching = watchForRefusedUpgrade(session);
+  // Since @livekit/agents-plugin-xai 1.9 a refused upgrade no longer escapes
+  // as an uncaught exception: the plugin reports it as its own `error` event,
+  // worded for OpenAI and naming no key. This listener is registered before
+  // the agent's, so it can end the crash watch and relabel the event in place
+  // with the xAI-specific diagnosis (HTTP status + XAI_API_KEY hint).
+  session.on("error", (event: unknown) => {
+    if (!isRecord(event)) {
+      return;
+    }
+    const inner = event.error;
+    const text =
+      inner instanceof Error
+        ? inner.message
+        : typeof event.message === "string"
+          ? event.message
+          : "";
+    const status = Number(PLUGIN_REFUSAL.exec(text)?.[1]);
+    if (Number.isNaN(status)) {
+      return;
+    }
+    stopWatching();
+    const message = describeRefusal(status);
+    logger.error("realtime.xai.connectRefused", { status, error: message });
+    event.error = new Error(message);
+    event.recoverable = false;
+    if (typeof event.label !== "string" || event.label.length === 0) {
+      event.label = "xai.RealtimeModel";
+    }
+  });
   session.on("openai_server_event_received", (event: unknown) => {
     if (isRecord(event) && event.type === "session.created") {
       stopWatching();

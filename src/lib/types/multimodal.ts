@@ -1,3 +1,4 @@
+import type { AttachmentPolicy } from "./attachments.js";
 /**
  * Multimodal Content Types for NeuroLink
  *
@@ -268,6 +269,14 @@ export type DirectorModeOptions = {
    * @default [4, 4, ...]
    */
   transitionDurations?: Array<4 | 6 | 8>;
+  /**
+   * Attachment policy applied when a segment image is a URL or a file path.
+   * Stamped by the SDK from the instance's `attachments` config; the
+   * environment-derived default applies when absent.
+   *
+   * @internal Set by NeuroLink SDK — not typically used directly by consumers.
+   */
+  attachmentPolicy?: AttachmentPolicy;
 };
 
 /**

@@ -28,7 +28,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -354,7 +354,7 @@ jobs:
 
       - name: Find existing comment
         if: steps.validate.outputs.status == 'compliant' && steps.check-permissions.outputs.can_comment == 'true'
-        uses: peter-evans/find-comment@v3
+        uses: peter-evans/find-comment@b30e6a3c0ed37e7c023ccd3f1db5c6c0b0c23aad # v4.0.0
         id: find-comment
         continue-on-error: true
         with:
@@ -364,7 +364,7 @@ jobs:
 
       - name: Post Minimal Success Comment
         if: steps.validate.outputs.status == 'compliant' && steps.check-permissions.outputs.can_comment == 'true'
-        uses: peter-evans/create-or-update-comment@v4
+        uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
         continue-on-error: true
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

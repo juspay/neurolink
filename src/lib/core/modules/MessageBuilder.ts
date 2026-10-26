@@ -12,6 +12,7 @@ import {
   buildMultimodalModelMessages,
 } from "../../utils/messageBuilder.js";
 import type { ModelMessage } from "../../types/index.js";
+import { getAttachmentPolicy } from "../../utils/attachmentPolicy.js";
 
 /**
  * Compute total content length across all messages for span attributes.
@@ -157,6 +158,9 @@ export class MessageBuilder {
             schema: options.schema,
             output: options.output,
             fileRegistry: options.fileRegistry,
+            // The instance's attachment policy has to ride along like the
+            // registry: this literal is the only road into the loaders.
+            attachmentPolicy: getAttachmentPolicy(options),
           };
 
           messages = await buildMultimodalModelMessages(
@@ -335,6 +339,9 @@ export class MessageBuilder {
             schema: options.schema,
             output: options.output,
             fileRegistry: (options as Record<string, unknown>).fileRegistry,
+            attachmentPolicy: getAttachmentPolicy(
+              options as { attachmentPolicy?: unknown },
+            ),
           };
 
           messages = await buildMultimodalModelMessages(

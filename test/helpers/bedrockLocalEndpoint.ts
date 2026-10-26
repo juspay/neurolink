@@ -124,7 +124,7 @@ export type LocalBedrockOptions = {
    * answers at all. The other operation, and a scripted `toolUse` turn, answer
    * normally, so a fallback or a tool loop cannot hang on the wrong one.
    *
-   * Holding also stops the server echoing GOAWAY. The SDK sends
+   * The stand-in also stops the server echoing GOAWAY for every reply. The SDK sends
    * GOAWAY(NO_ERROR) as soon as response headers arrive, Node's h2 server
    * answers by closing its session, which sends a GOAWAY back, and the SDK's
    * session handler reads any GOAWAY as the end of the connection and cancels
@@ -210,11 +210,10 @@ export async function startLocalBedrock(
   server.on("session", (session) => {
     sessions.add(session);
     session.on("close", () => sessions.delete(session));
-    if (options.hold) {
-      // See `hold`: Node's h2 server echoes the client's GOAWAY(NO_ERROR) by
-      // closing its session, which a real service does not do.
-      session.close = () => undefined;
-    }
+    // The pinned SDK closes its session on response headers, before consuming
+    // the body. Echoing that GOAWAY makes it destroy the response stream,
+    // including ordinary replies. Cleanup below explicitly destroys sessions.
+    session.close = () => undefined;
   });
 
   server.on("request", (req, res) => {

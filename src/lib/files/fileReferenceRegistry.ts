@@ -13,7 +13,16 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
+import { rmSync } from "node:fs";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, extname, join } from "node:path";
 import { estimatePostProcessingTokens } from "../context/fileTokenBudget.js";
@@ -73,9 +82,38 @@ const MAX_ACCEPTED_SIZE = 2 * 1024 * 1024 * 1024;
  * const section = await registry.readSection(ref.id, 1, 50, 5000);
  * ```
  */
+/**
+ * Temp directories this process created and has not yet removed. Swept on
+ * `exit` so an attachment persisted for lazy reading does not outlive the
+ * process that read it (a `clear()` that never ran, a crash, a SIGTERM that
+ * reached `exit`). Created directories are 0o700 and files 0o600, so until
+ * then only this user can read them.
+ */
+const ACTIVE_TEMP_DIRS = new Set<string>();
+let exitSweepRegistered = false;
+
+function registerExitSweep(): void {
+  if (exitSweepRegistered) {
+    return;
+  }
+  exitSweepRegistered = true;
+  process.on("exit", () => {
+    for (const dir of ACTIVE_TEMP_DIRS) {
+      try {
+        rmSync(dir, { recursive: true, force: true });
+      } catch {
+        // Best effort: the exit handler must not throw.
+      }
+    }
+    ACTIVE_TEMP_DIRS.clear();
+  });
+}
+
 export class FileReferenceRegistry {
   private files: Map<string, FileReference> = new Map();
   private tempDir: string;
+  /** `tempDir` was supplied by the host rather than minted here. */
+  private readonly tempDirSupplied: boolean;
   private maxFiles: number;
   private maxTempBytes: number;
   private defaultPreviewChars: number;
@@ -83,8 +121,12 @@ export class FileReferenceRegistry {
   private tempDirCreated: boolean = false;
 
   constructor(options: FileRegistryOptions = {}) {
+    // A host-supplied directory is used as given; otherwise the directory is
+    // minted with `mkdtemp` (0o700) on first use, so its name is unguessable
+    // and nothing else on the host can read what lands in it.
+    this.tempDirSupplied = Boolean(options.tempDir);
     this.tempDir =
-      options.tempDir || join(tmpdir(), "neurolink-files", randomUUID());
+      options.tempDir || join(tmpdir(), `neurolink-files-${randomUUID()}`);
     this.maxFiles = options.maxFiles ?? DEFAULT_MAX_FILES;
     this.maxTempBytes = options.maxTempBytes ?? DEFAULT_MAX_TEMP_BYTES;
     this.defaultPreviewChars =
@@ -912,6 +954,15 @@ export class FileReferenceRegistry {
     }
     this.files.clear();
     this.currentTempBytes = 0;
+    // Remove the directory itself, not only the files in it, and forget it so
+    // a later registration mints a fresh one.
+    if (this.tempDirCreated) {
+      await rm(this.tempDir, { recursive: true, force: true }).catch(
+        () => undefined,
+      );
+      ACTIVE_TEMP_DIRS.delete(this.tempDir);
+      this.tempDirCreated = false;
+    }
   }
 
   /**
@@ -1888,14 +1939,23 @@ export class FileReferenceRegistry {
       }
     }
 
-    // Ensure temp directory exists
+    // Ensure temp directory exists. Owner-only: the files persisted here are
+    // the caller's attachments, and the OS temp directory is shared.
     if (!this.tempDirCreated) {
-      await mkdir(this.tempDir, { recursive: true });
+      if (this.tempDirSupplied) {
+        await mkdir(this.tempDir, { recursive: true, mode: 0o700 });
+      } else {
+        this.tempDir = await mkdtemp(join(tmpdir(), "neurolink-files-"));
+      }
+      registerExitSweep();
+      ACTIVE_TEMP_DIRS.add(this.tempDir);
       this.tempDirCreated = true;
     }
 
     const tempPath = join(this.tempDir, `${id}${ext ? `.${ext}` : ""}`);
-    await writeFile(tempPath, buffer);
+    // `wx`: create, never overwrite — an id collision or a file planted at the
+    // path fails loudly instead of being written over. 0o600: owner-only.
+    await writeFile(tempPath, buffer, { mode: 0o600, flag: "wx" });
     this.currentTempBytes += buffer.length;
 
     return tempPath;

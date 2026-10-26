@@ -34,6 +34,14 @@ every other request runs as anonymous.
 
 () => `void`
 
+#### hasAuthenticationMiddleware?
+
+() => `boolean`
+
+#### noteSensitiveRoutes?
+
+(`options?`) => `void`
+
 ### basePath?
 
 `string` = `"/api"`

@@ -24,6 +24,7 @@ import {
 } from "./httpRetryHandler.js";
 import { globalRateLimiterManager } from "./httpRateLimiter.js";
 import { NeuroLinkOAuthProvider, InMemoryTokenStorage } from "./auth/index.js";
+import { assertMcpTransportUrlAllowed } from "./transportUrlPolicy.js";
 import type {
   MCPOAuthConfig,
   MCPTransportType,
@@ -247,8 +248,13 @@ export class MCPClientFactory {
     version: "1.0.0",
   };
 
+  /**
+   * No `sampling` here: advertising it tells a server it may send
+   * `sampling/createMessage` and have this client run an LLM call on its
+   * behalf, and the client has no handler for it. Only what is implemented
+   * is announced.
+   */
   private static readonly DEFAULT_CAPABILITIES: ClientCapabilities = {
-    sampling: {},
     roots: {
       listChanged: false,
     },
@@ -537,17 +543,41 @@ export class MCPClientFactory {
         return this.createStdioTransport(config);
 
       case "sse":
+        await this.assertNetworkUrlAllowed(config);
         return this.createSSETransport(config);
 
       case "websocket":
+        await this.assertNetworkUrlAllowed(config);
         return this.createWebSocketTransport(config);
 
       case "http":
+        await this.assertNetworkUrlAllowed(config);
         return this.createHTTPTransport(config);
 
       default:
         throw new Error(`Unsupported transport type: ${config.transport}`);
     }
+  }
+
+  /**
+   * Apply the transport URL policy (`transportUrlPolicy.ts`) before any
+   * network transport is built: TLS unless loopback, and no private,
+   * link-local or metadata destinations unless the server config says
+   * `allowPrivateNetwork: true`. Runs for every network server, whether it
+   * came from a project config or from `addExternalMCPServer`.
+   */
+  private static async assertNetworkUrlAllowed(
+    config: MCPServerInfo,
+  ): Promise<void> {
+    if (!config.url) {
+      throw new Error(`URL is required for ${config.transport} transport`);
+    }
+    await assertMcpTransportUrlAllowed(config.url, {
+      transport: config.transport,
+      allowPrivateNetwork: config.allowPrivateNetwork,
+      hostOwnedEgress: typeof config.fetch === "function",
+      serverId: config.id,
+    });
   }
 
   /**
@@ -583,16 +613,27 @@ export class MCPClientFactory {
       throw new Error(`Command is required for stdio transport`);
     }
 
-    const { StdioClientTransport } =
+    const { StdioClientTransport, getDefaultEnvironment } =
       await import("@modelcontextprotocol/sdk/client/stdio.js");
     const { ChildProcess: childProcessClass } =
       await import("node:child_process");
+    // The child gets the SDK's minimal default environment (HOME, PATH,
+    // SHELL, TERM, USER, LOGNAME on POSIX) plus the server's own `env`. It
+    // used to get the whole parent `process.env` — every provider key and
+    // token this process held — and an `npx -y <package>` server is exactly
+    // the kind of code that should not. `inheritParentEnv: true` restores
+    // the old behaviour for a server that needs it; a single variable is
+    // better passed through explicitly: `"env": {"X": "${X}"}`.
+    const baseEnv: Record<string, string | undefined> =
+      config.inheritParentEnv === true
+        ? { ...process.env }
+        : getDefaultEnvironment();
     const transport = new StdioClientTransport({
       command: config.command,
       args: config.args || [],
       env: Object.fromEntries(
         Object.entries({
-          ...process.env,
+          ...baseEnv,
           ...config.env,
         })
           .filter(([, value]) => value !== undefined)
@@ -677,19 +718,54 @@ export class MCPClientFactory {
       },
     );
 
-    try {
-      const url = new URL(config.url);
-      const { WebSocketClientTransport } =
-        await import("@modelcontextprotocol/sdk/client/websocket.js");
-      const transport = new WebSocketClientTransport(url);
+    // The SDK's WebSocket transport opens the platform `WebSocket`, which
+    // takes a URL and a subprotocol and nothing else: there is no way to
+    // send `headers` or an `auth` token with the handshake. Dropping them
+    // silently would connect unauthenticated to a server the operator
+    // configured credentials for, so this fails closed instead.
+    const headerCount = Object.keys(config.headers ?? {}).length;
+    if (headerCount > 0 || config.auth !== undefined) {
+      throw new Error(
+        `WebSocket transport for ${config.id} cannot send the configured ${
+          headerCount > 0 ? "headers" : "auth"
+        }: the WebSocket handshake carries no custom headers. Use the "http" or "sse" transport for an authenticated server, or remove the credentials.`,
+      );
+    }
 
-      return { transport };
+    let url: URL;
+    let transportModule: typeof import("@modelcontextprotocol/sdk/client/websocket.js");
+    try {
+      url = new URL(config.url);
+      transportModule =
+        await import("@modelcontextprotocol/sdk/client/websocket.js");
     } catch (error) {
       throw new Error(
         `Invalid WebSocket URL: ${error instanceof Error ? error.message : String(error)}`,
         { cause: error },
       );
     }
+
+    const transport = new transportModule.WebSocketClientTransport(url);
+
+    // Same connect bound as the HTTP transports: a socket that never opens
+    // or errors would otherwise leave `connect()` pending for the whole
+    // client timeout. On expiry the socket is closed so nothing lingers.
+    const connectTimeoutMs = config.httpOptions?.connectionTimeout ?? 30000;
+    const start = transport.start.bind(transport);
+    transport.start = async (): Promise<void> => {
+      try {
+        await this.raceWithTimeout(
+          start(),
+          connectTimeoutMs,
+          `WebSocket connection timeout for ${config.id} after ${connectTimeoutMs}ms`,
+        );
+      } catch (error) {
+        await transport.close().catch(() => undefined);
+        throw error;
+      }
+    };
+
+    return { transport };
   }
 
   /**

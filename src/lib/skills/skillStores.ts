@@ -19,6 +19,7 @@ import type {
   SkillsStorageConfig,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import { assertSafeStoreId } from "../utils/safeStoreId.js";
 import { toSkillIndexItem } from "./skillMatcher.js";
 import { S3SkillStore } from "./skillStoreS3.js";
 import { RedisSkillStore } from "./skillStoreRedis.js";
@@ -256,6 +257,9 @@ export class FileSystemSkillStore implements SkillStore {
   }
 
   async put(skill: SkillDefinition): Promise<void> {
+    // The id becomes a file name under `baseDir`; refuse anything that could
+    // leave it (a separator, a traversal segment) before the join.
+    assertSafeStoreId(skill.id, "skill id");
     fs.mkdirSync(this.baseDir, { recursive: true });
     const filePath = path.join(this.baseDir, `${skill.id}.json`);
     fs.writeFileSync(
@@ -267,6 +271,7 @@ export class FileSystemSkillStore implements SkillStore {
   }
 
   async delete(id: string): Promise<void> {
+    assertSafeStoreId(id, "skill id");
     const filePath = path.join(this.baseDir, `${id}.json`);
     try {
       fs.unlinkSync(filePath);

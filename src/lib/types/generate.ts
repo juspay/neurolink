@@ -57,6 +57,7 @@ import type { WorkflowConfig } from "./workflow.js";
 import type { Schema, Tool, ToolChoice } from "./tools.js";
 import type { StepResult, LanguageModel } from "./providers.js";
 import type { ProcessorPipelineConfig } from "./ioProcessor.js";
+import type { AttachmentPolicy } from "./attachments.js";
 
 /**
  * Generate function options type - Primary method for content generation
@@ -823,6 +824,14 @@ export type GenerateOptions = {
    * @internal Set by NeuroLink SDK — not typically used directly by consumers.
    */
   fileRegistry?: unknown;
+  /**
+   * Resolved attachment policy (roots, URL rules, size cap) the file and URL
+   * loaders apply on this call. Stamped from the instance's `attachments`
+   * config; the environment-derived default applies when absent.
+   *
+   * @internal Set by NeuroLink SDK — not typically used directly by consumers.
+   */
+  attachmentPolicy?: AttachmentPolicy;
 
   /** Per-call middleware configuration. */
   middleware?: MiddlewareFactoryOptions;
@@ -1739,6 +1748,14 @@ export type TextGenerationOptions = {
    * @internal Set by NeuroLink SDK — not typically used directly by consumers.
    */
   fileRegistry?: unknown;
+  /**
+   * Resolved attachment policy (roots, URL rules, size cap) the file and URL
+   * loaders apply on this call. Stamped from the instance's `attachments`
+   * config; the environment-derived default applies when absent.
+   *
+   * @internal Set by NeuroLink SDK — not typically used directly by consumers.
+   */
+  attachmentPolicy?: AttachmentPolicy;
   /**
    * Skip injecting tool schemas into the system prompt.
    * When true, tools are ONLY passed natively via the provider's `tools` parameter,

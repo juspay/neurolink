@@ -210,7 +210,17 @@ function deepUnwrapJsonStrings(
       if (r.changed) {
         changed = true;
       }
-      out[k] = r.value;
+      // Define, never assign: `out[k] = …` with a model-supplied key of
+      // `__proto__` invokes the prototype setter and swaps `out`'s prototype
+      // for the model's object, so fields hidden from `Object.keys` read back
+      // through property access. `JSON.parse` creates such a key as an own
+      // data property, and this keeps it one.
+      Object.defineProperty(out, k, {
+        value: r.value,
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
     }
     return { value: changed ? out : value, changed };
   }

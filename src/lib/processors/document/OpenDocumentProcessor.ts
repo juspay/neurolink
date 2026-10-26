@@ -16,7 +16,9 @@ import {
   isContentTooLarge,
 } from "../base/BaseFileProcessor.js";
 import { readZipEntryWithinLimit } from "../archive/zipEntryReader.js";
+import { indexZipEntriesByName } from "../archive/zipEntryIndex.js";
 import type {
+  BoundedZipEntry,
   FileInfo,
   ProcessorFileProcessingResult,
   ProcessOptions,
@@ -91,8 +93,15 @@ export class OpenDocumentProcessor extends BaseFileProcessor<ProcessedOpenDocume
       const AdmZip = require("adm-zip");
       const zip = new AdmZip(buffer);
 
-      // Try to get content.xml
-      const contentEntry = zip.getEntry("content.xml");
+      // Try to get content.xml — the FIRST member of that name, which is the
+      // one a listing shows; `getEntry` would resolve the last duplicate.
+      // `require("adm-zip")` is untyped; name the entry shape the bounded
+      // reader needs so the index is typed rather than `any`.
+      const zipEntries = zip.getEntries() as Array<
+        BoundedZipEntry & { entryName: string }
+      >;
+      const contentEntry =
+        indexZipEntriesByName(zipEntries).byName.get("content.xml");
       if (contentEntry) {
         // Bounded rather than `getData()`: an ODF file is a ZIP, so its
         // content.xml can declare any uncompressed size it likes, and

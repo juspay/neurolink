@@ -104,40 +104,89 @@ const readMCPTransportFetch = (
   return value;
 };
 
+const ENV_REFERENCE_PATTERN = /\$\{([^}]*)\}/g;
+const ENV_REFERENCE_PRESENT = /\$\{[^}]*\}/;
 /**
- * Recursively substitute environment variables in strings
- * Replaces ${VAR_NAME} with the value from process.env.VAR_NAME
- * @param value - Value to process (string, object, array, or primitive)
- * @returns Processed value with environment variables substituted
+ * The only shape a `${…}` reference may take. Anything else — lower case,
+ * a leading digit, `${}`, `${a.b}`, `${PATH:-x}` — is left as written, so a
+ * config cannot probe the environment through odd names.
  */
-function substituteEnvVariables<T>(value: T): T {
+const ENV_NAME_PATTERN = /^[A-Z][A-Z0-9_]*$/;
+
+/**
+ * Recursively substitute `${NAME}` references in `value` from `process.env`.
+ *
+ * Applies to a server's `env` and `args` only. `headers` and `url` are sent
+ * to a remote host, so a reference there would ship the variable's value off
+ * the machine; they are passed through unchanged by `warnOnEnvReferences`.
+ *
+ * @param value - string, array, object or primitive
+ * @param field - the config field being processed, for log messages
+ */
+function substituteEnvVariables<T>(value: T, field: string): T {
   if (typeof value === "string") {
-    // Replace ${VAR_NAME} with process.env.VAR_NAME
-    return value.replace(/\$\{([^}]+)\}/g, (match, varName) => {
-      const envValue = process.env[varName.trim()];
-      if (envValue === undefined) {
-        mcpLogger.warn(
-          `[ExternalServerManager] Environment variable ${varName} is not defined, using empty string`,
-        );
-        return "";
-      }
-      return envValue;
-    }) as T;
+    return value.replace(
+      ENV_REFERENCE_PATTERN,
+      (match: string, rawName: string) => {
+        const varName = rawName.trim();
+        if (!ENV_NAME_PATTERN.test(varName)) {
+          mcpLogger.warn(
+            `[ExternalServerManager] ${field}: "${match}" is not a valid environment variable reference (names must match ^[A-Z][A-Z0-9_]*$); left as written`,
+          );
+          return match;
+        }
+        const envValue = process.env[varName];
+        if (envValue === undefined) {
+          mcpLogger.warn(
+            `[ExternalServerManager] ${field}: environment variable ${varName} is not defined, using empty string`,
+          );
+          return "";
+        }
+        return envValue;
+      },
+    ) as T;
   }
 
   if (Array.isArray(value)) {
-    return value.map((item) => substituteEnvVariables(item)) as T;
+    return value.map((item) => substituteEnvVariables(item, field)) as T;
   }
 
   if (isNonNullObject(value)) {
     const result: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
-      result[key] = substituteEnvVariables(val);
+      result[key] = substituteEnvVariables(val, field);
     }
     return result as T;
   }
 
   return value;
+}
+
+/**
+ * Warn about `${NAME}` references in a field that is never expanded. The
+ * value is used exactly as written: a header reading `Bearer ${TOKEN}` is
+ * sent literally, which fails authentication loudly instead of leaking.
+ */
+function warnOnEnvReferences(value: unknown, field: string): void {
+  if (typeof value === "string") {
+    if (ENV_REFERENCE_PRESENT.test(value)) {
+      mcpLogger.warn(
+        `[ExternalServerManager] ${field} contains a \${VAR} reference; environment variables are never expanded in ${field} (only in env and args). The value is used as written.`,
+      );
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      warnOnEnvReferences(item, field);
+    }
+    return;
+  }
+  if (isNonNullObject(value)) {
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      warnOnEnvReferences(val, `${field}.${key}`);
+    }
+  }
 }
 
 /**
@@ -321,8 +370,114 @@ function isValidExternalMCPServerConfig(
     (record.retryConfig === undefined || isNonNullObject(record.retryConfig)) &&
     (record.rateLimiting === undefined ||
       isNonNullObject(record.rateLimiting)) &&
+    (record.inheritParentEnv === undefined ||
+      typeof record.inheritParentEnv === "boolean") &&
+    (record.allowPrivateNetwork === undefined ||
+      typeof record.allowPrivateNetwork === "boolean") &&
     (record.metadata === undefined || isNonNullObject(record.metadata))
   );
+}
+
+/**
+ * Convert one `mcpServers` entry of a project config into an `MCPServerInfo`.
+ *
+ * Shared by the parallel and sequential loaders so the two cannot drift.
+ * `${NAME}` references are expanded in `env` and `args` only; `headers` and
+ * `url` are passed through as written (see `warnOnEnvReferences`).
+ *
+ * @throws when the entry fails `isValidExternalMCPServerConfig`
+ */
+function toExternalServerInfo(
+  serverId: string,
+  serverConfig: unknown,
+): MCPServerInfo {
+  if (!isValidExternalMCPServerConfig(serverConfig)) {
+    throw new Error(
+      `Invalid server config for ${serverId}: missing required properties or wrong types`,
+    );
+  }
+
+  if (serverConfig.headers !== undefined) {
+    warnOnEnvReferences(serverConfig.headers, `${serverId}.headers`);
+  }
+  if (serverConfig.url !== undefined) {
+    warnOnEnvReferences(serverConfig.url, `${serverId}.url`);
+  }
+
+  return {
+    id: serverId,
+    name: serverId,
+    description:
+      typeof serverConfig.description === "string"
+        ? serverConfig.description
+        : `External MCP server: ${serverId}`,
+    transport:
+      typeof serverConfig.transport === "string"
+        ? (serverConfig.transport as MCPTransportType)
+        : "stdio",
+    status: "initializing" as const,
+    tools: [],
+    command:
+      typeof serverConfig.command === "string"
+        ? serverConfig.command
+        : undefined,
+    args: Array.isArray(serverConfig.args)
+      ? substituteEnvVariables(
+          serverConfig.args.map((arg) => String(arg)),
+          `${serverId}.args`,
+        )
+      : [],
+    env: isNonNullObject(serverConfig.env)
+      ? substituteEnvVariables(
+          serverConfig.env as Record<string, string>,
+          `${serverId}.env`,
+        )
+      : {},
+    inheritParentEnv:
+      typeof serverConfig.inheritParentEnv === "boolean"
+        ? serverConfig.inheritParentEnv
+        : undefined,
+    allowPrivateNetwork:
+      typeof serverConfig.allowPrivateNetwork === "boolean"
+        ? serverConfig.allowPrivateNetwork
+        : undefined,
+    timeout:
+      typeof serverConfig.timeout === "number"
+        ? serverConfig.timeout
+        : undefined,
+    retries:
+      typeof serverConfig.retries === "number"
+        ? serverConfig.retries
+        : undefined,
+    healthCheckInterval:
+      typeof serverConfig.healthCheckInterval === "number"
+        ? serverConfig.healthCheckInterval
+        : undefined,
+    autoRestart:
+      typeof serverConfig.autoRestart === "boolean"
+        ? serverConfig.autoRestart
+        : undefined,
+    cwd: typeof serverConfig.cwd === "string" ? serverConfig.cwd : undefined,
+    url: typeof serverConfig.url === "string" ? serverConfig.url : undefined,
+    // HTTP transport-specific fields — never expanded, see above.
+    headers: isNonNullObject(serverConfig.headers)
+      ? (serverConfig.headers as Record<string, string>)
+      : undefined,
+    fetch: readMCPTransportFetch(serverConfig.fetch),
+    httpOptions: isNonNullObject(serverConfig.httpOptions)
+      ? (serverConfig.httpOptions as MCPServerInfo["httpOptions"])
+      : undefined,
+    retryConfig: isNonNullObject(serverConfig.retryConfig)
+      ? (serverConfig.retryConfig as MCPServerInfo["retryConfig"])
+      : undefined,
+    rateLimiting: isNonNullObject(serverConfig.rateLimiting)
+      ? (serverConfig.rateLimiting as MCPServerInfo["rateLimiting"])
+      : undefined,
+    blockedTools: Array.isArray(serverConfig.blockedTools)
+      ? (serverConfig.blockedTools as string[])
+      : undefined,
+    metadata: safeMetadataConversion(serverConfig.metadata),
+  };
 }
 
 /**
@@ -606,9 +761,19 @@ export class ExternalServerManager extends EventEmitter {
   }
 
   /**
-   * Load MCP server configurations from .mcp-config.json file with parallel loading support
-   * Automatically registers servers found in the configuration
-   * @param configPath Optional path to config file (defaults to .mcp-config.json in cwd)
+   * Load MCP server configurations from a `.mcp-config.json`-shaped file and
+   * register every server it names.
+   *
+   * Calling this is an explicit decision to run that file's servers. With no
+   * `configPath` it reads `.mcp-config.json` from the working directory, so
+   * a host must only omit the path when it controls that directory; the SDK
+   * itself never calls this without a path it resolved through
+   * `resolveProjectMcpConfigPath` (see `projectConfigTrust.ts`).
+   *
+   * `${NAME}` references in each server's `env` and `args` are expanded from
+   * `process.env`; `headers` and `url` are used as written.
+   *
+   * @param configPath Path to the config file (defaults to .mcp-config.json in cwd)
    * @param options Loading options including parallel support
    * @returns Promise resolving to { serversLoaded, errors }
    */
@@ -662,84 +827,7 @@ export class ExternalServerManager extends EventEmitter {
       const serverPromises = Object.entries(config.mcpServers).map(
         async ([serverId, serverConfig]) => {
           try {
-            // Validate and convert config format to MCPServerInfo
-            if (!isValidExternalMCPServerConfig(serverConfig)) {
-              throw new Error(
-                `Invalid server config for ${serverId}: missing required properties or wrong types`,
-              );
-            }
-
-            const externalConfig: MCPServerInfo = {
-              id: serverId,
-              name: serverId,
-              description:
-                typeof serverConfig.description === "string"
-                  ? serverConfig.description
-                  : `External MCP server: ${serverId}`,
-              transport:
-                typeof serverConfig.transport === "string"
-                  ? (serverConfig.transport as MCPTransportType)
-                  : "stdio",
-              status: "initializing" as const,
-              tools: [],
-              command:
-                typeof serverConfig.command === "string"
-                  ? serverConfig.command
-                  : undefined,
-              args: Array.isArray(serverConfig.args)
-                ? (serverConfig.args as string[])
-                : [],
-              env: isNonNullObject(serverConfig.env)
-                ? substituteEnvVariables(
-                    serverConfig.env as Record<string, string>,
-                  )
-                : {},
-              timeout:
-                typeof serverConfig.timeout === "number"
-                  ? serverConfig.timeout
-                  : undefined,
-              retries:
-                typeof serverConfig.retries === "number"
-                  ? serverConfig.retries
-                  : undefined,
-              healthCheckInterval:
-                typeof serverConfig.healthCheckInterval === "number"
-                  ? serverConfig.healthCheckInterval
-                  : undefined,
-              autoRestart:
-                typeof serverConfig.autoRestart === "boolean"
-                  ? serverConfig.autoRestart
-                  : undefined,
-              cwd:
-                typeof serverConfig.cwd === "string"
-                  ? serverConfig.cwd
-                  : undefined,
-              url:
-                typeof serverConfig.url === "string"
-                  ? serverConfig.url
-                  : undefined,
-              // HTTP transport-specific fields
-              headers: isNonNullObject(serverConfig.headers)
-                ? substituteEnvVariables(
-                    serverConfig.headers as Record<string, string>,
-                  )
-                : undefined,
-              fetch: readMCPTransportFetch(serverConfig.fetch),
-              httpOptions: isNonNullObject(serverConfig.httpOptions)
-                ? (serverConfig.httpOptions as MCPServerInfo["httpOptions"])
-                : undefined,
-              retryConfig: isNonNullObject(serverConfig.retryConfig)
-                ? (serverConfig.retryConfig as MCPServerInfo["retryConfig"])
-                : undefined,
-              rateLimiting: isNonNullObject(serverConfig.rateLimiting)
-                ? (serverConfig.rateLimiting as MCPServerInfo["rateLimiting"])
-                : undefined,
-              blockedTools: Array.isArray(serverConfig.blockedTools)
-                ? (serverConfig.blockedTools as string[])
-                : undefined,
-              metadata: safeMetadataConversion(serverConfig.metadata),
-            };
-
+            const externalConfig = toExternalServerInfo(serverId, serverConfig);
             const result = await this.addServer(serverId, externalConfig);
             return { serverId, result };
           } catch (error) {
@@ -848,82 +936,7 @@ export class ExternalServerManager extends EventEmitter {
         config.mcpServers,
       )) {
         try {
-          // Validate and convert config format to MCPServerInfo
-          if (!isValidExternalMCPServerConfig(serverConfig)) {
-            throw new Error(
-              `Invalid server config for ${serverId}: missing required properties or wrong types`,
-            );
-          }
-          const externalConfig: MCPServerInfo = {
-            id: serverId,
-            name: serverId,
-            description:
-              typeof serverConfig.description === "string"
-                ? serverConfig.description
-                : `External MCP server: ${serverId}`,
-            transport:
-              typeof serverConfig.transport === "string"
-                ? (serverConfig.transport as MCPTransportType)
-                : "stdio",
-            status: "initializing" as const,
-            tools: [],
-            command:
-              typeof serverConfig.command === "string"
-                ? serverConfig.command
-                : undefined,
-            args: Array.isArray(serverConfig.args)
-              ? (serverConfig.args as string[])
-              : [],
-            env: isNonNullObject(serverConfig.env)
-              ? substituteEnvVariables(
-                  serverConfig.env as Record<string, string>,
-                )
-              : {},
-            timeout:
-              typeof serverConfig.timeout === "number"
-                ? serverConfig.timeout
-                : undefined,
-            retries:
-              typeof serverConfig.retries === "number"
-                ? serverConfig.retries
-                : undefined,
-            healthCheckInterval:
-              typeof serverConfig.healthCheckInterval === "number"
-                ? serverConfig.healthCheckInterval
-                : undefined,
-            autoRestart:
-              typeof serverConfig.autoRestart === "boolean"
-                ? serverConfig.autoRestart
-                : undefined,
-            cwd:
-              typeof serverConfig.cwd === "string"
-                ? serverConfig.cwd
-                : undefined,
-            url:
-              typeof serverConfig.url === "string"
-                ? serverConfig.url
-                : undefined,
-            // HTTP transport-specific fields
-            headers: isNonNullObject(serverConfig.headers)
-              ? substituteEnvVariables(
-                  serverConfig.headers as Record<string, string>,
-                )
-              : undefined,
-            fetch: readMCPTransportFetch(serverConfig.fetch),
-            httpOptions: isNonNullObject(serverConfig.httpOptions)
-              ? (serverConfig.httpOptions as MCPServerInfo["httpOptions"])
-              : undefined,
-            retryConfig: isNonNullObject(serverConfig.retryConfig)
-              ? (serverConfig.retryConfig as MCPServerInfo["retryConfig"])
-              : undefined,
-            rateLimiting: isNonNullObject(serverConfig.rateLimiting)
-              ? (serverConfig.rateLimiting as MCPServerInfo["rateLimiting"])
-              : undefined,
-            blockedTools: Array.isArray(serverConfig.blockedTools)
-              ? (serverConfig.blockedTools as string[])
-              : undefined,
-            metadata: safeMetadataConversion(serverConfig.metadata),
-          };
+          const externalConfig = toExternalServerInfo(serverId, serverConfig);
 
           const result = await this.addServer(serverId, externalConfig);
 
@@ -1070,6 +1083,8 @@ export class ExternalServerManager extends EventEmitter {
       autoRestart: config.autoRestart,
       minTools: config.minTools,
       cwd: config.cwd,
+      inheritParentEnv: config.inheritParentEnv,
+      allowPrivateNetwork: config.allowPrivateNetwork,
       url: config.url,
       headers: config.headers,
       fetch: config.fetch,
@@ -1146,11 +1161,14 @@ export class ExternalServerManager extends EventEmitter {
         autoRestart: serverInfo.autoRestart,
         minTools: serverInfo.minTools,
         cwd: serverInfo.cwd,
+        inheritParentEnv: serverInfo.inheritParentEnv,
+        allowPrivateNetwork: serverInfo.allowPrivateNetwork,
         url: serverInfo.url,
         blockedTools: serverInfo.blockedTools,
         metadata: safeMetadataConversion(serverInfo.metadata),
         // HTTP transport-specific fields
         headers: serverInfo.headers,
+        auth: serverInfo.auth,
         fetch: serverInfo.fetch,
         httpOptions: serverInfo.httpOptions,
         retryConfig: serverInfo.retryConfig,

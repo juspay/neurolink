@@ -5,6 +5,7 @@ import {
   getOllamaDiagnosticErrorMessage,
 } from "./utils/ollamaDiagnostics.js";
 import type {
+  AttachmentPolicy,
   OllamaDiagnosticOutcome,
   OllamaDiagnosticPermit,
 } from "./types/index.js";
@@ -16,13 +17,22 @@ import type {
  * Uses real MCP infrastructure for tool discovery and execution.
  */
 
-// Load environment variables from .env file (critical for SDK usage).
-// Shared with the CLI so the two implicit loads cannot drift apart again.
-// Neither honoured DOTENV_CONFIG_PATH, and they had already drifted in how
-// each suppressed dotenv's banner — one conditional, one unconditional.
-import { loadProcessDotenv } from "./utils/dotenvBootstrap.js";
+// The SDK no longer reads `<cwd>/.env` as a side effect of being imported:
+// a library loaded inside an untrusted checkout would pick up that
+// checkout's `*_BASE_URL` overrides and send the host's real keys wherever
+// they pointed. The CLI still loads `.env` at startup (it is interactive and
+// the directory is the user's); an SDK host that wants the same calls
+// `loadDotenv()` from the package root, or starts the process with
+// `NEUROLINK_DOTENV=1` in the real environment, which is honoured here.
+import {
+  isSdkDotenvOptIn,
+  loadProcessDotenv,
+} from "./utils/dotenvBootstrap.js";
+import { resolveProjectMcpConfigPath } from "./mcp/projectConfigTrust.js";
 
-await loadProcessDotenv();
+if (isSdkDotenvOptIn()) {
+  await loadProcessDotenv({ caller: "sdk" });
+}
 
 import {
   type Context,
@@ -260,6 +270,7 @@ import { createToolEventPayload } from "./core/toolEvents.js";
 import { ProviderFactory } from "./factories/providerFactory.js";
 import { ProviderRegistry } from "./factories/providerRegistry.js";
 import { FileReferenceRegistry } from "./files/fileReferenceRegistry.js";
+import { resolveAttachmentPolicy } from "./utils/attachmentPolicy.js";
 import { createFileTools } from "./files/fileTools.js";
 import { HITLManager, DEFAULT_ALLOW_MODIFICATION } from "./hitl/hitlManager.js";
 import { ToolCallBatcher } from "./mcp/batching/index.js";
@@ -1322,6 +1333,13 @@ export class NeuroLink {
 
   // File Reference Registry for lazy on-demand file processing
   private fileRegistry: FileReferenceRegistry;
+  /**
+   * What this instance may read or fetch when a call names a file path or a
+   * URL: resolved once from `config.attachments` and the
+   * `NEUROLINK_ATTACHMENT_*` variables, stamped onto every call's options so
+   * the loaders see the same answer. See `utils/attachmentPolicy.ts`.
+   */
+  private readonly attachmentPolicy: AttachmentPolicy;
 
   // Cached file tools to avoid redundant createFileTools() calls per generate/stream
   private cachedFileTools: ReturnType<typeof createFileTools> | null = null;
@@ -1944,6 +1962,7 @@ export class NeuroLink {
       );
     }
     this.fileRegistry = new FileReferenceRegistry();
+    this.attachmentPolicy = resolveAttachmentPolicy(config?.attachments);
     this.observabilityConfig = config?.observability;
     if (this.observabilityConfig) {
       ensureTelemetry(this.observabilityConfig);
@@ -3891,13 +3910,36 @@ Current user's request: ${currentInput}`;
   }
 
   /**
-   * Load MCP configuration from .mcp-config.json with parallel loading for improved performance
+   * Load the project MCP configuration, if this instance is allowed one.
+   *
+   * The working directory is not searched on its own. A file is loaded only
+   * when `mcp.configPath` names it, `mcp.trustProjectConfig` opts into
+   * `<cwd>/.mcp-config.json`, the CLI has registered its hash-pinned trust
+   * decision, or a host set `ProviderRegistry.setOptions({ enableManualMCP:
+   * true })` after construction (the constructor resets it to `false`, the
+   * SDK default). Otherwise this is a no-op and only servers added through
+   * `addExternalMCPServer` / `addInMemoryMCPServer` exist.
    */
   private async loadMCPConfigurationInternal(): Promise<void> {
     try {
+      const resolution = await resolveProjectMcpConfigPath({
+        configPath: this.mcpEnhancementsConfig?.configPath,
+        trustProjectConfig: this.mcpEnhancementsConfig?.trustProjectConfig,
+        enableManualMCP: ProviderRegistry.getOptions().enableManualMCP,
+      });
+      if (!resolution) {
+        mcpLogger.debug(
+          "[NeuroLink] No project MCP configuration to load: the working directory is not searched unless mcp.configPath, mcp.trustProjectConfig or a CLI trust decision names a file",
+        );
+        return;
+      }
+      mcpLogger.debug("[NeuroLink] Loading project MCP configuration", {
+        path: resolution.path,
+        source: resolution.source,
+      });
       const configResult =
         await this.externalServerManager.loadMCPConfiguration(
-          undefined, // Use default config path
+          resolution.path,
           { parallel: true }, // Enable parallel loading
         );
 
@@ -4604,6 +4646,14 @@ Current user's request: ${currentInput}`;
         await this.releaseMemoryCondenser();
       } catch (error) {
         logger.warn("[NeuroLink] Memory condenser shutdown failed:", error);
+      }
+
+      // Persisted attachments live under a private tmpdir; remove them with
+      // the instance instead of leaving uploads behind for the exit sweep.
+      try {
+        await this.fileRegistry.clear();
+      } catch (error) {
+        logger.warn("[NeuroLink] File registry cleanup failed:", error);
       }
 
       try {
@@ -6427,6 +6477,7 @@ Current user's request: ${currentInput}`;
         const ragResult = await prepareRAGTool(
           options.rag,
           options.provider as string | undefined,
+          this.attachmentPolicy,
         );
 
         if (!options.tools) {
@@ -6558,6 +6609,7 @@ Current user's request: ${currentInput}`;
       tts: options.tts,
       stt: options.stt,
       fileRegistry: this.fileRegistry,
+      attachmentPolicy: this.attachmentPolicy,
       timeout: options.timeout,
       turnTimeoutMs: options.turnTimeoutMs,
       stallTimeoutMs: options.stallTimeoutMs,
@@ -10584,6 +10636,7 @@ Current user's request: ${currentInput}`;
       const originalPrompt = options.input?.text ?? "";
 
       options.fileRegistry = this.fileRegistry;
+      options.attachmentPolicy = this.attachmentPolicy;
       await this.validateStreamRequestOptions(options, startTime);
 
       const workflowResult = await this.maybeHandleWorkflowStreamRequest({
@@ -12268,6 +12321,7 @@ Current user's request: ${currentInput}`;
         const ragResult = await prepareRAGTool(
           options.rag,
           options.provider as string | undefined,
+          this.attachmentPolicy,
         );
 
         // Inject the RAG tool into the tools record
@@ -19904,6 +19958,7 @@ Current user's request: ${currentInput}`;
         STTProcessor.transcribe(audio, provider, options, credentials),
       resolveProvider,
       getHandler,
+      attachmentPolicy: this.attachmentPolicy,
     };
   }
 
@@ -21403,6 +21458,13 @@ Current user's request: ${currentInput}`;
         cleanupErrors.push(
           error instanceof Error ? error : new Error(String(error)),
         );
+      }
+
+      // 0c. Persisted attachments go with the instance (private tmpdir).
+      try {
+        await this.fileRegistry.clear();
+      } catch (error) {
+        logger.warn("[NeuroLink] File registry cleanup failed:", error);
       }
 
       // 1. Flush and shutdown OpenTelemetry

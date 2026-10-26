@@ -1,29 +1,103 @@
+# Moves the floating major tag (v13, v14, ...) to the newest published release
+# so `uses: juspay/neurolink@vN` resolves.
+#
+# This workflow had never run. Releases here are created by semantic-release
+# with the workflow's own GITHUB_TOKEN, and events produced by GITHUB_TOKEN do
+# not trigger workflows, so the `release: published` trigger below only fires
+# for a release a human creates by hand. The `workflow_run` trigger is what
+# actually fires after every "Release and Publish" run; it reads the newest
+# release from the API rather than from an event payload.
+#
+# Two guards make the moved tag trustworthy: the release tag must be an
+# annotated or lightweight tag that already exists on the repository (we never
+# create vX.Y.Z here), and its commit must be reachable from `release`, so a tag
+# pushed to an unmerged branch cannot pull the major alias with it.
+#
+# The documented consumer pin is still a full commit SHA with a version comment
+# (README.md, docs/guides/github-action.md): a moving tag is a convenience for
+# people who accept its trade-off, never the recommended form.
 name: Update Major Version Tag
 on:
   release:
     types: [published]
+  workflow_run:
+    workflows: ["Release and Publish"]
+    types: [completed]
+    branches: [release]
+  workflow_dispatch: {}
+
 permissions:
   contents: write
+
+concurrency:
+  group: update-major-tag
+  cancel-in-progress: false
+
 jobs:
   update-tag:
+    # A workflow_run for a failed release run has nothing to tag.
+    if: >
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.release.tag_name }}
-          fetch-depth: 0
-      - name: Update major version tag
+      - name: Resolve the newest release tag
+        id: tag
         env:
-          # A release tag is user-supplied text. Interpolated into the script
-          # it is program text, not data — see single-commit-enforcement.yml.
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          # A release tag is user-supplied text; it goes through env, never
+          # straight into the script. Empty for workflow_run / dispatch.
+          EVENT_TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
-          TAG="$RELEASE_TAG"
-          if [[ $TAG =~ ^v([0-9]+)\. ]]; then
-            MAJOR="v${BASH_REMATCH[1]}"
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git tag -fa "$MAJOR" -m "Update $MAJOR to $TAG"
-            git push origin "$MAJOR" --force
+          if [ -n "${EVENT_TAG:-}" ]; then
+            TAG="$EVENT_TAG"
+          else
+            TAG="$(gh api "repos/${REPO}/releases/latest" --jq '.tag_name')"
           fi
+          if [[ ! "$TAG" =~ ^v([0-9]+)\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::notice::'${TAG}' is not a vX.Y.Z release tag; nothing to move."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "major=v${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          echo "run=true" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout release history
+        if: steps.tag.outputs.run == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: release
+          fetch-depth: 0
+          # The push below needs the token; it is the only step that does.
+          persist-credentials: true
+
+      - name: Move the major tag to the release tag
+        if: steps.tag.outputs.run == 'true'
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          MAJOR: ${{ steps.tag.outputs.major }}
+        run: |
+          set -euo pipefail
+          git fetch --tags --force origin
+          if ! git rev-parse -q --verify "refs/tags/${TAG}^{commit}" >/dev/null; then
+            echo "::error::release tag ${TAG} does not exist on the repository; refusing to invent it"
+            exit 1
+          fi
+          target="$(git rev-parse "refs/tags/${TAG}^{commit}")"
+          if ! git merge-base --is-ancestor "$target" origin/release; then
+            echo "::error::${TAG} (${target}) is not reachable from release; refusing to move ${MAJOR} to it"
+            exit 1
+          fi
+          current="$(git rev-parse -q --verify "refs/tags/${MAJOR}^{commit}" || true)"
+          if [ "$current" = "$target" ]; then
+            echo "${MAJOR} already points at ${TAG} (${target})."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -fa "$MAJOR" "$target" -m "Update ${MAJOR} to ${TAG}"
+          git push origin "refs/tags/${MAJOR}" --force
+          echo "${MAJOR} -> ${TAG} (${target})"

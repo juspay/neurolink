@@ -16,9 +16,15 @@
  * See docs/features/livekit-voice-agent.md.
  */
 
+import { ReadableStream } from "node:stream/web";
 import { z } from "zod";
-import type { JobContext, llm as llmNs } from "@livekit/agents";
+import type {
+  AgentDefinition,
+  JobContext,
+  llm as llmNs,
+} from "@livekit/agents";
 import { logger } from "../../utils/logger.js";
+import { markAgentDefinition } from "./agentDefinition.js";
 import { resolveRealtimeVoiceConfig } from "./config.js";
 import { ensureVertexAdc, clearGeminiApiKeyEnv } from "./vertexAuth.js";
 import { createRealtimeLlm, requireXaiApiKey } from "./realtimeModel.js";
@@ -177,7 +183,7 @@ function resolveConfig(
  */
 export function defineRealtimeVoiceAgent(
   config: RealtimeVoiceAgentConfig = {},
-): { entry: (ctx: JobContext) => Promise<void> } {
+): AgentDefinition {
   const cfg = resolveConfig(config);
   const eventsTopic = config.eventsTopic;
   const controlTopic = config.controlTopic;
@@ -268,7 +274,7 @@ export function defineRealtimeVoiceAgent(
 
     await installRealtimeJobLifecycle(ctx, cfg);
 
-    const { voice } = await import("@livekit/agents");
+    const { voice, toStream } = await import("@livekit/agents");
     const realtimeLlm = await createRealtimeLlm(cfg);
 
     const bridge = await attachRealtimeEventBridge({
@@ -310,7 +316,7 @@ export function defineRealtimeVoiceAgent(
           agentTools = toolset.tools;
           logger.info("realtime.mcp.enabled", {
             mcpUrl: cfg.mcpUrl,
-            toolCount: Object.keys(toolset.tools).length,
+            toolCount: Object.keys(toolset.tools.functionTools).length,
             hasAuthToken: authToken !== "",
           });
           ctx.addShutdownCallback(async () => {
@@ -351,7 +357,13 @@ export function defineRealtimeVoiceAgent(
     });
 
     agent.transcriptionNode = async (textStream, _modelSettings) => {
-      const [forUi, forDownstream] = textStream.tee();
+      // 1.9 hands the node a ReadableStream or a bare AsyncIterable; only a
+      // stream has tee(), so mirror the framework default and wrap the latter.
+      const source =
+        textStream instanceof ReadableStream
+          ? textStream
+          : toStream(textStream);
+      const [forUi, forDownstream] = source.tee();
       void (async () => {
         const reader = forUi.getReader();
         let chunkCount = 0;
@@ -405,18 +417,22 @@ export function defineRealtimeVoiceAgent(
 
     // --- Session events → browser ------------------------------------------
     session.on(voice.AgentSessionEventTypes.UserInputTranscribed, (ev) => {
+      // agents-plugin-xai >= 1.9 emits only the *completed* transcription and
+      // flags it `isFinal: false`; without this every xAI user turn would be
+      // published as interim and the recorder would never see a final line.
+      const final = ev.isFinal || cfg.backend === "xai";
       logger.debug("realtime.session.userTranscript", {
         ms: sinceConnect(),
-        final: ev.isFinal,
+        final,
         transcript: ev.transcript,
       });
       bridge.publishEvent("user-text", {
         text: ev.transcript,
-        final: ev.isFinal,
+        final,
       });
       recorder?.userTranscript({
         text: ev.transcript,
-        final: ev.isFinal,
+        final,
       });
     });
     session.on(voice.AgentSessionEventTypes.AgentStateChanged, (ev) => {
@@ -463,5 +479,5 @@ export function defineRealtimeVoiceAgent(
     }
   }
 
-  return { entry };
+  return markAgentDefinition({ entry });
 }

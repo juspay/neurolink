@@ -45,14 +45,17 @@ async function writeClipsAndBuildConcatList(
 
   for (let i = 0; i < videoBuffers.length; i++) {
     const inputPath = join(tempDir, `clip_${i}.mp4`);
-    await writeFile(inputPath, videoBuffers[i]);
+    await writeFile(inputPath, videoBuffers[i], { mode: 0o600, flag: "wx" });
     inputPaths.push(inputPath);
     // Normalize backslashes to forward slashes for FFmpeg, then escape single quotes
     const safePath = inputPath.replace(/\\/g, "/").replace(/'/g, "'\\''");
     concatLines.push(`file '${safePath}'`);
   }
 
-  await writeFile(concatListPath, concatLines.join("\n"));
+  await writeFile(concatListPath, concatLines.join("\n"), {
+    mode: 0o600,
+    flag: "wx",
+  });
   return inputPaths;
 }
 

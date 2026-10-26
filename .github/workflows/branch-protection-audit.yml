@@ -11,6 +11,8 @@ on:
     branches: [release]
   workflow_dispatch: {}
 
+# Also asserts a `pull_request` rule (>= 1 approval) exists in a ruleset.
+#
 # Deliberately NOT a required status check. It audits branch protection
 # itself, so making it required would let the exact failure mode it exists
 # to catch — required_status_checks silently losing an entry — also disable
@@ -42,6 +44,9 @@ jobs:
           set -euo pipefail
 
           # Keep this list in sync with CLAUDE.md's required-checks table.
+          # `security-suites` is the one that lives only on the classic layer
+          # today; .github/BRANCH_PROTECTION_CONFIG.md asks for it on the
+          # ruleset as well, and this sweep accepts either.
           REQUIRED=(
             "test"
             "provider-safety-net"
@@ -79,3 +84,27 @@ jobs:
           fi
 
           echo "All five contexts are required on release."
+
+          # A pull request must be required too, with at least one approval.
+          # Without a `pull_request` rule the status checks only gate PULL
+          # REQUESTS — an admin on the classic layer, or anyone the ruleset
+          # exempts, can push a commit that carries no check runs and have it
+          # declined only by the status-check rule, which classic protection
+          # does not enforce for admins. The rule is read from the rulesets
+          # endpoint (the one layer that can bind everyone); classic
+          # `required_pull_request_reviews` is admin-only to read and is not
+          # consulted, so a review requirement that exists ONLY there reports
+          # as missing here — move it to the ruleset. See
+          # .github/BRANCH_PROTECTION_CONFIG.md for the intended ruleset.
+          PR_RULE=$(gh api "repos/${REPO}/rules/branches/release" \
+            --jq '[.[] | select(.type == "pull_request")] | first // empty')
+          if [ -z "$PR_RULE" ]; then
+            echo "::error::release has no pull_request rule in any ruleset — commits can reach it without a reviewed pull request"
+            exit 1
+          fi
+          APPROVALS=$(jq -r '.parameters.required_approving_review_count // 0' <<<"$PR_RULE")
+          if [ "$APPROVALS" -lt 1 ]; then
+            echo "::error::release's pull_request rule requires ${APPROVALS} approving reviews; at least 1 is required"
+            exit 1
+          fi
+          echo "release requires a pull request with ${APPROVALS} approving review(s)."

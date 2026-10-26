@@ -10,6 +10,7 @@ export * from "./agentMode.js";
 export * from "./aliases.js";
 export * from "./analytics.js";
 export * from "./artifact.js";
+export * from "./attachments.js";
 export * from "./auth.js";
 export * from "./autoresearch.js";
 export * from "./circuitBreakerErrors.js";

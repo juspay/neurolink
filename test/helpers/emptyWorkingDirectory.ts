@@ -2,14 +2,15 @@
  * Side-effect module for suites that build a `NeuroLink` and must not start
  * the MCP servers a checkout declares. Import it BEFORE `../dist/index.js`.
  *
- * `new NeuroLink()` loads `<cwd>/.mcp-config.json` on its first call, and the
- * repository's own file starts `npx -y @modelcontextprotocol/server-filesystem`.
- * A suite run from the repository root therefore fetches and spawns a real
- * server from the npm registry, and without network it waits out the server's
- * startup timeout before the first request goes out. Running from an empty
- * directory leaves the whole MCP initialisation in place and gives it nothing
- * to load, which `NEUROLINK_SKIP_MCP` does not: that switch takes a different
- * path through the SDK.
+ * `new NeuroLink()` used to load `<cwd>/.mcp-config.json` on its first call,
+ * and the repository's own file starts `npx -y @modelcontextprotocol/server-filesystem`.
+ * Since the 2026-10 hardening the SDK reads a project file only when asked
+ * (`mcp.configPath` / `mcp.trustProjectConfig`, or the CLI's trust prompt), so
+ * this helper is belt-and-braces: it keeps a suite independent of whatever a
+ * checkout declares, including under older `dist/` builds, and leaves the
+ * whole MCP initialisation in place with nothing to load, which
+ * `NEUROLINK_SKIP_MCP` does not: that switch takes a different path through
+ * the SDK.
  *
  * `process.chdir` moves the whole process, so this is for a suite that runs as
  * its own process (one suite per `tsx` call): a second suite loaded into the

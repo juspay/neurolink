@@ -14,6 +14,13 @@
  * Use this for **every** download of an external (caller-supplied or
  * third-party-returned) URL. Direct `fetch(url)` of such URLs is unsafe.
  *
+ * Redirects are refused by default. A caller that opts in (`maxRedirects`)
+ * gets each hop validated and pinned exactly like the first request, and the
+ * caller's `headers` are sent to the first host only — a credential meant for
+ * one origin is never replayed to the one it redirects to. `allowInsecure`
+ * and `allowPrivateNetwork` relax the URL policy for SDK callers that have
+ * said so explicitly; the server path never passes them.
+ *
  * When the environment configures a proxy for the URL (HTTPS_PROXY / ALL_PROXY,
  * and the host is not in NO_PROXY) the download goes through that proxy and
  * nowhere else: there is no fallback to a direct connection. The proxy resolves
@@ -23,7 +30,11 @@
  * @module utils/safeFetch
  */
 
-import type { PinnedAddress, SafeDownloadOptions } from "../types/index.js";
+import type {
+  PinnedAddress,
+  SafeDownloadOptions,
+  SafeDownloadResult,
+} from "../types/index.js";
 import { readBoundedBuffer } from "./sizeGuard.js";
 import { assertSafeUrlForProxy, validateAndResolveUrl } from "./ssrfGuard.js";
 
@@ -112,6 +123,14 @@ function isBoundedBufferResponse(value: unknown): value is Response {
 }
 
 /**
+ * Hop limit when a caller opts into redirects but names no number.
+ */
+const DEFAULT_MAX_REDIRECTS = 5;
+
+/** Ceiling on the hop count, whatever the caller asks for. */
+const MAX_REDIRECTS_CEILING = 10;
+
+/**
  * Check the response the same way for both transports, then read it under the
  * size cap.
  */
@@ -130,6 +149,12 @@ async function readDownloadResponse(
       `safeDownload(${options.label}) failed: HTTP ${response.status} for ${url}`,
     );
   }
+  if (options.method === "HEAD") {
+    // A HEAD has no body to read; drain whatever the transport queued so the
+    // connection is released, and hand back nothing.
+    await response.body?.cancel().catch(() => undefined);
+    return Buffer.alloc(0);
+  }
 
   // readBoundedBuffer expects a Response that exposes Content-Length and
   // arrayBuffer(). undici Response satisfies both.
@@ -142,39 +167,87 @@ async function readDownloadResponse(
 }
 
 /**
- * Safely download a binary asset from an external URL.
- *
- * @throws {Error} if the URL is unsafe, the response is too large, a redirect
- *   is encountered, or the HTTP status indicates failure.
+ * Vet `url` for the chosen transport and return the dispatcher to send it
+ * through. Through a proxy the proxy resolves the name, so only the URL text
+ * can be vetted; without one the connection is pinned to the addresses the
+ * guard cleared. Runs once per hop so a redirect gets the same treatment as
+ * the request that produced it.
  */
-export async function safeDownload(
+async function prepareHop(
   url: string,
   options: SafeDownloadOptions,
-): Promise<Buffer> {
-  // Dynamic imports keep undici and the proxy module off the package's static
-  // import graph — they are only needed once a download actually happens. See
-  // test/continuous-test-suite-import-cost.ts.
+): Promise<{ dispatcher: import("undici").Dispatcher; owned: boolean }> {
   const { getProxyDispatcherForUrl } = await import("../proxy/proxyFetch.js");
   const proxyDispatcher = await getProxyDispatcherForUrl(url);
-  const { fetch: undiciFetch } = await import("undici");
-
-  // Resolve and vet the destination, and pick the transport. Through a proxy
-  // the proxy resolves the name, so only the URL text can be vetted; without
-  // one the connection is pinned to the addresses the guard cleared.
-  let validatedUrl: string;
-  let dispatcher: import("undici").Dispatcher;
-  let closeDispatcher = false;
+  const guard = {
+    allowInsecure: options.allowInsecure === true,
+    allowPrivateNetwork: options.allowPrivateNetwork === true,
+  };
   if (proxyDispatcher) {
-    assertSafeUrlForProxy(url);
-    validatedUrl = url;
-    dispatcher = proxyDispatcher;
-  } else {
-    const resolved = await validateAndResolveUrl(url);
-    validatedUrl = resolved.url;
-    const hostname = new URL(validatedUrl).hostname.replace(/^\[|\]$/g, "");
-    dispatcher = await buildPinnedAgent(hostname, resolved.addresses);
-    closeDispatcher = true;
+    assertSafeUrlForProxy(url, guard);
+    return { dispatcher: proxyDispatcher, owned: false };
   }
+  const resolved = await validateAndResolveUrl(url, guard);
+  const hostname = new URL(resolved.url).hostname.replace(/^\[|\]$/g, "");
+  return {
+    dispatcher: await buildPinnedAgent(hostname, resolved.addresses),
+    owned: true,
+  };
+}
+
+/**
+ * Resolve a `Location` header against the URL that produced it, refusing
+ * anything that is not an absolute HTTP(S) URL after resolution.
+ */
+function resolveRedirectTarget(
+  location: string | null,
+  from: string,
+  label: string,
+  status: number,
+): string {
+  if (!location) {
+    throw new Error(
+      `safeDownload(${label}): HTTP ${status} redirect without a Location header (for ${from})`,
+    );
+  }
+  let target: URL;
+  try {
+    target = new URL(location, from);
+  } catch {
+    throw new Error(
+      `safeDownload(${label}): HTTP ${status} redirect to an unparseable Location (for ${from})`,
+    );
+  }
+  // Strip any userinfo a redirect tries to smuggle in; credentials never
+  // travel on the URL here.
+  target.username = "";
+  target.password = "";
+  return target.toString();
+}
+
+/**
+ * Safely download an external URL and report what came back.
+ *
+ * Same guarantees as {@link safeDownload}; additionally returns the final
+ * response's `Content-Type`/`Content-Encoding`, the URL that produced the body
+ * and how many redirect hops were taken.
+ *
+ * @throws {Error} if any URL on the way is unsafe, the response is too large,
+ *   a redirect is encountered beyond what `maxRedirects` allows, or the HTTP
+ *   status indicates failure.
+ */
+export async function safeDownloadWithMeta(
+  url: string,
+  options: SafeDownloadOptions,
+): Promise<SafeDownloadResult> {
+  // Dynamic imports keep undici off the package's static import graph — it is
+  // only needed once a download actually happens. See
+  // test/continuous-test-suite-import-cost.ts.
+  const { fetch: undiciFetch } = await import("undici");
+  const maxRedirects = Math.min(
+    Math.max(0, Math.floor(options.maxRedirects ?? 0)),
+    MAX_REDIRECTS_CEILING,
+  );
 
   const timeoutCtrl = new AbortController();
   const timeoutId = setTimeout(
@@ -185,16 +258,61 @@ export async function safeDownload(
     ? AbortSignal.any([options.signal, timeoutCtrl.signal])
     : timeoutCtrl.signal;
 
+  let currentUrl = url;
+  let hops = 0;
   try {
-    const response = await undiciFetch(validatedUrl, {
-      method: "GET",
-      signal: composedSignal,
-      redirect: "manual", // a 3xx → private-IP redirect would bypass the guard
-      dispatcher,
-    });
-    // fetch resolves at the headers. Keep the same deadline and abort signal
-    // active while the bounded reader drains the response body as well.
-    return await readDownloadResponse(response, url, options);
+    for (;;) {
+      const { dispatcher, owned } = await prepareHop(currentUrl, options);
+      try {
+        const response = await undiciFetch(currentUrl, {
+          method: options.method ?? "GET",
+          // The caller's headers ride on the FIRST request only. A redirect
+          // target is a different authority as far as a credential is
+          // concerned, even when the host name happens to match.
+          headers: hops === 0 && options.headers ? options.headers : undefined,
+          signal: composedSignal,
+          redirect: "manual", // a 3xx → private-IP redirect would bypass the guard
+          dispatcher,
+        });
+        if (
+          response.status >= 300 &&
+          response.status < 400 &&
+          hops < maxRedirects
+        ) {
+          const next = resolveRedirectTarget(
+            response.headers.get("location"),
+            currentUrl,
+            options.label,
+            response.status,
+          );
+          // Release the redirect response before the next hop.
+          await response.body?.cancel().catch(() => undefined);
+          hops += 1;
+          currentUrl = next;
+          continue;
+        }
+        // fetch resolves at the headers. Keep the same deadline and abort
+        // signal active while the bounded reader drains the body as well.
+        const buffer = await readDownloadResponse(
+          response,
+          currentUrl,
+          options,
+        );
+        return {
+          buffer,
+          contentType: response.headers.get("content-type") ?? "",
+          contentEncoding: response.headers.get("content-encoding") ?? "",
+          finalUrl: currentUrl,
+          redirects: hops,
+        };
+      } finally {
+        if (owned) {
+          // Close the per-hop agent so the pinned connection isn't pooled.
+          // The proxy agent is shared process-wide and stays open.
+          dispatcher.close().catch(() => undefined);
+        }
+      }
+    }
   } catch (error) {
     // A status/size rejection may happen before the body is consumed. Stop
     // that request so a pinned agent can close and a shared proxy agent does
@@ -203,10 +321,23 @@ export async function safeDownload(
     throw error;
   } finally {
     clearTimeout(timeoutId);
-    if (closeDispatcher) {
-      // Close the per-request agent so the pinned connection isn't pooled.
-      // The proxy agent is shared process-wide and stays open.
-      dispatcher.close().catch(() => undefined);
-    }
   }
+}
+
+/**
+ * Safely download a binary asset from an external URL.
+ *
+ * @throws {Error} if the URL is unsafe, the response is too large, a redirect
+ *   is encountered, or the HTTP status indicates failure.
+ */
+export async function safeDownload(
+  url: string,
+  options: SafeDownloadOptions,
+): Promise<Buffer> {
+  return (await safeDownloadWithMeta(url, options)).buffer;
+}
+
+/** Hop count applied when a caller opts into redirects without naming one. */
+export function defaultRedirectHops(follow: boolean): number {
+  return follow ? DEFAULT_MAX_REDIRECTS : 0;
 }

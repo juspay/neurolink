@@ -34,3 +34,13 @@ Calls held in memory; the least recently updated are evicted (still on disk). De
 > `optional` **maxSegmentsPerCall?**: `number`
 
 Segments kept per call; later new ids are counted as `ignored`. Default 50,000.
+
+---
+
+### maxBytes?
+
+> `optional` **maxBytes?**: `number`
+
+Bytes of segment text and metadata held in memory across every call;
+when a batch pushes the total over it the least recently updated calls
+are evicted (still on disk when `dir` is set). Default 64 MiB.

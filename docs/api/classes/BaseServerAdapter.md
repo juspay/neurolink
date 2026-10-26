@@ -118,6 +118,114 @@ Provides common functionality and defines the interface for framework-specific i
 
 ## Methods
 
+### hasAuthenticationMiddleware()
+
+> **hasAuthenticationMiddleware**(): `boolean`
+
+Whether middleware marked `authenticates: true` is registered (the
+built-in authentication middleware marks itself). The tool and MCP
+execution routes ask on every request; `registerAllRoutes()` wires them.
+
+#### Returns
+
+`boolean`
+
+---
+
+### noteSensitiveRoutes()
+
+> **noteSensitiveRoutes**(`options?`): `void`
+
+Called by `registerAllRoutes()`: routes that act on the host (tool and
+MCP execution) are mounted, so `start()` warns when no authentication
+middleware guards them. The check runs at start, when the middleware set
+is final, so registering authentication after the routes is fine.
+
+#### Parameters
+
+##### options?
+
+###### allowUnauthenticated?
+
+`boolean`
+
+#### Returns
+
+`void`
+
+---
+
+### warnIfSensitiveRoutesUnauthenticated()
+
+> `protected` **warnIfSensitiveRoutesUnauthenticated**(): `void`
+
+The warning promised by `noteSensitiveRoutes()`, always on stderr: a
+`logger.warn` is dropped unless debug logging is on, which would hide a
+notice meant for the operator who just started the server.
+
+#### Returns
+
+`void`
+
+---
+
+### attachRequestAbort()
+
+> `protected` **attachRequestAbort**(`ctx`, `options`): `object`
+
+Give the handler a way to notice that the client is gone or the request
+is over time. The controller is this request's own unless middleware
+already attached one that the adapter carried; `applyTimeout` arms the
+configured request timeout, which the caller leaves off for a streaming
+route (a stream legitimately outlives it, as under Hono's own timeout
+middleware). `release()` disarms the timer once the response is written.
+
+#### Parameters
+
+##### ctx
+
+[`ServerContext`](../type-aliases/ServerContext.md)
+
+##### options
+
+###### onClientClose
+
+(`listener`) => `void`
+
+###### applyTimeout
+
+`boolean`
+
+#### Returns
+
+`object`
+
+##### controller
+
+> **controller**: `AbortController`
+
+##### deadline
+
+> **deadline**: `Promise`\<`never`\> \| `undefined`
+
+##### timedOut
+
+> **timedOut**: () => `boolean`
+
+###### Returns
+
+`boolean`
+
+##### release
+
+> **release**: () => `void`
+
+###### Returns
+
+`void`
+
+---
+
 ### initializeFramework()
 
 > `abstract` `protected` **initializeFramework**(): `void` \| `Promise`\<`void`\>
@@ -469,6 +577,10 @@ Create request context from incoming request
 ###### body?
 
 `unknown`
+
+###### remoteAddress?
+
+`string`
 
 #### Returns
 

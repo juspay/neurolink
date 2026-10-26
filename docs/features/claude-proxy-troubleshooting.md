@@ -332,12 +332,13 @@ Understanding the proxy's architecture helps diagnose issues faster.
 
 ### Passthrough mode (Claude to Claude)
 
-Raw body forwarding. The proxy does not parse, modify, or reconstruct the request body. Only the authentication and protocol headers are set:
+In `--passthrough` mode the proxy does not parse, modify, or reconstruct the request body and relays the caller's own `Authorization` / `x-api-key`. On the default OAuth pool path it does rewrite the body: `system` is normalised (a non-Claude-Code client's system prompt is relocated into the message stream behind the compiled-in billing and agent blocks), `metadata.user_id` is replaced with the account's Claude Code identity, and content is normalised (`polyfillOAuthBody`, `relocateClientSystemIntoMessages`). In both modes only allow-listed protocol headers travel upstream:
 
 - `Authorization: Bearer <oauth_token>` (for OAuth accounts)
 - `x-api-key: <key>` (for API key accounts)
-- Beta headers from the client request are forwarded as-is
-- Cloaking headers applied only for OAuth accounts (User-Agent, Stainless SDK headers, billing block)
+- `anthropic-beta` from the client, limited to the proxy's own beta set unless the client is Claude Code (session header and `claude-cli/` user-agent)
+- `user-agent`, `x-app`, `x-stainless-*`, `anthropic-version`, `accept*`, `content-type`; everything else (`x-neurolink-*`, trace context, `cf-*`, `x-forwarded-*`, cookies) is dropped
+- Snapshot headers applied only for OAuth accounts (User-Agent, Stainless SDK headers), captured from a genuine Claude Code client
 
 **When to suspect passthrough issues:** If the request works with one account but not another, the issue is likely account-specific (expired token, wrong permissions, billing).
 

@@ -2,7 +2,7 @@
   "name": "@juspay/neurolink-docs",
   "version": "1.0.0",
   "private": true,
-  "packageManager": "pnpm@10.28.2",
+  "packageManager": "pnpm@10.34.7+sha512.upirxYVTmTM3W1lx9LxtbHOhtLftxKh559EC/lQj0eAjCdZ8YKEfBJVQk6luUhrZw7E4zdZUylvlY/N4s65IvQ==",
   "scripts": {
     "docusaurus": "docusaurus",
     "start": "pnpm run sync-docs && pnpm run build:llms-txt && docusaurus start",

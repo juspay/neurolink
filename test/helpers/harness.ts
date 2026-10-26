@@ -422,7 +422,14 @@ export function runCLI(
   } = {},
 ): Promise<ProcessResult> {
   return runCommand("node", ["dist/cli/index.js", ...args], {
-    env: { ...process.env, ...(options.env ?? {}) } as NodeJS.ProcessEnv,
+    env: {
+      // The repo ships a `.mcp-config.json`; since the 2026-10 security audit the
+      // CLI refuses an untrusted project config in non-interactive runs. Suites
+      // that want it loaded pass `NEUROLINK_TRUST_MCP_CONFIG: "1"` explicitly.
+      NEUROLINK_TRUST_MCP_CONFIG: "0",
+      ...process.env,
+      ...(options.env ?? {}),
+    } as NodeJS.ProcessEnv,
     timeoutMs: options.timeoutMs,
     stopWhen: options.stopWhen,
   });

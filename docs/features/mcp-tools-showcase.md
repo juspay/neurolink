@@ -169,7 +169,7 @@ const result = await neurolink.generate({
 
 **Purpose**: Write content to filesystem
 
-**Auto-Available**: Yes (with HITL approval recommended)
+**Auto-Available**: Yes (confirmed on every call while HITL is enabled — see [Built-in tools](/docs/features/hitl#built-in-tools))
 
 **Use Cases**:
 
@@ -191,7 +191,10 @@ import {
 const neurolink = new NeuroLink({
   hitl: {
     enabled: true,
-    dangerousActions: ["writeFile"], // Matches tool names containing "writeFile"
+    // writeFile and executeBashCommand are confirmed on every call once HITL is
+    // enabled (set confirmBuiltinTools: false to gate them by keywords only);
+    // keywords gate everything else.
+    dangerousActions: ["delete"],
   },
 });
 
@@ -316,13 +319,23 @@ await neurolink.generate({
 - **Containment:** target paths are resolved through symlinks too, and the prefix check is separator-bounded, so neither `<root>/link → /etc` nor a sibling such as `/srv/workspace-evil` gets through. A symlink that does not resolve is refused. On Linux and macOS, reads, writes and CSV parses open the checked path with `O_NOFOLLOW` (create mode with `O_EXCL`), so a link swapped in at the final path component after the check fails instead of redirecting the operation; Windows has no `O_NOFOLLOW`, so there only create mode carries that last-moment guarantee — the realpath check itself applies on every platform. `analyzeCSV` also refuses anything that is not a regular file (a FIFO, a device, a directory). `listDirectory` reports a symlink entry as `type: "symlink"` with the link's own metadata, never its target's. One race is not closed on any platform: a _directory_ component swapped for a symlink between the check and the open is followed, because Node has no `openat`-style walk and `O_NOFOLLOW` covers only the final component. That needs an attacker writing into the workspace while the agent runs; if that is your threat model, isolate the process at the OS level rather than relying on this check alone. Relative paths resolve against the first root; a root of `/` contains every absolute path. Versions before 12.28.0 compared path strings only, so a symlink planted inside the working directory could read, list or write outside it — upgrade if you are on an older release.
 - **Where it applies:** `generate()`, `generateText()`, `stream()`, `streamText()`, `executeTool()`, the server's tool and MCP routes (which execute through the instance's tool registry), and worker instances (`createWorkerInstance()`, isolated agents, delegates), which inherit the host's roots and can only narrow them. The resolved policy is internal: only `toolRoots` is settable per call.
 - **CLI:** `neurolink generate "…" --tool-root /srv/workspace --tool-root /home/agent`.
-- **Bash:** when the opt-in `executeBashCommand` tool is enabled, roots constrain only its `cwd` argument. The command itself runs with the full privileges of the process and can `cd` anywhere. Use OS-level isolation (a container or a separate user) to sandbox shell commands.
+- **Bash:** when the opt-in `executeBashCommand` tool is enabled, roots constrain only its `cwd` argument. The command itself runs with the full privileges of the process and can `cd` anywhere. Use OS-level isolation (a container or a separate user) to sandbox shell commands. While HITL is enabled on the instance, every bash call (and every `writeFile` call) waits for a human to approve it — see [Built-in tools](/docs/features/hitl#built-in-tools).
 
 ### 5. calculateMath
 
-**Purpose**: Complex mathematical calculations
+**Purpose**: Arithmetic calculations
 
 **Auto-Available**: Yes (always enabled)
+
+**What it accepts**: numbers, `+ - * / % **`, parentheses, and the `Math`
+functions `abs ceil floor round trunc sign sqrt cbrt pow exp log log2 log10 sin
+cos tan asin acos atan atan2 sinh cosh tanh hypot min max` plus the constants
+`PI E LN2 LN10 LOG2E LOG10E SQRT2 SQRT1_2`, with or without the `Math.` prefix.
+The expression is parsed and evaluated by a small arithmetic parser — it is
+never run as JavaScript — so anything outside that grammar (`process.exit(1)`,
+`globalThis`, property access, assignment) is refused with an error, and a
+result that is not a finite number (`9**9**9`, `1/0`, `sqrt(-1)`) is reported
+as an error rather than as `Infinity` or `NaN`.
 
 **Use Cases**:
 

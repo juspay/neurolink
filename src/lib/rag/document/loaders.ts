@@ -28,6 +28,8 @@ import { existsSync } from "fs";
 import { readFile } from "fs/promises";
 import { basename, extname } from "path";
 import { logger } from "../../utils/logger.js";
+import { downloadAttachment } from "../../utils/attachmentPolicy.js";
+import { redactUrlForError } from "../../utils/logSanitize.js";
 import { decodeHtmlTextEntitiesOnce } from "../../utils/htmlEntities.js";
 import { removeHtmlMarkup } from "../../utils/htmlText.js";
 import {
@@ -451,6 +453,9 @@ export class PDFLoader implements DocumentLoader {
  * Fetches and extracts content from web pages.
  * Supports basic HTML parsing without external dependencies.
  */
+/** 25 MiB — the default cap on a fetched page. */
+const WEB_LOADER_MAX_BYTES = 25 * 1024 * 1024;
+
 export class WebLoader implements DocumentLoader {
   private defaultUserAgent =
     "Mozilla/5.0 (compatible; NeuroLink/1.0; +https://github.com/juspay/neurolink)";
@@ -461,14 +466,19 @@ export class WebLoader implements DocumentLoader {
     }
 
     logger.debug("[WebLoader] Fetching URL", {
-      url: source,
+      url: redactUrlForError(source),
       timeout: options?.timeout,
     });
 
-    const response = await fetch(source, {
-      signal: options?.timeout
-        ? AbortSignal.timeout(options.timeout)
-        : undefined,
+    // Through the attachment policy: HTTPS to a public host unless the policy
+    // says otherwise, DNS-pinned, redirects re-validated per hop with the
+    // caller's headers dropped, and the body bounded while it streams rather
+    // than read whole with `text()`.
+    const downloaded = await downloadAttachment(source, {
+      policy: options?.attachmentPolicy,
+      maxBytes: options?.maxBytes ?? WEB_LOADER_MAX_BYTES,
+      label: "web page",
+      timeoutMs: options?.timeout,
       headers: {
         "User-Agent": options?.userAgent || this.defaultUserAgent,
         Accept:
@@ -477,11 +487,7 @@ export class WebLoader implements DocumentLoader {
       },
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
-    }
-
-    const html = await response.text();
+    const html = downloaded.buffer.toString("utf-8");
     let content = html;
 
     // Extract main content if requested
@@ -498,7 +504,7 @@ export class WebLoader implements DocumentLoader {
         source,
         url: source,
         fetchedAt: new Date().toISOString(),
-        contentType: response.headers.get("content-type") || "text/html",
+        contentType: downloaded.contentType || "text/html",
         ...options?.metadata,
       },
     });

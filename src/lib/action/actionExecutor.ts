@@ -16,10 +16,14 @@ import type {
   ActionEvaluation,
 } from "../types/index.js";
 import { buildEnvironmentVariables } from "./actionInputs.js";
+import { EXACT_VERSION_PATTERN } from "./cliVersion.js";
 import { withTimeout } from "../utils/errorHandling.js";
 
 /** Default timeout for CLI execution (5 minutes) */
 const DEFAULT_EXECUTION_TIMEOUT_MS = 300000;
+
+/** The package the action installs and runs. */
+const CLI_PACKAGE = "@juspay/neurolink";
 
 /**
  * Transform CLI token usage format to action format
@@ -160,21 +164,93 @@ export function buildCliArgs(inputs: ActionInputs): string[] {
 }
 
 /**
- * Install NeuroLink CLI
+ * Install the NeuroLink CLI into a private directory under RUNNER_TEMP and
+ * return the path of its `neurolink` executable.
+ *
+ * Three things changed from the original `npm install -g @juspay/neurolink`:
+ *
+ * - The version is exact unless the consumer opts into `latest`. The action
+ *   runs with the consumer's provider keys in its environment, so a moving tag
+ *   would hand one bad npm publish to every consumer within minutes; pinning
+ *   the action itself by SHA cannot protect against that, only pinning what it
+ *   installs can. `latest` still works, with a warning that names the trade.
+ * - `--ignore-scripts`: no lifecycle script of any package in the tree runs on
+ *   the consumer's runner. NeuroLink has none of its own, and the packages
+ *   whose scripts matter (ffmpeg-static's binary download, sharp's prebuilt
+ *   lookup) are optional dependencies the action's text generation path does
+ *   not use. Video inputs need an ffmpeg on the runner's PATH, which GitHub's
+ *   Ubuntu images provide.
+ * - `npm audit signatures` after the install: every package in the tree must
+ *   carry a valid registry signature, and the ones published with provenance
+ *   (this package is) must carry an attestation that matches. A tarball that
+ *   was swapped or re-signed fails here instead of running.
+ *
+ * A project directory rather than `-g` because `npm audit signatures` reads a
+ * project's lockfile, and because it keeps the install out of the runner's
+ * global prefix, where a later step could find a stale copy.
  */
-export async function installNeurolink(version: string): Promise<void> {
-  core.info(`Installing @juspay/neurolink@${version}...`);
+export async function installNeurolink(
+  version: string,
+  installRoot: string = process.env.RUNNER_TEMP || "/tmp",
+): Promise<string> {
+  const spec = resolveInstallSpec(version);
+  const installDir = path.join(
+    installRoot,
+    `neurolink-cli-${process.pid}-${Date.now()}`,
+  );
+  fs.mkdirSync(installDir, { recursive: true, mode: 0o700 });
+  fs.writeFileSync(
+    path.join(installDir, "package.json"),
+    JSON.stringify({ name: "neurolink-action-cli", private: true }, null, 2),
+    { mode: 0o600 },
+  );
 
-  const installArgs =
-    version === "latest"
-      ? ["install", "-g", "@juspay/neurolink"]
-      : ["install", "-g", `@juspay/neurolink@${version}`];
+  core.info(`Installing ${spec}...`);
+  const npmOptions = { cwd: installDir, silent: !core.isDebug() };
+  await exec.exec(
+    "npm",
+    [
+      "install",
+      "--ignore-scripts",
+      "--no-fund",
+      "--no-audit",
+      "--save-exact",
+      spec,
+    ],
+    npmOptions,
+  );
 
-  await exec.exec("npm", installArgs, {
-    silent: !core.isDebug(),
-  });
+  core.info("Verifying registry signatures and provenance attestations...");
+  await exec.exec("npm", ["audit", "signatures"], npmOptions);
 
-  core.info("NeuroLink CLI installed successfully");
+  const binPath = path.join(installDir, "node_modules", ".bin", "neurolink");
+  if (!fs.existsSync(binPath)) {
+    throw new Error(
+      `${spec} installed but exposes no neurolink executable at ${binPath}`,
+    );
+  }
+  core.info(`NeuroLink CLI ${version} installed at ${installDir}`);
+  return binPath;
+}
+
+/**
+ * The exact `npm install` spec for a `neurolink_version` input. Anything that
+ * is neither `latest` nor an exact `x.y.z` is refused: a range or a dist-tag
+ * would quietly reintroduce the moving target the pin exists to remove.
+ */
+export function resolveInstallSpec(version: string): string {
+  if (version === "latest") {
+    core.warning(
+      `neurolink_version is "latest": the action will install whatever ${CLI_PACKAGE} version the registry serves at run time. Pin an exact version (the default) for a reproducible, review-gated install.`,
+    );
+    return `${CLI_PACKAGE}@latest`;
+  }
+  if (!EXACT_VERSION_PATTERN.test(version)) {
+    throw new Error(
+      `neurolink_version must be an exact version such as 13.8.16, or the literal "latest"; received "${version}"`,
+    );
+  }
+  return `${CLI_PACKAGE}@${version}`;
 }
 
 /**
@@ -183,12 +259,14 @@ export async function installNeurolink(version: string): Promise<void> {
  * @param env - Environment variables
  * @param workingDirectory - Working directory for execution
  * @param timeout - Timeout in milliseconds (defaults to 5 minutes)
+ * @param cliPath - The executable to run; defaults to `neurolink` on PATH
  */
 export async function executeNeurolink(
   args: string[],
   env: Record<string, string>,
   workingDirectory?: string,
   timeout: number = DEFAULT_EXECUTION_TIMEOUT_MS,
+  cliPath: string = "neurolink",
 ): Promise<ActionExecutionResult> {
   const startTime = Date.now();
 
@@ -201,7 +279,7 @@ export async function executeNeurolink(
       }
     }
 
-    const execPromise = exec.getExecOutput("neurolink", args, {
+    const execPromise = exec.getExecOutput(cliPath, args, {
       cwd: workingDirectory,
       env: { ...processEnv, ...env },
       silent: false,
@@ -319,8 +397,8 @@ export async function runNeurolink(
   let credPath: string | undefined;
 
   try {
-    // Install CLI
-    await installNeurolink(inputs.neurolinkVersion);
+    // Install CLI (exact version unless `latest` was requested)
+    const cliPath = await installNeurolink(inputs.neurolinkVersion);
 
     // Build environment
     const env = buildEnvironmentVariables(inputs);
@@ -359,6 +437,7 @@ export async function runNeurolink(
       env,
       inputs.workingDirectory,
       executionTimeout,
+      cliPath,
     );
   } finally {
     // Clean up credential file

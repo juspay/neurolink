@@ -36,6 +36,7 @@ import type {
   TranscriptionSegment,
   WordTiming,
 } from "./stt.js";
+import type { AttachmentPolicy } from "./attachments.js";
 
 // ============================================================================
 // INPUT
@@ -881,6 +882,11 @@ export type TranscribeDeps = STTCorrectionDeps & {
   /** Resolves `undefined`, `""` or an alias to a registered provider name, or throws a typed error. */
   resolveProvider: (name?: string) => string;
   getHandler: (name: string) => STTHandler | undefined;
+  /**
+   * Attachment policy applied when `audio` is a path or URL. The
+   * environment-derived default applies when absent.
+   */
+  attachmentPolicy?: AttachmentPolicy;
 };
 
 // ============================================================================

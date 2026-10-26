@@ -12,16 +12,19 @@ import { logger } from "../../lib/utils/logger.js";
 import { NeuroLink } from "../../lib/neurolink.js";
 import { withTimeout } from "../../lib/utils/errorHandling.js";
 import {
-  isProcessRunning,
-  formatUptime,
-  ensureStateDir,
-  getNeuroLinkDir,
+  DEFAULT_SERVER_HOST,
+  SERVER_ALLOW_UNAUTHENTICATED_ENV,
+  SERVER_API_KEY_ENV,
   clearStateOnExit,
   createServerApiKeyMiddleware,
+  ensureStateDir,
+  formatUptime,
+  getNeuroLinkDir,
   isOtherServerRunning,
+  isProcessRunning,
   readServerApiKeys,
   resolveServerPort,
-  SERVER_API_KEY_ENV,
+  unauthenticatedBindRefusal,
 } from "../utils/serverUtils.js";
 import type {
   CliServeFlatRoute,
@@ -73,7 +76,7 @@ const CONFIG_FILE = path.join(getNeuroLinkDir(), "server-config.json");
 function loadServerConfig(): ServerConfig {
   const defaults: ServerConfig = {
     defaultPort: 3000,
-    defaultHost: "0.0.0.0",
+    defaultHost: DEFAULT_SERVER_HOST,
     defaultFramework: "hono",
     defaultBasePath: "/api",
     cors: { enabled: true },
@@ -238,7 +241,7 @@ export class ServerCommandFactory {
       .option("host", {
         type: "string",
         alias: "H",
-        default: "0.0.0.0",
+        default: DEFAULT_SERVER_HOST,
         description: "Host to bind to",
       })
       .option("framework", {
@@ -467,12 +470,26 @@ export class ServerCommandFactory {
         | "fastify"
         | "koa";
 
+      // A listener the network can reach with no key is refused unless the
+      // operator asked for exactly that (NEUROLINK_SERVER_ALLOW_UNAUTHENTICATED=1).
+      const bindHost = argv.host ?? DEFAULT_SERVER_HOST;
+      const refusal = unauthenticatedBindRefusal({
+        host: bindHost,
+        apiKeyCount: readServerApiKeys().length,
+        allowUnauthenticated:
+          process.env[SERVER_ALLOW_UNAUTHENTICATED_ENV] === "1",
+      });
+      if (refusal) {
+        logger.error(chalk.red(refusal));
+        process.exit(1);
+      }
+
       // Create server
       const server = await createServer(neurolink, {
         framework,
         config: {
           port,
-          host: argv.host ?? "0.0.0.0",
+          host: bindHost,
           basePath: argv.basePath ?? "/api",
           cors: {
             enabled: argv.cors ?? true,
@@ -511,7 +528,7 @@ export class ServerCommandFactory {
       const state: ServerState = {
         pid: process.pid,
         port,
-        host: argv.host ?? "0.0.0.0",
+        host: argv.host ?? DEFAULT_SERVER_HOST,
         framework,
         startTime: new Date().toISOString(),
         basePath: argv.basePath ?? "/api",

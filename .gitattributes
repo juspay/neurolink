@@ -1,4 +1,8 @@
-action-dist/** linguist-generated=true
+# action-dist/ is deliberately NOT marked linguist-generated. It is the code
+# every consumer of the GitHub Action executes (action.yml runs.main), so its
+# diff must be visible in review; CI's build-check rebuilds it and fails on any
+# difference from the committed copy. A reviewer should still read the diff as
+# "does this match the source change", not line by line.
 
 # The committed Yama memory database is binary; keep diffs and merges quiet.
 .yama/memory/*.sqlite binary -diff

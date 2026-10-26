@@ -13,8 +13,7 @@
  */
 
 import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TTSAudioFormat } from "../../types/index.js";
@@ -252,11 +251,11 @@ async function decodeWithFfmpeg(
 ): Promise<Float32Array> {
   const binary = await resolveFfmpeg();
   // A file, not a pipe: MP4/M4A often keep their index at the end, which a pipe cannot seek to.
-  const input = join(
-    tmpdir(),
-    `neurolink-whistle-${randomUUID()}.${format ?? "bin"}`,
-  );
-  await writeFile(input, audio);
+  // Its own mkdtemp directory (0o700) and an owner-only file: the recording is
+  // the caller's, and the OS temp directory is shared.
+  const dir = await mkdtemp(join(tmpdir(), "neurolink-whistle-"));
+  const input = join(dir, `input.${format ?? "bin"}`);
+  await writeFile(input, audio, { mode: 0o600, flag: "wx" });
   try {
     const raw = await new Promise<Buffer>((resolvePromise, reject) => {
       const proc = spawn(
@@ -266,6 +265,10 @@ async function decodeWithFfmpeg(
           "-hide_banner",
           "-loglevel",
           "error",
+          // Pin the demuxer to local files: a container that references
+          // another URL or file cannot make ffmpeg open it.
+          "-protocol_whitelist",
+          "file,crypto,data",
           "-i",
           input,
           "-f",
@@ -316,6 +319,6 @@ async function decodeWithFfmpeg(
       "whistle",
     );
   } finally {
-    await rm(input, { force: true }).catch(() => undefined);
+    await rm(dir, { recursive: true, force: true }).catch(() => undefined);
   }
 }

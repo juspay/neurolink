@@ -37,6 +37,15 @@ export type HITLConfig = {
 
   /** Advanced custom rules for complex tool scenarios (default: []) */
   customRules?: HITLRule[];
+
+  /**
+   * Whether the built-in tools that change the machine — `writeFile` and the
+   * opt-in `executeBashCommand` — always require confirmation while HITL is
+   * enabled, whatever `dangerousActions` says (default: true). Set to `false`
+   * to gate built-in tools by `dangerousActions` keywords and `customRules`
+   * only, as every other tool is.
+   */
+  confirmBuiltinTools?: boolean;
 };
 
 /**

@@ -5,12 +5,18 @@ Run AI-powered workflows across supported AI providers directly in GitHub Action
 ## Quick Start
 
 ```yaml
-- uses: juspay/neurolink@v1
+- uses: juspay/neurolink@e42b4db89fa87946e2dd766cf2ab43929c689b8b # v13.8.16
   with:
     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
     prompt: "Review this code"
     post_comment: true
 ```
+
+The `uses:` line pins a full commit SHA; the comment names the release it
+corresponds to. The action installs the exact `@juspay/neurolink` version it was
+released with (`src/lib/action/cliVersion.ts`) with `--ignore-scripts`, then runs
+`npm audit signatures` before executing it. `neurolink_version: latest` opts out
+of that pin. The committed `action-dist/` bundle is rebuilt and diffed in CI.
 
 ## Supported Providers
 

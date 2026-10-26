@@ -11,14 +11,9 @@
     },
     "code-review-graph": {
       "transport": "stdio",
-      "command": "uvx",
-      "args": [
-        "--from",
-        "code-review-graph==2.3.7",
-        "code-review-graph",
-        "serve"
-      ],
-      "description": "Tree-sitter code graph — blast radius, callers/dependents, flows, architecture overview",
+      "command": "code-review-graph",
+      "args": ["serve"],
+      "description": "Tree-sitter code graph — blast radius, callers/dependents, flows, architecture overview. Installed from requirements-code-review-graph.txt with `uv pip install --require-hashes` (yama-review.yml); locally, put the same install's bin directory on PATH.",
       "cwd": "..",
       "timeout": 60000
     }

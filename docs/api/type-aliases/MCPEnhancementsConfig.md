@@ -21,6 +21,28 @@ These modules are automatically applied during tool execution when configured:
 
 ## Properties
 
+### configPath?
+
+> `optional` **configPath?**: `string`
+
+Explicit path of a project MCP configuration (`.mcp-config.json` shape)
+to load when MCP initialises. Relative paths resolve against the
+working directory. This is the SDK's only way to load a project file:
+the working directory is never searched implicitly, because a directory
+is not a trust boundary — a cloned repository's `.mcp-config.json`
+would otherwise run its servers with your credentials.
+
+---
+
+### trustProjectConfig?
+
+> `optional` **trustProjectConfig?**: `boolean`
+
+Load `<cwd>/.mcp-config.json` without naming it. Set this only when the
+working directory is one you control. Default: false.
+
+---
+
 ### cache?
 
 > `optional` **cache?**: `object`

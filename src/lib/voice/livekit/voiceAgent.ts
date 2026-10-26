@@ -17,12 +17,13 @@
 
 import { ReadableStream } from "node:stream/web";
 import type {
-  Agent as JobAgent,
+  AgentDefinition,
   JobContext,
   llm as llmNs,
   voice as voiceNs,
 } from "@livekit/agents";
 import { logger } from "../../utils/logger.js";
+import { markAgentDefinition } from "./agentDefinition.js";
 import { createVoiceBrain } from "./brain.js";
 import { resolveBrainDefaults, resolveEouTurnDetection } from "./config.js";
 import { attachEventBridge } from "./eventBridge.js";
@@ -272,7 +273,9 @@ async function buildTts(
  * });
  * ```
  */
-export function defineVoiceAgent(config: LiveKitVoiceAgentConfig): JobAgent {
+export function defineVoiceAgent(
+  config: LiveKitVoiceAgentConfig,
+): AgentDefinition {
   const defaults = resolveBrainDefaults();
   const provider = config.provider ?? defaults.provider;
   const model = config.model ?? defaults.model;
@@ -556,5 +559,5 @@ export function defineVoiceAgent(config: LiveKitVoiceAgentConfig): JobAgent {
     }
   }
 
-  return { entry };
+  return markAgentDefinition({ entry });
 }

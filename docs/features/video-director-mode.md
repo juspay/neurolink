@@ -152,6 +152,10 @@ if (result.video) {
 
 ### Using Image URLs
 
+> **Security:** segment image URLs are fetched only over HTTPS from public
+> hosts, and segment image paths honour `attachments.allowedRoots` — see
+> [Attachment Security](/docs/features/attachment-security).
+
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
 import { writeFile } from "fs/promises";

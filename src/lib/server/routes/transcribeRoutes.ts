@@ -16,6 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type {
   RouteGroup,
+  ServerClientFacingError,
   ServerContext,
   ServerOpenAITranscriptionResponse,
   ServerSTTEvalBatchRequest,
@@ -31,6 +32,11 @@ import { withSpan } from "../../telemetry/withSpan.js";
 import { tracers } from "../../telemetry/tracers.js";
 import { logger } from "../../utils/logger.js";
 import { MAX_AUDIO_BYTES } from "../../utils/sizeGuard.js";
+import {
+  clientFacingError,
+  logClientFacingError,
+  PROVIDER_NOT_CONFIGURED_MESSAGE,
+} from "../utils/clientError.js";
 import { RawBodyTooLargeError } from "../utils/rawBody.js";
 import {
   getSTTProviderDescriptor,
@@ -244,8 +250,16 @@ async function resolveAudio(
         label: "transcription audio",
       });
     } catch (error) {
+      // The guard's reason can name the address a host resolved to, which
+      // would let a caller map the server's network one URL at a time. The
+      // caller gets a fixed message; the operator gets the reason in the log,
+      // with the URL itself redacted (as agentInput.ts does).
+      const reason = error instanceof Error ? error.message : String(error);
+      logger.warn("[transcribeRoutes] refused an audioUrl", {
+        reason: reason.replaceAll(request.audioUrl, "<url>"),
+      });
       throw new TranscribeRequestError(
-        `could not download audioUrl: ${error instanceof Error ? error.message : String(error)}`,
+        "audioUrl could not be fetched (it must be a public https URL, answer without a redirect and fit the size limit)",
         400,
         "VALIDATION_ERROR",
       );
@@ -306,12 +320,15 @@ function toTranscribeOptions(
   };
 }
 
-/** Status and code for an error thrown by `transcribe()` or by this file. */
-function classifyError(error: unknown): {
-  status: number;
-  code: string;
-  message: string;
-} {
+/**
+ * Status, code and the message the client may see for an error thrown by
+ * `transcribe()` or by this file. The exception's own text is passed through
+ * only when this file composed it or when it describes the request (an empty
+ * or malformed recording); a missing engine is named by category, never by
+ * the variable that would configure it, and anything else is reduced to a
+ * fixed message. The detail is logged by the caller.
+ */
+function classifyError(error: unknown): ServerClientFacingError {
   const message = error instanceof Error ? error.message : String(error);
   if (error instanceof TranscribeRequestError) {
     return { status: error.status, code: error.code, message };
@@ -320,10 +337,36 @@ function classifyError(error: unknown): {
     typeof error === "object" && error !== null && "code" in error
       ? String((error as { code?: unknown }).code)
       : undefined;
+  if (code === "STT_PROVIDER_NOT_CONFIGURED") {
+    return {
+      status: 503,
+      code: "PROVIDER_NOT_CONFIGURED",
+      message: PROVIDER_NOT_CONFIGURED_MESSAGE,
+    };
+  }
   if (code && CLIENT_ERROR_CODES.has(code)) {
     return { status: 400, code: "VALIDATION_ERROR", message };
   }
-  return { status: 500, code: "EXECUTION_FAILED", message };
+  const shaped = clientFacingError(error);
+  return shaped.status === 500
+    ? { ...shaped, code: "EXECUTION_FAILED" }
+    : shaped;
+}
+
+/** `classifyError` plus the server-side log the client-facing message leaves out. */
+function classifyAndLog(
+  ctx: ServerContext,
+  route: string,
+  error: unknown,
+): ServerClientFacingError {
+  const classified = classifyError(error);
+  logClientFacingError(
+    `transcribeRoutes ${route}`,
+    ctx.requestId,
+    error,
+    classified,
+  );
+  return classified;
 }
 
 async function runTranscription(
@@ -574,11 +617,7 @@ async function handleOpenAITranscription(
       toTranscribeOptions(parsed.data, audio, format, limit),
     );
   } catch (error) {
-    const classified = classifyError(error);
-    logger.warn("[transcribeRoutes] OpenAI-compatible transcription failed", {
-      requestId: ctx.requestId,
-      error: classified.message,
-    });
+    const classified = classifyAndLog(ctx, route, error);
     return openAIError(classified.status, classified.message);
   }
 
@@ -711,8 +750,18 @@ export function createTranscribeRoutes(
   const nativePath = `${basePath}/agent/transcribe`;
   const openaiPath = `${options.openaiBasePath ?? ""}/v1/audio/transcriptions`;
   const evalPath = `${options.openaiBasePath ?? ""}/v1/evals/stt`;
+  // The collector keeps every transcript it is sent and reads them back to
+  // whoever asks, so it is mounted only when the operator asks for it: an
+  // options object, or NEUROLINK_STT_EVAL_ENABLED=1. It used to be on by
+  // default.
   const evalStore =
-    options.evals === false ? undefined : new STTEvalStore(options.evals);
+    options.evals === false
+      ? undefined
+      : options.evals !== undefined
+        ? new STTEvalStore(options.evals)
+        : process.env.NEUROLINK_STT_EVAL_ENABLED?.trim() === "1"
+          ? new STTEvalStore()
+          : undefined;
 
   return {
     // Empty prefix: the two routes live under different roots, and every
@@ -744,7 +793,7 @@ export function createTranscribeRoutes(
               toTranscribeOptions(request, audio, format, limit),
             );
           } catch (error) {
-            const classified = classifyError(error);
+            const classified = classifyAndLog(ctx, nativePath, error);
             return createErrorResponse(
               classified.code,
               classified.message,
@@ -790,6 +839,12 @@ function createEvalRoutes(
   evalPath: string,
   store: STTEvalStore,
 ): RouteGroup["routes"] {
+  // A person the server identified owns the calls they post and sees only
+  // those; a shared key names no person, so its calls are visible to every
+  // holder, as before. The handler sees ctx.user only when the server carries
+  // middleware state (see ServerAdapterConfig.carryMiddlewareState).
+  const ownerOf = (ctx: ServerContext): string | undefined =>
+    ctx.user && ctx.user.shared !== true ? ctx.user.id : undefined;
   return [
     {
       method: "POST",
@@ -804,7 +859,17 @@ function createEvalRoutes(
           return validation.error;
         }
         const batch: ServerSTTEvalBatchRequest = validation.data;
-        return store.accept(batch);
+        const accepted = await store.accept(batch, ownerOf(ctx));
+        return (
+          accepted ??
+          createErrorResponse(
+            "FORBIDDEN",
+            "This call belongs to another caller",
+            undefined,
+            ctx.requestId,
+            403,
+          )
+        );
       },
       description:
         "Accept a batch of one call's segments from two STTs (primary shown, shadow for evaluation); a resent segment id replaces the earlier one",
@@ -813,7 +878,9 @@ function createEvalRoutes(
     {
       method: "GET",
       path: evalPath,
-      handler: async () => ({ calls: await store.list() }),
+      handler: async (ctx: ServerContext) => ({
+        calls: await store.list(ownerOf(ctx)),
+      }),
       description: "Calls collected for STT evaluation, most recent first",
       tags: ["transcribe", "evaluation"],
     },
@@ -827,6 +894,7 @@ function createEvalRoutes(
         const report = await store.report(
           callId,
           ctx.query.segments === "true",
+          ownerOf(ctx),
         );
         return (
           report ??

@@ -716,6 +716,55 @@ export default [
             // Everything comes from `src`; loopback fakes only. Its header
             // states the exception.
             "test/continuous-test-suite-observability-adv-providers.ts",
+            // What every case asserts is an absence: a loopback server that
+            // received no request, a redirect hop never taken, a file outside
+            // the roots never opened, a temp directory created 0o700. A live
+            // call cannot show any of that, and the hosts the loaders refuse
+            // must not exist on a runner. NeuroLink runs against a loopback
+            // OpenAI-compatible endpoint that records what it was sent.
+            // Everything comes from `src`. Its header states the exception.
+            "test/continuous-test-suite-security-ingestion.ts",
+            // Tool-layer hardening suite: a scripted stand-in that calls
+            // writeFile / executeBashCommand with chosen arguments on demand,
+            // hostile JSON Schemas fed to the converter and to the external
+            // MCP tool builder (`ToolsManager`, exported from no entry point)
+            // over a fake server list, two fake servers offering one tool
+            // name, and fixed payloads through `coerceJsonToSchema` and
+            // `InMemoryVectorStore`. Everything comes from `src`; loopback
+            // stand-ins only. Its header states the exception.
+            "test/continuous-test-suite-security-tools.ts",
+            // Working-directory trust suite (the working directory is not a trust boundary):
+            // import-time and cwd-time side effects — whether importing the
+            // SDK reads `<cwd>/.env`, whether `new NeuroLink()` in a
+            // directory with a hostile `.mcp-config.json` spawns anything,
+            // whether the CLI entry refuses before any server starts — that
+            // only a fresh `tsx` child with a controlled cwd and a fake HOME
+            // can show, before `dist/` is rebuilt. Loopback HTTP stand-ins,
+            // a stdio child that dumps its environment, no network, no key.
+            // Everything comes from `src`. Its header states the exception.
+            "test/continuous-test-suite-security-cwd-trust.ts",
+            // Server hardening suite (the HTTP server fails closed on the network):
+            // fixed loopback source addresses (127.0.0.1 against 127.0.0.2)
+            // and a scripted X-Forwarded-For rotation for the rate-limiter
+            // key, an exact count of WebSocket upgrades against a cap, a
+            // scripted session-secret handshake, a request made to outlive a
+            // 300 ms timeout, and a provider failure made certain by a child
+            // started with no credentials — inputs no live call produces on
+            // demand, all before `dist/` is rebuilt. Loopback only, no key,
+            // no stub. Everything comes from `src`. Its header states the
+            // exception.
+            "test/continuous-test-suite-security-server.ts",
+            // Proxy hardening suite (proxy inbound trust and the token store): a
+            // scripted upstream — a 400 from chatgpt.com and a 500 from
+            // api.anthropic.com on demand, the exact bytes the proxy put on
+            // the wire, a snapshot file planted with prompt text, a borrower
+            // whose grant exists only in a temp HOME, a legacy-codec token
+            // file written by hand — none of which a live call can produce
+            // on request, and all before `dist/` is rebuilt. The proxy is the
+            // real Hono app `neurolink proxy start` serves; the bind-policy
+            // cases drive the CLI entry in a child. No network, no key.
+            // Everything comes from `src`. Its header states the exception.
+            "test/continuous-test-suite-security-proxy.ts",
 
             // ---------------------------------------------------------------
             // Grandfathered when this rule was extended to cover deep `dist/`

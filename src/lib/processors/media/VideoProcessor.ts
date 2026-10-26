@@ -44,7 +44,6 @@
  * ```
  */
 
-import { randomUUID } from "crypto";
 import { createWriteStream, existsSync, promises as fs } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -182,6 +181,46 @@ async function loadSharp() {
 // =============================================================================
 // FFMPEG PATH INITIALIZATION
 // =============================================================================
+
+/**
+ * Extensions a caller-supplied filename may contribute to a temp file name.
+ * Anything else is replaced by the MIME-derived or `.mp4` default, so the
+ * suffix ffmpeg sees as a format hint is always one of ours.
+ */
+const ALLOWED_TEMP_VIDEO_EXTENSIONS: ReadonlySet<string> = new Set([
+  ".mp4",
+  ".m4v",
+  ".mkv",
+  ".mov",
+  ".webm",
+  ".avi",
+  ".wmv",
+  ".flv",
+  ".3gp",
+  ".3g2",
+  ".ts",
+  ".mts",
+  ".m2ts",
+  ".ogv",
+  ".ogg",
+  ".mpg",
+  ".mpeg",
+]);
+
+/**
+ * Input-side ffmpeg/ffprobe options applied to every invocation here.
+ *
+ * `-protocol_whitelist file,crypto,data` pins the demuxer to local files: a
+ * playlist or container that references `http://`, `concat:` or `subfile:`
+ * cannot make ffmpeg fetch or read anything else, whatever the installed
+ * build's defaults are. `-nostdin` keeps a child from ever waiting on a
+ * terminal.
+ */
+const FFMPEG_INPUT_HARDENING = [
+  "-nostdin",
+  "-protocol_whitelist",
+  "file,crypto,data",
+] as const;
 
 /**
  * Whether ffmpeg/ffprobe paths have been initialized.
@@ -437,8 +476,9 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
         // Ensure ffmpeg paths are initialized before any processing
         await initFfmpegPaths();
 
-        // Temp directory for this processing run
-        const tempDir = join(tmpdir(), `neurolink-video-${randomUUID()}`);
+        // Temp directory for this processing run — minted with mkdtemp
+        // (0o700) once there are bytes to write, see Step 3.
+        let tempDir = "";
         let tempCreated = false;
 
         try {
@@ -524,7 +564,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
           }
 
           // Step 3: Write buffer to temp file (ffmpeg needs a file path)
-          await fs.mkdir(tempDir, { recursive: true });
+          tempDir = await fs.mkdtemp(join(tmpdir(), "neurolink-video-"));
           tempCreated = true;
 
           const extension = this.getExtensionFromFileInfo(fileInfo);
@@ -737,17 +777,21 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
         });
       }, VIDEO_CONFIG.FFPROBE_TIMEOUT_MS);
 
-      ffmpeg.ffprobe(filePath, (err, data) => {
-        clearTimeout(timeoutId);
-        if (err) {
-          resolve({
-            success: false,
-            error: `ffprobe failed: ${err.message}`,
-          });
-        } else {
-          resolve({ success: true, data });
-        }
-      });
+      ffmpeg.ffprobe(
+        filePath,
+        ["-protocol_whitelist", "file,crypto,data"],
+        (err, data) => {
+          clearTimeout(timeoutId);
+          if (err) {
+            resolve({
+              success: false,
+              error: `ffprobe failed: ${err.message}`,
+            });
+          } else {
+            resolve({ success: true, data });
+          }
+        },
+      );
     });
   }
 
@@ -831,7 +875,17 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
     let exitFailure: string | undefined;
     try {
       const { stderr } = await runFfmpeg(
-        ["-hide_banner", "-i", filePath, "-t", "0", "-f", "null", "-"],
+        [
+          ...FFMPEG_INPUT_HARDENING,
+          "-hide_banner",
+          "-i",
+          filePath,
+          "-t",
+          "0",
+          "-f",
+          "null",
+          "-",
+        ],
         { timeoutMs: VIDEO_CONFIG.FFPROBE_TIMEOUT_MS },
       );
       report = stderr;
@@ -1134,6 +1188,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
     try {
       await runFfmpeg(
         [
+          ...FFMPEG_INPUT_HARDENING,
           "-y",
           "-v",
           "error",
@@ -1291,7 +1346,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
 
     // Extract frames using ffmpeg
     const framesDir = join(tempDir, "frames");
-    await fs.mkdir(framesDir, { recursive: true });
+    await fs.mkdir(framesDir, { recursive: true, mode: 0o700 });
 
     // The requested `timestamps` are an idealized, evenly-spaced schedule.
     // ffmpeg's `-vf select` only guarantees a MINIMUM gap since the last
@@ -1421,7 +1476,16 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
       const PTS_TIME_RE = /pts_time:\s*(-?\d+(?:\.\d+)?)/;
       const realTimestamps: number[] = [];
 
+      // Keep the command so the timeout can kill the child rather than only
+      // abandon it: a rejected promise used to leave ffmpeg running to
+      // completion on a file nobody would read.
+      const command = ff(videoPath).inputOptions([...FFMPEG_INPUT_HARDENING]);
       const timeoutId = setTimeout(() => {
+        try {
+          command.kill("SIGKILL");
+        } catch {
+          // Already exited.
+        }
         reject(
           new Error(
             `ffmpeg frame extraction timed out after ${VIDEO_CONFIG.FFMPEG_TIMEOUT_MS}ms`,
@@ -1429,7 +1493,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
         );
       }, VIDEO_CONFIG.FFMPEG_TIMEOUT_MS);
 
-      ff(videoPath)
+      command
         .outputOptions([
           "-vf",
           `select='${selectExpr}',showinfo,scale='min(${VIDEO_CONFIG.FRAME_MAX_DIMENSION}\\,iw):-2'`,
@@ -1507,7 +1571,15 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
 
     const ffSub = await loadFluentFfmpeg();
     await new Promise<void>((resolve, reject) => {
+      const command = ffSub(videoPath).inputOptions([
+        ...FFMPEG_INPUT_HARDENING,
+      ]);
       const timeoutId = setTimeout(() => {
+        try {
+          command.kill("SIGKILL");
+        } catch {
+          // Already exited.
+        }
         reject(
           new Error(
             `ffmpeg subtitle extraction timed out after ${VIDEO_CONFIG.FFMPEG_TIMEOUT_MS}ms`,
@@ -1515,7 +1587,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
         );
       }, VIDEO_CONFIG.FFMPEG_TIMEOUT_MS);
 
-      ffSub(videoPath)
+      command
         .outputOptions(["-map", "0:s:0", "-c:s", "srt"])
         .output(subtitlePath)
         .on("end", () => {
@@ -1723,7 +1795,13 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
     const name = fileInfo.name || "";
     const dotIndex = name.lastIndexOf(".");
     if (dotIndex >= 0) {
-      return name.substring(dotIndex).toLowerCase();
+      const fromName = name.substring(dotIndex).toLowerCase();
+      // The tail of a caller-supplied name becomes a temp file suffix that
+      // ffmpeg reads as a format hint; only extensions this processor knows
+      // are allowed through, anything else falls back to the MIME type.
+      if (ALLOWED_TEMP_VIDEO_EXTENSIONS.has(fromName)) {
+        return fromName;
+      }
     }
     // Fallback: derive from MIME type
     const mimeExtMap: Record<string, string> = {
@@ -1753,7 +1831,9 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
     filePath: string,
   ): Promise<void> {
     const readable = Readable.from(buffer);
-    const writable = createWriteStream(filePath);
+    // Owner-only, and never over an existing file: the directory is fresh
+    // from mkdtemp, so a path that already exists is something planted.
+    const writable = createWriteStream(filePath, { mode: 0o600, flags: "wx" });
     await pipeline(readable, writable);
   }
 
@@ -1784,10 +1864,10 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
   ): Promise<Buffer[]> {
     await initFfmpegPaths();
 
-    const tempDir = join(tmpdir(), `neurolink-video-extract-${randomUUID()}`);
+    const tempDir = await fs.mkdtemp(
+      join(tmpdir(), "neurolink-video-extract-"),
+    );
     try {
-      await fs.mkdir(tempDir, { recursive: true });
-
       // Write buffer to temp file
       const ext = this.guessExtensionFromName(filename);
       const tempVideoPath = join(tempDir, `input${ext}`);
@@ -1814,7 +1894,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
 
       // Extract frames
       const framesDir = join(tempDir, "frames");
-      await fs.mkdir(framesDir, { recursive: true });
+      await fs.mkdir(framesDir, { recursive: true, mode: 0o700 });
       await this.runFfmpegFrameExtraction(
         tempVideoPath,
         framesDir,
@@ -1864,7 +1944,10 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
   private guessExtensionFromName(filename: string): string {
     const dotIndex = filename.lastIndexOf(".");
     if (dotIndex >= 0) {
-      return filename.substring(dotIndex).toLowerCase();
+      const ext = filename.substring(dotIndex).toLowerCase();
+      if (ALLOWED_TEMP_VIDEO_EXTENSIONS.has(ext)) {
+        return ext;
+      }
     }
     return ".mp4";
   }

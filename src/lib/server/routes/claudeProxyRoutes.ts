@@ -133,6 +133,15 @@ import {
 } from "../../proxy/shareLease.js";
 import { forwardToPeer } from "../../proxy/peerTransport.js";
 import { getShareContext } from "../../proxy/shareContext.js";
+import {
+  authorizeInboundRequest,
+  inboundAuthRefusalResponse,
+  isInboundAuthExemptPath,
+  resolveInboundToken,
+  resolveMaxAccountsPerRequest,
+  secretsMatch,
+  warnIfProxyRoutesUnauthenticated,
+} from "../../proxy/inboundAuth.js";
 import { ProxyImageInputError } from "../../proxy/proxyImageInput.js";
 import { buildShareRefusal, extractShareToken } from "../../proxy/shareGate.js";
 import {
@@ -237,6 +246,7 @@ import type {
   DeferredClaudeAccountFailure,
   ClaudeSnapshot,
   ClaudeSnapshotBody,
+  ClaudeSnapshotBodyProbe,
   CodexFallbackResult,
   CodexReasoningEffort,
   InternalResult,
@@ -291,15 +301,94 @@ import { handleCodexResponsesRequest } from "./codexProxyRoutes.js";
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Headers that must never be forwarded upstream to Anthropic. */
-const BLOCKED_UPSTREAM_HEADERS = new Set([
-  "cookie",
-  "proxy-authorization",
-  "host",
-  "connection",
-  "content-length",
-  "transfer-encoding",
+/**
+ * Protocol headers a client may influence upstream. Everything else is dropped
+ * rather than forwarded: proxy-internal `x-neurolink-*` (a borrower's share
+ * token among them), trace context, CDN and forwarding identity, cookies and
+ * hop-by-hop headers. An allow-list because the blocklist it replaced leaked
+ * every header nobody had thought to name.
+ */
+const FORWARDABLE_UPSTREAM_HEADERS = new Set([
+  "accept",
+  "accept-encoding",
+  "accept-language",
+  "anthropic-beta",
+  "anthropic-dangerous-direct-browser-access",
+  "anthropic-version",
+  "content-type",
+  "sec-fetch-mode",
+  "user-agent",
+  "x-app",
+  "x-claude-code-session-id",
+  "x-subscription-tier",
 ]);
+const FORWARDABLE_UPSTREAM_HEADER_PREFIXES = ["x-stainless-"] as const;
+/** Set by the proxy on the pool path, forwarded only in passthrough mode. */
+const CLIENT_CREDENTIAL_HEADERS = new Set(["authorization", "x-api-key"]);
+
+function isForwardableUpstreamHeader(lowerName: string): boolean {
+  return (
+    FORWARDABLE_UPSTREAM_HEADERS.has(lowerName) ||
+    FORWARDABLE_UPSTREAM_HEADER_PREFIXES.some((prefix) =>
+      lowerName.startsWith(prefix),
+    )
+  );
+}
+
+/** The subset of client headers that may travel upstream, lower-cased. */
+function filterForwardableUpstreamHeaders(
+  headers: Record<string, string | undefined>,
+  options: { includeClientCredentials: boolean },
+): Record<string, string> {
+  const forwarded: Record<string, string> = {};
+  for (const [name, value] of Object.entries(headers)) {
+    if (typeof value !== "string" || value === "") {
+      continue;
+    }
+    const lower = name.toLowerCase();
+    if (
+      isForwardableUpstreamHeader(lower) ||
+      (options.includeClientCredentials && CLIENT_CREDENTIAL_HEADERS.has(lower))
+    ) {
+      forwarded[lower] = value;
+    }
+  }
+  return forwarded;
+}
+
+/**
+ * A request from Claude Code itself: both the session header and the CLI
+ * user-agent. The looser `isLikelyClaudeClient` still decides how a request's
+ * own `system` blocks are shaped, but nothing is persisted and no client-chosen
+ * identity is trusted on anything weaker than this.
+ */
+function isGenuineClaudeCodeClient(
+  headers: Record<string, string | undefined>,
+): boolean {
+  return (
+    typeof headers["x-claude-code-session-id"] === "string" &&
+    headers["x-claude-code-session-id"] !== "" &&
+    (headers["user-agent"]?.startsWith("claude-cli/") ?? false)
+  );
+}
+
+/**
+ * The only headers the Codex fallback leg inherits from a `/v1/messages`
+ * client: the ones the token-budget session key reads. Nothing else crosses
+ * engines, so a Claude client's fingerprint never reaches chatgpt.com.
+ */
+function pickClaudeFallbackHeaders(
+  headers: Record<string, string>,
+): Record<string, string> {
+  const picked: Record<string, string> = {};
+  for (const name of ["x-neurolink-session-id", "x-claude-code-session-id"]) {
+    const value = headers[name];
+    if (typeof value === "string" && value !== "") {
+      picked[name] = value;
+    }
+  }
+  return picked;
+}
 const PROXY_INTERNAL_ACCOUNT_LABEL = "proxy/internal";
 const PROXY_INTERNAL_ACCOUNT_TYPE = "internal";
 
@@ -3144,9 +3233,7 @@ function applySnapshotHeaders(
     if (
       typeof sv === "string" &&
       !headers[lower] &&
-      !BLOCKED_UPSTREAM_HEADERS.has(lower) &&
-      lower !== "authorization" &&
-      lower !== "x-api-key" &&
+      isForwardableUpstreamHeader(lower) &&
       lower !== "x-claude-code-session-id"
     ) {
       headers[lower] = sv;
@@ -3173,11 +3260,27 @@ async function loadClaudeSnapshot(
 
     const snapshot = JSON.parse(await readFile(snapshotPath, "utf8")) as
       | ClaudeSnapshot
-      | { headers?: Record<string, string>; body?: ClaudeSnapshotBody };
+      | {
+          headers?: Record<string, string>;
+          body?: ClaudeSnapshotBody & { agentBlock?: unknown };
+        };
     if (!snapshot || typeof snapshot !== "object") {
       return null;
     }
 
+    // Only a capture this code made — from a verified Claude Code client —
+    // may contribute an identity tuple. Anything older was written by a
+    // heuristic any caller could satisfy, so its body is dropped and the next
+    // genuine Claude Code request recaptures it.
+    const verifiedCapture =
+      "capturedFrom" in snapshot &&
+      snapshot.capturedFrom === "genuine-claude-code";
+    const { body: sanitizedBody, changed: bodyChanged } = verifiedCapture
+      ? sanitizeSnapshotBody(snapshot.body)
+      : {
+          body: undefined,
+          changed: Object.keys(snapshot.body ?? {}).length > 0,
+        };
     const normalized: ClaudeSnapshot = {
       accountKey:
         "accountKey" in snapshot && typeof snapshot.accountKey === "string"
@@ -3188,9 +3291,14 @@ async function loadClaudeSnapshot(
           ? snapshot.capturedAt
           : new Date(0).toISOString(),
       source: "claude-code",
+      ...(verifiedCapture ? { capturedFrom: "genuine-claude-code" } : {}),
       headers:
-        "headers" in snapshot && snapshot.headers ? snapshot.headers : {},
-      ...(snapshot.body ? { body: snapshot.body } : {}),
+        "headers" in snapshot && snapshot.headers
+          ? filterForwardableUpstreamHeaders(snapshot.headers, {
+              includeClientCredentials: false,
+            })
+          : {},
+      ...(sanitizedBody ? { body: sanitizedBody } : {}),
     };
     if (
       Object.keys(normalized.headers).length === 0 &&
@@ -3203,6 +3311,14 @@ async function loadClaudeSnapshot(
       snapshot: normalized,
       loadedAt: Date.now(),
     });
+    if (bodyChanged) {
+      // A file written by an earlier release may carry prompt text captured
+      // from an arbitrary client. Rewrite it without, so the poison is gone
+      // for the next process as well as this one.
+      void persistClaudeSnapshot(accountLabel, normalized).catch(() => {
+        // Best effort; the in-memory copy is already clean.
+      });
+    }
     return normalized;
   } catch {
     return null;
@@ -3219,9 +3335,7 @@ function buildSnapshotHeaders(
     if (
       typeof value === "string" &&
       SNAPSHOT_STABLE_HEADERS.has(lower) &&
-      !BLOCKED_UPSTREAM_HEADERS.has(lower) &&
-      lower !== "authorization" &&
-      lower !== "x-api-key" &&
+      isForwardableUpstreamHeader(lower) &&
       lower !== "x-claude-code-session-id"
     ) {
       merged[lower] = value;
@@ -3230,7 +3344,9 @@ function buildSnapshotHeaders(
   return merged;
 }
 
-function extractSnapshotBody(body: unknown): ClaudeSnapshotBody | undefined {
+function extractSnapshotBody(
+  body: unknown,
+): ClaudeSnapshotBodyProbe | undefined {
   if (!body || typeof body !== "object") {
     return undefined;
   }
@@ -3245,39 +3361,85 @@ function extractSnapshotBody(body: unknown): ClaudeSnapshotBody | undefined {
     : typeof parsed.system === "string"
       ? [{ type: "text", text: parsed.system }]
       : [];
-  const billingHeader = systemBlocks.find(
+  const rawBillingHeader = systemBlocks.find(
     (block) =>
       typeof block?.text === "string" &&
       block.text.includes("x-anthropic-billing-header"),
   )?.text;
-  const agentBlock = systemBlocks.find(
+  const hasAgentBlock = systemBlocks.some(
     (block) =>
       typeof block?.text === "string" &&
       block.text.includes("Claude Agent SDK"),
-  )?.text;
+  );
 
-  if (!identity && !billingHeader && !agentBlock) {
+  if (!identity && !rawBillingHeader && !hasAgentBlock) {
     return undefined;
   }
 
+  // Only the identity tuple, and the billing header reduced to the two
+  // fields the proxy re-emits. No prompt text from the body is ever kept.
   return {
     ...(identity ? { metadataUserId: identity.metadataUserId } : {}),
     ...(identity ? { sessionId: identity.sessionId } : {}),
-    ...(billingHeader ? { billingHeader } : {}),
-    ...(agentBlock ? { agentBlock } : {}),
+    ...(rawBillingHeader
+      ? { billingHeader: buildStableClaudeCodeBillingHeader(rawBillingHeader) }
+      : {}),
+    ...(hasAgentBlock ? { hasAgentBlock: true } : {}),
+  };
+}
+
+/**
+ * Drop anything a persisted snapshot body must no longer carry (an earlier
+ * release stored the client's agent-block prompt text) and normalise the rest.
+ */
+function sanitizeSnapshotBody(
+  body: (ClaudeSnapshotBody & { agentBlock?: unknown }) | undefined,
+): { body: ClaudeSnapshotBody | undefined; changed: boolean } {
+  if (!body || typeof body !== "object") {
+    return { body: undefined, changed: false };
+  }
+  const normalisedBilling =
+    typeof body.billingHeader === "string"
+      ? buildStableClaudeCodeBillingHeader(body.billingHeader)
+      : undefined;
+  const sanitized: ClaudeSnapshotBody = {
+    ...(typeof body.metadataUserId === "string"
+      ? { metadataUserId: body.metadataUserId }
+      : {}),
+    ...(normalisedBilling ? { billingHeader: normalisedBilling } : {}),
+    ...(typeof body.sessionId === "string"
+      ? { sessionId: body.sessionId }
+      : {}),
+  };
+  const changed =
+    "agentBlock" in body ||
+    (typeof body.billingHeader === "string" &&
+      body.billingHeader !== normalisedBilling) ||
+    Object.keys(body).some(
+      (key) =>
+        ![
+          "metadataUserId",
+          "billingHeader",
+          "sessionId",
+          "agentBlock",
+        ].includes(key),
+    );
+  return {
+    body: Object.keys(sanitized).length > 0 ? sanitized : undefined,
+    changed,
   };
 }
 
 function isLikelyClaudeClient(
   headers: Record<string, string>,
-  snapshotBody?: ClaudeSnapshotBody,
+  snapshotBody?: ClaudeSnapshotBodyProbe,
 ): boolean {
   return (
     typeof headers["x-claude-code-session-id"] === "string" ||
     headers["user-agent"]?.startsWith("claude-cli/") ||
     !!snapshotBody?.metadataUserId ||
     !!snapshotBody?.billingHeader ||
-    !!snapshotBody?.agentBlock
+    !!snapshotBody?.hasAgentBlock
   );
 }
 
@@ -3319,19 +3481,25 @@ async function maybeRefreshClaudeSnapshot(
     return existing;
   }
 
-  const body = extractSnapshotBody(parsedBody);
-  if (!isLikelyClaudeClient(headers, body)) {
+  // Capture only from Claude Code itself, and never from a borrowed request:
+  // whatever lands here is replayed on every later request for this account,
+  // so a body-shaped heuristic (a `system` block mentioning the Agent SDK, a
+  // well-formed `metadata.user_id`) let any caller write it.
+  if (getShareContext() || !isGenuineClaudeCodeClient(headers)) {
     return existing;
   }
+  const { hasAgentBlock: _hasAgentBlock, ...body } =
+    extractSnapshotBody(parsedBody) ?? {};
 
   const next: ClaudeSnapshot = {
     accountKey,
     capturedAt: new Date().toISOString(),
     source: "claude-code",
+    capturedFrom: "genuine-claude-code",
     headers: buildSnapshotHeaders(headers, existing?.headers),
     body: {
       ...(existing?.body ?? {}),
-      ...(body ?? {}),
+      ...body,
       ...(typeof headers["x-claude-code-session-id"] === "string"
         ? { sessionId: headers["x-claude-code-session-id"] }
         : {}),
@@ -3443,23 +3611,25 @@ function responseInfoFromStream(data: {
  * into the body.  Non-CC clients (Curator, custom apps) don't send these —
  * Anthropic rejects without them.
  */
+/** The agent identity block the OAuth path sends for non-Claude-Code clients.
+ *  A compiled-in constant: it is never taken from a request or a snapshot. */
+const CLAUDE_AGENT_SDK_SYSTEM_TEXT =
+  "You are a Claude agent, built on Anthropic's Claude Agent SDK.";
+
 function polyfillOAuthBody(
   bodyStr: string,
   accountToken: string,
   snapshot: ClaudeSnapshot | null,
   isClaudeClientRequest: boolean,
   preferredSessionId?: string,
+  trustClientIdentity: boolean = isClaudeClientRequest,
 ): { bodyStr: string; sessionId?: string } {
   try {
     const parsed = JSON.parse(bodyStr);
 
-    // Billing header block synthesized for clients that do not already provide
-    // the genuine Claude Code identity shape.
     const agentBlock = {
       type: "text",
-      text:
-        snapshot?.body?.agentBlock ||
-        "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+      text: CLAUDE_AGENT_SDK_SYSTEM_TEXT,
     };
 
     // Normalise system to an array, then route by client type.
@@ -3530,9 +3700,14 @@ function polyfillOAuthBody(
       0,
       Math.min(20, accountToken.length),
     );
+    // A client-chosen `metadata.user_id` is the device identity this account
+    // presents to Anthropic. Only Claude Code itself gets to pick it; anyone
+    // else inherits the identity derived from the token (or captured from a
+    // genuine Claude Code session on this account).
     const identity = getOrCreateClaudeCodeIdentity(tokenPrefix, {
-      existingUserId:
-        parsed.metadata?.user_id ?? snapshot?.body?.metadataUserId,
+      existingUserId: trustClientIdentity
+        ? (parsed.metadata?.user_id ?? snapshot?.body?.metadataUserId)
+        : snapshot?.body?.metadataUserId,
       preferredSessionId: preferredSessionId ?? snapshot?.body?.sessionId,
     });
     parsed.metadata = {
@@ -3767,12 +3942,11 @@ async function handleClaudePassthroughRequest(args: {
     clientRequestBody,
   );
   const toolCount = Array.isArray(body.tools) ? body.tools.length : 0;
-  const upstreamHeaders: Record<string, string> = {};
-  for (const [key, value] of Object.entries(ctx.headers)) {
-    if (!BLOCKED_UPSTREAM_HEADERS.has(key.toLowerCase()) && value) {
-      upstreamHeaders[key] = value;
-    }
-  }
+  // Passthrough relays the caller's own credential, so authorization and
+  // x-api-key travel here; the protocol allow-list bounds everything else.
+  const upstreamHeaders = filterForwardableUpstreamHeaders(ctx.headers, {
+    includeClientCredentials: true,
+  });
   if (!upstreamHeaders["content-type"]) {
     upstreamHeaders["content-type"] = "application/json";
   }
@@ -4944,23 +5118,6 @@ async function recordReportedResidentSpend(
 }
 
 /**
- * Compare a presented secret against the stored one without leaking where they
- * diverge. Hand-rolled rather than `crypto.timingSafeEqual` for the same reason
- * as `shareGrants.digestsMatch`: this module is reachable from a build whose
- * `node:crypto` stub does not carry it.
- */
-function secretsMatch(expected: string, presented: string): boolean {
-  if (expected.length !== presented.length || expected.length === 0) {
-    return false;
-  }
-  let difference = 0;
-  for (let index = 0; index < expected.length; index += 1) {
-    difference |= expected.charCodeAt(index) ^ presented.charCodeAt(index);
-  }
-  return difference === 0;
-}
-
-/**
  * Peer wire protocol version. Bumped when a borrower would misread an older
  * node's answers — not when a field is added, which every version tolerates.
  */
@@ -5722,7 +5879,7 @@ async function executeClaudeCodexFallback(args: {
     method: "POST",
     path: "/backend-api/codex/responses",
     headers: {
-      ...ctx.headers,
+      ...pickClaudeFallbackHeaders(ctx.headers),
       "content-type": "application/json",
       accept: "text/event-stream",
     },
@@ -6693,11 +6850,15 @@ function buildEntitlementErrorMessage(
 ): string {
   const count = new Set(failure.accounts).size;
   const code = failure.errorCode ? ` (${failure.errorCode})` : "";
+  // A borrower is told how many accounts, never which: the labels are the
+  // lender's email addresses.
+  const accounts = getShareContext()
+    ? `${count} pooled account${count === 1 ? "" : "s"} (identity withheld for borrowed requests)`
+    : joinAccountLabels(failure.accounts);
   return (
     `All ${count} Anthropic account${count === 1 ? "" : "s"} are blocked by an ` +
-    `organization entitlement policy${code}. Accounts: ${joinAccountLabels(
-      failure.accounts,
-    )}. Upstream: "${failure.message}". Ask an organization admin to re-enable ` +
+    `organization entitlement policy${code}. Accounts: ${accounts}. ` +
+    `Upstream: "${failure.message}". Ask an organization admin to re-enable ` +
     `Claude Code OAuth access, then run: neurolink auth enable anthropic:<account>.`
   );
 }
@@ -8912,6 +9073,7 @@ async function handleAnthropicNonOkResponse(args: {
   } | null;
   entitlementFailure: AnthropicEntitlementFailure | null;
   allowConfiguredModelFallback?: boolean;
+  clientSuppliedBetaForwarded?: boolean;
 }): Promise<AnthropicNonOkResult> {
   const {
     response,
@@ -8919,6 +9081,7 @@ async function handleAnthropicNonOkResponse(args: {
     accountState,
     enabledAccounts,
     orderedAccounts,
+    clientSuppliedBetaForwarded = false,
     tracer,
     requestStartTime,
     fetchStartMs,
@@ -8986,12 +9149,16 @@ async function handleAnthropicNonOkResponse(args: {
       tracer?.recordRetry(account.label, "beta_unavailable");
       // A tier's lack of a beta is stable, not transient — advance the
       // fill-first primary pointer (like the auth/rate-limit rotation paths) so
-      // this account stops being retried first on every future request.
-      advancePrimaryIfCurrent(
-        account.key,
-        enabledAccounts.length,
-        orderedAccounts[0]?.key,
-      );
+      // this account stops being retried first on every future request. Not
+      // when the rejected beta was the client's own addition: one caller must
+      // not be able to re-rank the pool for everyone by naming a beta.
+      if (!clientSuppliedBetaForwarded) {
+        advancePrimaryIfCurrent(
+          account.key,
+          enabledAccounts.length,
+          orderedAccounts[0]?.key,
+        );
+      }
       currentLastError = summarizeErrorMessage(errBody);
       return {
         continueLoop: true,
@@ -9821,9 +9988,10 @@ async function prepareAnthropicAccountAttempt(args: {
   const filteredHeaders: Record<string, string> = {};
   for (const [k, v] of Object.entries(clientHeaders)) {
     if (typeof v === "string") {
-      filteredHeaders[k] = v;
+      filteredHeaders[k.toLowerCase()] = v;
     }
   }
+  const genuineClaudeCode = isGenuineClaudeCodeClient(filteredHeaders);
   const snapshot = isOAuth
     ? await maybeRefreshClaudeSnapshot(
         account.label,
@@ -9832,16 +10000,11 @@ async function prepareAnthropicAccountAttempt(args: {
         bodyStr,
       )
     : null;
-  const headers: Record<string, string> = {};
-  for (const [headerKey, headerValue] of Object.entries(clientHeaders)) {
-    const lower = headerKey.toLowerCase();
-    if (
-      typeof headerValue === "string" &&
-      !BLOCKED_UPSTREAM_HEADERS.has(lower)
-    ) {
-      headers[lower] = headerValue;
-    }
-  }
+  // Pool credentials replace the client's, so its authorization/x-api-key
+  // never travel; the allow-list bounds everything else.
+  const headers = filterForwardableUpstreamHeaders(clientHeaders, {
+    includeClientCredentials: false,
+  });
 
   headers["content-type"] = "application/json";
   if (isOAuth) {
@@ -9869,19 +10032,31 @@ async function prepareAnthropicAccountAttempt(args: {
     headers.accept = "application/json";
   }
 
+  let clientSuppliedBetaForwarded = false;
   if (isOAuth) {
-    const betaSeed = isClaudeClientRequest
-      ? (headers["anthropic-beta"] ?? "")
-      : (clientHeaders["anthropic-beta"] ?? "");
-    const existing = new Set(
-      betaSeed
-        .split(",")
-        .map((value: string) => value.trim())
-        .filter(Boolean),
-    );
-    for (const beta of isClaudeClientRequest
+    const proxyBetas: readonly string[] = isClaudeClientRequest
       ? CLAUDE_CODE_OAUTH_BETAS
-      : NON_CLAUDE_OAUTH_BETAS) {
+      : NON_CLAUDE_OAUTH_BETAS;
+    const knownBetas = new Set<string>([
+      ...CLAUDE_CODE_OAUTH_BETAS,
+      ...NON_CLAUDE_OAUTH_BETAS,
+    ]);
+    const clientBetas = (headers["anthropic-beta"] ?? "")
+      .split(",")
+      .map((value: string) => value.trim())
+      .filter(Boolean);
+    // A beta the pool's tier lacks turns one request into one upstream request
+    // per account, so only Claude Code itself may add betas the proxy would
+    // not send; everyone else is held to the proxy's own set.
+    const existing = new Set<string>(
+      genuineClaudeCode
+        ? clientBetas
+        : clientBetas.filter((beta) => knownBetas.has(beta)),
+    );
+    clientSuppliedBetaForwarded = [...existing].some(
+      (beta) => !proxyBetas.includes(beta),
+    );
+    for (const beta of proxyBetas) {
       existing.add(beta);
     }
     headers["anthropic-beta"] = [...existing].join(",");
@@ -9909,6 +10084,7 @@ async function prepareAnthropicAccountAttempt(args: {
           snapshot,
           isClaudeClientRequest,
           headers["x-claude-code-session-id"],
+          genuineClaudeCode,
         )
       : { bodyStr };
     return { ...built, ...prepareAnthropicWire(ctx, built.bodyStr) };
@@ -9942,6 +10118,7 @@ async function prepareAnthropicAccountAttempt(args: {
     lastError,
     authFailureMessage,
     headers,
+    clientSuppliedBetaForwarded,
     buildUpstreamBody,
     finalBodyStr,
     preparedContext: polyfilledBody.preparedContext,
@@ -10579,6 +10756,16 @@ async function handleAnthropicRoutedClaudeRequest(args: {
       );
     }
 
+    // One inbound request may fan out to at most this many accounts. Without
+    // the cap any rotation trigger multiplied one request by the pool size.
+    const maxAccountsPerRequest = resolveMaxAccountsPerRequest();
+    if (effectiveAccounts.length > maxAccountsPerRequest) {
+      logger.debug(
+        `[proxy] capping account fan-out at ${maxAccountsPerRequest} of ${effectiveAccounts.length} eligible accounts`,
+      );
+      effectiveAccounts = effectiveAccounts.slice(0, maxAccountsPerRequest);
+    }
+
     accountLoop: for (const [
       accountIndex,
       account,
@@ -10953,6 +11140,8 @@ async function handleAnthropicRoutedClaudeRequest(args: {
               invalidRequestFailure: loopState.invalidRequestFailure,
               entitlementFailure: loopState.entitlementFailure,
               allowConfiguredModelFallback: hasConfiguredFallback,
+              clientSuppliedBetaForwarded:
+                preparedAttempt.clientSuppliedBetaForwarded ?? false,
             });
             loopState.lastError = nonOkResult.lastError;
             loopState.authFailureMessage = nonOkResult.authFailureMessage;
@@ -11219,11 +11408,44 @@ async function handleAnthropicRoutedClaudeRequest(args: {
 function isClaudeProxyRouteRuntimeOptions(
   value: AccountAllowlist | ClaudeProxyRouteRuntimeOptions | undefined,
 ): value is ClaudeProxyRouteRuntimeOptions {
+  // The allowlist is a Set; the options bag is a plain object that may carry
+  // only `inboundAuth`, so presence of the provider is no longer the tell.
   return (
-    value !== undefined &&
-    "runtimeConfigProvider" in value &&
-    typeof value.runtimeConfigProvider === "function"
+    value !== undefined && typeof value === "object" && !(value instanceof Set)
   );
+}
+
+/**
+ * Require the inbound token on every route of a group that is not
+ * self-authenticating. The refusal is a `Response` so every adapter — the CLI
+ * listener and the SDK server adapters alike — passes it through unchanged.
+ */
+function guardRouteGroupWithInboundAuth(
+  group: RouteGroup,
+  basePath: string,
+  token: string | undefined,
+): RouteGroup {
+  if (!token) {
+    return group;
+  }
+  return {
+    ...group,
+    routes: group.routes.map((route) => {
+      if (isInboundAuthExemptPath(route.path.slice(basePath.length))) {
+        return route;
+      }
+      return {
+        ...route,
+        handler: async (ctx: ServerContext) => {
+          const verdict = authorizeInboundRequest(ctx.headers, token);
+          if (!verdict.ok) {
+            return inboundAuthRefusalResponse();
+          }
+          return route.handler(ctx);
+        },
+      };
+    }),
+  };
 }
 
 function buildEarlyClaudeRequestError(args: {
@@ -11349,7 +11571,14 @@ export function createClaudeProxyRoutes(
   )
     ? accountAllowlistOrRuntimeOptions.runtimeConfigProvider
     : undefined;
-  return {
+  const inboundAuth = isClaudeProxyRouteRuntimeOptions(
+    accountAllowlistOrRuntimeOptions,
+  )
+    ? accountAllowlistOrRuntimeOptions.inboundAuth
+    : undefined;
+  const inboundToken = resolveInboundToken(inboundAuth?.token);
+  warnIfProxyRoutesUnauthenticated("Claude", inboundAuth, inboundToken);
+  const group: RouteGroup = {
     prefix: `${basePath}/v1`,
     routes: [
       // =====================================================================
@@ -12151,6 +12380,17 @@ export function createClaudeProxyRoutes(
         method: "GET",
         path: `${basePath}/accounts`,
         handler: async (ctx: ServerContext) => {
+          // Operator-only, exactly as `/limits`: every row names an account —
+          // an email for an OAuth account — with its quota and spend, and a
+          // live refresh drives usage-API calls under the lender's tokens.
+          if (getShareContext()) {
+            return buildShareRefusal("no_capacity", {
+              status: 403,
+              message:
+                "This proxy does not expose its account inventory to peers. " +
+                "Use GET /peer/limits for what your grant may still do.",
+            }).body;
+          }
           const routing = runtimeConfigProvider?.();
           const effectiveAllowlist =
             routing?.accountAllowlist ?? accountAllowlist;
@@ -12412,6 +12652,7 @@ export function createClaudeProxyRoutes(
       },
     ],
   };
+  return guardRouteGroupWithInboundAuth(group, basePath, inboundToken);
 }
 
 // ---------------------------------------------------------------------------
@@ -12546,8 +12787,12 @@ async function clearAuthCooldownAfterRefresh(
 }
 
 function formatReauthMessage(labels: string | string[]): string {
-  const value = Array.isArray(labels) ? labels.join(", ") : labels;
-  return `Account(s) require re-authentication: ${value}. Run: neurolink auth login anthropic --method oauth`;
+  const list = Array.isArray(labels) ? labels : [labels];
+  if (getShareContext()) {
+    const count = new Set(list).size;
+    return `Account(s) require re-authentication: ${count} pooled account${count === 1 ? "" : "s"} (identity withheld for borrowed requests). Ask the lender to run: neurolink auth login anthropic --method oauth`;
+  }
+  return `Account(s) require re-authentication: ${list.join(", ")}. Run: neurolink auth login anthropic --method oauth`;
 }
 
 function summarizeErrorMessage(
@@ -13069,6 +13314,8 @@ export const __testHooks = {
       bodyStr,
       "test-account-token",
       null,
+      isClaudeClientRequest,
+      undefined,
       isClaudeClientRequest,
     ),
   // Pins the sessionId path loadClaudeProxyAccounts resolves ahead of

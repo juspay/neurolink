@@ -287,6 +287,13 @@ Create `.mcp-config.json` in your project root:
 }
 ```
 
+The file is loaded only on an explicit decision, because it names commands to run:
+
+- **SDK**: `new NeuroLink({ mcp: { configPath: "./.mcp-config.json" } })`, or `mcp: { trustProjectConfig: true }` to load the working directory's file. Nothing is read from the working directory otherwise.
+- **CLI**: the file is discovered, then trusted by hash — interactively with a prompt, or with `--trust-mcp-config` / `NEUROLINK_TRUST_MCP_CONFIG=1`; `NEUROLINK_TRUST_MCP_CONFIG=0` runs without it. Accepted hashes live in `~/.neurolink/trusted-mcp-configs.json`.
+
+Per-server options added for this: `inheritParentEnv` (stdio; default `false` — the server gets a minimal environment plus `env`, use `"env": { "X": "${X}" }` to pass a variable through) and `allowPrivateNetwork` (network transports; default `false` — TLS is required for non-loopback hosts and private addresses are refused). `${VAR}` expands in `env` and `args` only. See [MCP Integration](/docs/mcp/integration) for the full rules.
+
 #### **HTTP Transport Configuration**
 
 For remote MCP servers, use HTTP transport with authentication, retry, and rate limiting:

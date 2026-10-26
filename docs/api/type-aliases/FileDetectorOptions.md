@@ -44,6 +44,17 @@ filesystem access; SDK callers loading their own files can omit it.
 
 ---
 
+### attachmentPolicy?
+
+> `optional` **attachmentPolicy?**: [`AttachmentPolicy`](AttachmentPolicy.md)
+
+Instance attachment policy: `allowedRoots` containment (when
+`allowedBaseDir` is not set), the URL rules (HTTPS-only, public hosts,
+re-validated redirects) and the global size cap. The environment-derived
+default applies when absent.
+
+---
+
 ### audioOptions?
 
 > `optional` **audioOptions?**: [`AudioProcessorOptions`](AudioProcessorOptions.md)

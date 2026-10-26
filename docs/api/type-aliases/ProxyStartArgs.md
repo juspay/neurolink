@@ -77,3 +77,19 @@ Gate-only listener port. Defaults to `port + 1`.
 ### dev?
 
 > `optional` **dev?**: `boolean`
+
+---
+
+### inboundToken?
+
+> `optional` **inboundToken?**: `string`
+
+Bearer every inbound caller must present; also `NEUROLINK_PROXY_INBOUND_TOKEN`.
+
+---
+
+### allowUnauthenticated?
+
+> `optional` **allowUnauthenticated?**: `boolean`
+
+Operator's explicit choice to bind off-loopback with no inbound auth.

@@ -85,19 +85,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup PNPM
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.28.2
-
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "pnpm"
 
       # ffmpeg is deliberately NOT installed in this workflow. Nothing these
@@ -118,6 +115,29 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # The gate's secret scan is gitleaks, and under CI=true
+      # scripts/security-check.ts FAILS when the binary is absent instead of
+      # degrading to its four-regex fallback — which is what every CI run had
+      # silently done, since the runners never had gitleaks. Pinned release,
+      # checksum verified against the published checksums file before anything
+      # from the archive is executed. Bump both values together.
+      - name: Install gitleaks (pinned, sha256-verified)
+        if: matrix.group == 'validate'
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+          GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+        run: |
+          set -euo pipefail
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL --retry 3 --proto '=https' --tlsv1.2 \
+            -o "${RUNNER_TEMP}/${archive}" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          echo "${GITLEAKS_SHA256}  ${RUNNER_TEMP}/${archive}" | sha256sum --check --strict
+          mkdir -p "${RUNNER_TEMP}/gitleaks"
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}/gitleaks" gitleaks
+          echo "${RUNNER_TEMP}/gitleaks" >> "$GITHUB_PATH"
+          "${RUNNER_TEMP}/gitleaks/gitleaks" version
 
       - name: 🔄 SvelteKit Sync
         run: |
@@ -264,7 +284,7 @@ jobs:
       - name: Restore built dist
         id: dist-cache
         if: matrix.group == 'types'
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: dist
           key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
@@ -363,19 +383,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup PNPM
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.28.2
-
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "pnpm"
 
       - name: Install dependencies
@@ -394,7 +411,7 @@ jobs:
       # exact hash miss just rebuilds, which costs what it costs today.
       - name: Restore built dist
         id: dist-cache
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: dist
           key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
@@ -571,7 +588,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # This job runs on pull_request and executes code from the checkout.
           # actions/checkout persists GITHUB_TOKEN in .git/config by default and
@@ -579,14 +596,11 @@ jobs:
           persist-credentials: false
 
       - name: Setup PNPM
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.28.2
-
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "pnpm"
 
       - name: Install dependencies
@@ -605,7 +619,7 @@ jobs:
       # exact hash miss just rebuilds, which costs what it costs today.
       - name: Restore built dist
         id: dist-cache
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: dist
           key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
@@ -680,6 +694,32 @@ jobs:
       # local servers and spawns child node processes, so it ran first in the
       # non-blocking extended-suites job, where all 34 assertions passed with
       # none skipped in about 8s (run 39021843790). It gates merges from here.
+      # The 2026-10 security audit's regression suites. Each one fails on the
+      # code it was written against (a deliberately broken assertion reports ✗,
+      # not ⊘) and none of them needs a provider key:
+      #   cwd-trust       a hostile .mcp-config.json / .env in the working
+      #                   directory spawns nothing and redirects no key
+      #   server          non-loopback bind without a key refuses to start;
+      #                   tool/MCP routes 401 with one; no error text leaks env
+      #   proxy           header-snapshot poisoning, header passthrough,
+      #                   borrower isolation, upstream fan-out caps
+      #   tools           HITL fires for built-in write/bash tools; hostile
+      #                   remote schemas are not evaluated
+      #   ingestion       every caller-supplied URL goes through the SSRF guard;
+      #                   path loaders honour roots
+      #   supply-chain    SHA-pinned actions, exact Node, digest-pinned image,
+      #                   exact dependency pins, action-dist == fresh build,
+      #                   the dependency gate's accepted-risk table vs the live
+      #                   audit, no APPROVE from the AI reviewer
+      - name: Security hardening suites (2026-10 audit regressions)
+        run: |
+          pnpm run test:security:cwd-trust
+          pnpm run test:security:server
+          pnpm run test:security:proxy
+          pnpm run test:security:tools
+          pnpm run test:security:ingestion
+          pnpm run test:security:supply-chain
+
       - name: Credential-free suites (the rest of test:unit)
         run: |
           pnpm run test:bugfixes
@@ -723,64 +763,11 @@ jobs:
           pnpm run test:package-declarations
           pnpm run test:realtime-voice
 
-  # action-smoke-test:
-  #   name: GitHub Action Smoke Test
-  #   runs-on: ubuntu-latest
-  #   needs: [test]
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-
-  #     - name: Setup PNPM
-  #       uses: pnpm/action-setup@v4
-  #       with:
-  #         version: 10.28.2
-
-  #     - name: Setup Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: "20"
-  #         cache: "pnpm"
-
-  #     - name: Install dependencies
-  #       run: pnpm install
-
-  #     - name: SvelteKit Sync
-  #       run: pnpm exec svelte-kit sync
-
-  #     - name: Build GitHub Action
-  #       run: pnpm run build:action
-
-  #     - name: Test NeuroLink Action
-  #       id: neurolink
-  #       uses: ./
-  #       with:
-  #         prompt: "Respond with exactly: Hello from smoke test"
-  #         provider: google-ai
-  #         google_ai_api_key: ${{ secrets.GOOGLE_AI_API_KEY }}
-  #         max_tokens: "20"
-  #         temperature: "0"
-  #         debug: "true"
-
-  #     - name: Verify response
-  #       env:
-  #         RESPONSE: ${{ steps.neurolink.outputs.response }}
-  #         PROVIDER: ${{ steps.neurolink.outputs.provider }}
-  #       run: |
-  #         echo "Response: $RESPONSE"
-  #         echo "Provider: $PROVIDER"
-
-  #         if [ -z "$RESPONSE" ]; then
-  #           echo "ERROR: No response received"
-  #           exit 1
-  #         fi
-
-  #         if [ -z "$PROVIDER" ]; then
-  #           echo "ERROR: Provider not reported"
-  #           exit 1
-  #         fi
-
-  #         echo "✅ Action smoke test passed!"
+  # There is deliberately no action smoke-test job here. The one that used to
+  # sit in this file (commented out) ran the action against a live provider key
+  # on every pull request, which is a credential a PR must not be able to spend;
+  # the bundle is gated instead by the build-check step above, which rebuilds
+  # action-dist/ and fails on any difference.
 
   # Builds with a full install, prunes optionalDependencies, then runs the
   # built CLI against the pruned tree.
@@ -811,19 +798,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup PNPM
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.28.2
-
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "pnpm"
 
       # Build with a FULL install, then prune. The previous order installed
@@ -862,7 +846,7 @@ jobs:
       # exact hash miss just rebuilds, which costs what it costs today.
       - name: Restore built dist
         id: dist-cache
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: dist
           key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
@@ -905,23 +889,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup PNPM
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.28.2
-
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "pnpm"
 
       - name: Install dependencies
-        run: pnpm i
+        run: pnpm install --frozen-lockfile
 
       - name: 🔄 SvelteKit Sync
         run: |
@@ -935,6 +916,30 @@ jobs:
         run: |
           pnpm pack
           ls -la dist/
+
+      # The GitHub Action consumers run is the COMMITTED action-dist/ bundle
+      # (action.yml `runs.main`), not anything built at release time: nothing
+      # commits the release job's build, and `linguist-generated` used to
+      # collapse the 1.4 MB file in every pull request diff. So the bundle was
+      # unverifiable — 1,342 lines of drift from source went unnoticed. ncc is
+      # deterministic for a given source tree and lockfile (verified: two builds
+      # byte-identical), so a rebuild that differs means someone changed the
+      # source, the lockfile or the bundle without the others. build-check is a
+      # required context, so this cannot be merged around.
+      - name: GitHub Action bundle is current (action-dist/ == fresh build)
+        run: |
+          set -euo pipefail
+          pnpm run build:action
+          if ! git diff --exit-code --stat -- action-dist/; then
+            echo "::error::action-dist/ does not match a fresh \`pnpm run build:action\`. Rebuild and commit the bundle with the source change (or the lockfile change) that produced it."
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain -- action-dist/)" ]; then
+            echo "::error::\`pnpm run build:action\` produced files that are not committed under action-dist/."
+            git status --porcelain -- action-dist/
+            exit 1
+          fi
+          echo "action-dist/ matches a fresh build."
 
   # Deliberately NOT a required status check. These suites are new and this job
   # exists so a regression in them is visible, not so it can block a merge on
@@ -974,19 +979,16 @@ jobs:
     name: Extended Suites (non-blocking) ${{ matrix.shard }}/4
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup PNPM
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.28.2
-
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "pnpm"
 
       - name: Install dependencies
@@ -1005,7 +1007,7 @@ jobs:
       # exact hash miss just rebuilds, which costs what it costs today.
       - name: Restore built dist
         id: dist-cache
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: dist
           key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
@@ -1372,19 +1374,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup PNPM
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.28.2
-
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "pnpm"
 
       - name: Install dependencies
@@ -1398,23 +1397,42 @@ jobs:
     name: 🛡️ Code Quality & Security Gate
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup PNPM
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.28.2
-
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "pnpm"
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
+
+      # The gate's secret scan is gitleaks, and under CI=true
+      # scripts/security-check.ts FAILS when the binary is absent instead of
+      # degrading to its four-regex fallback — which is what every CI run had
+      # silently done, since the runners never had gitleaks. Pinned release,
+      # checksum verified against the published checksums file before anything
+      # from the archive is executed. Bump both values together.
+      - name: Install gitleaks (pinned, sha256-verified)
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+          GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+        run: |
+          set -euo pipefail
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL --retry 3 --proto '=https' --tlsv1.2 \
+            -o "${RUNNER_TEMP}/${archive}" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          echo "${GITLEAKS_SHA256}  ${RUNNER_TEMP}/${archive}" | sha256sum --check --strict
+          mkdir -p "${RUNNER_TEMP}/gitleaks"
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}/gitleaks" gitleaks
+          echo "${RUNNER_TEMP}/gitleaks" >> "$GITHUB_PATH"
+          "${RUNNER_TEMP}/gitleaks/gitleaks" version
 
       - name: 🔄 SvelteKit Sync
         run: |
@@ -1576,39 +1594,39 @@ jobs:
   semantic-release-validation:
     runs-on: ubuntu-latest
     needs: [test, build-check, proxy-performance]
+    # Push to release only. On pull_request semantic-release returns early
+    # ("triggered by a pull request and therefore a new version won't be
+    # published"), so the job proved nothing there — while holding a
+    # `contents: write` token in .git/config during a `pnpm install` of the
+    # pull request's dependency tree. The trigger that exercises verifyAuth is
+    # the one a PR does not use, so nothing is lost by not running it on PRs.
+    if: github.event_name == 'push'
     # The one documented exception to the workflow-level `contents: read`.
     #
     # semantic-release calls verifyAuth() unconditionally — index.js:88, NOT
     # guarded by dryRun — which runs `git push --dry-run` and therefore needs
-    # push permission. On pull_request it never gets that far: index.js:60
-    # returns early with "triggered by a pull request and therefore a new
-    # version won't be published". ci.yml also runs on push to release, where
-    # that early return does not apply and verifyAuth does execute.
-    #
-    # So a PR can never demonstrate this failure — the trigger that exercises
-    # it is the one a PR does not use. Caught in review on #1552 rather than by
-    # its own green run.
+    # push permission. The token is handed to that one step through env (the
+    # GITHUB_TOKEN semantic-release reads), not persisted into .git/config for
+    # the install that precedes it.
     permissions:
       contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup PNPM
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.28.2
-
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: "pnpm"
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Validate semantic-release configuration
         run: |

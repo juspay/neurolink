@@ -261,9 +261,60 @@ External MCP servers are configured in `.mcp-config.json`:
 }
 ```
 
+### **Who loads `.mcp-config.json`, and when**
+
+A project config names commands to run and URLs to connect to, so **a directory is not a trust boundary**: a cloned repository's `.mcp-config.json` must not run its servers with your credentials just because you ran something inside it.
+
+**SDK.** `new NeuroLink()` never reads the working directory's file on its own. Name the file, or opt into the directory, in the constructor:
+
+```typescript
+// Load a specific file (relative paths resolve against the working directory)
+const neurolink = new NeuroLink({
+  mcp: { configPath: "./config/mcp-servers.json" },
+});
+
+// Load <cwd>/.mcp-config.json — only for a directory you control
+const trusted = new NeuroLink({ mcp: { trustProjectConfig: true } });
+```
+
+Servers added with `addExternalMCPServer()` / `addInMemoryMCPServer()` are unaffected. The legacy `ProviderRegistry.setOptions({ enableManualMCP: true })` switch is now honoured too: set after construction, it re-enables the old working-directory discovery for that process.
+
+**CLI.** `neurolink` still discovers `./.mcp-config.json`, but loads it only after you have trusted that exact content. The file's SHA-256 is recorded in `~/.neurolink/trusted-mcp-configs.json` (`0600`, directory `0700`); a file that changes has to be trusted again.
+
+- In a terminal, the first tool-enabled command shows the servers (names, commands, URLs, `env` key names — never values) and asks `Trust this file and start these servers? [y/N]`.
+- Non-interactively (CI, pipes), an untrusted file is refused with exit status 1 at the moment it would load, with the same summary. Decide with one of:
+  - `neurolink generate "…" --trust-mcp-config` or `NEUROLINK_TRUST_MCP_CONFIG=1` — trust and record the hash;
+  - `NEUROLINK_TRUST_MCP_CONFIG=0` — run without the project config;
+  - `--disable-tools` — no MCP server is needed.
+- `neurolink --help`, `--version`, and any command that never initialises MCP are not affected.
+
+### **`${VAR}` references**
+
+`${NAME}` in a server's **`env`** and **`args`** is replaced with `process.env.NAME`. Only names matching `^[A-Z][A-Z0-9_]*$` are expanded; anything else is left as written. `${NAME}` is **never** expanded in `headers` or `url` — those values travel to a remote host, so a reference there would send the variable's value off the machine. A `${…}` left in a header is sent literally and logged as a warning.
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}" }
+    }
+  }
+}
+```
+
+### **What a stdio server inherits**
+
+A spawned server receives the MCP SDK's minimal default environment (`HOME`, `PATH`, `SHELL`, `TERM`, `USER`, `LOGNAME` on POSIX) plus its own `env`. It no longer receives the whole parent `process.env`, so provider keys and OAuth tokens held by the host do not reach an `npx -y …` server unless you pass them through: `"env": { "OPENAI_API_KEY": "${OPENAI_API_KEY}" }`. A server that genuinely needs everything can set `"inheritParentEnv": true`.
+
+### **Transport URLs**
+
+For `http`, `sse` and `websocket` servers the URL must use `https:` / `wss:` unless the host is loopback (`localhost`, `127.0.0.0/8`, `::1`), and the host must not be — or resolve to — a private, link-local, CGNAT or cloud-metadata address. A server on your own network opts out per entry with `"allowPrivateNetwork": true`, which also permits plaintext `http:` / `ws:` to private addresses; public hosts always need TLS. The WebSocket transport cannot send `headers` or `auth` (the handshake carries none), so a WebSocket server configured with either fails to connect instead of connecting unauthenticated — use `http` or `sse` for authenticated servers.
+
 ### **Environment Variables**
 
-Set these in your `.env` file for server authentication:
+Set these in your `.env` file for server authentication (the CLI loads `.env`; the SDK does not — see [Environment Variables](/docs/getting-started/environment-variables)):
 
 ```bash
 # Custom Server Configuration

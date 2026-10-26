@@ -4,18 +4,55 @@ This guide provides comprehensive setup instructions for all AI providers suppor
 
 ## 🚀 Quick Setup
 
-### Automatic .env Loading ✨ NEW!
+### Automatic .env Loading
 
-NeuroLink CLI automatically loads environment variables from `.env` files in your project directory:
+The **CLI** loads environment variables from the `.env` file in your current directory (or from the file named by `DOTENV_CONFIG_PATH`) at startup:
 
 ```bash
-# Create .env file (automatically loaded)
+# Create .env file (loaded by the CLI)
 echo 'OPENAI_API_KEY="sk-your-key"' > .env
 echo 'AWS_ACCESS_KEY_ID="your-key"' >> .env
 
 # Test configuration
 npx @juspay/neurolink status
 ```
+
+The **SDK does not** read `.env` when it is imported. A library must not pick up files from whatever directory the host process happens to run in — a cloned repository's `.env` could otherwise set `ANTHROPIC_BASE_URL` and send your real key to a host of its choosing. An application that wants the CLI's behaviour opts in explicitly, either way:
+
+```typescript
+import { loadDotenv, NeuroLink } from "@juspay/neurolink";
+
+await loadDotenv(); // same rules as the CLI, see below
+const neurolink = new NeuroLink();
+```
+
+```bash
+NEUROLINK_DOTENV=1 node app.js   # the SDK loads .env at import
+```
+
+**Endpoint overrides need a trustworthy file.** dotenv never overrides a variable that is already set, but it sets every one that is not — including the variables that decide _where_ a request goes: every provider `*_BASE_URL` / `*_ENDPOINT(S)` variable, the `NEUROLINK_*_DIR` directories and `DOTENV_CONFIG_PATH`. For exactly those names the `.env` file must be owned by the current user and must not be group- or world-writable; otherwise they are removed again and named in a stderr line (`Refused 1 endpoint override(s) from … ANTHROPIC_BASE_URL`). When they are kept, a one-line notice lists them (`.env at … set endpoint override(s): ANTHROPIC_BASE_URL`), with a reminder when the file is outside your home directory. Export such a variable in your shell to use it regardless.
+
+| Variable             | Effect                                                                                                                        |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `NEUROLINK_DOTENV=0` | Disable `.env` loading everywhere (CLI included).                                                                             |
+| `NEUROLINK_DOTENV=1` | Make the SDK load `.env` when imported. Must be set in the real environment — it cannot come from the file it enables.        |
+| `DOTENV_CONFIG_PATH` | Load this file instead of `./.env`. `DOTENV_CONFIG_PATH=/dev/null` is the documented way to run a test with no `.env` at all. |
+
+### Project MCP configuration (`.mcp-config.json`)
+
+A project `.mcp-config.json` names commands to run and URLs to connect to, so it is treated like `.env` — a directory is not a trust boundary:
+
+- The **SDK** never loads it from the working directory on its own. Pass `new NeuroLink({ mcp: { configPath: "./.mcp-config.json" } })` to name a file, or `mcp: { trustProjectConfig: true }` for a directory you control.
+- The **CLI** loads it only after you have trusted that exact content: the file's SHA-256 is recorded in `~/.neurolink/trusted-mcp-configs.json` (mode `0600`). In a terminal you are shown the servers and asked; non-interactively the command refuses with exit status 1 until you decide.
+
+| Variable / flag                | Effect                                                                                |
+| ------------------------------ | ------------------------------------------------------------------------------------- |
+| `--trust-mcp-config`           | Trust the working directory's `.mcp-config.json` as it is now, and remember its hash. |
+| `NEUROLINK_TRUST_MCP_CONFIG=1` | Same as the flag, for non-interactive runs (CI).                                      |
+| `NEUROLINK_TRUST_MCP_CONFIG=0` | Run without the project config.                                                       |
+| `NEUROLINK_SKIP_MCP=true`      | Skip MCP initialisation entirely (built-in and external servers alike).               |
+
+See [MCP Integration](/docs/mcp/integration) for what the file may contain and how `${VAR}` references, the stdio environment and transport URLs are checked.
 
 ### Manual Export (Also Supported)
 
@@ -1410,6 +1447,29 @@ npx @juspay/neurolink get-best-provider
 
 ## 🔒 Security Best Practices
 
+### Attachment loading (`NEUROLINK_ATTACHMENT_*`)
+
+What the SDK may read or fetch when a call names a file path or a URL
+(`input.files`, `input.images`, `rag.files`, `transcribe({ audio })`). Each
+variable mirrors a field of the `attachments` constructor option, which wins
+when both are set. See [Attachment Security](/docs/features/attachment-security).
+
+```bash
+# Directories a local path may resolve into (":"- or ";"-separated).
+# Unset: any readable file, with a one-time warning.
+NEUROLINK_ATTACHMENT_ROOTS=/srv/uploads:/var/lib/app/files
+# Accept http:// attachment URLs (default: HTTPS only)
+NEUROLINK_ATTACHMENT_ALLOW_INSECURE_URLS=1
+# Fetch loopback / private / link-local / cloud-metadata targets (default: refused)
+NEUROLINK_ATTACHMENT_ALLOW_PRIVATE_NETWORK=1
+# Refuse redirects outright (default: followed, re-checked per hop)
+NEUROLINK_ATTACHMENT_FOLLOW_REDIRECTS=0
+# Cap on any single attachment read or download, in bytes
+NEUROLINK_ATTACHMENT_MAX_BYTES=67108864
+# Accept Redis session/user ids containing ':' '*' '?' '[' with a warning while migrating
+NEUROLINK_REDIS_ALLOW_LEGACY_IDS=1
+```
+
 ### API Key Management
 
 - ✅ **Use .env files** for local development
@@ -1435,6 +1495,22 @@ service-account*.json
 - Implement **key rotation** policies
 - Monitor **API usage** and **rate limits**
 - Use **least privilege** access policies
+
+### Serving over HTTP (`neurolink serve`)
+
+`neurolink serve` listens on `127.0.0.1` unless `--host` says otherwise, and
+refuses to bind a non-loopback host without an API key. These variables govern
+the listener; see
+[/docs/reference/server-configuration](/docs/reference/server-configuration):
+
+```bash
+NEUROLINK_SERVER_API_KEY=key1,key2          # Required on every route except the health probes
+NEUROLINK_SERVER_ALLOW_UNAUTHENTICATED=1    # Run open on purpose: non-loopback bind without a key, tool/MCP execution open
+NEUROLINK_SERVER_ENABLE_BUILTIN_TOOLS=1     # Keep the built-in filesystem tools in the server's registry (off by default)
+NEUROLINK_SERVER_WS_ALLOW_QUERY_TOKEN=1     # Accept the key as ?token= on the transcription WebSocket (off by default)
+NEUROLINK_SERVER_TIMEOUT_MS=30000           # Per-request timeout (504 past it)
+NEUROLINK_STT_EVAL_ENABLED=1                # Mount the STT evaluation collector, /v1/evals/stt (off by default)
+```
 
 ---
 

@@ -86,9 +86,9 @@ function buildHitlDeclineMessage(toolName: string): string {
  * short name. Returns the aliases actually registered.
  */
 function registerToolAliases(
-  toolContext: llmNs.ToolContext,
+  registry: Record<string, llmNs.AnonFunctionTool>,
   mcpToolName: string,
-  handler: llmNs.ToolContext[string],
+  handler: llmNs.AnonFunctionTool,
 ): string[] {
   const safeFullName = mcpToolName.replace(/[^a-zA-Z0-9_]/g, "_");
   const shortName = safeFullName.includes("_")
@@ -99,10 +99,10 @@ function registerToolAliases(
   );
   const registered: string[] = [];
   for (const alias of candidates) {
-    if (alias in toolContext) {
+    if (alias in registry) {
       continue; // taken by another tool — don't clobber
     }
-    toolContext[alias] = handler;
+    registry[alias] = handler;
     registered.push(alias);
   }
   return registered;
@@ -110,7 +110,7 @@ function registerToolAliases(
 
 /**
  * Connect to the MCP server as the calling user and bridge every tool into a
- * LiveKit `ToolContext`. Returns the tool map + the client (close on shutdown).
+ * LiveKit `ToolContext`. Returns that context + the client (close on shutdown).
  * The server already scopes the tool list by `x-context`, so no client-side
  * filtering is needed.
  */
@@ -167,7 +167,7 @@ export async function buildRealtimeMcpTools(
   try {
     const { tools: mcpTools } = await client.listTools();
     logger.info("realtime.mcp.toolsListed", { count: mcpTools.length });
-    const toolContext: llmNs.ToolContext = {};
+    const registry: Record<string, llmNs.AnonFunctionTool> = {};
     const skipped: string[] = [];
 
     for (const mcpTool of mcpTools) {
@@ -267,7 +267,7 @@ export async function buildRealtimeMcpTools(
         },
       });
 
-      const aliases = registerToolAliases(toolContext, mcpTool.name, handler);
+      const aliases = registerToolAliases(registry, mcpTool.name, handler);
       logger.info("realtime.mcp.toolRegistered", {
         tool: mcpTool.name,
         aliases,
@@ -275,8 +275,9 @@ export async function buildRealtimeMcpTools(
       });
     }
 
+    const toolContext = new llm.ToolContext(registry);
     logger.info("realtime.mcp.connected", {
-      registered: Object.keys(toolContext).length,
+      registered: Object.keys(registry).length,
       skipped: skipped.length,
       skippedTools: skipped,
     });

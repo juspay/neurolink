@@ -134,8 +134,17 @@ Falls back to serverId if the instance or config.name isn't available.
 
 > **loadMCPConfiguration**(`configPath?`, `options?`): `Promise`\<[`ServerLoadResult`](../type-aliases/ServerLoadResult.md)\>
 
-Load MCP server configurations from .mcp-config.json file with parallel loading support
-Automatically registers servers found in the configuration
+Load MCP server configurations from a `.mcp-config.json`-shaped file and
+register every server it names.
+
+Calling this is an explicit decision to run that file's servers. With no
+`configPath` it reads `.mcp-config.json` from the working directory, so
+a host must only omit the path when it controls that directory; the SDK
+itself never calls this without a path it resolved through
+`resolveProjectMcpConfigPath` (see `projectConfigTrust.ts`).
+
+`${NAME}` references in each server's `env` and `args` are expanded from
+`process.env`; `headers` and `url` are used as written.
 
 #### Parameters
 
@@ -143,7 +152,7 @@ Automatically registers servers found in the configuration
 
 `string`
 
-Optional path to config file (defaults to .mcp-config.json in cwd)
+Path to the config file (defaults to .mcp-config.json in cwd)
 
 ##### options?
 

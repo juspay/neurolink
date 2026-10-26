@@ -183,10 +183,15 @@ export function createCacheMiddleware(
 }
 
 /**
- * Default cache key generator
+ * Default cache key generator. An authenticated user's id is part of the key,
+ * so one caller's cached response is never served to another; without a user
+ * the key is the request alone, as before.
  */
 function defaultKeyGenerator(ctx: ServerContext): string {
   const parts = [ctx.method, ctx.path];
+  if (ctx.user?.id) {
+    parts.push(`user=${ctx.user.id}`);
+  }
 
   // Include sorted query params
   const queryKeys = Object.keys(ctx.query).sort();
