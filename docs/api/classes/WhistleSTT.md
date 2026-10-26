@@ -158,6 +158,10 @@ Stop the warm worker. The handler stays usable; the next call starts a new one.
 
 `Promise`\<`void`\>
 
+#### Implementation of
+
+`STTHandler.dispose`
+
 ---
 
 ### transcribe()
