@@ -199,6 +199,9 @@ call fails with an error that names the formats Whistle can read by itself.
   model (~0.2 s to start); requests are answered in order. The worker is
   unreferenced while idle, so it never keeps your process alive; call
   `dispose()` to stop it early.
+- A call that passes `credentials.stt.whistle` builds its own `WhistleSTT`; the
+  SDK disposes it when the call ends. Only a handler you create or register
+  yourself needs your `dispose()`.
 - If the worker crashes, the requests it held fail with an `STTError`, and the
   next call starts a fresh worker.
 

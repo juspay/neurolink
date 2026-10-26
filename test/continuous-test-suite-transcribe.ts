@@ -53,7 +53,9 @@ import {
   STTError,
   STTProcessor,
   STT_ERROR_CODES,
+  WhistleSTT,
   createServer,
+  logger,
   registerAllRoutes,
   registerDefaultSTTHandlers,
 } from "../dist/index.js";
@@ -4094,6 +4096,250 @@ await test("realtime: Bearer or the OpenAI browser subprotocol key is required; 
     await server.close();
     await off.close();
   }
+});
+
+// ===========================================================================
+// 7. Handlers built for one call are disposed; the registry's are not
+// ===========================================================================
+
+const SLICE_MARK = "slice-marker-not-to-be-logged";
+const SLICE = {
+  whistle: { modelDir: `/nonexistent/${SLICE_MARK}`, autoDownload: false },
+};
+
+/**
+ * Makes every Whistle handler synthetic and records which instances the SDK
+ * built (`seen`) and which of them it disposed (`disposed`). The patch is on
+ * the prototype because the handlers built from a credentials slice are never
+ * visible to the caller. A confident language probe sends the call on to the
+ * primary pass, so one request builds a lookup handler, a probe handler and a
+ * primary handler.
+ */
+async function withOwnedWhistle(
+  engine: {
+    transcribe?: (options: STTOptions) => Promise<STTResult>;
+    dispose?: (handler: unknown, nth: number) => Promise<void> | void;
+    transcribeStream?: (
+      audio: AsyncIterable<Buffer>,
+    ) => AsyncIterable<{ index: number; text: string; isFinal: boolean }>;
+  },
+  run: (owned: {
+    seen: Set<unknown>;
+    disposed: Set<unknown>;
+    attempts: number;
+  }) => Promise<void>,
+): Promise<void> {
+  const proto = WhistleSTT.prototype as unknown as Record<string, unknown>;
+  const keys = [
+    "isConfigured",
+    "languageProbeModel",
+    "transcribe",
+    "transcribeStream",
+    "dispose",
+  ];
+  const originals = new Map(keys.map((key) => [key, proto[key]]));
+  const owned = {
+    seen: new Set<unknown>(),
+    disposed: new Set<unknown>(),
+    attempts: 0,
+  };
+  proto.isConfigured = function (this: unknown) {
+    owned.seen.add(this);
+    return true;
+  };
+  proto.languageProbeModel = function (this: unknown) {
+    owned.seen.add(this);
+    return "indic-lid";
+  };
+  proto.transcribe = async function (this: unknown, ...args: unknown[]) {
+    owned.seen.add(this);
+    const options = (args[1] ?? {}) as STTOptions;
+    if (options.model === "indic-lid") {
+      return asResult({
+        text: "",
+        language: "en",
+        metadata: { languageDetected: true },
+      });
+    }
+    return engine.transcribe
+      ? engine.transcribe(options)
+      : asResult({ text: "spoken words" });
+  };
+  if (engine.transcribeStream) {
+    proto.transcribeStream = function (this: unknown, audio: unknown) {
+      owned.seen.add(this);
+      return engine.transcribeStream!(audio as AsyncIterable<Buffer>);
+    };
+  } else {
+    proto.transcribeStream = undefined;
+  }
+  proto.dispose = async function (this: unknown) {
+    owned.seen.add(this);
+    owned.attempts += 1;
+    owned.disposed.add(this);
+    await engine.dispose?.(this, owned.attempts);
+  };
+  try {
+    await run(owned);
+  } finally {
+    for (const [key, original] of originals) {
+      proto[key] = original;
+    }
+  }
+}
+
+const slicedBatch = (fallback: string) => ({
+  audio: ONE_SECOND_WAV,
+  provider: "whistle",
+  fallback: { provider: fallback },
+  credentials: { stt: SLICE },
+  correction: { rewrite: false as const },
+});
+
+await test("transcribe disposes every handler a credentials slice builds: on success, on an engine error and on an aborted engine call", async () => {
+  stub(`${NS}-owned-fallback`, fixed("unused"));
+  const failures: Array<[string, Error | undefined]> = [
+    ["success", undefined],
+    ["engine error", new Error("engine failed")],
+    ["aborted", Object.assign(new Error("aborted"), { name: "AbortError" })],
+  ];
+  for (const [label, failure] of failures) {
+    await withOwnedWhistle(
+      {
+        transcribe: async () => {
+          if (failure) {
+            throw failure;
+          }
+          return asResult({ text: "spoken words" });
+        },
+      },
+      async (owned) => {
+        let failed = false;
+        try {
+          await nl.transcribe(slicedBatch(`${NS}-owned-fallback`));
+        } catch {
+          failed = true;
+        }
+        assertEqual(failed, failure !== undefined, `${label}: outcome`);
+        assert(
+          owned.seen.size >= 3,
+          `${label}: the call must build a lookup, a probe and a primary handler`,
+        );
+        assertEqual(
+          owned.disposed.size,
+          owned.seen.size,
+          `${label}: every handler built for the call must be disposed`,
+        );
+      },
+    );
+  }
+});
+
+await test("transcribeStream disposes its handlers when the consumer stops early", async () => {
+  await withOwnedWhistle(
+    {
+      transcribeStream: async function* (audio) {
+        yield { index: 0, text: "first words", isFinal: false };
+        for await (const _frame of audio) {
+          // keep the engine busy until the consumer leaves
+          await new Promise<void>((r) => setImmediate(r));
+        }
+        yield { index: 1, text: "never read", isFinal: true };
+      },
+    },
+    async (owned) => {
+      async function* frames(): AsyncGenerator<Buffer> {
+        for (let i = 0; i < 200; i++) {
+          yield Buffer.alloc(3200);
+          await new Promise<void>((r) => setImmediate(r));
+        }
+      }
+      for await (const _event of nl.transcribeStream({
+        audio: frames(),
+        provider: "whistle",
+        language: "auto",
+        credentials: { stt: SLICE },
+      })) {
+        break;
+      }
+      assert(owned.seen.size >= 1, "the stream must build a handler");
+      assertEqual(
+        owned.disposed.size,
+        owned.seen.size,
+        "the handler built for the stream must be disposed when the consumer returns early",
+      );
+    },
+  );
+});
+
+await test("a handler registered with the registry is shared: calls never dispose it and it keeps working", async () => {
+  let disposed = 0;
+  const handler: STTHandler = {
+    isConfigured: () => true,
+    getSupportedFormats: () => ["wav"],
+    transcribe: async () => asResult({ text: "shared engine" }),
+    dispose: async () => {
+      disposed += 1;
+    },
+  };
+  STTProcessor.registerHandler(`${NS}-shared`, handler);
+  for (let i = 0; i < 2; i++) {
+    const res = await nl.transcribe({
+      audio: ONE_SECOND_WAV,
+      provider: `${NS}-shared`,
+      credentials: { stt: SLICE },
+      correction: { rewrite: false },
+    });
+    assertEqual(res.text, "shared engine", `call ${i + 1} still works`);
+  }
+  assertEqual(disposed, 0, "the shared handler must never be disposed");
+});
+
+await test("a failing disposal does not stop the others or fail the call, and is logged without the credentials slice", async () => {
+  stub(`${NS}-owned-fallback`, fixed("unused"));
+  const warnings: string[] = [];
+  const warn = logger.warn;
+  logger.warn = (...args: unknown[]) => {
+    warnings.push(args.map(String).join(" "));
+  };
+  try {
+    await withOwnedWhistle(
+      {
+        dispose: async (_handler, nth) => {
+          // Every disposal fails, some at once and some late
+          if (nth % 2 === 1) {
+            throw new Error("worker would not stop");
+          }
+          await new Promise<void>((r) => setTimeout(r, 5));
+          throw new Error("late failure");
+        },
+      },
+      async (owned) => {
+        const res = await nl.transcribe(slicedBatch(`${NS}-owned-fallback`));
+        assertEqual(res.text, "spoken words", "the transcript is unaffected");
+        assertEqual(
+          owned.disposed.size,
+          owned.seen.size,
+          "every handler is still disposed after one fails",
+        );
+      },
+    );
+  } finally {
+    logger.warn = warn;
+  }
+  const disposalWarnings = warnings.filter((w) => w.includes("dispose"));
+  assert(
+    disposalWarnings.some((w) => w.includes("worker would not stop")),
+    "a failed disposal must stay observable",
+  );
+  assert(
+    disposalWarnings.some((w) => w.includes("[NeuroLink]")),
+    "the handlers released by the SDK report their failures too",
+  );
+  assert(
+    disposalWarnings.every((w) => !w.includes(SLICE_MARK)),
+    "the credentials slice must not reach the log",
+  );
 });
 
 // ---------------------------------------------------------------------------

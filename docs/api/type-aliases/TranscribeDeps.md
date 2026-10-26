@@ -73,3 +73,13 @@ Resolves `undefined`, `""` or an alias to a registered provider name, or throws 
 
 Attachment policy applied when `audio` is a path or URL. The
 environment-derived default applies when absent.
+
+### release?
+
+> `optional` **release?**: () => `Promise`\<`void`\>
+
+Disposes the handlers `getHandler` built for this request.
+
+#### Returns
+
+`Promise`\<`void`\>
