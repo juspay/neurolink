@@ -71,6 +71,9 @@ const AUTH_FRAMINGS: RegExp[] = [
   /\bkey\s+is\s+invalid\b/,
   /\bcredentials?\s+(?:not\s+(?:configured|set|provided|available)|missing|invalid|expired|are\s+(?:required|missing))/,
   /\bservice[ _-]?account(?:\s+(?:not|missing|invalid|json|key))/,
+  // "Replicate auth could not be resolved (REPLICATE_API_TOKEN missing)." was
+  // skipped only because of `could not be resolved` in `NETWORK_FRAMINGS`.
+  /\b[a-z][a-z0-9]*_api_token\s+missing\b/,
   /\bdefault\s+credentials\b/,
   /\bproject[ _-]?id\b.*(?:not|missing|invalid|undefined)/,
   /\bbilling\s+(?:account|disabled|inactive|required|not\s+enabled|is\s+not)\b/,
@@ -97,13 +100,30 @@ const AUTH_FRAMINGS: RegExp[] = [
 // A bare `cannot connect` is deliberately absent: the only framing the SDK
 // emits ("Cannot connect to Ollama at ...") is matched by `ollama_specific`,
 // and a message of our own such as "Cannot connect to MCP server" must fail.
+//
+// We word some of our own failures the way a network failure is worded:
+// `Access denied: "<path>" could not be resolved within the allowed base
+// directory` (utils/fileDetector.ts), `Proxy request deadline exceeded` and
+// `OTLP export deadline exceeded` (cli/ and proxy/). So `could not be
+// resolved` has to follow a host or remote name, and `deadline exceeded`
+// has to be the gRPC form (`4 DEADLINE_EXCEEDED: Deadline exceeded`) or Go's
+// `context deadline exceeded`.
+//
+// `Connection error: fetch failed` is the classifier's NetworkError for an
+// undici transport failure whose code (ECONNREFUSED, UND_ERR_SOCKET, ...) is
+// on `.cause` and so not in the text; Anthropic's SDK says
+// `Connection error: Connection error.` the same way. Both must end the
+// line: `fetch failed: bad port` depends on the URL's port alone, not on the
+// network, and stays a failure.
 const NETWORK_FRAMINGS: RegExp[] = [
   /\bcould\s+not\s+resolve\b/,
-  /\bcould\s+not\s+be\s+resolved\b/,
+  /\b(?:host(?:name)?|domain|remote\s+name|server\s+name)\s+(?:[^\s"'`]+\s+)?could\s+not\s+be\s+resolved\b/,
   /\bconnection\s+refused\b/,
   /\bconnection\s+reset\b/,
   /\brequest\s+timed[ _-]?out\b/,
-  /\bdeadline\s+exceeded\b/,
+  /\bcontext\s+deadline\s+exceeded\b/,
+  /\bdeadline_exceeded\b[^\n]{0,20}?\bdeadline\s+exceeded\b/,
+  /\bconnection\s+error:\s*(?:fetch\s+failed|connection\s+error\.?)[ \t]*(?:\r?\n|$)/,
   /\bservice\s+unavailable\b/,
   /\bnetwork\s+(?:error|unreachable|timeout|down|failure)\b/,
 ];
@@ -111,9 +131,15 @@ const NETWORK_FRAMINGS: RegExp[] = [
 const PROVIDER_ERROR_FRAMINGS: RegExp[] = [
   /\[litellm\][^.]*?(?:authentication|key\s+is\s+blocked|blocked\s+key|rate\s+limit|invalid\s+api)/i,
   /\[bedrock\][^.]*?(?:security[ _-]token|invalid|access\s+denied|expired)/i,
-  /\[vertex\][^.]*?(?:timed\s+out|deadline\s+exceeded|publisher\s+model.*?not\s+found|max(?:output)?tokens|supported\s+range)/i,
+  // The Vertex wrapper for PERMISSION_DENIED, UNAUTHENTICATED, HTTP 401 and
+  // 403 (providers/googleVertex/client.ts) replaces the upstream text, so
+  // `google_api_tokens` no longer sees the code it was written for.
+  /\[vertex\][^.]*?(?:timed\s+out|deadline\s+exceeded|publisher\s+model.*?not\s+found|max(?:output)?tokens|supported\s+range|permission\s+denied\.\s+your\s+google\s+cloud\s+credentials)/i,
   /\[google\s+ai(?:\s+studio)?\][^.]*?(?:developer\s+instruction|not\s+enabled|billing|quota)/i,
   /\[openrouter\][^.]*?(?:no\s+endpoints|model.*?temporarily\s+unavailable|model.*?not\s+available)/i,
+  // What these three providers print instead of ECONNREFUSED / "Failed to
+  // fetch" (litellm/client.ts, openRouter/client.ts, openaiCompatible/client.ts).
+  /\[(?:litellm|openrouter|openai-compatible)\][^.]*?(?:proxy\s+server|api|endpoint)\s+not\s+available\./i,
   /\[deepseek\][^.]*?(?:invalid.*?api\s+key|response_format.*?unavailable|authentication)/i,
   /\[ollama\][^.]*?(?:not\s+running|cannot\s+connect|service)/i,
   /\[anthropic\][^.]*?(?:credit\s+balance|insufficient|quota|not\s+found|model.*?not\s+available)/i,
