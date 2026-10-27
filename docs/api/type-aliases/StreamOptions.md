@@ -468,7 +468,9 @@ Opt-in terminal agent mode. See GenerateOptions.agentMode.
 
 > `optional` **turnTimeoutMs?**: `number`
 
-Wall-clock cap for the whole agentic turn (ms). See GenerateOptions.turnTimeoutMs.
+Optional wall-clock cap for the whole agentic turn (ms). OpenAI-compatible
+and native Anthropic streams have no lifetime cap by default; `timeout`
+bounds idle time. See GenerateOptions.turnTimeoutMs.
 
 ---
 

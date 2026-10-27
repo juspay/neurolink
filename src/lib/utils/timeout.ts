@@ -133,16 +133,21 @@ export function getDefaultTimeout(
   provider: string,
   operation: "generate" | "stream" = "generate",
 ): string {
-  if (operation === "stream") {
-    return DEFAULT_TIMEOUTS.streaming;
-  }
-
   const providerKey = provider.toLowerCase().replace("_", "-");
-  return (
+  const providerDefault =
     DEFAULT_TIMEOUTS.providers[
       providerKey as keyof typeof DEFAULT_TIMEOUTS.providers
-    ] || DEFAULT_TIMEOUTS.global
-  );
+    ] || DEFAULT_TIMEOUTS.global;
+  if (operation === "stream") {
+    // A stream never gets less than its provider's own budget, so slow-first-
+    // token providers (ollama, litellm: 5m) keep theirs instead of dropping
+    // to the shared streaming default.
+    return (parseTimeout(providerDefault) ?? 0) >
+      (parseTimeout(DEFAULT_TIMEOUTS.streaming) ?? 0)
+      ? providerDefault
+      : DEFAULT_TIMEOUTS.streaming;
+  }
+  return providerDefault;
 }
 
 /**
@@ -518,6 +523,36 @@ export function createTimeoutController(
   };
 
   return { controller, cleanup, reset, timeoutMs };
+}
+
+/** Keep a stream's idle deadline alive for every received wire chunk. */
+export function monitorStreamActivity(
+  body: ReadableStream<Uint8Array>,
+  onActivity: () => void,
+): ReadableStream<Uint8Array> {
+  return body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        onActivity();
+        controller.enqueue(chunk);
+      },
+    }),
+  );
+}
+
+/**
+ * Hard lifetime cap for a live stream, separate from its resettable idle
+ * deadline. Opt-in: only an explicit positive `turnTimeoutMs` sets one;
+ * otherwise there is no cap, so long but active streams are not cut off.
+ */
+export function getStreamLifetimeTimeout(
+  turnTimeoutMs?: number | null,
+): number | undefined {
+  return typeof turnTimeoutMs === "number" &&
+    Number.isFinite(turnTimeoutMs) &&
+    turnTimeoutMs > 0
+    ? turnTimeoutMs
+    : undefined;
 }
 
 /**

@@ -89,7 +89,9 @@ import {
 import {
   composeAbortSignalsScoped,
   createTimeoutController,
+  getStreamLifetimeTimeout,
   mergeAbortSignals,
+  monitorStreamActivity,
   TimeoutError,
 } from "../utils/timeout.js";
 import { resolveRequestKind } from "../core/resolveRequestKind.js";
@@ -1018,14 +1020,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             // the whole point of the SSE wire is that a slow-but-alive
             // completion keeps the connection (and the timer) fed.
             const monitored = timeoutController
-              ? res.body.pipeThrough(
-                  new TransformStream<Uint8Array, Uint8Array>({
-                    transform(chunk, controller) {
-                      timeoutController.reset();
-                      controller.enqueue(chunk);
-                    },
-                  }),
-                )
+              ? monitorStreamActivity(res.body, timeoutController.reset)
               : res.body;
             const sse = await parseSSEStream(monitored, () => {});
             // Re-shape the aggregate into the JSON-wire response so every
@@ -2080,12 +2075,21 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     this.validateStreamOptions(options);
 
     const startTime = Date.now();
-    const timeout = this.getTimeout(options);
+    const timeout = this.getTimeout(options, "stream");
     const timeoutController = createTimeoutController(
       timeout,
       this.providerName,
       "stream",
     );
+    const lifetimeController = createTimeoutController(
+      getStreamLifetimeTimeout(options.turnTimeoutMs),
+      this.providerName,
+      "stream",
+    );
+    const cleanupTimeouts = () => {
+      timeoutController?.cleanup();
+      lifetimeController?.cleanup();
+    };
     // Consumer-driven abort: fires when the async iterator is closed early
     // (caller breaks out of `for await`). Without this the background
     // `loopPromise` keeps reading SSE and running tools indefinitely.
@@ -2093,6 +2097,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     const abortSignal = mergeAbortSignals([
       options.abortSignal,
       timeoutController?.controller.signal,
+      lifetimeController?.controller.signal,
       consumerAbortController.signal,
     ]).signal;
 
@@ -2130,7 +2135,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         options,
       )) as OpenAICompatMessage[];
     } catch (setupErr) {
-      timeoutController?.cleanup();
+      cleanupTimeouts();
       throw setupErr;
     }
 
@@ -2266,6 +2271,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           url,
           fetchImpl,
           abortSignal,
+          onStreamActivity: timeoutController?.reset,
           options: sampled,
           conversation,
           openAITools,
@@ -2366,7 +2372,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     } catch (error) {
       consumerAbortController.abort();
       channel.close();
-      timeoutController?.cleanup();
+      cleanupTimeouts();
       throw error;
     }
 
@@ -2547,7 +2553,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           });
           resolveFinish("stop");
         }
-        timeoutController?.cleanup();
+        cleanupTimeouts();
         if (!consumerAbortController.signal.aborted) {
           consumerAbortController.abort();
         }
@@ -2624,8 +2630,16 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         ),
     });
 
+    // The structured-output re-ask runs after the loop settles and is still
+    // inside the turn, so an explicit turnTimeoutMs stays armed until the
+    // stream generator's own cleanup. Only the idle timer ends with the loop.
     loopPromise
-      ?.finally(() => timeoutController?.cleanup())
+      ?.finally(() => {
+        timeoutController?.cleanup();
+        if (!options.schema) {
+          lifetimeController?.cleanup();
+        }
+      })
       .catch((error) => {
         captureProviderError(error);
       });
@@ -2657,6 +2671,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       resolveFinish,
       responseFormat,
       onModelObserved,
+      onStreamActivity,
     } = args;
 
     // Hoisted above the try so the catch can resolve the usage accumulated
@@ -2799,6 +2814,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             openAIToolChoice,
             pushChunk,
             responseFormat,
+            onStreamActivity,
           }),
         );
         lastObservedPromptTokens = stepResult.usage?.prompt_tokens;
@@ -2976,6 +2992,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     openAIToolChoice: OpenAICompatToolChoiceWire | undefined;
     pushChunk: (chunk: OpenAICompatStreamChunk) => void;
     responseFormat?: OpenAICompatResponseFormat;
+    onStreamActivity?: () => void;
   }): Promise<OpenAICompatSSEResult> {
     // Per-step max_tokens fit: the conversation grows every step of the
     // tool loop, so the window fit is recomputed per request (no-op when
@@ -3089,7 +3106,9 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       throw new Error(`${this.providerName}: stream response had no body`);
     }
     return parseSSEStream(
-      res.body,
+      args.onStreamActivity
+        ? monitorStreamActivity(res.body, args.onStreamActivity)
+        : res.body,
       (delta) => {
         args.pushChunk({ content: delta });
       },
