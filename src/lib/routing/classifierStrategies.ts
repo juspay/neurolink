@@ -264,12 +264,9 @@ const JEV_CONTEXT_CRITERIA: string[] = [
  * Compaction thresholds per context scope, indexed to match
  * {@link CLASSIFIER_CONTEXT_SCOPES}.
  *
- * Every one is at or below the 0.8 default, and that is a hard invariant
- * rather than a tuning choice. Raising a budget lets a request through that
- * the model then rejects for exceeding its window — and `ModelPool` treats a
- * `context_window` error as a PERMANENT cooldown (10 years), so one
- * optimistic guess retires that model for the life of the process. Shrinking
- * a budget merely compacts a little earlier than it had to.
+ * Every one is at or below the 0.8 default. Raising a budget could let a
+ * request through that the model rejects for exceeding its window; shrinking
+ * a budget compacts a little earlier instead.
  */
 const CONTEXT_SCOPE_THRESHOLD: number[] = [0.45, 0.6, 0.75, 0.8];
 
