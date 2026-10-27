@@ -134,31 +134,7 @@ export function classifyProviderError(error: unknown): ProviderErrorClass {
 // Cooldown constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DEFAULT_COOLDOWN_MS = 60_000; // 1 minute for retryable errors
-// Non-retryable errors use a permanent-for-the-instance cooldown: 10 years.
-// NOTE: Because ModelPool is stored as a long-lived field on the NeuroLink
-// instance (neurolink.ts constructor), a "permanent" cooldown blocks the
-// member for the entire lifetime of the NeuroLink instance, not just the
-// current call.  Only use PERMANENT_COOLDOWN_MS for error classes where the
-// root cause is structural and will not resolve between calls (e.g. wrong API
-// key, model not whitelisted for the team).  Transient or unclassified errors
-// must use the timed cooldown so a momentary failure doesn't permanently
-// retire a healthy member.
-const PERMANENT_COOLDOWN_MS = 10 * 365 * 24 * 60 * 60 * 1000;
-
-/**
- * Error classes that should receive a timed cooldown rather than a permanent
- * ban.  "unknown" is deliberately included: because the classification is
- * uncertain, treating an unrecognised error as permanent could retire a
- * healthy member due to a one-off network blip or a non-standard error
- * message.  A timed cooldown lets the member recover automatically.
- */
-const RETRYABLE_ERROR_CLASSES = new Set<ProviderErrorClass>([
-  "rate_limit",
-  "server",
-  "network",
-  "unknown",
-]);
+const DEFAULT_COOLDOWN_MS = 60_000; // 1 minute for member health failures
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ModelPool
@@ -279,19 +255,16 @@ export class ModelPool {
   /**
    * Records a provider failure, setting a cooldown appropriate for the error class.
    *
-   * - Retryable classes (rate_limit, server, network, unknown): timed cooldown
-   *   for `cooldownMs` so the member can recover and be retried later.
-   * - Non-retryable classes (auth, context_window): permanent cooldown for the
-   *   lifetime of this ModelPool instance, because these errors are structural
-   *   and will not resolve between calls (wrong credentials, model not available
-   *   in team whitelist, payload exceeds the model's context window).
+   * A context-window error belongs to the request, so it does not change member
+   * health. Other classes, including auth, use the configured timed cooldown.
    */
   recordFailure(member: ModelPoolMember, errorClass: ProviderErrorClass): void {
-    const key = this.memberKey(member);
-    const cooldown = RETRYABLE_ERROR_CLASSES.has(errorClass)
-      ? this.now() + this.cooldownMs
-      : this.now() + PERMANENT_COOLDOWN_MS;
-    this.state.set(key, { cooldownUntil: cooldown });
+    if (errorClass === "context_window") {
+      return;
+    }
+    this.state.set(this.memberKey(member), {
+      cooldownUntil: this.now() + this.cooldownMs,
+    });
   }
 
   /**

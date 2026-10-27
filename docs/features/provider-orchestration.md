@@ -110,7 +110,7 @@ const pool = new ModelPool({
     { provider: "openai", model: "gpt-4o-mini" },
   ],
   strategy: "priority", // or "round-robin" | "weighted"
-  cooldownMs: 60_000, // retryable failures only
+  cooldownMs: 60_000, // member health failures, including auth
 });
 ```
 
@@ -124,25 +124,21 @@ A failure is classified into a `ProviderErrorClass` — `rate_limit`, `auth`,
 `context_window`, `server`, `network`, `unknown` — and the class decides how
 long the member sits out:
 
-| Class                                        | Cooldown                                  |
-| -------------------------------------------- | ----------------------------------------- |
-| `rate_limit`, `server`, `network`, `unknown` | `cooldownMs` (default **60s**)            |
-| `auth`, `context_window`                     | **permanent** for the life of the process |
+| Class                                                | Cooldown                       |
+| ---------------------------------------------------- | ------------------------------ |
+| `rate_limit`, `auth`, `server`, `network`, `unknown` | `cooldownMs` (default **60s**) |
+| `context_window`                                     | None; request-scoped error     |
 
-"Permanent" is literal: `PERMANENT_COOLDOWN_MS` is ten years. The reasoning is
-that neither class can fix itself mid-process — a rejected key stays rejected,
-and a request that overflowed a model's window will overflow it again — so
-retrying only burns latency on every subsequent call.
+An auth failure may come from credentials supplied for one call, so the member
+becomes eligible again after the configured cooldown. A context-window error
+depends on the request size: the current call can fail or try another member,
+but later calls can still use the model. The pool's per-call exclusion set
+prevents an immediate retry of the same member for that request.
 
-⚠️ **This is why a context budget may only ever shrink.** One optimistic guess
-that overflows a model's window does not cost a retry; it retires that model
-for the life of the process. Everything in
-[context budget](/docs/features/context-budget) and the
-[model catalogue](/docs/features/classifier-router-catalog) that looks
-over-cautious about raising a threshold is cautious for this reason, and the
-catalogue vetoes a model whose window cannot hold the request _regardless of
-how confident the pick was_ — an oversized request is a hard provider error,
-not a slightly worse answer.
+The [context budget](/docs/features/context-budget) and
+[model catalogue](/docs/features/classifier-router-catalog) still avoid sending
+requests that exceed a model's window. A larger threshold could fail the
+current request; it does not retire the member for later requests.
 
 ### A configured pool disables the classifier router
 

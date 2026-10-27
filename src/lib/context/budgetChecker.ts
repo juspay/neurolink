@@ -125,8 +125,7 @@ export function resolveHistoryBudget(
   // so the default reproduces the previous number EXACTLY (0.8/0.8 = 1) and
   // anything lower shrinks the target. Clamped to at most 1 because this is
   // the "give the model less context" lever, never the "give it more" one —
-  // over-filling a window is a hard provider error that ModelPool records as
-  // a permanent cooldown.
+  // over-filling a window fails the current request.
   const scale =
     compactionThreshold === undefined
       ? 1
