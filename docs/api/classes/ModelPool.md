@@ -109,12 +109,8 @@ the chosen member, or undefined when all members are exhausted.
 
 Records a provider failure, setting a cooldown appropriate for the error class.
 
-- Retryable classes (rate_limit, server, network, unknown): timed cooldown
-  for `cooldownMs` so the member can recover and be retried later.
-- Non-retryable classes (auth, context_window): permanent cooldown for the
-  lifetime of this ModelPool instance, because these errors are structural
-  and will not resolve between calls (wrong credentials, model not available
-  in team whitelist, payload exceeds the model's context window).
+A context-window error belongs to the request, so it does not change member
+health. Other classes, including auth, use the configured timed cooldown.
 
 #### Parameters
 

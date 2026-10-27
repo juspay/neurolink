@@ -217,10 +217,9 @@ export function rankCatalogue(
   });
   const pool = capable.length > 0 ? capable : [...candidates];
 
-  // A model that cannot hold the request is not a cheaper option, it is a
-  // failed one — and a context_window error puts the model in ModelPool's
-  // permanent (10-year) cooldown, so this filter is load-bearing rather than
-  // an optimisation. Applied only when it leaves something behind.
+  // A model that cannot hold this request would fail it. Keep it out of this
+  // request's candidates when another model fits. Applied only when it leaves
+  // something behind.
   const needTokens = input?.estimatedInputTokens ?? 0;
   const fits =
     needTokens > 0

@@ -13415,10 +13415,12 @@ Current user's request: ${currentInput}`;
               yield* poolStreamResult.stream;
               streamPool.recordSuccess(capturedMember);
             } catch (streamConsumeErr) {
-              streamPool.recordFailure(
-                capturedMember,
-                classifyProviderError(streamConsumeErr),
-              );
+              if (!isAbortError(streamConsumeErr)) {
+                streamPool.recordFailure(
+                  capturedMember,
+                  classifyProviderError(streamConsumeErr),
+                );
+              }
               throw streamConsumeErr;
             }
           })();
