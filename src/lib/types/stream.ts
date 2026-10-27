@@ -608,7 +608,9 @@ export type StreamOptions = {
   schema?: ValidationSchema;
   tools?: Record<string, Tool>;
   timeout?: number | string;
-  /** Wall-clock cap for the whole agentic turn (ms). See GenerateOptions.turnTimeoutMs. */
+  /** Optional wall-clock cap for the whole agentic turn (ms). OpenAI-compatible
+   * and native Anthropic streams have no lifetime cap by default; `timeout`
+   * bounds idle time. See GenerateOptions.turnTimeoutMs. */
   turnTimeoutMs?: number;
   /**
    * Opt-in execution policy for this turn (native Anthropic streaming only).

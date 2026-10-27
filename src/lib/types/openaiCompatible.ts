@@ -304,6 +304,8 @@ export type StreamLoopArgs = {
   url: string;
   fetchImpl: typeof fetch;
   abortSignal: AbortSignal | undefined;
+  /** Re-arm the idle timeout when any upstream wire bytes arrive. */
+  onStreamActivity?: () => void;
   options: StreamOptions;
   conversation: OpenAICompatChatMessage[];
   openAITools: OpenAICompatChatTool[] | undefined;

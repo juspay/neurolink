@@ -2,7 +2,7 @@
 import "dotenv/config";
 
 /**
- * Continuous Test Suite — Anthropic native-loop 429/5xx retry parity
+ * Continuous Test Suite — Anthropic native-loop retry and timeout behavior
  * (Plan 07, Task 9).
  *
  * ALL-DIST module graph (rule 15): the provider call below is driven
@@ -327,4 +327,228 @@ void runSuite(async () => {
       restoreEnv(envSnapshot);
     }
   });
+
+  section("native stream idle deadline");
+
+  for (const scenario of ["active", "turn-timeout", "idle-timeout"] as const) {
+    await test(`Anthropic streaming deadlines: ${scenario}`, async () => {
+      const envSnapshot = snapshotEnv();
+      let ticks = 0;
+      const server = createServer((_req, res) => {
+        res.writeHead(200, { "content-type": "text/event-stream" });
+        res.write(
+          `event: message_start\ndata: ${JSON.stringify({
+            type: "message_start",
+            message: {
+              id: "msg_1",
+              usage: { input_tokens: 5, output_tokens: 0 },
+            },
+          })}\n\n`,
+        );
+        if (scenario === "idle-timeout") {
+          return;
+        }
+        const interval = setInterval(() => {
+          if (++ticks < 9) {
+            res.write(
+              `event: ping\ndata: ${JSON.stringify({ type: "ping" })}\n\n`,
+            );
+          } else {
+            clearInterval(interval);
+            res.write(
+              `event: content_block_delta\ndata: ${JSON.stringify({
+                type: "content_block_delta",
+                index: 0,
+                delta: { type: "text_delta", text: "finished" },
+              })}\n\n`,
+            );
+            res.end(
+              `event: message_stop\ndata: ${JSON.stringify({ type: "message_stop" })}\n\n`,
+            );
+          }
+        }, 300);
+        res.on("close", () => clearInterval(interval));
+      });
+      await new Promise<void>((resolve) => server.listen(0, resolve));
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      try {
+        process.env.ANTHROPIC_API_KEY = "test-key";
+        process.env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${port}`;
+        process.env.ANTHROPIC_AUTH_METHOD = "api_key";
+        delete process.env.ANTHROPIC_OAUTH_TOKEN;
+        delete process.env.CLAUDE_OAUTH_TOKEN;
+
+        const started = Date.now();
+        const result = await nl().stream({
+          provider: "anthropic",
+          model: "claude-3-5-sonnet-20241022",
+          input: { text: "hi" },
+          maxSteps: 1,
+          timeout: 2_000,
+          turnTimeoutMs: scenario === "turn-timeout" ? 2_200 : undefined,
+          disableInternalFallback: true,
+        });
+        let text = "";
+        try {
+          for await (const chunk of result.stream) {
+            text += ("content" in chunk ? chunk.content : undefined) ?? "";
+          }
+        } catch (error) {
+          if (scenario === "active") {
+            throw error;
+          }
+        }
+        if (scenario === "active") {
+          assert(
+            text.includes("finished"),
+            `the live native stream was cut off (ticks=${ticks}, stop=${String(result.metadata?.stopReason)}, finish=${String(result.finishReason)})`,
+          );
+          assert(
+            Date.now() - started > 2_000,
+            "the fixture did not cross the old deadline",
+          );
+        } else {
+          const elapsed = Date.now() - started;
+          assert(
+            !text.includes("finished"),
+            "the stream must stop before completion",
+          );
+          assert(
+            elapsed >= 1_700 && elapsed < 6_000,
+            `the ${scenario} deadline did not stop the stream in time: ${elapsed}ms`,
+          );
+          if (scenario === "turn-timeout") {
+            assert(
+              ticks >= 5,
+              "heartbeats must still be arriving at the turn deadline",
+            );
+          }
+        }
+      } finally {
+        server.closeAllConnections();
+        server.close();
+        restoreEnv(envSnapshot);
+      }
+    });
+  }
+
+  for (const { idleMs, toolMs } of [
+    { idleMs: 1_000, toolMs: 2_500 },
+    { idleMs: 100, toolMs: 300 },
+  ]) {
+    await test(`a ${toolMs}ms tool does not trip a ${idleMs}ms stream idle timeout under turnTimeoutMs`, async () => {
+      const envSnapshot = snapshotEnv();
+      const sse = (event: string, payload: Record<string, unknown>): string =>
+        `event: ${event}\ndata: ${JSON.stringify({ type: event, ...payload })}\n\n`;
+      let requests = 0;
+      const server = createServer((_req, res) => {
+        requests++;
+        res.writeHead(200, { "content-type": "text/event-stream" });
+        res.write(
+          sse("message_start", {
+            message: { id: `msg_${requests}`, usage: { input_tokens: 5 } },
+          }),
+        );
+        if (requests === 1) {
+          res.write(
+            sse("content_block_start", {
+              index: 0,
+              content_block: {
+                type: "tool_use",
+                id: "tu_1",
+                name: "slow",
+                input: {},
+              },
+            }),
+          );
+          res.write(
+            sse("content_block_delta", {
+              index: 0,
+              delta: { type: "input_json_delta", partial_json: "{}" },
+            }),
+          );
+          res.write(sse("content_block_stop", { index: 0 }));
+          res.write(
+            sse("message_delta", {
+              delta: { stop_reason: "tool_use" },
+              usage: { output_tokens: 6 },
+            }),
+          );
+        } else {
+          res.write(
+            sse("content_block_start", {
+              index: 0,
+              content_block: { type: "text", text: "" },
+            }),
+          );
+          res.write(
+            sse("content_block_delta", {
+              index: 0,
+              delta: { type: "text_delta", text: "after the tool" },
+            }),
+          );
+          res.write(sse("content_block_stop", { index: 0 }));
+          res.write(
+            sse("message_delta", {
+              delta: { stop_reason: "end_turn" },
+              usage: { output_tokens: 4 },
+            }),
+          );
+        }
+        res.end(sse("message_stop", {}));
+      });
+      await new Promise<void>((resolve) => server.listen(0, resolve));
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      try {
+        process.env.ANTHROPIC_API_KEY = "test-key";
+        process.env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${port}`;
+        process.env.ANTHROPIC_AUTH_METHOD = "api_key";
+        delete process.env.ANTHROPIC_OAUTH_TOKEN;
+        delete process.env.CLAUDE_OAUTH_TOKEN;
+
+        const { jsonSchema } = await import("../dist/index.js");
+        let toolRuns = 0;
+        const result = await nl().stream({
+          provider: "anthropic",
+          model: "claude-3-5-sonnet-20241022",
+          input: { text: "use the slow tool" },
+          maxSteps: 3,
+          maxTokens: 32,
+          timeout: idleMs,
+          turnTimeoutMs: 15_000,
+          disableInternalFallback: true,
+          tools: {
+            slow: {
+              description: "a tool slower than the stream idle timeout",
+              inputSchema: jsonSchema({
+                type: "object",
+                properties: {},
+                additionalProperties: true,
+              }),
+              execute: async () => {
+                toolRuns++;
+                await new Promise((resolve) => setTimeout(resolve, toolMs));
+                return { ok: true };
+              },
+            },
+          },
+        });
+        let text = "";
+        for await (const chunk of result.stream) {
+          text += ("content" in chunk ? chunk.content : undefined) ?? "";
+        }
+        assert(toolRuns === 1, `the slow tool ran ${toolRuns} times`);
+        assert(
+          text.includes("after the tool"),
+          `the turn was aborted while the tool ran`,
+        );
+      } finally {
+        server.closeAllConnections();
+        server.close();
+        restoreEnv(envSnapshot);
+      }
+    });
+  }
 });

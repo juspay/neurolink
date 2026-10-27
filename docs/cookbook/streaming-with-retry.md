@@ -15,6 +15,31 @@ Implement automatic retry with exponential backoff for streaming responses. Hand
 
 ## Code
 
+### Stream timeout policy
+
+Streaming calls now select the existing `2m` streaming default instead of the
+provider's generation default (for example, `30s` for OpenAI, `60s` for Anthropic).
+Explicit `timeout` values still take precedence, and Ollama's environment timeout
+overrides are preserved. Non-streaming defaults are unchanged.
+
+For OpenAI-compatible and native Anthropic streams, `timeout` bounds inactivity:
+each raw response chunk, including a heartbeat, resets the idle deadline. Active
+streams have no default lifetime cap and can continue beyond 30 minutes. Set
+`turnTimeoutMs` to opt in to a total turn deadline; heartbeat activity cannot
+extend it. Anthropic's explicit `executionControl` policy retains its existing
+per-request and lifetime behavior.
+
+```typescript
+const result = await neurolink.stream({
+  provider: "openai",
+  input: { text: "Explain this in detail" },
+  timeout: "30s", // Keep a 30-second idle timeout instead of the 2-minute default.
+  turnTimeoutMs: 40 * 60_000, // Optional: stop the whole turn after 40 minutes.
+});
+```
+
+### Retry example
+
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
 

@@ -40,6 +40,18 @@
 
 ---
 
+### onStreamActivity?
+
+> `optional` **onStreamActivity?**: () => `void`
+
+Re-arm the idle timeout when any upstream wire bytes arrive.
+
+#### Returns
+
+`void`
+
+---
+
 ### options
 
 > **options**: [`StreamOptions`](StreamOptions.md)
