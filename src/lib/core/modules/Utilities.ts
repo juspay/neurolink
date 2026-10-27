@@ -229,7 +229,10 @@ export class Utilities {
    * Get timeout value in milliseconds from options
    * Supports number or string formats (e.g., '30s', '2m', '1h')
    */
-  getTimeout(options: TextGenerationOptions | StreamOptions): number {
+  getTimeout(
+    options: TextGenerationOptions | StreamOptions,
+    operation: "generate" | "stream" = "generate",
+  ): number {
     // If caller specified a timeout, use it (supports number ms and string formats)
     if (options.timeout !== undefined && options.timeout !== null) {
       const parsed = parseTimeout(options.timeout);
@@ -238,14 +241,10 @@ export class Utilities {
       }
     }
 
-    // Use per-provider default (e.g., vertex=60s, ollama=5m) instead of global 30s.
-    // Always use "generate" operation here — streaming operations have their own
-    // longer timeout (DEFAULT_TIMEOUTS.streaming = 2m) applied by the streaming
-    // infrastructure in BaseProvider.stream(). Both TextGenerationOptions and
-    // StreamOptions share the same `input` property, so there is no reliable
-    // discriminator to detect streaming at this level.
+    // The caller knows the operation; the two option types share the same
+    // shape and cannot be distinguished from their values here.
     const providerDefault = parseTimeout(
-      getDefaultTimeout(this.providerName, "generate"),
+      getDefaultTimeout(this.providerName, operation),
     );
     return providerDefault ?? this.defaultTimeout;
   }

@@ -520,6 +520,36 @@ export function createTimeoutController(
   return { controller, cleanup, reset, timeoutMs };
 }
 
+/** Keep a stream's idle deadline alive for every received wire chunk. */
+export function monitorStreamActivity(
+  body: ReadableStream<Uint8Array>,
+  onActivity: () => void,
+): ReadableStream<Uint8Array> {
+  return body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        onActivity();
+        controller.enqueue(chunk);
+      },
+    }),
+  );
+}
+
+/** Bound a live stream separately from its resettable idle deadline. */
+export function getStreamLifetimeTimeout(
+  idleTimeoutMs: number,
+  turnTimeoutMs?: number,
+): number {
+  if (
+    typeof turnTimeoutMs === "number" &&
+    Number.isFinite(turnTimeoutMs) &&
+    turnTimeoutMs > 0
+  ) {
+    return turnTimeoutMs;
+  }
+  return Math.max(30 * 60_000, idleTimeoutMs * 10);
+}
+
 /**
  * Compose an external abort signal with a timeout controller's signal.
  * Returns a single AbortSignal that fires when either signal aborts.

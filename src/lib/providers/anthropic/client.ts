@@ -126,7 +126,9 @@ import {
   composeAbortSignals,
   composeAbortSignalsScoped,
   createTimeoutController,
+  getStreamLifetimeTimeout,
   mergeAbortSignals,
+  monitorStreamActivity,
   TimeoutError,
 } from "../../utils/timeout.js";
 import { raceWithAbort } from "../../utils/async/index.js";
@@ -2193,12 +2195,9 @@ export class AnthropicProvider extends BaseProvider {
     // or finite positive or absent.
     const control = options.executionControl;
 
-    // Same split the generate path already enforces in
-    // `BaseProvider.withTurnTimeout`: an explicit, valid `turnTimeoutMs` is
-    // the caller's whole-turn contract and owns this timer. Without it the
-    // native stream path armed only the provider's own `timeout`, so a caller
-    // asking for a 40-minute turn of 5-minute calls was killed at the shorter
-    // value — and a caller asking for a 200ms turn was not bounded at all.
+    // An explicit turnTimeoutMs remains a whole-turn deadline. Without one,
+    // use a generous lifetime cap alongside the resettable stream idle timer.
+    // executionControl keeps its existing lifetime/per-request contract.
     const hasValidTurnTimeout =
       typeof options.turnTimeoutMs === "number" &&
       Number.isFinite(options.turnTimeoutMs) &&
@@ -2215,18 +2214,29 @@ export class AnthropicProvider extends BaseProvider {
     // that shape removed the turn's ceiling entirely while the caller had said
     // nothing at all about it, and TypeScript could not warn because the field
     // is `?: number | null`. An absent value means "no opinion", and no
-    // opinion inherits the legacy handling below.
+    // opinion inherits the handling below.
+    const idleTimeoutMs = this.getTimeout(options, "stream");
     const lifetimeTimeoutMs =
       control && control.lifetimeTimeoutMs !== undefined
         ? (control.lifetimeTimeoutMs ?? undefined)
         : hasValidTurnTimeout
           ? options.turnTimeoutMs
-          : this.getTimeout(options);
+          : control
+            ? this.getTimeout(options)
+            : getStreamLifetimeTimeout(idleTimeoutMs);
     const timeoutController = createTimeoutController(
       lifetimeTimeoutMs,
       this.providerName,
       "stream",
     );
+    // Execution control has its own per-request and lifetime deadline contract.
+    const idleController = control
+      ? null
+      : createTimeoutController(idleTimeoutMs, this.providerName, "stream");
+    const cleanupTimeouts = () => {
+      timeoutController?.cleanup();
+      idleController?.cleanup();
+    };
     // Consumer-driven abort: fires when the async iterator is closed early
     // (caller breaks out of `for await`) so the background loop stops
     // reading SSE and running tools.
@@ -2234,6 +2244,7 @@ export class AnthropicProvider extends BaseProvider {
     const abortSignal = mergeAbortSignals([
       options.abortSignal,
       timeoutController?.controller.signal,
+      idleController?.controller.signal,
       consumerAbortController.signal,
     ]).signal;
 
@@ -2289,7 +2300,7 @@ export class AnthropicProvider extends BaseProvider {
         }
       }
     } catch (setupErr) {
-      timeoutController?.cleanup();
+      cleanupTimeouts();
       throw this.handleProviderError(setupErr);
     }
 
@@ -2332,7 +2343,24 @@ export class AnthropicProvider extends BaseProvider {
       createDeferredAnalytics();
 
     let capturedProviderError: unknown;
-    const client = this.client;
+    // The SDK consumes ping events before the adapter sees them. Monitor its
+    // response body so every wire chunk, including heartbeats, resets idle time.
+    const client = idleController
+      ? this.client.withOptions({
+          middleware: [
+            ...this.client.middleware,
+            async (request, next, context) => {
+              const response = await next(request);
+              return response.ok && context.options?.stream && response.body
+                ? new Response(
+                    monitorStreamActivity(response.body, idleController.reset),
+                    response,
+                  )
+                : response;
+            },
+          ],
+        })
+      : this.client;
     // Every attempted call, for the no-output sentinel below; the result
     // reports only calls that returned a value, the rule the generate loop
     // and Bedrock already follow.
@@ -2986,7 +3014,7 @@ export class AnthropicProvider extends BaseProvider {
             pushChunk({ content: output });
           }
         }
-        timeoutController?.cleanup();
+        cleanupTimeouts();
         channel.close();
       });
     loopPromise.catch(() => {

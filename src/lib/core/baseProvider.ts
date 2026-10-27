@@ -4281,8 +4281,11 @@ export abstract class BaseProvider implements AIProvider {
   /**
    * Get timeout value in milliseconds - delegated to Utilities
    */
-  public getTimeout(options: TextGenerationOptions | StreamOptions): number {
-    return this.utilities.getTimeout(options);
+  public getTimeout(
+    options: TextGenerationOptions | StreamOptions,
+    operation: "generate" | "stream" = "generate",
+  ): number {
+    return this.utilities.getTimeout(options, operation);
   }
 
   /**
