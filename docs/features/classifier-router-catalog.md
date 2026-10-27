@@ -195,10 +195,8 @@ now do:
 - **The classifier's own pick is separately vetoed.** Even when `jev` picks a
   model directly, `fitsRequest()` checks whether that specific model's window
   can hold the request. If it can't, the pick is dropped **regardless of
-  confidence** — this is a hard provider error, not a degraded answer, because
-  an oversized request against a real model puts that model into `ModelPool`'s
-  permanent (10-year) cooldown. A wrong guess here is not "less accurate," it
-  is unrecoverable for the life of the process.
+  confidence** — an oversized request would fail on that model. The model
+  remains available for later requests that fit its window.
 
 ## What this is bad at
 

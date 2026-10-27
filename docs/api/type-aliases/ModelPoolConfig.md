@@ -37,7 +37,7 @@ How to pick among available members.
 > `optional` **cooldownMs?**: `number`
 
 How long (ms) a failed member stays in cooldown before it is eligible
-again. Applies to retryable error classes (rate_limit, server, network).
+again. Applies to all error classes except context_window.
 Default: 60_000 (1 minute).
 
 ---

@@ -86,15 +86,11 @@ never raise it**, and this is enforced independently at two layers:
 2. `ClassifierRouter.selectContextBudget()` re-checks the result and discards
    it unless `threshold < 0.8`.
 
-The reason this is a hard invariant rather than a tuning choice: shrinking a
-budget merely compacts a little earlier than strictly necessary — the model
-still answers correctly with slightly less history than it could have used.
-Growing one lets a request through that the provider then rejects with a
-context-window error, and `ModelPool` treats that as a **permanent (10-year)
-cooldown** — one optimistic guess retires the model for the life of the
-process. Getting this wrong in one direction is recoverable; getting it wrong
-in the other is not, so the code refuses to let a bug make that mistake even
-once.
+Shrinking a budget compacts a little earlier than strictly necessary. Growing
+one could let a request through that the provider rejects with a
+context-window error. That failure affects the current request, so the code
+keeps the threshold at or below the default while leaving the model available
+for later requests that fit.
 
 ## How the threshold changes the actual budget
 
