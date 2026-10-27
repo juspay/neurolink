@@ -2654,6 +2654,359 @@ await runSuite(async () => {
         }
       }
     });
+    /** A real loopback SSE endpoint; only the provider's reply is scripted. */
+    async function runToolIdentityFixture(
+      deltas: Record<string, unknown>[],
+      mode: "generate" | "stream" = "stream",
+      coerce = false,
+      schemaFailure?: "refinement" | "lazy",
+    ) {
+      const { NeuroLink } = await import("../dist/index.js");
+      const { z } = await import("zod");
+      const executions: Array<{ name: string; value: unknown }> = [];
+      const requestBodies: string[] = [];
+      const rejectedTools: string[] = [];
+      let requests = 0;
+      const server = createServer((req, res) => {
+        let body = "";
+        req.on("data", (chunk) => {
+          body += String(chunk);
+        });
+        req.on("end", () => {
+          requestBodies.push(body);
+          requests++;
+          if (mode === "generate") {
+            res.writeHead(200, { "content-type": "application/json" });
+            res.end(
+              JSON.stringify({
+                id: "owned-tool-fixture",
+                object: "chat.completion",
+                created: 1,
+                model: "owned-tool-identity-fixture",
+                choices: [
+                  {
+                    index: 0,
+                    message: {
+                      role: "assistant",
+                      content: requests === 1 ? null : "fixture complete",
+                      ...(requests === 1
+                        ? {
+                            tool_calls: deltas.map((call) => ({
+                              type: "function",
+                              ...call,
+                            })),
+                          }
+                        : {}),
+                    },
+                    finish_reason: requests === 1 ? "tool_calls" : "stop",
+                  },
+                ],
+                usage: {
+                  prompt_tokens: 5,
+                  completion_tokens: 2,
+                  total_tokens: 7,
+                },
+              }),
+            );
+            return;
+          }
+          res.writeHead(200, { "content-type": "text/event-stream" });
+          const emit = (
+            delta: Record<string, unknown>,
+            finish: string | null,
+          ) =>
+            res.write(
+              `data: ${JSON.stringify({ choices: [{ index: 0, delta, finish_reason: finish }] })}\n\n`,
+            );
+          if (requests === 1) {
+            for (const toolCall of deltas) {
+              emit({ tool_calls: [toolCall] }, null);
+            }
+            emit({}, "tool_calls");
+          } else {
+            emit({ content: "fixture complete" }, "stop");
+          }
+          res.end("data: [DONE]\n\n");
+        });
+      });
+      await new Promise<void>((resolve) =>
+        server.listen(0, "127.0.0.1", resolve),
+      );
+      const address = server.address();
+      assert(
+        address !== null && typeof address !== "string",
+        "tool fixture must bind",
+      );
+      const port = typeof address === "object" && address ? address.port : 0;
+      const previousSkipMCP = process.env.NEUROLINK_SKIP_MCP;
+      process.env.NEUROLINK_SKIP_MCP = "true";
+      let failed = false;
+      const makeTool = (name: string) => ({
+        description: "Echo an owned fixture value",
+        inputSchema:
+          schemaFailure === "lazy" && name === "first"
+            ? () => {
+                throw new Error("owned-schema-exception-detail");
+              }
+            : z.object({
+                value: coerce
+                  ? z.coerce.number()
+                  : z.string().refine(async (value) => {
+                      if (schemaFailure === "refinement" && name === "first") {
+                        throw new Error("owned-schema-exception-detail");
+                      }
+                      return value !== "blocked";
+                    }),
+              }),
+        execute: async (args: unknown) => {
+          const value =
+            typeof args === "object" && args !== null && "value" in args
+              ? args.value
+              : undefined;
+          executions.push({ name, value });
+          return { echoed: value ?? null };
+        },
+      });
+      try {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        nl.getEventEmitter().on("tool:end", (event: unknown) => {
+          if (
+            typeof event === "object" &&
+            event !== null &&
+            "success" in event &&
+            event.success === false &&
+            "toolName" in event &&
+            typeof event.toolName === "string"
+          ) {
+            rejectedTools.push(event.toolName);
+          }
+        });
+        const options = {
+          provider: "openai-compatible",
+          model: "owned-tool-identity-fixture",
+          input: { text: "Echo both fixture values" },
+          credentials: {
+            openaiCompatible: {
+              apiKey: `owned-fixture-${port}`,
+              baseURL: `http://127.0.0.1:${port}/v1`,
+            },
+          },
+          disableInternalFallback: true,
+          maxSteps: 2,
+          tools: {
+            echo_first: makeTool("first"),
+            echo_second: makeTool("second"),
+          },
+        };
+        if (mode === "generate") {
+          await nl.generate(options);
+        } else {
+          const result = await nl.stream(options);
+          for await (const chunk of result.stream) {
+            void chunk;
+          }
+        }
+      } catch {
+        failed = true;
+      } finally {
+        server.closeAllConnections();
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+        if (previousSkipMCP === undefined) {
+          delete process.env.NEUROLINK_SKIP_MCP;
+        } else {
+          process.env.NEUROLINK_SKIP_MCP = previousSkipMCP;
+        }
+      }
+      return { executions, requests, failed, requestBodies, rejectedTools };
+    }
+
+    await test("streamed tool arguments stay bound to a repeated unindexed call ID", async () => {
+      const result = await runToolIdentityFixture([
+        {
+          id: "call_a",
+          function: { name: "echo_first", arguments: '{"value":' },
+        },
+        { id: "call_a", function: { arguments: '"alpha"}' } },
+        {
+          id: "call_b",
+          function: { name: "echo_second", arguments: '{"value":"beta"}' },
+        },
+      ]);
+      assert(
+        result.requests >= 1,
+        "the scripted provider must receive the request",
+      );
+      assert(!result.failed, "the fragmented tool turn must complete");
+      assert(
+        result.executions.length === 2,
+        "each complete tool call must execute once",
+      );
+      assert(
+        result.executions.some(
+          (e) => e.name === "first" && e.value === "alpha",
+        ),
+        "the first tool must receive its assembled arguments",
+      );
+      assert(
+        result.executions.some(
+          (e) => e.name === "second" && e.value === "beta",
+        ),
+        "the second tool must keep its own arguments",
+      );
+    });
+
+    await test("throwing tool schemas reject only that call and preserve later calls in generate and stream", async () => {
+      const outcomes = [];
+      for (const mode of ["generate", "stream"] as const) {
+        for (const failure of ["refinement", "lazy"] as const) {
+          outcomes.push(
+            await runToolIdentityFixture(
+              [
+                {
+                  index: 0,
+                  id: "call_a",
+                  function: {
+                    name: "echo_first",
+                    arguments: '{"value":"alpha"}',
+                  },
+                },
+                {
+                  index: 1,
+                  id: "call_b",
+                  function: {
+                    name: "echo_second",
+                    arguments: '{"value":"beta"}',
+                  },
+                },
+              ],
+              mode,
+              false,
+              failure,
+            ),
+          );
+        }
+      }
+      for (const result of outcomes) {
+        assert(
+          result.requests >= 1,
+          "the throwing schema fixture must receive a request",
+        );
+        assert(
+          !result.failed,
+          "a validator exception must not abort the tool batch",
+        );
+        assert(
+          result.executions.length === 1 &&
+            result.executions[0].name === "second" &&
+            result.executions[0].value === "beta",
+          "only the later valid tool must execute",
+        );
+        assert(
+          result.rejectedTools.filter((name) => name === "echo_first")
+            .length === 1,
+          "the rejected call must emit one failed tool event",
+        );
+        assert(
+          result.requestBodies.some((body) =>
+            body.includes("input schema validation threw"),
+          ),
+          "the next model step must receive the rejected tool result",
+        );
+        assert(
+          result.requestBodies.every(
+            (body) => !body.includes("owned-schema-exception-detail"),
+          ),
+          "private validator exception details must stay out of model requests",
+        );
+      }
+    });
+
+    await test("tool callbacks receive schema-normalized input in generate and stream", async () => {
+      for (const mode of ["generate", "stream"] as const) {
+        const result = await runToolIdentityFixture(
+          [
+            {
+              index: 0,
+              id: "call_a",
+              function: { name: "echo_first", arguments: '{"value":"5"}' },
+            },
+          ],
+          mode,
+          true,
+        );
+        assert(
+          result.requests >= 1,
+          "the coercion fixture must receive a request",
+        );
+        assert(!result.failed, "the schema-normalized turn must complete");
+        assert(
+          result.executions.length === 1,
+          "the normalized call must execute once",
+        );
+        assert(
+          result.executions[0].value === 5,
+          "the callback must receive the validated number",
+        );
+      }
+    });
+
+    await test("streamed malformed and schema-invalid tool arguments never reach execute", async () => {
+      for (const argumentsText of [
+        "{not-json",
+        '{"value":7}',
+        "null",
+        '{"value":"blocked"}',
+      ]) {
+        const result = await runToolIdentityFixture([
+          {
+            index: 0,
+            id: "call_a",
+            function: { name: "echo_first", arguments: argumentsText },
+          },
+        ]);
+        assert(
+          result.requests >= 1,
+          "the invalid arguments must reach the provider path",
+        );
+        assert(
+          result.executions.length === 0,
+          "invalid arguments must not reach a tool callback",
+        );
+      }
+    });
+
+    await test("invalid or conflicting streamed tool identities fail before tools execute", async () => {
+      const complete = {
+        id: "call_a",
+        function: { name: "echo_first", arguments: '{"value":"alpha"}' },
+      };
+      const cases: Record<string, unknown>[][] = [
+        [{ ...complete, index: -1 }],
+        [{ ...complete, index: 0.5 }],
+        [{ ...complete, index: "0" }],
+        [{ ...complete, index: Number.MAX_SAFE_INTEGER }],
+        [
+          { ...complete, index: 0 },
+          { index: 0, id: "call_b" },
+        ],
+        [
+          { ...complete, index: 0 },
+          { ...complete, index: 1 },
+        ],
+      ];
+      for (const deltas of cases) {
+        const result = await runToolIdentityFixture(deltas);
+        assert(
+          result.requests >= 1,
+          "the invalid provider response must be exercised",
+        );
+        assert(result.failed, "an invalid stream identity must fail the turn");
+        assert(
+          result.executions.length === 0,
+          "an invalid turn must execute no tools",
+        );
+      }
+    });
   } finally {
     await runtimeFixtures.close();
   }
