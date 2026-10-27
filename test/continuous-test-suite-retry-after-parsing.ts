@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-import "dotenv/config";
+import "./helpers/credentialFreeEnv.js";
 
 /**
  * Continuous Test Suite — Robust Retry-After and X-RateLimit-Reset parsing.
@@ -37,6 +37,56 @@ const { test, runSuite } = defineSuite("retry-after-parsing", {
 });
 
 void runSuite(async () => {
+  await test("oversized numeric and duration hints never return an unsafe delay", () => {
+    const overflow = "9".repeat(306);
+    const unsafeSeconds = "9007199254741";
+    for (const raw of [
+      overflow,
+      `${overflow}h`,
+      unsafeSeconds,
+      `${unsafeSeconds}s`,
+    ]) {
+      assertEqual(
+        parseRetryAfterHeaderValue(raw),
+        undefined,
+        "an unrepresentable hint must be rejected",
+      );
+      assertEqual(
+        parseRetryAfterProxy(raw),
+        0,
+        "a rejected proxy hint must use the no-hint path",
+      );
+    }
+    assertEqual(
+      parseDurationMs(`${overflow}h`),
+      undefined,
+      "duration accumulation must stay finite",
+    );
+    assertEqual(
+      parseRateLimitResetValue(overflow),
+      undefined,
+      "an unrepresentable reset must be rejected",
+    );
+    assertEqual(
+      parseRetryAfterFromHeaders({
+        "Retry-After": overflow,
+        "X-RateLimit-Reset": "30",
+      }),
+      30_000,
+      "an invalid primary hint must preserve a valid fallback",
+    );
+    assertEqual(
+      parseRetryAfterHeaderValue("1.5"),
+      1_500,
+      "fractional seconds must retain their meaning",
+    );
+    assertEqual(
+      parseDurationMs("6m0s"),
+      360_000,
+      "ordinary durations must retain their meaning",
+    );
+  });
+
   await test("duration string parser handles standard and mixed time units", () => {
     assertEqual(parseDurationMs("6m0s"), 360000, "6m0s is 360,000 ms");
     assertEqual(parseDurationMs("30s"), 30000, "30s is 30,000 ms");

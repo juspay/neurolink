@@ -468,6 +468,10 @@ jobs:
         if: matrix.group == 'rest'
         run: pnpm run test:error-classifier-contract
 
+      - name: Retry-After header bounds (untrusted input, no credentials)
+        if: matrix.group == 'rest'
+        run: pnpm run test:retry-after-parsing
+
       - name: Orchestrated provider selection contracts (owned JSON/SSE, no credentials)
         if: matrix.group == 'rest'
         run: pnpm run test:orchestrated-provider-selection
