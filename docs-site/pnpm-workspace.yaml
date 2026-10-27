@@ -11,3 +11,11 @@
 # can land in docs-site/pnpm-lock.yaml. This tree is audited separately by the
 # quality gate and had no cooldown before (the file held only the comment above).
 minimumReleaseAge: 4320
+
+# Accepted risk, no patched release exists: GHSA-ch52-4w7c-c8xp (http-cache-semantics
+# <=4.2.0, max-stale can return one user's cached response to another). It reaches this
+# tree only through Docusaurus's build-time HTTP client, which caches for one process and
+# one user; the deployed site is static and never runs it. Remove once a fix ships.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-ch52-4w7c-c8xp
