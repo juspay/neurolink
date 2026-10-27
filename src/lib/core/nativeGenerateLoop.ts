@@ -429,7 +429,9 @@ const readTotal = (value: unknown): number =>
  * second case ran the tool with empty input and reported success, so a
  * malformed call looked identical to a legitimate no-arg one.
  */
-const parseToolInput = (raw: unknown): { input: unknown; error?: string } => {
+export const parseToolInput = (
+  raw: unknown,
+): { input: unknown; error?: string } => {
   if (typeof raw !== "string") {
     return { input: raw ?? {} };
   }
@@ -489,30 +491,38 @@ function declaredInputSchema(name: string, tool: Tool): object {
  * not, so a call whose shape the tool rejects reached `execute` and failed
  * inside user code — or worse, did not fail. A Zod schema is detected by
  * `safeParse`; anything else is passed through, since a JSON Schema needs a
- * validator this loop has no business carrying.
+ * validator this loop has no business carrying. A throwing resolver or
+ * refinement rejects only that call, without forwarding private exception text.
  */
-const validateToolInput = (
+export const validateToolInput = async (
   tool: Tool | undefined,
   input: unknown,
-): string | undefined => {
-  const schema = tool?.inputSchema
-    ? resolveToolInputSchema(tool.inputSchema)
-    : undefined;
-  if (
-    !schema ||
-    typeof schema !== "object" ||
-    !("safeParse" in schema) ||
-    typeof schema.safeParse !== "function"
-  ) {
-    return undefined;
+): Promise<ReturnType<typeof parseToolInput>> => {
+  try {
+    const schema = tool?.inputSchema
+      ? resolveToolInputSchema(tool.inputSchema)
+      : undefined;
+    if (
+      !schema ||
+      typeof schema !== "object" ||
+      !("safeParse" in schema) ||
+      typeof schema.safeParse !== "function"
+    ) {
+      return { input };
+    }
+    const result =
+      "safeParseAsync" in schema && typeof schema.safeParseAsync === "function"
+        ? await schema.safeParseAsync(input)
+        : schema.safeParse(input);
+    if (result.success) {
+      return { input: result.data };
+    }
+    const detail =
+      result.error instanceof Error ? result.error.message : "schema mismatch";
+    return { input, error: `input did not match the tool's schema: ${detail}` };
+  } catch {
+    return { input, error: "input schema validation threw" };
   }
-  const result = schema.safeParse(input);
-  if (result.success) {
-    return undefined;
-  }
-  const detail =
-    result.error instanceof Error ? result.error.message : "schema mismatch";
-  return `input did not match the tool's schema: ${detail}`;
 };
 
 /**
@@ -931,18 +941,18 @@ async function runGenerateSteps(
       const id = String(call.toolCallId ?? "");
       const startTime = new Date();
       const parsed = parseToolInput(call.input);
-      const input = parsed.input;
       // resolveLiveTool also loads a deferred tool the model called by its
       // catalog name without searching first.
       const tool = resolveLiveTool(args.toolsRecord, name);
+      const validated =
+        parsed.error || typeof tool?.execute !== "function"
+          ? parsed
+          : await validateToolInput(tool, parsed.input);
+      const input = validated.input;
 
       let output: unknown;
       let failure: string | undefined;
-      const rejection =
-        parsed.error ??
-        (typeof tool?.execute === "function"
-          ? validateToolInput(tool, input)
-          : undefined);
+      const rejection = validated.error;
       if (typeof tool?.execute !== "function") {
         failure = `Tool not found: ${name}`;
         output = { error: failure };

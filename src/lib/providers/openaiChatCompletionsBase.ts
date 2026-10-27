@@ -96,10 +96,12 @@ import { resolveRequestKind } from "../core/resolveRequestKind.js";
 import {
   appendJsonSchemaInstruction,
   hasNativeDoGenerate,
+  parseToolInput,
   resolveStepToolChoice,
   runNativeGenerateLoop,
   toNativeToolDeclaration,
   toPrepareStepRecord,
+  validateToolInput,
 } from "../core/nativeGenerateLoop.js";
 import {
   resolveToolExecutionRecords,
@@ -3142,12 +3144,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
 
     for (const [, t] of stepResult.toolCalls) {
       const startedAt = new Date();
-      let input: unknown;
-      try {
-        input = JSON.parse(t.argsBuffered || "{}");
-      } catch {
-        input = t.argsBuffered;
-      }
+      const parsed = parseToolInput(t.argsBuffered);
       let output: unknown;
       let errorMsg: string | undefined;
       // The model calls tools by their WIRE names; execution, events, and
@@ -3160,6 +3157,12 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       const toolDef =
         toolsRecord[registryName] ??
         resolveDeferredTool(toolsRecord, registryName);
+      const validated =
+        parsed.error || typeof toolDef?.execute !== "function"
+          ? parsed
+          : await validateToolInput(toolDef, parsed.input);
+      const input = validated.input;
+      const rejection = validated.error;
       // No `tool:start` here either: registered and built-in tools emit their
       // own start/end pair from the executor that runs them, and this raw
       // emission made every one of them count twice.
@@ -3167,6 +3170,10 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         errorMsg = `Tool '${registryName}' is not registered.`;
         output = { error: errorMsg };
         // Rejected before any execute ran, so no executor will report it.
+        this.emitRejectedToolCall(registryName, errorMsg, t.id);
+      } else if (rejection) {
+        errorMsg = `Tool '${registryName}': ${rejection}`;
+        output = { error: errorMsg };
         this.emitRejectedToolCall(registryName, errorMsg, t.id);
       } else {
         try {

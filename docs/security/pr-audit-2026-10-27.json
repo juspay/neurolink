@@ -1,0 +1,297 @@
+{
+  "asOf": "2026-10-27T05:18:32.709990+00:00",
+  "scope": "All 13 named other-author PRs from the 2026-10-27 readiness review",
+  "releaseBaseAfterSevenMerges": "1230374bb34b6413b84dc4b37e63c70a1ca02e30",
+  "mergedCandidates": [2009, 2080, 2083, 2052, 2051, 2070, 2023],
+  "attentionPRs": [2127, 2079, 2064, 2063, 2033, 1965],
+  "verificationMode": "Repository source/review audit, exact-head function and module-graph replays, public-SDK loopback transport regressions, in-memory host OTel provider, synthetic credentials",
+  "proofLimits": [
+    "A scoped changed-surface audit is not a guarantee of absence of security defects.",
+    "No production proxy, installed service, real provider credential, or live vendor account was used.",
+    "Blocked PR probes use the pinned release dependency tree with the stated exact PR source; they establish integration risks, not a hermetic reproduction of every historical lockfile.",
+    "Six attention PRs remain unmerged and their authors must address the linked requests.",
+    "Direct JSON Schema declarations without a validator retain their existing native-loop semantics; this patch reuses existing Zod validation, including asynchronous checks."
+  ],
+  "probeDependencyVersions": {
+    "@cfworker/json-schema": "4.1.1",
+    "@livekit/agents": "1.9.3",
+    "@livekit/agents-plugin-xai": "1.9.3",
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/sdk-trace-node": "2.6.1",
+    "type-decoder": "2.3.1"
+  },
+  "localVerification": {
+    "build": "passed, zero errors, on the combined seven-PR release tree plus this patch",
+    "providerWiring": {
+      "passed": 47,
+      "skipped": 1,
+      "total": 48,
+      "newRegressions": [
+        "repeated unindexed identity preserves arguments",
+        "generate and stream execute schema-normalized values",
+        "malformed/schema-invalid arguments do not execute",
+        "invalid/conflicting identity fails before execution"
+      ]
+    },
+    "retryAfterParsing": {
+      "passed": 9,
+      "failed": 0,
+      "oldTreeControl": "new bounds case failed before the patch"
+    },
+    "usageAccounting": "passed: ledger plus JSON/streaming cached and reasoning usage",
+    "generatedApiDocs": "current; 4130 files regenerated and compared",
+    "remainingValidation": "See the PR checks and campaign receipt for final full-repository, declarations, test-types, and provider-contract results."
+  },
+  "prs": [
+    {
+      "pr": 2127,
+      "url": "https://github.com/juspay/neurolink/pull/2127",
+      "auditedHead": "4b5fa031eda75eae1c512e8f57e021cb34daefbb",
+      "findings": [
+        {
+          "id": "STT-001",
+          "kind": "lifecycle coverage gap",
+          "status": "author action requested",
+          "evidence": "The added unconfigured-handler test allocates no worker; real owned-resource success/error/abort/early-stream-return and disposal-failure coverage remains unproven. No additional exploitable ownership defect reproduced."
+        }
+      ],
+      "assessment": "Ownership and shared-handler boundaries inspected; generated API/search artifacts and conflicts remain author-owned blockers.",
+      "authorFollowupComment": "https://github.com/juspay/neurolink/pull/2127#issuecomment-6433763930",
+      "disposition": "not merged; author action requested"
+    },
+    {
+      "pr": 2083,
+      "url": "https://github.com/juspay/neurolink/pull/2083",
+      "auditedHead": "286a83b8f34046c376a3421bb28d73abf92cef6e",
+      "findings": [],
+      "assessment": "Cached/reasoning usage fields and account attribution reviewed. Both outdated review requests are already reflected in source. No additional confirmed security gap in the changed accounting paths.",
+      "merge": {
+        "head": "286a83b8f34046c376a3421bb28d73abf92cef6e",
+        "mergeCommit": "776ed29386dd6f555fc20df4b57e55d6745d46b7",
+        "mergedAt": "2026-10-27T04:12:05Z"
+      },
+      "requiredChecksBeforeMerge": "five passed, bound to merged head",
+      "rebasedIntegrationProof": null
+    },
+    {
+      "pr": 2080,
+      "url": "https://github.com/juspay/neurolink/pull/2080",
+      "auditedHead": "f3906aa1f635feacb08ddca6df8701f9a205f6a6",
+      "findings": [],
+      "assessment": "Model substitutions preserve endpoint, credential, and execution-policy boundaries. No new security gap found in the changed preset fields; model availability was not live-tested.",
+      "merge": {
+        "head": "f3906aa1f635feacb08ddca6df8701f9a205f6a6",
+        "mergeCommit": "33244306fe72b1343efcbc6784e4f9761644fda5",
+        "mergedAt": "2026-10-27T04:11:56Z"
+      },
+      "requiredChecksBeforeMerge": "five passed, bound to merged head",
+      "rebasedIntegrationProof": null
+    },
+    {
+      "pr": 2079,
+      "url": "https://github.com/juspay/neurolink/pull/2079",
+      "auditedHead": "8d67bfea601d6c191b8fe80700bf7c6cadfbef14",
+      "findings": [],
+      "assessment": "The previously requested Gemini global-location resolution is present in current head, together with a regression case. Review remains changes-requested and must be revalidated; no new live availability test or confirmed security gap.",
+      "authorFollowupComment": "https://github.com/juspay/neurolink/pull/2079#issuecomment-6433764509",
+      "disposition": "not merged; author action requested"
+    },
+    {
+      "pr": 2070,
+      "url": "https://github.com/juspay/neurolink/pull/2070",
+      "auditedHead": "0fe3665b6ead29fcaa52cc7b6c7a69b51a35048e",
+      "findings": [],
+      "assessment": "CLI recommendations/defaults preserve caller overrides and credential handling. No new security gap found. Rebase preserved 314 existing cases and the one original added case.",
+      "merge": {
+        "head": "3dcc29582cb1acd08069904cca838be467ec27ad",
+        "mergeCommit": "d1cdcb05716ce415924ab6bf2d68ef4bd5befdb6",
+        "mergedAt": "2026-10-27T04:30:19Z"
+      },
+      "requiredChecksBeforeMerge": "five passed, bound to merged head",
+      "rebasedIntegrationProof": "rebase-2070-proof.json"
+    },
+    {
+      "pr": 2064,
+      "url": "https://github.com/juspay/neurolink/pull/2064",
+      "auditedHead": "5c426ead5c402ee46fd908fcd9856415c0bdcd27",
+      "findings": [
+        {
+          "id": "THINKING-001",
+          "kind": "test validity/isolation",
+          "status": "author action requested",
+          "evidence": "New suite uses a retired/non-manual-thinking model fixture, loads dotenv before credential isolation, and has red generated-artifact currency."
+        }
+      ],
+      "assessment": "Thinking decisions are request-local and new diagnostics contain no prompt/key values; artifact and test-policy gaps are tracked above.",
+      "authorFollowupComment": "https://github.com/juspay/neurolink/pull/2064#issuecomment-6433765145",
+      "disposition": "not merged; author action requested"
+    },
+    {
+      "pr": 2063,
+      "url": "https://github.com/juspay/neurolink/pull/2063",
+      "auditedHead": "8147714bbd6558f0376bf164d442149aa620cbf9",
+      "findings": [
+        {
+          "id": "PROXY-001",
+          "kind": "egress/integration",
+          "status": "author action requested",
+          "evidence": "Exact-head LiveKit xAI factory with current pinned dependencies opens one owned direct WebSocket under strict mode and an unreachable configured proxy."
+        },
+        {
+          "id": "PROXY-002",
+          "kind": "failure signaling",
+          "status": "author action requested",
+          "evidence": "Source review confirms Soniox policy refusal is caught and returned without closing or notifying the client session."
+        }
+      ],
+      "assessment": "Confirmed source syntax and commit-policy failures remain; newly reproduced integration egress gap is author-owned.",
+      "authorFollowupComment": "https://github.com/juspay/neurolink/pull/2063#issuecomment-6433765630",
+      "disposition": "not merged; author action requested"
+    },
+    {
+      "pr": 2052,
+      "url": "https://github.com/juspay/neurolink/pull/2052",
+      "auditedHead": "85124b1c88ff929d5799d7bd8e660c8b2f997006",
+      "findings": [
+        {
+          "id": "RETRY-001",
+          "kind": "untrusted numeric bounds",
+          "status": "fixed in this PR",
+          "evidence": "306-digit numeric and duration hints return Infinity; this patch rejects non-finite or unsafe millisecond values and preserves valid secondary hints."
+        },
+        {
+          "id": "CI-001",
+          "kind": "coverage gap",
+          "status": "fixed in this PR",
+          "evidence": "The new Retry-After domain suite was not invoked by the required workflow; it now runs in the required provider safety rest shard."
+        }
+      ],
+      "assessment": "Changed trust boundaries and existing review comments inspected.",
+      "merge": {
+        "head": "85124b1c88ff929d5799d7bd8e660c8b2f997006",
+        "mergeCommit": "62290aa62a80e00b836bdaee1b0023db856b33c2",
+        "mergedAt": "2026-10-27T04:12:13Z"
+      },
+      "requiredChecksBeforeMerge": "five passed, bound to merged head",
+      "rebasedIntegrationProof": null
+    },
+    {
+      "pr": 2051,
+      "url": "https://github.com/juspay/neurolink/pull/2051",
+      "auditedHead": "f1e238a21d0acf60591ebabdca003da3a90afb2e",
+      "findings": [
+        {
+          "id": "SSE-001",
+          "kind": "tool-call identity/argument integrity",
+          "status": "fixed in this PR",
+          "evidence": "Exact-head parser replay splits a repeated unindexed ID into partial calls; a public-SDK owned SSE regression executes a callback without its assembled value before the fix."
+        },
+        {
+          "id": "SSE-002",
+          "kind": "availability/performance",
+          "status": "fixed in this PR",
+          "evidence": "Prior allocation spreads/scans every earlier map key; this patch uses an identity map and monotonic key counter."
+        },
+        {
+          "id": "TOOL-001",
+          "kind": "validation before execution",
+          "status": "fixed in this PR",
+          "evidence": "Streaming dispatch passed malformed raw arguments to execute; this patch reuses native-loop JSON parsing and schema validation before dispatch."
+        },
+        {
+          "id": "TOOL-002",
+          "kind": "validated-value integrity",
+          "status": "fixed in this PR",
+          "evidence": "A public-SDK coercion replay validated a numeric schema but delivered the original string to execute. Both native generation paths now dispatch the schema result, including coercions and transforms."
+        }
+      ],
+      "assessment": "Changed trust boundaries and existing review comments inspected.",
+      "merge": {
+        "head": "f1e238a21d0acf60591ebabdca003da3a90afb2e",
+        "mergeCommit": "e41086491f546e1bbc350b7961bcdd30341891aa",
+        "mergedAt": "2026-10-27T04:12:21Z"
+      },
+      "requiredChecksBeforeMerge": "five passed, bound to merged head",
+      "rebasedIntegrationProof": null
+    },
+    {
+      "pr": 2033,
+      "url": "https://github.com/juspay/neurolink/pull/2033",
+      "auditedHead": "0e9c3d0a3ac8d4ef8ef2266a0b650599e9329c33",
+      "findings": [
+        {
+          "id": "SCHEMA-001",
+          "kind": "validation fail-open",
+          "status": "author action requested",
+          "evidence": "Non-string/null $schema and an unrecognized metaschema host each receive score 10 for a valid JSON object."
+        },
+        {
+          "id": "SCHEMA-002",
+          "kind": "availability, conditional on untrusted schemas/patterns",
+          "status": "author action requested",
+          "evidence": "A 29-character adversarial JSON string under a nested-quantifier schema pattern exceeded 2 seconds despite timeout=100; the isolated child was terminated after confirming entry into validation."
+        }
+      ],
+      "assessment": "Six ScorerInput.prompt type errors remain in addition to the validation findings.",
+      "authorFollowupComment": "https://github.com/juspay/neurolink/pull/2033#issuecomment-6433766138",
+      "disposition": "not merged; author action requested"
+    },
+    {
+      "pr": 2023,
+      "url": "https://github.com/juspay/neurolink/pull/2023",
+      "auditedHead": "c1d2a0b253c968ebe6df414a46e577d1b597963a",
+      "findings": [],
+      "assessment": "Eight case/whitespace/entity declaration probes were rejected with an accepted benign SVG control. Rebase preserved all 315 existing cases and added the three original SVG cases.",
+      "merge": {
+        "head": "7b6e630f7f7fed4a994e93b885338b99275b1ae3",
+        "mergeCommit": "1230374bb34b6413b84dc4b37e63c70a1ca02e30",
+        "mergedAt": "2026-10-27T04:47:37Z"
+      },
+      "requiredChecksBeforeMerge": "five passed, bound to merged head",
+      "rebasedIntegrationProof": "rebase-2023-proof.json"
+    },
+    {
+      "pr": 2009,
+      "url": "https://github.com/juspay/neurolink/pull/2009",
+      "auditedHead": "a7a93d45a7a03dfbd4f9428106076732e76df972",
+      "findings": [],
+      "assessment": "Documentation-only HTTPS links and description; no executable/configuration authority change identified.",
+      "merge": {
+        "head": "a7a93d45a7a03dfbd4f9428106076732e76df972",
+        "mergeCommit": "2d898925590ce8ea6e166fb46500543f633bc2e3",
+        "mergedAt": "2026-10-27T04:11:47Z"
+      },
+      "requiredChecksBeforeMerge": "five passed, bound to merged head",
+      "rebasedIntegrationProof": null
+    },
+    {
+      "pr": 1965,
+      "url": "https://github.com/juspay/neurolink/pull/1965",
+      "auditedHead": "c9d6f195c67c7dbe8a27d34110ff777fe6294530",
+      "findings": [
+        {
+          "id": "JEV-001",
+          "kind": "confidentiality/integration",
+          "status": "author action requested",
+          "evidence": "Exact-head native emitter with in-memory host OTel provider records a query containing a synthetic credential. Current-release recording opt-out/redaction helpers must be applied when rebasing."
+        },
+        {
+          "id": "JEV-002",
+          "kind": "availability/bounds",
+          "status": "author action requested",
+          "evidence": "A 65-candidate probe emits only 64 candidates but still reads the 65th while hashing the full input catalogue."
+        }
+      ],
+      "assessment": "Default-off audit and no-extra-inference properties retained in source; opt-in does not supersede current recording/redaction policy.",
+      "authorFollowupComment": "https://github.com/juspay/neurolink/pull/1965#issuecomment-6433766642",
+      "disposition": "not merged; author action requested"
+    }
+  ],
+  "combinedReleaseVerification": {
+    "releaseCommit": "1230374bb34b6413b84dc4b37e63c70a1ca02e30",
+    "tree": "364654c772c86de5414cf44400cdefcd6c25fd5e",
+    "sameTreeAsRebasedPR2023": true,
+    "validatedHead": "7b6e630f7f7fed4a994e93b885338b99275b1ae3",
+    "requiredChecks": "all five passed before merge"
+  }
+}

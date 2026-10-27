@@ -23,6 +23,12 @@ function getHeader(
   return null;
 }
 
+/** A parsed hint must remain an exact, finite millisecond count. */
+function representableDelayMs(value: number): number | undefined {
+  const rounded = Math.round(value);
+  return Number.isSafeInteger(rounded) && rounded >= 0 ? rounded : undefined;
+}
+
 /**
  * Parses a duration string (e.g., "6m0s", "30s", "1h30m", "500ms") into milliseconds.
  *
@@ -66,7 +72,9 @@ export function parseDurationMs(raw: string): number | undefined {
     }
   }
 
-  return matchedLength === trimmed.length ? Math.round(totalMs) : undefined;
+  return matchedLength === trimmed.length
+    ? representableDelayMs(totalMs)
+    : undefined;
 }
 
 /**
@@ -97,14 +105,14 @@ export function parseRetryAfterHeaderValue(
   if (/^\d+(?:\.\d+)?$/.test(trimmed)) {
     const seconds = Number(trimmed);
     if (Number.isFinite(seconds) && seconds >= 0) {
-      return Math.round(seconds * 1000);
+      return representableDelayMs(seconds * 1000);
     }
   }
 
   // 2. HTTP-date or RFC 3339 / ISO 8601 date
   const parsedDate = Date.parse(trimmed);
   if (Number.isFinite(parsedDate)) {
-    return Math.max(0, parsedDate - Date.now());
+    return representableDelayMs(Math.max(0, parsedDate - Date.now()));
   }
 
   // 3. Duration string (e.g. "6m0s", "30s", "500ms")
@@ -145,17 +153,17 @@ export function parseRateLimitResetValue(
     if (Number.isFinite(num) && num >= 0) {
       if (num < 1e9) {
         // Delta seconds (e.g. 30, 60, 300)
-        return Math.round(num * 1000);
+        return representableDelayMs(num * 1000);
       }
       // Unix epoch timestamp
       const resetTime = num > 1e12 ? num : num * 1000;
-      return Math.max(0, Math.round(resetTime - Date.now()));
+      return representableDelayMs(Math.max(0, resetTime - Date.now()));
     }
   }
 
   const parsedDate = Date.parse(trimmed);
   if (Number.isFinite(parsedDate)) {
-    return Math.max(0, parsedDate - Date.now());
+    return representableDelayMs(Math.max(0, parsedDate - Date.now()));
   }
 
   const duration = parseDurationMs(trimmed);

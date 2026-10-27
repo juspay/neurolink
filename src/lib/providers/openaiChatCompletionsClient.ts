@@ -888,6 +888,8 @@ export const parseSSEStream = async (
   let parseErr: Error | undefined;
   // Key of the tool call the previous delta wrote to (for unindexed deltas).
   let lastToolCallKey: number | undefined;
+  let nextToolCallKey = 0;
+  const toolCallKeysById = new Map<string, number>();
 
   const handleEvent = (msg: EventSourceMessage) => {
     const data = msg.data;
@@ -931,24 +933,61 @@ export const parseSSEStream = async (
     }
     if (delta?.tool_calls) {
       for (const tc of delta.tool_calls) {
+        if (
+          tc.index !== undefined &&
+          (!Number.isSafeInteger(tc.index) ||
+            tc.index < 0 ||
+            tc.index >= Number.MAX_SAFE_INTEGER)
+        ) {
+          parseErr = new Error("Streamed tool call has an invalid index");
+          return;
+        }
+        const id =
+          typeof tc.id === "string" && tc.id.length > 0 ? tc.id : undefined;
+        const knownKey =
+          id === undefined ? undefined : toolCallKeysById.get(id);
         // Gemini's OpenAI-compatible endpoint omits `index`: an unindexed
-        // delta with an id or name starts a call, otherwise it continues one.
+        // repeated id continues its own call. A new identity/name starts a
+        // call; anonymous fragments continue the last call. Allocation stays
+        // constant-time instead of rescanning every earlier stream entry.
         const index =
           tc.index ??
-          (tc.id || tc.function?.name || lastToolCallKey === undefined
-            ? Math.max(-1, ...result.toolCalls.keys()) + 1
+          knownKey ??
+          (id || tc.function?.name || lastToolCallKey === undefined
+            ? nextToolCallKey
             : lastToolCallKey);
+        if (
+          !Number.isSafeInteger(index) ||
+          index >= Number.MAX_SAFE_INTEGER ||
+          (knownKey !== undefined && knownKey !== index)
+        ) {
+          parseErr = new Error("Streamed tool call has a conflicting identity");
+          return;
+        }
+        nextToolCallKey = Math.max(nextToolCallKey, index + 1);
         lastToolCallKey = index;
         let state = result.toolCalls.get(index);
+        if (
+          state &&
+          id !== undefined &&
+          state.id !== id &&
+          toolCallKeysById.has(state.id)
+        ) {
+          parseErr = new Error("Streamed tool call has a conflicting identity");
+          return;
+        }
         if (!state) {
           state = {
-            id: tc.id ?? `call_${index}_${Date.now()}`,
+            id: id ?? `call_${index}_${Date.now()}`,
             name: tc.function?.name ?? "",
             argsBuffered: "",
           };
           result.toolCalls.set(index, state);
-        } else if (tc.id) {
-          state.id = tc.id;
+        } else if (id !== undefined) {
+          state.id = id;
+        }
+        if (id !== undefined) {
+          toolCallKeysById.set(id, index);
         }
         if (tc.function?.name) {
           state.name = tc.function.name;
