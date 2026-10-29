@@ -685,12 +685,22 @@ await test("every dependency, devDependency and optionalDependency is an exact v
 });
 
 await test("packageManager is an exact pnpm version and engines.node is declared", async () => {
-  const pm = PKG.packageManager;
-  assert(
-    typeof pm === "string" &&
-      /^pnpm@\d+\.\d+\.\d+(\+sha(256|512)\.[A-Za-z0-9+/=]+)?$/.test(pm),
-    "packageManager is not an exact pnpm@x.y.z (optionally with an integrity hash)",
-  );
+  // corepack and pnpm's own version switch read the hash as hex. The base64
+  // form npm prints as `dist.integrity` makes corepack reject the field and
+  // pnpm ignore it, so the pin silently stops applying.
+  const PM_PIN =
+    /^pnpm@\d+\.\d+\.\d+(?:\+(?:sha256\.[0-9a-f]{64}|sha512\.[0-9a-f]{128}))?$/;
+  for (const relPath of [
+    "package.json",
+    "docs-site/package.json",
+    "landing/package.json",
+  ]) {
+    const pm = readJson(relPath).packageManager;
+    assert(
+      typeof pm === "string" && PM_PIN.test(pm),
+      `${relPath} packageManager is not an exact pnpm@x.y.z (optionally with a hex sha256/sha512 hash)`,
+    );
+  }
   const engines = isRecord(PKG.engines) ? PKG.engines : {};
   assert(
     typeof engines.node === "string" && engines.node.length > 0,
