@@ -16,11 +16,7 @@
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { LogEntry, LogEventEmitter, LogLevel } from "../types/index.js";
-import {
-  isSensitiveLogKey,
-  sanitizeForLog,
-  sanitizeRecord,
-} from "./logSanitize.js";
+import { isSensitiveLogKey, sanitizeForLog } from "./logSanitize.js";
 
 /**
  * Identifies which NeuroLink instance is emitting, for the async operation
@@ -114,9 +110,6 @@ function cloneLogData(data: unknown): unknown {
  */
 const REDACTION_STRING_CAP = 1_000_000;
 
-/** Depth past which a payload is handed to `sanitizeRecord` wholesale. */
-const REDACTION_MAX_DEPTH = 32;
-
 function isPlainObject(value: object): boolean {
   const proto = Object.getPrototypeOf(value);
   return proto === Object.prototype || proto === null;
@@ -129,17 +122,24 @@ function isPlainObject(value: object): boolean {
  * `sanitizeRecord` itself is not used directly on the whole payload because
  * its `Object.entries` walk flattens what debug data is full of: an `Error`
  * becomes `{}` (message and stack gone), a `Buffer` becomes thousands of
- * numeric keys, a `Date`/`Map`/`Set` becomes `{}`. Those are left as they are
- * — `serializeData` and `structuredClone` already know how to carry them —
- * and only plain containers are walked, with sensitive keys masked and
- * string values scrubbed of bearer tokens and known key prefixes. An `Error`
- * gets its message scrubbed in place of the instance.
+ * numeric keys, a `Date`/`Map`/`Set` becomes `{}`. Here binary data, dates
+ * and regexps are kept as they are, a `Map` or `Set` is copied with its
+ * entries redacted, and any other object is reduced to what `JSON.stringify`
+ * prints for it (its `toJSON()` result or its own fields) — the same fields
+ * the console and a `structuredClone` for a sink would expose. Sensitive keys
+ * are masked, strings scrubbed of bearer tokens and known key prefixes, an
+ * object reached by several paths is redacted once and its copy shared, a
+ * cycle becomes `"[Circular]"`, and an `Error` gets its message scrubbed in
+ * place of the instance.
  *
- * Cost: one recursive pass over objects a call site already chose to log,
- * and only when `shouldLog(level)` was true. Nothing runs for the 99% of
- * `logger.debug` calls that are filtered out.
+ * Cost: one pass over the objects a call site already chose to log, each
+ * redacted once, and only when `shouldLog(level)` was true. Nothing runs for
+ * the 99% of `logger.debug` calls that are filtered out.
  */
-function redactLogData(data: unknown, depth = 0): unknown {
+function redactLogData(
+  data: unknown,
+  redacted = new Map<object, unknown>(),
+): unknown {
   if (data === null || data === undefined) {
     return data;
   }
@@ -157,19 +157,57 @@ function redactLogData(data: unknown, depth = 0): unknown {
       : undefined;
     return copy;
   }
-  if (depth >= REDACTION_MAX_DEPTH) {
-    return sanitizeRecord(data, REDACTION_STRING_CAP);
-  }
-  if (Array.isArray(data)) {
-    return data.map((item) => redactLogData(item, depth + 1));
-  }
-  if (!isPlainObject(data)) {
-    // Buffer, Date, Map, Set, class instances: carried as they are.
+  if (
+    ArrayBuffer.isView(data) ||
+    data instanceof ArrayBuffer ||
+    data instanceof Date ||
+    data instanceof RegExp
+  ) {
     return data;
   }
+  if (redacted.has(data)) {
+    return redacted.get(data);
+  }
+  // Until this object's copy is built, a reference back to it is a cycle.
+  redacted.set(data, "[Circular]");
+  const copy = redactContainer(data, (value) => redactLogData(value, redacted));
+  redacted.set(data, copy);
+  return copy;
+}
+
+/** One level of {@link redactLogData}, for an object it has not seen yet. */
+function redactContainer(
+  data: object,
+  walk: (value: unknown) => unknown,
+): unknown {
+  if (Array.isArray(data)) {
+    return data.map(walk);
+  }
+  if (data instanceof Map) {
+    return new Map(
+      Array.from(data, ([key, value]: [unknown, unknown]) => [
+        key,
+        typeof key === "string" && isSensitiveLogKey(key, value)
+          ? "***"
+          : walk(value),
+      ]),
+    );
+  }
+  if (data instanceof Set) {
+    return new Set(Array.from(data, walk));
+  }
+  if (
+    !isPlainObject(data) &&
+    "toJSON" in data &&
+    typeof data.toJSON === "function"
+  ) {
+    const json: unknown = data.toJSON();
+    return walk(json);
+  }
+  const entries: Array<[string, unknown]> = Object.entries(data);
   const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
-    out[key] = isSensitiveLogKey(key) ? "***" : redactLogData(value, depth + 1);
+  for (const [key, value] of entries) {
+    out[key] = isSensitiveLogKey(key, value) ? "***" : walk(value);
   }
   return out;
 }
@@ -497,20 +535,33 @@ class NeuroLinkLogger {
    * @param message - The message text to log
    * @param data - Optional additional context data to include
    */
-  private log(level: LogLevel, message: string, rawData?: unknown): void {
+  private log(level: LogLevel, rawMessage: string, rawData?: unknown): void {
     if (!this.shouldLog(level)) {
       return;
     }
 
     // Central redaction: a `debug`/`info` payload is masked by key
-    // (`apiKey`, `authorization`, `credentials`, …) and scrubbed of
-    // bearer/known-prefix tokens before it is stored, emitted or printed, so
-    // the next `logger.debug("…", options)` cannot leak a credential into
-    // `getLogs()`, a `log-event` sink or the console. `warn`/`error` are
-    // left verbatim: they carry the diagnostics an operator is debugging
-    // with, and every credential-bearing path already redacts at source.
-    const data =
-      level === "debug" || level === "info" ? redactLogData(rawData) : rawData;
+    // (`apiKey`, `authorization`, `credentials`, …), and it and the message
+    // are scrubbed of bearer/known-prefix tokens and JWTs before they are
+    // stored, emitted or printed, so the next `logger.debug("…", options)`
+    // cannot leak a credential into `getLogs()`, a `log-event` sink or the
+    // console. `warn`/`error` are left verbatim: they carry the diagnostics
+    // an operator is debugging with, and every credential-bearing path
+    // already redacts at source.
+    const redact = level === "debug" || level === "info";
+    const message = redact
+      ? sanitizeForLog(rawMessage, REDACTION_STRING_CAP)
+      : rawMessage;
+    let data = rawData;
+    if (redact) {
+      try {
+        data = redactLogData(rawData);
+      } catch {
+        // Too deep (a stack overflow) or a throwing getter: drop the payload
+        // rather than log it unredacted or throw into the caller.
+        data = "[unredactable log data]";
+      }
+    }
 
     const entry: LogEntry = {
       level,
@@ -723,15 +774,19 @@ const neuroLinkLogger = new NeuroLinkLogger();
 function processLoggerArgs(
   args: unknown[],
   logMethod: (message: string, data?: unknown) => void,
+  redact = false,
 ): void {
   if (args.length === 0) {
     return;
   }
 
-  // Serialize the first argument robustly to handle complex objects
+  // Serialize the first argument robustly to handle complex objects. An
+  // object is masked by key first: once it is a string, keys can't be found.
   const message = (() => {
     try {
-      return typeof args[0] === "string" ? args[0] : JSON.stringify(args[0]);
+      return typeof args[0] === "string"
+        ? args[0]
+        : JSON.stringify(redact ? redactLogData(args[0]) : args[0]);
     } catch {
       return "[Unserializable Object]";
     }
@@ -755,15 +810,19 @@ function processLoggerArgs(
 export const logger = {
   debug: (...args: unknown[]) => {
     if (neuroLinkLogger.shouldLog("debug")) {
-      processLoggerArgs(args, (message, data) =>
-        neuroLinkLogger.debug(message, data),
+      processLoggerArgs(
+        args,
+        (message, data) => neuroLinkLogger.debug(message, data),
+        true,
       );
     }
   },
   info: (...args: unknown[]) => {
     if (neuroLinkLogger.shouldLog("info")) {
-      processLoggerArgs(args, (message, data) =>
-        neuroLinkLogger.info(message, data),
+      processLoggerArgs(
+        args,
+        (message, data) => neuroLinkLogger.info(message, data),
+        true,
       );
     }
   },

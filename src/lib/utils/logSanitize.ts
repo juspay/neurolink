@@ -14,6 +14,8 @@
  *     tgp_ (Together), fw_ (Fireworks), pplx- (Perplexity), pa- (Voyage),
  *     jina_ (Jina), fish- (Fish Audio)
  *   - Generic key=value pairs: api_key=…, access_token: …, secret_key=…
+ *   - Bare JWTs (`eyJ…` header, payload and signature)
+ *   - Values of any key ending in `token`: breezeToken=…, "id_token": "…"
  */
 
 import { createHash } from "crypto";
@@ -51,7 +53,15 @@ const SECRET_PATTERN = new RegExp(
     // Bare tokens by known prefix (e.g. `sk-abc…`, `r8_xyz…`)
     `|\\b(?:${PREFIX_PATTERN})[_\\-][A-Za-z0-9_\\-\\.]{8,}\\b` +
     // Generic key=value pairs (URL params, JSON bodies, header dumps)
-    "|\\b(?:api[_-]?key|access[_-]?token|secret[_-]?key|refresh[_-]?token)['\"]?\\s*[:=]\\s*['\"]?[^\\s,;'\"&]+",
+    "|\\b(?:api[_-]?key|access[_-]?token|secret[_-]?key|refresh[_-]?token)['\"]?\\s*[:=]\\s*['\"]?[^\\s,;'\"&]+" +
+    // JWTs — the signature segment is empty on an unsigned token. A match
+    // starts only where a run of token characters starts, so `eyJ-eyJ-…`
+    // is scanned once rather than once per `eyJ`.
+    "|(?<![A-Za-z0-9_\\-])eyJ[A-Za-z0-9_\\-]{8,}\\.[A-Za-z0-9_\\-]+\\.[A-Za-z0-9_\\-]*" +
+    // Any other key ending in `token` (`breezeToken=…`, `"id_token":"…"`),
+    // as isSensitiveLogKey masks object keys: the key is kept, and a value
+    // that is a number, boolean or null is left alone
+    "|\\b([A-Za-z0-9_]*token['\"]?\\s*[:=]\\s*)(?:(['\"])[^'\"]*|(?!(?:true|false|null|-?\\d+(?:\\.\\d+)?(?:e[+-]?\\d+)?)(?![^\\s,;'\"&}\\])]))[^\\s,;'\"&}\\])]+)",
   "gi",
 );
 
@@ -92,15 +102,25 @@ const SENSITIVE_OBJECT_KEYS = [
   "secretAccessKey",
   // PII, not a secret — but it has no business in debug log dumps.
   "userEmail",
+  "phoneNumber",
 ];
 
 /**
- * Whether `key` names a value that must never appear in a log — the same list
- * {@link sanitizeRecord} masks, matched case-insensitively.
+ * Whether `key` names a value that must never appear in a log: a key on the
+ * list above, matched case-insensitively, or any key ending in `token`
+ * (`breezeToken`, `id_token`) unless its value is a number or boolean
+ * (`costPerToken`, `hasRefreshToken`).
  */
-export function isSensitiveLogKey(key: string): boolean {
+export function isSensitiveLogKey(key: string, value?: unknown): boolean {
   const lower = key.toLowerCase();
-  return SENSITIVE_OBJECT_KEYS.some((name) => name.toLowerCase() === lower);
+  if (SENSITIVE_OBJECT_KEYS.some((name) => name.toLowerCase() === lower)) {
+    return true;
+  }
+  return (
+    lower.endsWith("token") &&
+    typeof value !== "number" &&
+    typeof value !== "boolean"
+  );
 }
 
 /**
@@ -117,7 +137,11 @@ export function sanitizeForLog(text: string, maxLen = 500): string {
   if (!text) {
     return text;
   }
-  return text.slice(0, maxLen).replace(SECRET_PATTERN, "***");
+  return text
+    .slice(0, maxLen)
+    .replace(SECRET_PATTERN, (_match, key?: string, quote?: string) =>
+      key === undefined ? "***" : `${key}${quote ?? ""}***`,
+    );
 }
 
 /**
@@ -564,15 +588,7 @@ export function sanitizeRecord<T>(value: T, maxStringLen = 1000): T {
     }
     const out: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
-      if (
-        SENSITIVE_OBJECT_KEYS.some(
-          (name) => name.toLowerCase() === k.toLowerCase(),
-        )
-      ) {
-        out[k] = "***";
-      } else {
-        out[k] = walk(val);
-      }
+      out[k] = isSensitiveLogKey(k, val) ? "***" : walk(val);
     }
     return out;
   };
