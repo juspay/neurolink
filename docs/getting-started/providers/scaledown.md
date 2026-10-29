@@ -348,9 +348,14 @@ about 29 seconds. ScaleDown's own latency is otherwise not measured here, so a
 caller with many options or a long state should pass `timeoutMs`.
 
 A 504 that ScaleDown sends is classified `timeout` and is not retried. A timeout
-raised by NeuroLink's own clock is retried once, so a request that never answers
-fails after about twice the limit (a loopback stand-in, not ScaleDown, that did
-not answer in 30 s was cut off at 30,000 ms and retried, 60.4 s in all).
+raised by NeuroLink's own clock before any response arrives is retried once, so a
+request that never answers fails after about twice the limit (a loopback
+stand-in, not ScaleDown, that did not answer in 30 s was cut off at 30,000 ms and
+retried, 60.4 s in all). A 200 whose body then stalls past the limit is not
+retried: the body read is cut off, the payload is empty, and the call fails after
+one limit with a `server` error for a response without an answers map; an error
+status whose body stalls follows that status's usual retry rule. That is read from
+the code, which every decision provider shares, not measured.
 
 ---
 
