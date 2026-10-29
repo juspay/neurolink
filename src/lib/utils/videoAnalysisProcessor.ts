@@ -70,7 +70,7 @@ export async function executeVideoAnalysis(
       ? undefined
       : process.env.GOOGLE_VERTEX_PROJECT || process.env.GOOGLE_CLOUD_PROJECT,
     location: options.region || process.env.GOOGLE_VERTEX_LOCATION,
-    model: options.model || "gemini-2.5-flash",
+    model: options.model || "gemini-3.8-flash",
   });
 
   logger.debug("[VideoAnalysisProcessor] Video analysis completed", {

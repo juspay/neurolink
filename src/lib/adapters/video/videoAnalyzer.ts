@@ -21,12 +21,13 @@ import "../../services/server/ai/observability/instrumentation.js";
 import { readFile } from "node:fs/promises";
 import { NeuroLinkError, ErrorFactory } from "../../utils/errorHandling.js";
 import type { ModelMessage } from "../../types/index.js";
+import { resolveVertexLocation } from "../../providers/googleVertex/client.js";
 
 // ---------------------------------------------------------------------------
 // Shared config
 // ---------------------------------------------------------------------------
 
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "gemini-3.8-flash";
 const DEFAULT_LOCATION = "us-central1";
 
 /**
@@ -138,6 +139,17 @@ Ensure the final response is fully self-sufficient and does not reference extern
 // Vertex AI
 // ---------------------------------------------------------------------------
 
+/**
+ * Same policy as the text path: gemini-* models go to the global endpoint,
+ * since regional endpoints 404 for Gemini 3.x.
+ */
+export function resolveVideoLocation(
+  model: string,
+  configuredLocation: string,
+): string {
+  return resolveVertexLocation(model, configuredLocation);
+}
+
 export async function analyzeVideoWithVertexAI(
   messages: ModelMessage[],
   options: {
@@ -152,8 +164,11 @@ export async function analyzeVideoWithVertexAI(
   // Get default config and merge with provided options
   const config = await getVertexConfig();
   const project = options.project ?? config.project;
-  const location = options.location ?? config.location;
   const model = options.model || DEFAULT_MODEL;
+  const location = resolveVideoLocation(
+    model,
+    options.location ?? config.location,
+  );
 
   // Convert frames content to parts array for Gemini
   const parts = buildContentParts(messages);

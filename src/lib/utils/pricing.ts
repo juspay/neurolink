@@ -575,6 +575,14 @@ const PRICING: Record<string, Record<string, ModelPricingRates>> = {
       output: 1.5 / 1_000_000,
       cacheRead: 0.025 / 1_000_000,
     },
+    // Gemini 3.8 Flash (default Vertex model). Standard paid-tier rate through
+    // 2026-12-31 (input $1.50 / output $7.50 / cache $0.15 per 1M from 2027-01-01):
+    // https://ai.google.dev/gemini-api/docs/pricing
+    "gemini-3.8-flash": {
+      input: 0.75 / 1_000_000,
+      output: 3.75 / 1_000_000,
+      cacheRead: 0.075 / 1_000_000,
+    },
     // Gemini 3.1 preview family
     // cacheRead = 0.25x input (cached content tokens; explicit-cache storage is
     // billed separately by TTL/time, so no per-token cacheCreation rate here).

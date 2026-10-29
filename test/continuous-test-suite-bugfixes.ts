@@ -100,7 +100,8 @@ import type {
 import iconv from "iconv-lite";
 import { Readable, Transform } from "node:stream";
 import { PDFProcessor } from "../src/lib/utils/pdfProcessor.js";
-import { PDF_LIMITS } from "../src/lib/core/constants.js";
+import { PDF_LIMITS, PROVIDER_CONFIG } from "../src/lib/core/constants.js";
+import { ModelRouter as UtilsModelRouter } from "../src/lib/utils/modelRouter.js";
 import { CLICommandFactory } from "../src/cli/factories/commandFactory.js";
 import { SIZE_LIMITS_BYTES } from "../src/lib/processors/config/sizeLimits.js";
 import { directAgentTools } from "../src/lib/agent/directTools.js";
@@ -12222,6 +12223,19 @@ exit 127
       );
     },
   },
+  // ---------- Vertex defaults ----------
+  {
+    name: "Vertex defaults: no default points at gemini-2.5-flash, retired on Vertex on 2026-10-20",
+    category: "vertex-default-model",
+    fn: async () => {
+      const route = UtilsModelRouter.route("hi", { forceTaskType: "fast" });
+      return (
+        PROVIDER_CONFIG.evaluation.model === "gemini-3.8-flash" &&
+        route.provider === "vertex" &&
+        route.model === "gemini-3.8-flash"
+      );
+    },
+  },
   {
     name: "parseSSEStream merges argument fragments of one unindexed tool call",
     category: "openai-compatible-sse",
@@ -12427,6 +12441,30 @@ exit 127
         sanitized.includes("<rect") &&
         sanitized.includes("<text") &&
         sanitized.includes("fill=")
+      );
+    },
+  },
+  {
+    name: "Vertex video analysis: Gemini models use the global endpoint, not us-central1",
+    category: "vertex-default-model",
+    fn: async () => {
+      const { resolveVideoLocation } =
+        await import("../src/lib/adapters/video/videoAnalyzer.js");
+      return (
+        resolveVideoLocation("gemini-3.8-flash", "us-central1") === "global" &&
+        resolveVideoLocation("gemini-3.8-flash", "us") === "global"
+      );
+    },
+  },
+  {
+    name: "Pricing: the Vertex default model gemini-3.8-flash has a rate, so its cost is not reported as 0",
+    category: "vertex-default-model",
+    fn: async () => {
+      const { calculateCost } = await import("../src/lib/utils/pricing.js");
+      const usage = { input: 1_000_000, output: 1_000_000, total: 2_000_000 };
+      return (
+        calculateCost("vertex", "gemini-3.8-flash", usage) > 0 &&
+        calculateCost("google", "gemini-3.8-flash", usage) > 0
       );
     },
   },
