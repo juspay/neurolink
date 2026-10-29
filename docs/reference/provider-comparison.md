@@ -310,7 +310,7 @@ Comparison of NeuroLink's text and multimodal AI providers, including capabiliti
 **Native Extended Thinking (continued):**
 
 - ✓ **DeepSeek** - deepseek-reasoner (R1) model exposes chain-of-thought natively; deepseek-chat supports opt-in thinking mode
-- ✓ **NVIDIA NIM** - Hosted Nemotron-Reasoning and DeepSeek-R1 models; controlled via `thinkingLevel` option
+- ✓ **NVIDIA NIM** - Reasoning depends on the hosted model: the default `openai/gpt-oss-20b` returns a reasoning trace on every request. `thinkingLevel` is an on/off switch on `stream()` only (see the [NVIDIA NIM guide](../getting-started/providers/nvidia-nim.md#reasoning-and-thinkinglevel))
 
 **Model-Dependent Thinking:**
 
@@ -878,7 +878,7 @@ _Subscription Pricing (via OAuth):_
 **Strengths:**
 
 - Access to NVIDIA-hosted Llama, Mistral, Nemotron, DeepSeek models
-- Thinking/reasoning supported on Nemotron-Reasoning and DeepSeek-R1 models
+- Reasoning is model-dependent: the default `openai/gpt-oss-20b` returns a reasoning trace on every request; `thinkingLevel` toggles NIM's thinking flags on `stream()` only
 - Vision supported on vision-capable models (Phi-3-vision, Llama 3.2 Vision)
 - OpenAI-compatible API with NIM-specific extras (top_k, min_p, reasoning_budget)
 - Graceful retry on 400 errors — drops unsupported extras automatically
@@ -892,7 +892,7 @@ _Subscription Pricing (via OAuth):_
 **Best For:**
 
 - Running NVIDIA-optimized Llama/Mistral/Nemotron models in the cloud
-- Reasoning workloads via hosted DeepSeek-R1 or Nemotron
+- Reasoning workloads on hosted reasoning models such as `openai/gpt-oss-20b`
 - Developers already in the NVIDIA ecosystem (NGC, DGX Cloud)
 
 **Pricing:**

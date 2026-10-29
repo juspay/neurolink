@@ -19,7 +19,7 @@ NVIDIA NIM (NVIDIA Inference Microservices) is a managed inference platform that
 - **Hosted base URL**: `https://integrate.api.nvidia.com/v1`
 - **Protocol**: OpenAI-compatible (`/v1/chat/completions`)
 - **Vision**: Yes, on supported models (Llama 3.2 Vision, etc.)
-- **Reasoning**: Yes, on Nemotron and DeepSeek-R1 variants
+- **Reasoning**: Yes, model-dependent. The default `openai/gpt-oss-20b` is a reasoning model and returns its reasoning trace on every request; see [Reasoning and `thinkingLevel`](#reasoning-and-thinkinglevel) for what NeuroLink's `thinkingLevel` does on NIM
 - **Streaming**: Supported
 - **Tool calling**: Supported on most models
 - **Self-hosting**: Override `NVIDIA_NIM_BASE_URL` to point at a private NIM cluster
@@ -91,7 +91,9 @@ NIM hosts hundreds of models. NeuroLink ships with these popular models pre-enum
 
 | Model ID             | Context | Vision | Reasoning |
 | -------------------- | ------- | ------ | --------- |
-| `openai/gpt-oss-20b` | 128K    | No     | No        |
+| `openai/gpt-oss-20b` | 128K    | No     | Yes       |
+
+`openai/gpt-oss-20b` always reasons: the trace comes back as `reasoning_content` whether or not you pass a thinking option, and it counts against `maxTokens`. See [Reasoning and `thinkingLevel`](#reasoning-and-thinkinglevel).
 
 ### Meta Llama
 
@@ -160,26 +162,31 @@ const result = await ai.generate({
 });
 ```
 
-### Reasoning with `thinkingLevel`
+### Reasoning and `thinkingLevel`
 
-Reasoning-capable models (Nemotron, DeepSeek-R1) accept a `thinking` flag via NIM's `chat_template_kwargs`. Pass `thinkingLevel` to activate it:
+Two separate questions decide what you get:
+
+1. **Does the model reason?** That is a property of the model. `openai/gpt-oss-20b`, the default, reasons on every request: NIM returns the trace as `reasoning_content` and NeuroLink exposes it as `result.reasoning` (and as reasoning chunks when streaming). No option is needed to turn it on.
+2. **Can NeuroLink switch it on or tune it?** That is a property of the provider code, and on NIM it is narrower than the `thinkingLevel` type suggests:
+   - `thinkingLevel` is honoured on `stream()` only. Any level other than `minimal` adds `chat_template_kwargs: { thinking: true, enable_thinking: true, reasoning_budget: <maxTokens> }` to the request. `generate()` does not forward it: the request body carries no `chat_template_kwargs`.
+   - The three active levels are not distinguished. `low`, `medium` and `high` send the same flags, so `thinkingLevel` is an on/off switch here, with `minimal` meaning off.
+   - NeuroLink never sends `reasoning_effort` to NIM, so that knob is not available through it.
+   - An HTTP 400 that names `reasoning_budget` or `chat_template` gets one automatic retry without that field. A 400 about the other thinking flags (`thinking`, `enable_thinking`) is not retried and is returned to you.
 
 ```typescript
+// The trace is there without any thinking option.
 const result = await ai.generate({
   provider: "nvidia-nim",
-  model: "nvidia/llama-3.3-nemotron-super-49b-v1",
-  input: {
-    text: "Derive the Euler-Lagrange equation from the principle of stationary action.",
-  },
-  thinkingLevel: "high",
+  model: "openai/gpt-oss-20b",
+  input: { text: "What is 17 * 23? Answer with just the number." },
+  maxTokens: 512,
 });
 
-console.log(result.content);
+console.log(result.reasoning); // the model's reasoning trace
+console.log(result.content); // the answer
 ```
 
-Levels: `minimal` (no thinking) | `low` | `medium` | `high`
-
-If the model does not support `chat_template_kwargs.thinking`, the provider automatically retries without it.
+Reasoning tokens count toward `maxTokens`. With a small budget the model can spend all of it reasoning and stop with `finish_reason: "length"` and an empty `content`. On `openai/gpt-oss-20b`, `maxTokens: 16` returned an empty answer for a one-word reply, while 64 and 256 returned it. Leave a few hundred tokens of headroom for short answers, more for hard prompts.
 
 ### Streaming
 
@@ -299,14 +306,14 @@ NVIDIA_NIM_BASE_URL=https://nim.cluster.example.com/v1
 
 ## Feature Support
 
-| Feature         | Supported | Notes                                                 |
-| --------------- | --------- | ----------------------------------------------------- |
-| Text generation | Yes       |                                                       |
-| Streaming       | Yes       |                                                       |
-| Tool calling    | Yes       | Most models; depends on model support                 |
-| Vision / images | Yes       | Model-dependent (Llama 3.2 Vision, etc.)              |
-| Reasoning trace | Yes       | Nemotron and DeepSeek-R1 variants via `thinkingLevel` |
-| Embeddings      | No        | Use OpenAI or Bedrock for embeddings                  |
+| Feature         | Supported | Notes                                                                                                            |
+| --------------- | --------- | ---------------------------------------------------------------------------------------------------------------- |
+| Text generation | Yes       |                                                                                                                  |
+| Streaming       | Yes       |                                                                                                                  |
+| Tool calling    | Yes       | Most models; depends on model support                                                                            |
+| Vision / images | Yes       | Model-dependent (Llama 3.2 Vision, etc.)                                                                         |
+| Reasoning trace | Yes       | Model-dependent; `openai/gpt-oss-20b` always returns one. `thinkingLevel` is an on/off switch on `stream()` only |
+| Embeddings      | No        | Use OpenAI or Bedrock for embeddings                                                                             |
 
 ---
 
@@ -350,9 +357,16 @@ Account-level token or compute quota reached. Check your NIM dashboard.
 
 The model does not support one of the NIM-specific extras. The provider automatically retries without the rejected parameter. If you see this error surfaced, it means the second attempt also failed — check the rest of the error message for the root cause.
 
+### Empty `content` with `finish_reason: "length"`
+
+A reasoning model spent the whole `maxTokens` budget on its reasoning before it started the answer. The reasoning is in `result.reasoning`; raise `maxTokens` (a few hundred tokens is enough for a short answer on `openai/gpt-oss-20b`).
+
 ### Thinking level has no visible effect
 
-Not all models support `chat_template_kwargs.thinking`. If the model rejects the parameter, the provider retries the request without it and produces a normal (non-reasoning) response. Use a Nemotron or DeepSeek-R1 model for guaranteed reasoning support.
+- On `generate()`, `thinkingLevel` is not forwarded to NIM at all; use `stream()`.
+- On `stream()`, any level except `minimal` sends the same thinking flags, so `low`, `medium` and `high` behave alike.
+- A model that already reasons on every request, such as `openai/gpt-oss-20b`, returns its trace with or without the flags.
+- If the model rejects `reasoning_budget` with a 400 that names it, the provider retries once without it. A rejection of `thinking` or `enable_thinking` is not retried and comes back as the 400.
 
 ---
 

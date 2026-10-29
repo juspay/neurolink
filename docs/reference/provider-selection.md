@@ -171,7 +171,7 @@ Match provider capabilities to your feature needs:
 
 † Model-dependent: capability depends on the specific model loaded / hosted. Check provider documentation.
 
-‡ NVIDIA NIM thinking supported on Nemotron-Reasoning and DeepSeek-R1 hosted models via `thinkingLevel` option.
+‡ NVIDIA NIM reasoning is model-dependent: the default `openai/gpt-oss-20b` returns a reasoning trace on every request. The `thinkingLevel` option is an on/off switch on `stream()` only; `generate()` does not forward it and `reasoning_effort` is never sent.
 
 Decision-only providers (TypeSafe Jev, Laya, XOR, SubQ, Perplexity Decisions, Cloudflare Clef, OpenAI Decisions, ScaleDown) generate no text, so they do not stream; use `decide()` with them.
 
@@ -395,7 +395,7 @@ const result = await neurolink.generate({
 
 Choose NVIDIA NIM when you want NVIDIA-curated hosted inference — Llama, Nemotron, Mistral, and DeepSeek-R1 — accessed via an NVIDIA API key.
 
-- **When to choose:** You want Llama 3.x or Nemotron models served at scale; you need thinking/reasoning via hosted DeepSeek-R1 or Nemotron-Reasoning; you are already an NGC customer.
+- **When to choose:** You want Llama 3.x or Nemotron models served at scale; you need a hosted reasoning model such as `openai/gpt-oss-20b`; you are already an NGC customer.
 - **Provider ID:** `nvidia-nim`
 - **Key models:** `openai/gpt-oss-20b` (default), `nvidia/nemotron-4-340b-instruct`, DeepSeek-R1 variants
 - **Vision:** Available on select models (Phi-3-vision, Llama 3.2 Vision); check https://build.nvidia.com/models.
