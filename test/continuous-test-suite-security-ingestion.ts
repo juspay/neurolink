@@ -71,6 +71,10 @@ import { assertSafeRedisId, getSessionKey } from "../src/lib/utils/redis.js";
 import { FileSystemSkillStore } from "../src/lib/skills/skillStores.js";
 import { assertSafeStoreId } from "../src/lib/utils/safeStoreId.js";
 import { logger } from "../src/lib/utils/logger.js";
+import {
+  safeDebugSerialize,
+  sanitizeRecord,
+} from "../src/lib/utils/logSanitize.js";
 import { updateEnvFile } from "../src/cli/utils/envManager.js";
 import { GoogleSTT } from "../src/lib/voice/providers/GoogleSTT.js";
 import type {
@@ -360,6 +364,10 @@ function aliasBomb(levels: number): string {
     );
   }
   return `${lines.join("\n")}\n`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function withEnv<T>(
@@ -1206,7 +1214,7 @@ await runSuite(async () => {
               authorization: "Bearer SECRET-BEARER-77cd",
               keep: "visible",
             },
-            token: "Bearer SECRET-INLINE-aa00",
+            note: "Bearer SECRET-INLINE-aa00",
             list: [{ password: "SECRET-PASSWORD-9e2f" }],
           });
           logger.info("error payload", new Error("boom"));
@@ -1327,6 +1335,215 @@ await runSuite(async () => {
         "INVALID_STORE_ID",
         "a traversal skill id reached the file system",
       );
+    });
+
+    await test("28. logger: app-named *Token keys, bare JWTs and phone numbers are redacted; token counts stay", async () => {
+      // Assembled at runtime so the file holds no JWT literal for gitleaks.
+      const jwt = [
+        "eyJhbGciOiJIUzI1NiJ9",
+        "eyJzdWIiOiJwcm9iZSJ9",
+        "c2lnbmF0dXJlLTI4",
+      ].join(".");
+      const options = {
+        context: {
+          breezeToken: jwt,
+          juspayToken: "placeholder-juspay-28aa",
+          currentTokenData: {
+            breezeToken: jwt,
+            platformToken: "placeholder-platform-28bb",
+          },
+          phoneNumber: "+910000028cc",
+          customerId: "cust-visible-28",
+        },
+        note: `forwarded ${jwt} upstream`,
+        costPerToken: 0.000125,
+        maxTokens: 4096,
+        hasRefreshToken: true,
+      };
+      await withEnv({ NEUROLINK_DEBUG: "true" }, async () => {
+        logger.clearLogs();
+        const events: unknown[] = [];
+        logger.setEventEmitter({
+          emit: (_name: string, payload: unknown) => {
+            events.push(payload);
+            return true;
+          },
+        });
+        try {
+          logger.info("structured", options);
+          // The options dumps in conversationMemory.ts and neurolink.ts
+          // serialize before logging, so their keys are masked by sanitizeRecord.
+          logger.info("serialized", {
+            options: safeDebugSerialize(sanitizeRecord(options)),
+          });
+          logger.info(`session ${jwt}`);
+          logger.info({ breezeToken: "placeholder-message-28dd" });
+          logger.info(
+            JSON.stringify({
+              juspayToken: "placeholder-json-28ee",
+              costPerToken: 0.5,
+            }),
+          );
+          logger.info("GET /orders?pageToken=placeholder-url-28ff");
+        } finally {
+          logger.setEventEmitter({ emit: () => true });
+        }
+        const serialized = JSON.stringify([logger.getLogs("info"), events]);
+        for (const [secret, what] of [
+          ["eyJhbGciOiJIUzI1NiJ9", "a JWT"],
+          ["placeholder-juspay-28aa", "an opaque *Token value"],
+          ["placeholder-platform-28bb", "a nested *Token value"],
+          ["+910000028cc", "a phone number"],
+          ["placeholder-message-28dd", "a *Token key in an object message"],
+          ["placeholder-json-28ee", "a *Token key in a serialized message"],
+          ["placeholder-url-28ff", "a *Token query parameter in a message"],
+        ]) {
+          assert(
+            !serialized.includes(secret),
+            `${what} reached history or a log-event sink`,
+          );
+        }
+        const dataOf = (message: string): Record<string, unknown> => {
+          const data = logger
+            .getLogs("info")
+            .find((entry) => entry.message === message)?.data;
+          return isRecord(data) ? data : {};
+        };
+        const structured = dataOf("structured");
+        assert(
+          structured.costPerToken === 0.000125 &&
+            structured.maxTokens === 4096 &&
+            structured.hasRefreshToken === true,
+          "a numeric or boolean *Token field was masked",
+        );
+        const dump = String(dataOf("serialized").options);
+        assert(
+          dump.includes('"costPerToken":0.000125') &&
+            dump.includes('"maxTokens":4096') &&
+            dump.includes("cust-visible-28"),
+          "the serialized dump lost a harmless field",
+        );
+        const jsonMessage =
+          logger
+            .getLogs("info")
+            .find((entry) => entry.message.includes("costPerToken"))?.message ??
+          "";
+        assert(
+          jsonMessage.includes('"juspayToken":"***"') &&
+            jsonMessage.includes('"costPerToken":0.5'),
+          "a serialized message lost its key name or its token count",
+        );
+      });
+    });
+
+    await test("29. sanitizeRecord: a megabyte of near-miss JWT text is redacted in linear time", () => {
+      const started = Date.now();
+      sanitizeRecord({ note: "eyJ-".repeat(250_000) }, 1_000_000);
+      const elapsed = Date.now() - started;
+      assert(
+        elapsed < 2000,
+        `redacting took ${elapsed} ms; the JWT pattern rescans each eyJ`,
+      );
+    });
+
+    await test("30. logger: Map, Set, URL and class-instance data are redacted; a shared object once; cycles and deep nesting never throw", async () => {
+      class Client {
+        juspayToken = "placeholder-class-30aa";
+        region = "ap-south-1";
+      }
+      const shared = { breezeToken: "placeholder-shared-30ff" };
+      const cyclic: Record<string, unknown> = { name: "cyclic-30" };
+      cyclic.self = cyclic;
+      let deep: Record<string, unknown> = { leaf: "placeholder-deep-30dd" };
+      for (let i = 0; i < 100_000; i++) {
+        deep = { next: deep };
+      }
+      await withEnv({ NEUROLINK_DEBUG: "true" }, async () => {
+        logger.clearLogs();
+        const events: unknown[] = [];
+        logger.setEventEmitter({
+          emit: (_name: string, payload: unknown) => {
+            events.push(payload);
+            return true;
+          },
+        });
+        try {
+          logger.info("containers", {
+            map: new Map([["breezeToken", "placeholder-map-30bb"]]),
+            set: new Set(["pageToken=placeholder-set-30ee"]),
+            client: new Client(),
+            url: new URL("https://example.test/cb?token=placeholder-url-30cc"),
+            cyclic,
+            pair: { a: shared, b: shared },
+          });
+          logger.info("deep", deep);
+        } finally {
+          logger.setEventEmitter({ emit: () => true });
+        }
+        const checkRedacted = (where: string, data: unknown): void => {
+          const {
+            map,
+            set,
+            client,
+            url,
+            cyclic: cycle,
+            pair,
+          } = isRecord(data) ? data : {};
+          assert(
+            map instanceof Map && map.get("breezeToken") === "***",
+            `a Map's *Token entry reached ${where} unmasked`,
+          );
+          assert(
+            set instanceof Set &&
+              !Array.from(set, String).some((v) =>
+                v.includes("placeholder-set-30ee"),
+              ),
+            `a Set's token value reached ${where} unmasked`,
+          );
+          assert(
+            isRecord(client) &&
+              client.juspayToken === "***" &&
+              client.region === "ap-south-1",
+            `a class instance's fields were not redacted in ${where}`,
+          );
+          assert(
+            typeof url === "string" &&
+              url.includes("example.test") &&
+              !url.includes("placeholder-url-30cc"),
+            `a URL's token query parameter reached ${where}`,
+          );
+          assert(
+            isRecord(cycle) && cycle.self === "[Circular]",
+            `a circular reference was not cut in ${where}`,
+          );
+          assert(
+            isRecord(pair) &&
+              isRecord(pair.a) &&
+              pair.a === pair.b &&
+              pair.a.breezeToken === "***",
+            `a shared object was not redacted once and shared in ${where}`,
+          );
+        };
+        checkRedacted(
+          "history",
+          logger.getLogs("info").find((entry) => entry.message === "containers")
+            ?.data,
+        );
+        const emitted = events.find(
+          (event) => isRecord(event) && event.message === "containers",
+        );
+        checkRedacted(
+          "a log-event sink",
+          isRecord(emitted) ? emitted.data : undefined,
+        );
+        const deepEntry = logger
+          .getLogs("info")
+          .find((entry) => entry.message === "deep");
+        assert(
+          deepEntry?.data === "[unredactable log data]",
+          "a too-deep payload was stored instead of being dropped",
+        );
+      });
     });
 
     rmSync(root, { recursive: true, force: true });
