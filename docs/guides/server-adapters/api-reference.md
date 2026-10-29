@@ -682,21 +682,22 @@ type CreateRoutesOptions = {
    * Set to true when the auth middleware identifies individual people: the
    * agent routes then take userId and the session only from the authenticated
    * user and ignore the request body's, on every adapter and for every request
-   * (an unauthenticated request gets neither). A server with per-person
-   * authentication must set this: at the default (false) the routes take
-   * userId and sessionId from the request body, so any authenticated caller can
-   * name another person. The one exception is Hono, where a request whose
-   * client sent its own X-Request-ID header gets the authenticated user over
-   * the body, as before, and so does a context the built-in adapters did not
-   * build (your own adapter, a handler called directly). When the server
-   * carries middleware state, the routes log one warning (per server) the first
-   * time a request served from the body names a different userId than its
-   * ctx.user; with carryMiddlewareState off there is no ctx.user to compare and no
-   * warning. Leave it false for no auth or one shared API key, and mark the
-   * shared identity with `shared: true` so that warning stays quiet
+   * (an unauthenticated request gets neither), and the memory routes scope every
+   * session to that user. A server with per-person authentication must set this:
+   * at the default (false) the agent routes take userId and sessionId from the
+   * request body, so any authenticated caller can name another person, and the
+   * memory routes ignore who is calling. The agent routes have one exception,
+   * Hono, where a request whose client sent its own X-Request-ID header gets the
+   * authenticated user over the body, as before, and so does a context the
+   * built-in adapters did not build (your own adapter, a handler called
+   * directly). When the server carries middleware state, the routes log one
+   * warning (per server) the first time a request served from the body names a
+   * different userId than its ctx.user; with carryMiddlewareState off there is no
+   * ctx.user to compare and no warning. Leave it false for no auth or one shared
+   * API key, and mark the shared identity with `shared: true` so that warning stays quiet
    * (`neurolink serve` does). Any truthy value turns it on. This is the one
-   * switch for `registerAllRoutes` / `createAllRoutes`; the `agent` options
-   * do not take it. `registerAllRoutes` also turns on the server's
+   * switch for `registerAllRoutes` / `createAllRoutes`; the `agent` and `memory`
+   * options do not take it. `registerAllRoutes` also turns on the server's
    * `carryMiddlewareState`, which the routes need to see the user on every
    * request; a caller that registers the groups itself must set that option on
    * the server, or a perUserAuth request has a user only on Hono with the
@@ -704,6 +705,12 @@ type CreateRoutesOptions = {
    * the security guide.
    */
   perUserAuth?: boolean;
+  /**
+   * Admin roles for the memory routes; only consulted with perUserAuth. Whether
+   * the routes are scoped is decided by the top-level perUserAuth, not here. See
+   * "Memory routes and per-user authentication" below.
+   */
+  memory?: { adminRoles?: string[] };
 };
 ```
 
@@ -721,14 +728,14 @@ function registerAllRoutes(
 
 ### Individual Route Factories
 
-| Factory                                      | Prefix    | Endpoints                                                                                                                                                                                                                                                                                   |
-| -------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createAgentRoutes(basePath?, options?)`     | `/agent`  | `POST /agent/execute` -- Execute agent<br />`POST /agent/stream` -- Stream agent response (SSE)<br />`GET /agent/providers` -- List available providers<br />`POST /agent/embed` -- Generate single embedding<br />`POST /agent/embed-many` -- Generate batch embeddings                    |
-| `createToolRoutes(basePath?)`                | `/tools`  | `GET /tools` -- List all tools<br />`GET /tools/search` -- Search tools by query<br />`GET /tools/:name` -- Get tool details<br />`POST /tools/:name/execute` -- Execute tool<br />`POST /tools/execute` -- Execute tool (body-based)                                                       |
-| `createMCPRoutes(basePath?)`                 | `/mcp`    | `GET /mcp/servers` -- List MCP servers<br />`GET /mcp/servers/:name` -- Get server status<br />`GET /mcp/servers/:name/tools` -- List server tools<br />`POST /mcp/servers/:name/tools/:toolName/execute` -- Execute server tool                                                            |
-| `createMemoryRoutes(basePath?)`              | `/memory` | `GET /memory/sessions` -- List sessions<br />`GET /memory/sessions/:id` -- Get session details<br />`GET /memory/sessions/:id/messages` -- Get session messages<br />`DELETE /memory/sessions/:id` -- Delete session<br />`POST /memory/sessions/:sessionId/clear` -- Clear session history |
-| `createHealthRoutes(basePath?)`              | `/health` | `GET /health` -- Basic health check<br />`GET /health/live` -- Liveness probe<br />`GET /health/ready` -- Readiness probe<br />`GET /health/detailed` -- Detailed health with service status                                                                                                |
-| `createOpenApiRoutes(basePath?, getRoutes?)` | `/docs`   | `GET /docs/openapi.json` -- OpenAPI spec (JSON)<br />`GET /docs/openapi.yaml` -- OpenAPI spec (YAML)                                                                                                                                                                                        |
+| Factory                                      | Prefix    | Endpoints                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createAgentRoutes(basePath?, options?)`     | `/agent`  | `POST /agent/execute` -- Execute agent<br />`POST /agent/stream` -- Stream agent response (SSE)<br />`GET /agent/providers` -- List available providers<br />`POST /agent/embed` -- Generate single embedding<br />`POST /agent/embed-many` -- Generate batch embeddings                                                                                                                  |
+| `createToolRoutes(basePath?)`                | `/tools`  | `GET /tools` -- List all tools<br />`GET /tools/search` -- Search tools by query<br />`GET /tools/:name` -- Get tool details<br />`POST /tools/:name/execute` -- Execute tool<br />`POST /tools/execute` -- Execute tool (body-based)                                                                                                                                                     |
+| `createMCPRoutes(basePath?)`                 | `/mcp`    | `GET /mcp/servers` -- List MCP servers<br />`GET /mcp/servers/:name` -- Get server status<br />`GET /mcp/servers/:name/tools` -- List server tools<br />`POST /mcp/servers/:name/tools/:toolName/execute` -- Execute server tool                                                                                                                                                          |
+| `createMemoryRoutes(basePath?, options?)`    | `/memory` | `GET /memory/sessions` -- List sessions<br />`GET /memory/sessions/:id` -- Get session details<br />`GET /memory/sessions/:id/messages` -- Get session messages<br />`DELETE /memory/sessions/:sessionId` -- Delete (clear) a session<br />`DELETE /memory/sessions` -- Clear all sessions<br />`GET /memory/stats` -- Memory statistics<br />`GET /memory/health` -- Memory health check |
+| `createHealthRoutes(basePath?)`              | `/health` | `GET /health` -- Basic health check<br />`GET /health/live` -- Liveness probe<br />`GET /health/ready` -- Readiness probe<br />`GET /health/detailed` -- Detailed health with service status                                                                                                                                                                                              |
+| `createOpenApiRoutes(basePath?, getRoutes?)` | `/docs`   | `GET /docs/openapi.json` -- OpenAPI spec (JSON)<br />`GET /docs/openapi.yaml` -- OpenAPI spec (YAML)                                                                                                                                                                                                                                                                                      |
 
 All route factories accept a `basePath` parameter (default: `"/api"`).
 
@@ -786,6 +793,43 @@ does for any other error. Calling `neurolink.generate()` directly is unchanged.
 defaults and expose no setting for them, so a CLI-run server refuses every
 local path and uses the limits above. To change them, build the server with
 `createServer` and `registerAllRoutes` as shown.
+
+#### Memory routes and per-user authentication
+
+The memory routes ignore who is calling unless the server opts in with `perUserAuth` (any truthy value). The opt-in is the same switch the agent routes use (see the [security guide](./security.md#who-the-agent-routes-treat-as-the-user-peruserauth)); it is off by default because one shared API key (such as `neurolink serve` with `NEUROLINK_SERVER_API_KEY`) sets the same `ctx.user` for every caller and names no person to scope by. **A server with per-person authentication must set it**: without it the routes do not read `ctx.user`, so any authenticated caller can name another person with `?userId=` on Redis, read any in-memory session by id, and clear every session.
+
+**Default (`perUserAuth` unset): no authentication, or one shared API key.** The routes do not read `ctx.user`. `?userId=` chooses the user on Redis (default `"default"`), the in-memory manager keys sessions by id alone, and `GET /memory/stats` and `DELETE /memory/sessions` are open to every caller that passes your authentication, exactly as before scoping existed. A session's owner is not checked.
+
+**`perUserAuth: true`: one credential per person.**
+
+| Route                                                                  | Authenticated user                                                                                                                              | Admin role (`adminRoles`, default `["admin"]`)                                                                                       |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Any memory route except `GET /memory/health`                           | `401` (`AUTH_REQUIRED`) when the request has no user, or the user's id is empty                                                                 | Same                                                                                                                                 |
+| `GET /memory/sessions`, `GET /memory/sessions/:id`, `.../:id/messages` | Their own sessions. `?userId=` may repeat their own id; naming anyone else is `403`. Another user's session, named without `?userId=`, is `404` | May name another user with `?userId=`                                                                                                |
+| `DELETE /memory/sessions/:sessionId`                                   | Their own sessions only: `403` when `?userId=` names someone else, `404` for another user's session named without it                            | In-memory: any session. Redis: the session of the user named with `?userId=`; without it the admin's own, so another user's is `404` |
+| `GET /memory/stats`, `DELETE /memory/sessions`                         | `403`                                                                                                                                           | Allowed                                                                                                                              |
+
+Two malformed inputs are handled in scoped mode only (without `perUserAuth` they are passed on as they always were). A `?userId=` that is not a single string, which Express, Fastify and Koa produce for a repeated `?userId=a&userId=b` (and an application that configures a bracket-parsing query parser, for `?userId[]=x`), is refused with `400` (`VALIDATION_ERROR`) on the routes that take `?userId=`, for every caller, admins included, rather than read as "no user named", which would answer about a different user than the one asked for. A user whose `roles` is not an array (for example `roles: "admin"` from a faulty authentication middleware) has no roles, so it is an ordinary user rather than a `500`.
+
+The `401` matters on servers where authentication is optional or absent: without it an anonymous request would carry no identity to scope by and be treated as trusted. `GET /memory/health` stays open for probes.
+
+`registerAllRoutes` with `perUserAuth` also turns on `carryMiddlewareState` for the server, which is how `ctx.user` reaches these handlers (see [Carrying middleware state](./security.md#carrying-middleware-state-to-guards-and-handlers-carrymiddlewarestate)). A caller that registers the memory routes itself with `createMemoryRoutes("/api", { perUserAuth: true })` must create the server with `carryMiddlewareState: true`. Without it, the user the authentication middleware sets does not reach the routes, so every request whose context has no `ctx.user` is answered `401`, except `GET /memory/health`. The routes read `ctx.user` directly, so a custom adapter or a direct handler call that sets it itself is served as that user either way.
+
+What an admin reaches depends on the memory manager:
+
+- **In-memory manager.** Sessions are keyed by id alone, so an admin reads, lists and deletes any session, including one created without a `userId` (which no ordinary user can see). `GET /memory/sessions` lists every session, or one user's with `?userId=`. A manager that can only report statistics and cannot list sessions shows an ordinary user an empty list with a total of `0` (never the count of everyone's sessions); an admin gets the total.
+- **Redis manager.** Sessions are keyed per user, so a route can only look a session up once it knows the user. An admin reaches another user's session, listing and delete by naming that user in `?userId=`; without it the admin is scoped to their own sessions, and `GET /memory/sessions` does not list everyone's. The routes do not enumerate users, so there is no "list every user's sessions" call on Redis. A session created without a `userId` is stored at `<keyPrefix>session-only:<sessionId>`. `session-only` is a reserved user id: the routes refuse it with `400` as the authenticated user's id or an admin's `?userId=`, so no request reads or deletes such a session by name, and an admin's `DELETE /memory/sessions` removes it with the rest.
+
+**Under `perUserAuth` the routes refuse a `:` in any part of a session's key.** The Redis manager builds the key as `<keyPrefix><userId>:<sessionId>` without escaping either part, so two different pairs would share a key when their ids contain `:`: user `a` with session `b:c` and user `a:b` with session `c` are both `<keyPrefix>a:b:c`, and with a namespaced id scheme such as `tenant:user` the user `tenant` would reach the session `c` of user `tenant:x` by requesting session id `x:c`. The key scheme is not changed, because stored data depends on it. Instead, every memory route but `GET /memory/health` answers `400 VALIDATION_ERROR` when the authenticated user's id, an admin's `?userId=` or the session id contains `:`, on every manager, so whether a request is accepted does not depend on the backend. A deployment whose user ids contain `:` cannot use the scoped memory routes, and a session whose id contains `:` cannot be read or deleted through them. The same routes answer `400 VALIDATION_ERROR` when the authenticated user's id or an admin's `?userId=` is `session-only`, the user id a session created without a `userId` is stored under on Redis, which the Redis manager reserves; do not issue it to a user. Without `perUserAuth` nothing is refused, as before.
+
+The suite that covers these routes, `pnpm run test:memory-route-scope`, runs its Redis cases against a throwaway `redis-server` it starts on a free port. Nothing in CI installs that binary, so on a runner without it the Redis cases report as skipped and only the in-memory half gates; run the suite on a machine with `redis-server` to cover the Redis behaviour above.
+
+```typescript
+registerAllRoutes(adapter, "/api", {
+  perUserAuth: true,
+  memory: { adminRoles: ["admin", "support"] },
+});
+```
 
 ### Proxy Route Factories
 

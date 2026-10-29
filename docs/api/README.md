@@ -3058,6 +3058,8 @@ console.log(result.content);
 - [OpenAPIGeneratorConfig](type-aliases/OpenAPIGeneratorConfig.md)
 - [OpenAPISpec](type-aliases/OpenAPISpec.md)
 - [CreateRoutesOptions](type-aliases/CreateRoutesOptions.md)
+- [ServerMemoryRouteOptions](type-aliases/ServerMemoryRouteOptions.md)
+- [ServerMemoryActor](type-aliases/ServerMemoryActor.md)
 - [ServerSensitiveRouteOptions](type-aliases/ServerSensitiveRouteOptions.md)
 - [ServerServeHardeningArgs](type-aliases/ServerServeHardeningArgs.md)
 - [ServerClientFacingError](type-aliases/ServerClientFacingError.md)

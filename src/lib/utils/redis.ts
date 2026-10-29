@@ -13,7 +13,13 @@ import type {
 } from "../types/index.js";
 import { logger } from "./logger.js";
 
-const SESSION_ONLY_PREFIX = "session-only:";
+/**
+ * The user id a session created without a `userId` is stored under. It is
+ * refused as a caller's user id (`describeRedisIdProblem`), so no user can name
+ * the sessions stored under it.
+ */
+export const SESSION_ONLY_USER_ID = "session-only";
+const SESSION_ONLY_PREFIX = `${SESSION_ONLY_USER_ID}:`;
 
 /**
  * Longest id that may become part of a key. Redis itself allows far more, but
