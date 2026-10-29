@@ -417,6 +417,29 @@ async function waitForLive(
   throw new Error("the server did not answer its liveness probe in time");
 }
 
+/**
+ * Wait until the server's output matches `pattern`. `serve` starts listening
+ * before it prints its banner, so a health probe can answer while the banner is
+ * still unwritten; reading the output once, right after the probe, races it.
+ */
+async function waitForOutput(
+  run: CliRun,
+  pattern: RegExp,
+  timeoutMs = 10_000,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (pattern.test(run.output())) {
+      return true;
+    }
+    if (run.child.exitCode !== null) {
+      return pattern.test(run.output());
+    }
+    await delay(50);
+  }
+  return pattern.test(run.output());
+}
+
 await test("CLI: `serve --host 0.0.0.0` with no API key refuses to start and exits non-zero", async () => {
   const port = await freePort();
   const run = spawnServe(
@@ -480,7 +503,7 @@ await test("CLI with an API key: probes open, inventory and version behind the k
   try {
     await waitForLive(run, port);
     assert(
-      /Listening:.*this machine only/.test(run.output()),
+      await waitForOutput(run, /Listening:.*this machine only/),
       "the banner must name the loopback bind",
     );
 
