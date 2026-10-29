@@ -126,12 +126,24 @@ export class STTProcessor {
     provider: string,
     credentials?: STTCredentials,
   ): Promise<STTHandler | undefined> {
+    return (await this.resolveOwnedHandler(provider, credentials)).handler;
+  }
+
+  /**
+   * {@link resolveHandler} that also says whether the handler was built for
+   * this call (`owned`) rather than taken from the registry. The caller of an
+   * owned handler is the only one holding it, so it must dispose it.
+   */
+  private static async resolveOwnedHandler(
+    provider: string,
+    credentials?: STTCredentials,
+  ): Promise<{ handler: STTHandler | undefined; owned: boolean }> {
     const endpoint =
       resolveCallSTTEndpoints(credentials)[provider.trim().toLowerCase()];
     if (endpoint) {
       // A per-call named endpoint: a fresh handler, never the registry's.
       const { createSTTHandler } = await import("../voice/index.js");
-      return createSTTHandler(provider, credentials);
+      return { handler: createSTTHandler(provider, credentials), owned: true };
     }
     const descriptor = getSTTProviderDescriptor(provider);
     const slice = descriptor
@@ -139,14 +151,20 @@ export class STTProcessor {
       : undefined;
     if (descriptor && slice !== undefined) {
       const { createSTTHandler } = await import("../voice/index.js");
-      return createSTTHandler(descriptor.name, credentials);
+      return {
+        handler: createSTTHandler(descriptor.name, credentials),
+        owned: true,
+      };
     }
     const registered = this.getHandler(provider);
     if (registered || !descriptor) {
-      return registered;
+      return { handler: registered, owned: false };
     }
     const { createSTTHandler } = await import("../voice/index.js");
-    return createSTTHandler(descriptor.name, credentials);
+    return {
+      handler: createSTTHandler(descriptor.name, credentials),
+      owned: true,
+    };
   }
 
   /**
@@ -240,6 +258,7 @@ export class STTProcessor {
       "stt.format": options.format,
     });
 
+    let ownedHandler: STTHandler | undefined;
     try {
       // 1. Audio validation: reject empty + oversized audio
       const byteLength =
@@ -274,7 +293,14 @@ export class STTProcessor {
       }
 
       // 2. Handler lookup and error if provider not supported
-      const handler = await this.resolveHandler(provider, credentials);
+      const resolved = await this.resolveOwnedHandler(provider, credentials);
+      const handler = resolved.handler;
+      // A handler built for this call has no other holder: dispose it when
+      // the call ends, or each credentials slice leaks an engine (WhistleSTT
+      // starts a worker thread per instance).
+      if (handler && resolved.owned) {
+        ownedHandler = handler;
+      }
       if (!handler) {
         logger.error(`[STTProcessor] Provider "${provider}" is not registered`);
         throw new STTError({
@@ -441,6 +467,20 @@ export class STTProcessor {
         },
         originalError: err instanceof Error ? err : undefined,
       });
+    } finally {
+      if (ownedHandler?.dispose) {
+        try {
+          await ownedHandler.dispose();
+        } catch (disposeErr: unknown) {
+          logger.warn(
+            `[STTProcessor] Failed to dispose the "${provider}" handler: ${
+              disposeErr instanceof Error
+                ? disposeErr.message
+                : String(disposeErr)
+            }`,
+          );
+        }
+      }
     }
   }
 }

@@ -887,6 +887,8 @@ export type TranscribeDeps = STTCorrectionDeps & {
    * environment-derived default applies when absent.
    */
   attachmentPolicy?: AttachmentPolicy;
+  /** Disposes the handlers `getHandler` built for this request. */
+  release?: () => Promise<void>;
 };
 
 // ============================================================================
