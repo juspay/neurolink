@@ -1285,6 +1285,7 @@ jobs:
             test:provider-fallback-latency@6
             test:decide-engine@5
             test:credentials@4
+            test:memory-route-scope@30
             test:stt:unit@4
             test:avatar:unit@3
             test:mcp@3
