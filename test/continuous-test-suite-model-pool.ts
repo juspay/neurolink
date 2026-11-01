@@ -6,8 +6,8 @@ import "dotenv/config";
  *
  * Coverage:
  *   A. ModelPool.selectNext — priority / round-robin / weighted strategies.
- *   B. Cooldown — retryable + unknown errors use cooldownMs; auth and
- *      context_window get permanent-for-instance cooldown; recordSuccess clears.
+ *   B. Cooldown — member health failures use cooldownMs; request-scoped
+ *      context_window errors leave health unchanged; recordSuccess clears.
  *   C. classifyProviderError — representative inputs → correct ProviderErrorClass.
  *   D. createDefaultRequestRouter — context-driven tier decisions.
  *   E. NeuroLink integration — pool fallback and router wiring through
@@ -254,7 +254,7 @@ await test("recordFailure(network) cools member for cooldownMs then re-enables",
   );
 });
 
-await test("recordFailure(auth) keeps member permanently unavailable within pool lifetime", () => {
+await test("recordFailure(auth) re-enables member after cooldownMs", () => {
   let clock = 0;
   const pool = new ModelPool(
     { members: [M1], strategy: "priority", cooldownMs: 1_000 },
@@ -262,16 +262,20 @@ await test("recordFailure(auth) keeps member permanently unavailable within pool
   );
 
   pool.recordFailure(M1, "auth");
-
-  // Advance clock a long time — should still be cooled
-  clock = 365 * 24 * 60 * 60 * 1000; // 1 year
+  clock = 999;
   assert(
     pool.availableMembers().length === 0,
-    "auth failure gives permanent cooldown for pool lifetime",
+    "auth failure cools the member during the configured interval",
+  );
+  clock = 1_000;
+  assertEqual(
+    pool.selectNext(),
+    M1,
+    "auth member can be probed after cooldown",
   );
 });
 
-await test("recordFailure(context_window) keeps member permanently unavailable", () => {
+await test("recordFailure(context_window) leaves member health unchanged", () => {
   let clock = 0;
   const pool = new ModelPool(
     { members: [M1], strategy: "priority", cooldownMs: 1_000 },
@@ -279,11 +283,18 @@ await test("recordFailure(context_window) keeps member permanently unavailable",
   );
 
   pool.recordFailure(M1, "context_window");
-
-  clock = 10 * 365 * 24 * 60 * 60 * 1000 - 1; // just under 10 years
   assert(
-    pool.availableMembers().length === 0,
-    "context_window failure keeps member cooled",
+    pool.availableMembers().includes(M1),
+    "a request that is too long must not cool the member",
+  );
+
+  pool.recordFailure(M1, "rate_limit");
+  clock = 500;
+  pool.recordFailure(M1, "context_window");
+  clock = 1_000;
+  assert(
+    pool.availableMembers().includes(M1),
+    "context_window must not extend an existing health cooldown",
   );
 });
 
@@ -930,32 +941,89 @@ await test("generate: a plain auth error is retryable, so member#2 is still trie
   assert(m2.generate.callCount > 0, "member#2's provider must have been used");
 });
 
-await test("generate: an auth failure cools the member permanently, past cooldownMs", async () => {
+await test("generate: an auth failure does not retire the member for later calls", async () => {
+  const m1 = makeProviderStub("openai", "recovered");
   const m2 = makeProviderStub("anthropic", "ok");
+  let openaiAttempts = 0;
   const nl = new NeuroLink({
     ...BASE_CONFIG,
     modelPool: {
       members: [POOL_M1, POOL_M2],
       strategy: "priority",
-      cooldownMs: 1_000,
+      cooldownMs: 0,
     },
   });
 
-  await withCreateProvider(
+  const { first, second } = await withCreateProvider(
     async (providerName) => {
-      if (providerName === "openai") {
+      if (providerName === "openai" && openaiAttempts++ === 0) {
         throw new Error("unauthorized access — please check your api key");
       }
-      return m2.provider;
+      return providerName === "openai" ? m1.provider : m2.provider;
     },
-    () => nl.generate({ input: { text: "ping" }, disableTools: true }),
+    async () => ({
+      first: await nl.generate({ input: { text: "ping" }, disableTools: true }),
+      second: await nl.generate({
+        input: { text: "ping" },
+        disableTools: true,
+      }),
+    }),
+  );
+  assertEqual(first.provider, "anthropic", "the first call falls back");
+  assertEqual(second.provider, "openai", "the next call probes member#1 again");
+  assert(
+    poolOf(nl)!.availableMembers().includes(POOL_M1),
+    "the recovered member remains available",
+  );
+});
+
+await test("generate: a too-long request does not retire its member", async () => {
+  const m1 = makeProviderStub("openai", "short-request-ok");
+  const m2 = makeProviderStub("anthropic", "should-not-be-used");
+  let rejectFirst = true;
+  const nl = new NeuroLink({
+    ...BASE_CONFIG,
+    modelPool: {
+      members: [POOL_M1, POOL_M2],
+      strategy: "priority",
+      cooldownMs: 60_000,
+    },
+  });
+
+  const { firstError, second, calls } = await withCreateProvider(
+    async (providerName) => {
+      if (providerName === "openai" && rejectFirst) {
+        rejectFirst = false;
+        throw Object.assign(new Error("maximum context length exceeded"), {
+          status: 400,
+        });
+      }
+      return providerName === "openai" ? m1.provider : m2.provider;
+    },
+    async (calls) => {
+      let firstError: unknown;
+      try {
+        await nl.generate({ input: { text: "long" }, disableTools: true });
+      } catch (error) {
+        firstError = error;
+      }
+      assert(
+        poolOf(nl)!.availableMembers().includes(POOL_M1),
+        "the context error must not change member health",
+      );
+      const second = await nl.generate({
+        input: { text: "short" },
+        disableTools: true,
+      });
+      return { firstError, second, calls };
+    },
   );
 
+  assert(firstError instanceof Error, "the oversized request must fail");
+  assertEqual(second.provider, "openai", "the next call retries member#1");
   assert(
-    !poolOf(nl)!
-      .availableMembers()
-      .some((m) => m.provider === "openai"),
-    "an auth failure must outlive the 1s cooldown configured on the pool",
+    !calls.includes("anthropic"),
+    "a non-retryable request error must not fan out to member#2",
   );
 });
 
@@ -1000,6 +1068,87 @@ await test("stream: falls back to member#2 when member#1's provider creation fai
   assert(
     JSON.stringify(chunks).includes("hello-from-m2-stream"),
     "the consumed chunks must carry member#2's content",
+  );
+});
+
+await test("stream: context and abort errors during consumption preserve member health", async () => {
+  const m1 = makeProviderStub("openai", "stream-ok");
+  const m2 = makeProviderStub("anthropic", "should-not-be-used");
+  const errors = [
+    Object.assign(new Error("maximum context length exceeded"), {
+      status: 400,
+    }),
+    new DOMException("cancelled", "AbortError"),
+  ];
+  const streamProvider = {
+    ...m1.provider,
+    stream: async () => {
+      const handle = m1.stream.fn();
+      const error = errors.shift();
+      return {
+        ...handle,
+        stream: (async function* () {
+          if (error) {
+            throw error;
+          }
+          yield { type: "content" as const, content: "stream-ok" };
+        })(),
+      };
+    },
+  } as AIProvider;
+  const nl = new NeuroLink({
+    ...BASE_CONFIG,
+    modelPool: {
+      members: [POOL_M1, POOL_M2],
+      strategy: "priority",
+      cooldownMs: 60_000,
+    },
+  });
+
+  await withCreateProvider(
+    async (providerName) =>
+      providerName === "openai" ? streamProvider : m2.provider,
+    async () => {
+      const consume = async () => {
+        const result = await nl.stream({
+          input: { text: "ping" },
+          disableTools: true,
+        });
+        const chunks: unknown[] = [];
+        for await (const chunk of result.stream) {
+          chunks.push(chunk);
+        }
+        return { result, chunks };
+      };
+
+      for (const expectedName of ["Error", "AbortError"]) {
+        let caught: unknown;
+        try {
+          await consume();
+        } catch (error) {
+          caught = error;
+        }
+        assert(
+          caught instanceof Error && caught.name === expectedName,
+          `expected ${expectedName} from stream consumption`,
+        );
+        assert(
+          poolOf(nl)!.availableMembers().includes(POOL_M1),
+          "request-scoped stream failure must not cool member#1",
+        );
+      }
+
+      const { result, chunks } = await consume();
+      assertEqual(
+        result.provider,
+        "openai",
+        "the next stream retries member#1",
+      );
+      assert(
+        JSON.stringify(chunks).includes("stream-ok"),
+        "the recovered stream produces content",
+      );
+    },
   );
 });
 

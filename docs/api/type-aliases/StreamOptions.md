@@ -22,8 +22,7 @@ window kept warm for it, and compacting earlier is free; a request that
 depends on the entire conversation should compact as late as possible.
 When the classifier router runs with a decision model it fills this in
 per request — always at or below the default, never above, because a
-request that overflows the window fails hard and `ModelPool` records that
-failure as a permanent cooldown.
+request that overflows the window fails.
 
 ---
 

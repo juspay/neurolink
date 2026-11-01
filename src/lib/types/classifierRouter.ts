@@ -317,12 +317,9 @@ export type ClassifierRouterDecision = {
    * Fraction of the model's window at which compaction should trigger for
    * THIS request, replacing the fixed 0.8 default.
    *
-   * **Only ever lower than the default, never higher.** Raising it would let
+   * **Only ever lower than the default, never higher.** Raising it could let
    * a request through that the model then rejects with a context-window
-   * error — and `ModelPool` treats that as a permanent cooldown (10 years),
-   * so a single optimistic guess retires the model for the life of the
-   * process. Shrinking a budget wastes a little context; growing one is
-   * unrecoverable.
+   * error. Shrinking the budget compacts a little earlier instead.
    */
   compactionThreshold?: number;
   /** The scope reading `compactionThreshold` was derived from. */

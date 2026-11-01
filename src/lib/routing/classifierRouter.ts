@@ -307,9 +307,9 @@ export class ClassifierRouter {
         ? byId.get(decision.selectedModelId)
         : undefined;
     if (picked) {
-      // A pick that cannot hold the request is vetoed outright, whatever the
-      // confidence. That failure is not a degraded answer but a hard provider
-      // error, which ModelPool records as a permanent cooldown.
+      // A pick that cannot hold this request is vetoed outright, whatever the
+      // confidence. It would fail this request even though the member remains
+      // healthy for shorter requests.
       if (!this.fitsRequest(picked, input)) {
         this.deps.logger?.debug?.(
           "[ClassifierRouter] classifier pick dropped — window too small",
@@ -530,9 +530,8 @@ export class ClassifierRouter {
    * Returns undefined — meaning "leave the 0.8 default alone" — whenever the
    * feature is off, no scope was read, or the scope is the widest one. The
    * mapping can only ever LOWER the threshold, which is enforced in
-   * `contextScopeToThreshold` rather than here, because the consequence of
-   * getting it wrong in the other direction is not recoverable: a
-   * `context_window` error puts the model into ModelPool's 10-year cooldown.
+   * `contextScopeToThreshold` rather than here, to avoid sending requests
+   * that exceed the selected model's context window.
    */
   private selectContextBudget(
     decision: ClassifierDecision,

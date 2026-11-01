@@ -4,8 +4,7 @@
  * A ModelPool holds an ordered list of (provider, model, region) members and
  * selects among them per-turn using a configurable strategy. On provider
  * failure, the pool cools down the failed member and retries with the next
- * available one, using error-class-aware logic to distinguish retryable from
- * permanent failures.
+ * available one. Request-scoped context-window errors do not cool members.
  */
 
 /** One candidate provider/model/region tuple in a pool. */
@@ -45,7 +44,7 @@ export type ModelPoolConfig = {
   strategy?: ModelPoolStrategy;
   /**
    * How long (ms) a failed member stays in cooldown before it is eligible
-   * again. Applies to retryable error classes (rate_limit, server, network).
+   * again. Applies to all error classes except context_window.
    * Default: 60_000 (1 minute).
    */
   cooldownMs?: number;
