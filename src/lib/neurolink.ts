@@ -6,6 +6,8 @@ import {
 } from "./utils/ollamaDiagnostics.js";
 import type {
   AttachmentPolicy,
+  BudgetCheckResult,
+  EnhancedGenerateResult,
   OllamaDiagnosticOutcome,
   OllamaDiagnosticPermit,
 } from "./types/index.js";
@@ -9295,181 +9297,11 @@ Current user's request: ${currentInput}`;
     // AbortError propagation semantics. Falls through to the standard path
     // when no pool is configured.
     if (this.modelPool) {
-      const pool = this.modelPool;
-      const maxPoolAttempts = pool.maxAttempts;
-      const triedKeys = new Set<string>();
-      let poolLastError: Error | null = null;
-
-      for (let attempt = 0; attempt < maxPoolAttempts; attempt++) {
-        if (options.abortSignal?.aborted) {
-          throw new DOMException("The operation was aborted", "AbortError");
-        }
-
-        const member = pool.selectNext(triedKeys);
-        if (!member) {
-          // All available members exhausted.
-          break;
-        }
-        triedKeys.add(pool.memberKey(member));
-
-        // Temporarily override provider/model/region from the pool member.
-        const savedProvider = options.provider;
-        const savedModel = options.model;
-        const savedRegion = options.region;
-        options.provider = member.provider as AIProviderName;
-        // When the member omits model/region, clear inherited values so the
-        // provider's own default is used rather than a mismatched caller value.
-        options.model = member.model ?? undefined;
-        options.region = member.region ?? undefined;
-
-        const poolProviderName = member.provider;
-        logger.debug(`[${functionTag}] ModelPool: attempting member`, {
-          provider: poolProviderName,
-          model: member.model ?? options.model,
-          attempt,
-        });
-
-        try {
-          // Get conversation messages for context (use pre-compacted if provided)
-          const poolOptionsWithMessages = options as TextGenerationOptions & {
-            conversationMessages?: unknown[];
-          };
-          const poolConversationMessages = poolOptionsWithMessages
-            .conversationMessages?.length
-            ? poolOptionsWithMessages.conversationMessages
-            : await getConversationMessages(this.conversationMemory, options);
-
-          const poolProvider = await AIProviderFactory.createProvider(
-            poolProviderName as AIProviderName,
-            options.model,
-            !options.disableTools,
-            this,
-            options.region,
-            this.resolveCredentials(options.credentials),
-          );
-
-          poolProvider.setTraceContext(this._metricsTraceContext);
-          poolProvider.setupToolExecutor(
-            {
-              customTools: this.getCustomTools(),
-              executeTool: (toolName: string, params: unknown) =>
-                this.executeTool(toolName, params, {
-                  disableToolCache: options.disableToolCache,
-                }),
-            },
-            functionTag,
-          );
-
-          poolProvider.setFileToolRootPolicy?.(this.fileToolRootsFor(options));
-          const poolResult = await poolProvider.generate({
-            ...options,
-            conversationMessages: poolConversationMessages,
-          });
-
-          if (!poolResult) {
-            throw new Error(
-              `ModelPool: provider ${poolProviderName} returned null result`,
-            );
-          }
-
-          pool.recordSuccess(member);
-          const responseTime = Date.now() - startTime;
-
-          // Restore original options fields so callers see a clean object.
-          options.provider = savedProvider;
-          options.model = savedModel;
-          options.region = savedRegion;
-
-          return {
-            content: poolResult.content || "",
-            provider: poolProviderName,
-            model: poolResult.model,
-            usage: poolResult.usage,
-            responseTime,
-            finishReason: poolResult.finishReason,
-            stopReason: poolResult.stopReason,
-            rawFinishReason: poolResult.rawFinishReason,
-            stepsUsed: poolResult.stepsUsed,
-            toolsUsed: poolResult.toolsUsed || [],
-            toolCalls: poolResult.toolCalls ?? [],
-            // Lossless pass-through: keep the full ToolExecutionRecord
-            // fields (params/resultText/isError/timing) alongside the
-            // legacy {toolName,executionTime,success} shape this internal
-            // result declares, so the final GenerateResult mapping
-            // reconstructs real records instead of empty ones.
-            toolExecutions: poolResult.toolExecutions?.map((te) => ({
-              ...te,
-              executionTime: te.durationMs,
-              success: !te.isError,
-            })),
-            // A tool RAN (toolsUsed), not merely dispatched.
-            enhancedWithTools: !!poolResult.toolsUsed?.length,
-            analytics: poolResult.analytics,
-            evaluation: poolResult.evaluation,
-            audio: poolResult.audio,
-            ttsMetadata: poolResult.ttsMetadata,
-            video: poolResult.video,
-            avatar: poolResult.avatar,
-            music: poolResult.music,
-            ppt: poolResult.ppt,
-            imageOutput: poolResult.imageOutput,
-            reasoning: poolResult.reasoning,
-            reasoningTokens: poolResult.reasoningTokens,
-            _generationEndEmitted: (
-              poolResult as { _generationEndEmitted?: boolean }
-            )._generationEndEmitted,
-          } as TextGenerationResult & { _generationEndEmitted?: boolean };
-        } catch (poolError) {
-          // Restore options unconditionally on failure.
-          options.provider = savedProvider;
-          options.model = savedModel;
-          options.region = savedRegion;
-
-          if (isAbortError(poolError)) {
-            throw poolError;
-          }
-          if (isNonRetryableForPool(poolError)) {
-            const poolErrMsg =
-              poolError instanceof Error
-                ? poolError.message
-                : String(poolError);
-            logger.warn(
-              `[${functionTag}] ModelPool: non-retryable error from ${poolProviderName}, stopping pool`,
-              { error: poolErrMsg },
-            );
-            pool.recordFailure(member, classifyProviderError(poolError));
-            // Wrap in a plain Error so runWithFallbackOrchestration does not
-            // mistake this for a ModelAccessDeniedError and start a second
-            // retry layer on top of the already-exhausted pool.
-            throw new Error(`[ModelPool] non-retryable: ${poolErrMsg}`, {
-              cause: poolError,
-            });
-          }
-
-          pool.recordFailure(member, classifyProviderError(poolError));
-          poolLastError =
-            poolError instanceof Error
-              ? poolError
-              : new Error(String(poolError));
-          logger.warn(
-            `[${functionTag}] ModelPool: member ${poolProviderName} failed`,
-            { error: poolLastError.message },
-          );
-        }
-      }
-
-      // All pool members failed or were exhausted.
-      const poolResponseTime = Date.now() - startTime;
-      logger.error(`[${functionTag}] ModelPool: all members failed`, {
-        triedKeys: Array.from(triedKeys),
-        lastError: poolLastError?.message,
-        responseTime: poolResponseTime,
-      });
-      // Wrap in a plain Error (not a typed error class) so that
-      // runWithFallbackOrchestration does not re-activate the modelChain /
-      // providerFallback layer on top of an already-exhausted pool.
-      throw new Error(
-        `[ModelPool] all members failed: ${poolLastError?.message ?? "no members available"}`,
+      return this.generateViaModelPool(
+        this.modelPool,
+        options,
+        startTime,
+        functionTag,
       );
     }
     // ─── End ModelPool path ───────────────────────────────────────────────────
@@ -9562,127 +9394,12 @@ Current user's request: ${currentInput}`;
         // as an unbounded retry loop (93K→299K tokens, no verdict, ever).
         // The throw remains for the truly unrecoverable case: system
         // prompt + tool definitions alone exceed the budget.
-        let promptWindowRecovered = false;
         if (!budgetCheck.withinBudget && !dpgHasCompactableMessages) {
-          const fixedOverhead =
-            (budgetCheck.breakdown?.systemPrompt ?? 0) +
-            (budgetCheck.breakdown?.toolDefinitions ?? 0) +
-            (budgetCheck.breakdown?.fileAttachments ?? 0);
-          // 3% margin against estimator drift; 1024-token floor — below
-          // that, a windowed prompt carries too little to answer from.
-          const promptBudget = Math.floor(
-            (budgetCheck.availableInputTokens - fixedOverhead) * 0.97,
+          this.windowOrRefuseOversizedPrompt(
+            options,
+            providerName,
+            budgetCheck,
           );
-          const promptText =
-            typeof options.prompt === "string" ? options.prompt : undefined;
-          if (
-            promptText &&
-            promptBudget >= 1024 &&
-            (budgetCheck.breakdown?.currentPrompt ?? 0) > promptBudget
-          ) {
-            const marker =
-              "\n\n[... middle of this prompt elided by NeuroLink to fit the model's context window ...]\n\n";
-            // Proportional char budget from the observed chars-per-token of
-            // THIS text, re-checked and shrunk until the estimator agrees.
-            let charBudget = Math.floor(
-              promptText.length *
-                (promptBudget /
-                  Math.max(budgetCheck.breakdown?.currentPrompt ?? 1, 1)),
-            );
-            let windowed = promptText;
-            for (let attempt = 0; attempt < 4; attempt++) {
-              const headChars = Math.floor(charBudget * 0.6);
-              const tailChars = Math.max(
-                charBudget - headChars - marker.length,
-                0,
-              );
-              windowed =
-                promptText.slice(0, headChars) +
-                marker +
-                (tailChars > 0 ? promptText.slice(-tailChars) : "");
-              const recheck = checkContextBudget({
-                provider: providerName,
-                model: options.model,
-                maxTokens: options.maxTokens,
-                systemPrompt: options.systemPrompt,
-                conversationMessages: [],
-                currentPrompt: windowed,
-                toolReplayMode: this.resolveToolReplayModeForBudget(options),
-                toolDefinitions: options.tools
-                  ? Object.values(options.tools)
-                  : undefined,
-              });
-              if (recheck.withinBudget) {
-                break;
-              }
-              charBudget = Math.floor(charBudget * 0.8);
-              if (attempt === 3) {
-                windowed = promptText; // give up — fall through to the throw
-              }
-            }
-            if (windowed !== promptText) {
-              logger.warn(
-                "[NeuroLink] Prompt exceeded the model's context budget with nothing to compact — " +
-                  "windowed the prompt (head+tail kept, middle elided) to fit.",
-                {
-                  provider: providerName,
-                  model: options.model,
-                  estimatedTokens: budgetCheck.estimatedInputTokens,
-                  budget: budgetCheck.availableInputTokens,
-                  originalPromptChars: promptText.length,
-                  windowedPromptChars: windowed.length,
-                },
-              );
-              try {
-                this.emitter.emit("compaction.applied", {
-                  stagesAttempted: ["pre-dispatch prompt window"],
-                  finalTokens: budgetCheck.availableInputTokens,
-                  budget: budgetCheck.availableInputTokens,
-                  provider: providerName,
-                  model: options.model,
-                  phase: "pre-dispatch-prompt-window",
-                  timestamp: Date.now(),
-                });
-              } catch {
-                /* listener errors are non-fatal */
-              }
-              options.prompt = windowed;
-              const inputHolder = (options as { input?: { text?: string } })
-                .input;
-              if (inputHolder && typeof inputHolder.text === "string") {
-                inputHolder.text = windowed;
-              }
-              promptWindowRecovered = true;
-            }
-          }
-          if (!promptWindowRecovered) {
-            try {
-              this.emitter.emit("compaction.insufficient", {
-                stagesAttempted: ["pre-dispatch hard cap"],
-                finalTokens: budgetCheck.estimatedInputTokens,
-                budget: budgetCheck.availableInputTokens,
-                provider: providerName,
-                model: options.model,
-                phase: "pre-dispatch-no-recovery",
-                timestamp: Date.now(),
-              });
-            } catch {
-              /* listener errors are non-fatal */
-            }
-            throw new ContextBudgetExceededError(
-              `Context exceeds model budget and no compaction is possible ` +
-                `(no conversationMemory, no inline conversationMessages — only ` +
-                `prompt + tools). Estimated: ${budgetCheck.estimatedInputTokens} ` +
-                `tokens, budget: ${budgetCheck.availableInputTokens} tokens. ` +
-                `Reduce prompt or tool-definition size, or trim the request.`,
-              {
-                estimatedTokens: budgetCheck.estimatedInputTokens,
-                availableTokens: budgetCheck.availableInputTokens,
-                stagesUsed: [],
-                breakdown: budgetCheck.breakdown,
-              },
-            );
-          }
         }
 
         if (
@@ -9691,144 +9408,13 @@ Current user's request: ${currentInput}`;
           dpgMessageCount >
             (this.lastCompactionMessageCount.get(dpgCompactionSessionId) ?? 0)
         ) {
-          const compactor = new ContextCompactor(
-            {
-              provider: providerName,
-              summarizationProvider:
-                this.conversationMemoryConfig?.conversationMemory
-                  ?.summarizationProvider,
-              summarizationModel:
-                this.conversationMemoryConfig?.conversationMemory
-                  ?.summarizationModel,
-            },
-            this.contextCompactorDeps(
-              this.decisionSiteContext(options, dpgCompactionSessionId),
-            ),
+          conversationMessages = await this.compactHistoryForDispatch(
+            options,
+            providerName,
+            budgetCheck,
+            conversationMessages,
+            dpgCompactionSessionId,
           );
-          const compactionResult = await compactor.compact(
-            conversationMessages as import("./types/index.js").ChatMessage[],
-            resolveHistoryBudget(budgetCheck, options.compactionThreshold),
-            this.conversationMemoryConfig?.conversationMemory,
-            (options.context as Record<string, unknown>)?.requestId as
-              | string
-              | undefined,
-            { currentRequest: options.prompt },
-          );
-          if (compactionResult.compacted) {
-            const repairedResult = repairToolPairs(compactionResult.messages);
-            conversationMessages = repairedResult.messages;
-            this.lastCompactionMessageCount.set(
-              dpgCompactionSessionId,
-              conversationMessages.length,
-            );
-          }
-
-          // POST-COMPACTION BUDGET RE-CHECK (BUG-003 fix)
-          const postCompactBudget = checkContextBudget({
-            provider: providerName,
-            model: options.model,
-            maxTokens: options.maxTokens,
-            systemPrompt: options.systemPrompt,
-            conversationMessages: conversationMessages as Array<{
-              role: string;
-              content: string;
-            }>,
-            currentPrompt: options.prompt,
-            toolReplayMode: this.resolveToolReplayModeForBudget(options),
-            toolDefinitions: options.tools
-              ? Object.values(options.tools)
-              : undefined,
-          });
-
-          if (!postCompactBudget.withinBudget) {
-            logger.warn(
-              "[NeuroLink] directProviderGeneration: post-compaction still over budget, emergency truncation",
-              {
-                estimatedTokens: postCompactBudget.estimatedInputTokens,
-                availableTokens: postCompactBudget.availableInputTokens,
-                overagePercent: Math.round(
-                  (postCompactBudget.usageRatio - 1.0) * 100,
-                ),
-              },
-            );
-
-            // Curator P1-2: emit `compaction.insufficient` whenever a
-            // single round of compaction wasn't enough — even when
-            // emergency truncation will save the day. Lets cost / audit
-            // listeners track the "compaction was insufficient" signal
-            // separately from the eventual outcome.
-            try {
-              this.emitter.emit("compaction.insufficient", {
-                stagesAttempted: compactionResult.stagesUsed,
-                finalTokens: postCompactBudget.estimatedInputTokens,
-                budget: postCompactBudget.availableInputTokens,
-                provider: providerName,
-                model: options.model,
-                phase: "mid-compaction",
-                willEmergencyTruncate: true,
-                timestamp: Date.now(),
-              });
-            } catch {
-              /* listener errors are non-fatal */
-            }
-
-            conversationMessages = emergencyContentTruncation(
-              conversationMessages as import("./types/index.js").ChatMessage[],
-              postCompactBudget.availableInputTokens,
-              postCompactBudget.breakdown,
-              providerName,
-            );
-
-            const finalBudget = checkContextBudget({
-              provider: providerName,
-              model: options.model,
-              maxTokens: options.maxTokens,
-              systemPrompt: options.systemPrompt,
-              conversationMessages: conversationMessages as Array<{
-                role: string;
-                content: string;
-              }>,
-              currentPrompt: options.prompt,
-              toolReplayMode: this.resolveToolReplayModeForBudget(options),
-              toolDefinitions: options.tools
-                ? Object.values(options.tools)
-                : undefined,
-            });
-
-            if (!finalBudget.withinBudget) {
-              // Clear watermark so handleContextOverflow recovery can re-compact
-              this.lastCompactionMessageCount.delete(dpgCompactionSessionId);
-
-              // Curator P1-2: emit `compaction.insufficient` so cost / audit
-              // listeners can record the specific failure mode (separate
-              // from a generic provider error).
-              try {
-                this.emitter.emit("compaction.insufficient", {
-                  stagesAttempted: compactionResult.stagesUsed,
-                  finalTokens: finalBudget.estimatedInputTokens,
-                  budget: finalBudget.availableInputTokens,
-                  provider: providerName,
-                  model: options.model,
-                  phase: "post-emergency-truncation",
-                  timestamp: Date.now(),
-                });
-              } catch {
-                /* listener errors are non-fatal */
-              }
-
-              throw new ContextBudgetExceededError(
-                `Context exceeds model budget after all compaction stages. ` +
-                  `Estimated: ${finalBudget.estimatedInputTokens} tokens, ` +
-                  `Budget: ${finalBudget.availableInputTokens} tokens.`,
-                {
-                  estimatedTokens: finalBudget.estimatedInputTokens,
-                  availableTokens: finalBudget.availableInputTokens,
-                  stagesUsed: compactionResult.stagesUsed,
-                  breakdown: finalBudget.breakdown,
-                },
-              );
-            }
-          }
         }
 
         // ADD: Emit connection events for successful provider creation (Bedrock-compatible)
@@ -9866,50 +9452,11 @@ Current user's request: ${currentInput}`;
           contentLength: result.content?.length || 0,
         });
 
-        return {
-          content: result.content || "",
-          provider: providerName,
-          model: result.model,
-          usage: result.usage,
+        return this.toDirectGenerationResult(
+          result,
+          providerName,
           responseTime,
-          finishReason: result.finishReason,
-          stopReason: result.stopReason,
-          rawFinishReason: result.rawFinishReason,
-          stepsUsed: result.stepsUsed,
-          toolsUsed: result.toolsUsed || [],
-          // The providers record executed calls; without this line the public
-          // result never carried them, whatever the provider returned.
-          toolCalls: result.toolCalls ?? [],
-          // Lossless pass-through: keep the full ToolExecutionRecord fields
-          // alongside the legacy {toolName,executionTime,success} shape this
-          // internal result declares, so the final GenerateResult mapping
-          // reconstructs real records instead of empty ones.
-          toolExecutions: result.toolExecutions?.map((te) => ({
-            ...te,
-            executionTime: te.durationMs,
-            success: !te.isError,
-          })),
-          // A tool RAN (toolsUsed), not merely dispatched.
-          enhancedWithTools: !!result.toolsUsed?.length,
-          analytics: result.analytics,
-          evaluation: result.evaluation,
-          audio: result.audio,
-          ttsMetadata: result.ttsMetadata,
-          video: result.video,
-          avatar: result.avatar,
-          music: result.music,
-          ppt: result.ppt,
-          // CRITICAL FIX: Include imageOutput for image generation models
-          imageOutput: result.imageOutput,
-          // Forward reasoning so callers asking for `result.reasoning`
-          // (DeepSeek `reasoning_content`, Anthropic thinking, Gemini
-          // thought parts, OpenAI o1) actually receive it.
-          reasoning: result.reasoning,
-          reasoningTokens: result.reasoningTokens,
-          // Propagate native-emission flag — see attemptMCPGeneration comment.
-          _generationEndEmitted: (result as { _generationEndEmitted?: boolean })
-            ._generationEndEmitted,
-        } as TextGenerationResult & { _generationEndEmitted?: boolean };
+        );
       } catch (error) {
         // Immediately propagate AbortError — never fall back to next provider on abort
         if (isAbortError(error)) {
@@ -9943,6 +9490,506 @@ Current user's request: ${currentInput}`;
     }
 
     // All providers failed
+    throw this.buildAllProvidersFailedError(
+      providersToTry,
+      lastError,
+      startTime,
+      functionTag,
+    );
+  }
+
+  /**
+   * Generate through the configured ModelPool, walking its members until one
+   * answers. Always returns or throws; never falls through to the static
+   * provider list.
+   */
+  private async generateViaModelPool(
+    pool: ModelPool,
+    options: TextGenerationOptions,
+    startTime: number,
+    functionTag: string,
+  ): Promise<TextGenerationResult> {
+    const maxPoolAttempts = pool.maxAttempts;
+    const triedKeys = new Set<string>();
+    let poolLastError: Error | null = null;
+
+    for (let attempt = 0; attempt < maxPoolAttempts; attempt++) {
+      if (options.abortSignal?.aborted) {
+        throw new DOMException("The operation was aborted", "AbortError");
+      }
+
+      const member = pool.selectNext(triedKeys);
+      if (!member) {
+        // All available members exhausted.
+        break;
+      }
+      triedKeys.add(pool.memberKey(member));
+
+      // Temporarily override provider/model/region from the pool member.
+      const savedProvider = options.provider;
+      const savedModel = options.model;
+      const savedRegion = options.region;
+      options.provider = member.provider as AIProviderName;
+      // When the member omits model/region, clear inherited values so the
+      // provider's own default is used rather than a mismatched caller value.
+      options.model = member.model ?? undefined;
+      options.region = member.region ?? undefined;
+
+      const poolProviderName = member.provider;
+      logger.debug(`[${functionTag}] ModelPool: attempting member`, {
+        provider: poolProviderName,
+        model: member.model ?? options.model,
+        attempt,
+      });
+
+      try {
+        // Get conversation messages for context (use pre-compacted if provided)
+        const poolOptionsWithMessages = options as TextGenerationOptions & {
+          conversationMessages?: unknown[];
+        };
+        const poolConversationMessages = poolOptionsWithMessages
+          .conversationMessages?.length
+          ? poolOptionsWithMessages.conversationMessages
+          : await getConversationMessages(this.conversationMemory, options);
+
+        const poolProvider = await AIProviderFactory.createProvider(
+          poolProviderName as AIProviderName,
+          options.model,
+          !options.disableTools,
+          this,
+          options.region,
+          this.resolveCredentials(options.credentials),
+        );
+
+        poolProvider.setTraceContext(this._metricsTraceContext);
+        poolProvider.setupToolExecutor(
+          {
+            customTools: this.getCustomTools(),
+            executeTool: (toolName: string, params: unknown) =>
+              this.executeTool(toolName, params, {
+                disableToolCache: options.disableToolCache,
+              }),
+          },
+          functionTag,
+        );
+
+        poolProvider.setFileToolRootPolicy?.(this.fileToolRootsFor(options));
+        const poolResult = await poolProvider.generate({
+          ...options,
+          conversationMessages: poolConversationMessages,
+        });
+
+        if (!poolResult) {
+          throw new Error(
+            `ModelPool: provider ${poolProviderName} returned null result`,
+          );
+        }
+
+        pool.recordSuccess(member);
+        const responseTime = Date.now() - startTime;
+
+        // Restore original options fields so callers see a clean object.
+        options.provider = savedProvider;
+        options.model = savedModel;
+        options.region = savedRegion;
+
+        return this.toDirectGenerationResult(
+          poolResult,
+          poolProviderName,
+          responseTime,
+        );
+      } catch (poolError) {
+        // Restore options unconditionally on failure.
+        options.provider = savedProvider;
+        options.model = savedModel;
+        options.region = savedRegion;
+
+        if (isAbortError(poolError)) {
+          throw poolError;
+        }
+        if (isNonRetryableForPool(poolError)) {
+          const poolErrMsg =
+            poolError instanceof Error ? poolError.message : String(poolError);
+          logger.warn(
+            `[${functionTag}] ModelPool: non-retryable error from ${poolProviderName}, stopping pool`,
+            { error: poolErrMsg },
+          );
+          pool.recordFailure(member, classifyProviderError(poolError));
+          // Wrap in a plain Error so runWithFallbackOrchestration does not
+          // mistake this for a ModelAccessDeniedError and start a second
+          // retry layer on top of the already-exhausted pool.
+          throw new Error(`[ModelPool] non-retryable: ${poolErrMsg}`, {
+            cause: poolError,
+          });
+        }
+
+        pool.recordFailure(member, classifyProviderError(poolError));
+        poolLastError =
+          poolError instanceof Error ? poolError : new Error(String(poolError));
+        logger.warn(
+          `[${functionTag}] ModelPool: member ${poolProviderName} failed`,
+          { error: poolLastError.message },
+        );
+      }
+    }
+
+    // All pool members failed or were exhausted.
+    const poolResponseTime = Date.now() - startTime;
+    logger.error(`[${functionTag}] ModelPool: all members failed`, {
+      triedKeys: Array.from(triedKeys),
+      lastError: poolLastError?.message,
+      responseTime: poolResponseTime,
+    });
+    // Wrap in a plain Error (not a typed error class) so that
+    // runWithFallbackOrchestration does not re-activate the modelChain /
+    // providerFallback layer on top of an already-exhausted pool.
+    throw new Error(
+      `[ModelPool] all members failed: ${poolLastError?.message ?? "no members available"}`,
+    );
+  }
+
+  /**
+   * Map a provider's answer to the internal generation result.
+   */
+  private toDirectGenerationResult(
+    result: EnhancedGenerateResult,
+    providerName: string,
+    responseTime: number,
+  ): TextGenerationResult & { _generationEndEmitted?: boolean } {
+    return {
+      content: result.content || "",
+      provider: providerName,
+      model: result.model,
+      usage: result.usage,
+      responseTime,
+      finishReason: result.finishReason,
+      stopReason: result.stopReason,
+      rawFinishReason: result.rawFinishReason,
+      stepsUsed: result.stepsUsed,
+      toolsUsed: result.toolsUsed || [],
+      // The providers record executed calls; without this line the public
+      // result never carried them, whatever the provider returned.
+      toolCalls: result.toolCalls ?? [],
+      // Lossless pass-through: keep the full ToolExecutionRecord fields
+      // alongside the legacy {toolName,executionTime,success} shape this
+      // internal result declares, so the final GenerateResult mapping
+      // reconstructs real records instead of empty ones.
+      toolExecutions: result.toolExecutions?.map((te) => ({
+        ...te,
+        executionTime: te.durationMs,
+        success: !te.isError,
+      })),
+      // A tool RAN (toolsUsed), not merely dispatched.
+      enhancedWithTools: !!result.toolsUsed?.length,
+      analytics: result.analytics,
+      evaluation: result.evaluation,
+      audio: result.audio,
+      ttsMetadata: result.ttsMetadata,
+      video: result.video,
+      avatar: result.avatar,
+      music: result.music,
+      ppt: result.ppt,
+      // CRITICAL FIX: Include imageOutput for image generation models
+      imageOutput: result.imageOutput,
+      // Forward reasoning so callers asking for `result.reasoning`
+      // (DeepSeek `reasoning_content`, Anthropic thinking, Gemini
+      // thought parts, OpenAI o1) actually receive it.
+      reasoning: result.reasoning,
+      reasoningTokens: result.reasoningTokens,
+      // Propagate native-emission flag — see attemptMCPGeneration comment.
+      _generationEndEmitted: (result as { _generationEndEmitted?: boolean })
+        ._generationEndEmitted,
+    } as TextGenerationResult & { _generationEndEmitted?: boolean };
+  }
+
+  /**
+   * Pre-dispatch hard cap for a request over budget with nothing to compact:
+   * window the prompt to fit when the prompt is what blew the budget, else
+   * throw ContextBudgetExceededError.
+   */
+  private windowOrRefuseOversizedPrompt(
+    options: TextGenerationOptions,
+    providerName: string,
+    budgetCheck: BudgetCheckResult,
+  ): void {
+    let promptWindowRecovered = false;
+    const fixedOverhead =
+      (budgetCheck.breakdown?.systemPrompt ?? 0) +
+      (budgetCheck.breakdown?.toolDefinitions ?? 0) +
+      (budgetCheck.breakdown?.fileAttachments ?? 0);
+    // 3% margin against estimator drift; 1024-token floor — below
+    // that, a windowed prompt carries too little to answer from.
+    const promptBudget = Math.floor(
+      (budgetCheck.availableInputTokens - fixedOverhead) * 0.97,
+    );
+    const promptText =
+      typeof options.prompt === "string" ? options.prompt : undefined;
+    if (
+      promptText &&
+      promptBudget >= 1024 &&
+      (budgetCheck.breakdown?.currentPrompt ?? 0) > promptBudget
+    ) {
+      const marker =
+        "\n\n[... middle of this prompt elided by NeuroLink to fit the model's context window ...]\n\n";
+      // Proportional char budget from the observed chars-per-token of
+      // THIS text, re-checked and shrunk until the estimator agrees.
+      let charBudget = Math.floor(
+        promptText.length *
+          (promptBudget /
+            Math.max(budgetCheck.breakdown?.currentPrompt ?? 1, 1)),
+      );
+      let windowed = promptText;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const headChars = Math.floor(charBudget * 0.6);
+        const tailChars = Math.max(charBudget - headChars - marker.length, 0);
+        windowed =
+          promptText.slice(0, headChars) +
+          marker +
+          (tailChars > 0 ? promptText.slice(-tailChars) : "");
+        const recheck = checkContextBudget({
+          provider: providerName,
+          model: options.model,
+          maxTokens: options.maxTokens,
+          systemPrompt: options.systemPrompt,
+          conversationMessages: [],
+          currentPrompt: windowed,
+          toolReplayMode: this.resolveToolReplayModeForBudget(options),
+          toolDefinitions: options.tools
+            ? Object.values(options.tools)
+            : undefined,
+        });
+        if (recheck.withinBudget) {
+          break;
+        }
+        charBudget = Math.floor(charBudget * 0.8);
+        if (attempt === 3) {
+          windowed = promptText; // give up — fall through to the throw
+        }
+      }
+      if (windowed !== promptText) {
+        logger.warn(
+          "[NeuroLink] Prompt exceeded the model's context budget with nothing to compact — " +
+            "windowed the prompt (head+tail kept, middle elided) to fit.",
+          {
+            provider: providerName,
+            model: options.model,
+            estimatedTokens: budgetCheck.estimatedInputTokens,
+            budget: budgetCheck.availableInputTokens,
+            originalPromptChars: promptText.length,
+            windowedPromptChars: windowed.length,
+          },
+        );
+        try {
+          this.emitter.emit("compaction.applied", {
+            stagesAttempted: ["pre-dispatch prompt window"],
+            finalTokens: budgetCheck.availableInputTokens,
+            budget: budgetCheck.availableInputTokens,
+            provider: providerName,
+            model: options.model,
+            phase: "pre-dispatch-prompt-window",
+            timestamp: Date.now(),
+          });
+        } catch {
+          /* listener errors are non-fatal */
+        }
+        options.prompt = windowed;
+        const inputHolder = (options as { input?: { text?: string } }).input;
+        if (inputHolder && typeof inputHolder.text === "string") {
+          inputHolder.text = windowed;
+        }
+        promptWindowRecovered = true;
+      }
+    }
+    if (!promptWindowRecovered) {
+      try {
+        this.emitter.emit("compaction.insufficient", {
+          stagesAttempted: ["pre-dispatch hard cap"],
+          finalTokens: budgetCheck.estimatedInputTokens,
+          budget: budgetCheck.availableInputTokens,
+          provider: providerName,
+          model: options.model,
+          phase: "pre-dispatch-no-recovery",
+          timestamp: Date.now(),
+        });
+      } catch {
+        /* listener errors are non-fatal */
+      }
+      throw new ContextBudgetExceededError(
+        `Context exceeds model budget and no compaction is possible ` +
+          `(no conversationMemory, no inline conversationMessages — only ` +
+          `prompt + tools). Estimated: ${budgetCheck.estimatedInputTokens} ` +
+          `tokens, budget: ${budgetCheck.availableInputTokens} tokens. ` +
+          `Reduce prompt or tool-definition size, or trim the request.`,
+        {
+          estimatedTokens: budgetCheck.estimatedInputTokens,
+          availableTokens: budgetCheck.availableInputTokens,
+          stagesUsed: [],
+          breakdown: budgetCheck.breakdown,
+        },
+      );
+    }
+  }
+
+  /**
+   * Compact the conversation history before dispatch, re-checking the budget
+   * and truncating as a last resort. Returns the history to send.
+   */
+  private async compactHistoryForDispatch(
+    options: TextGenerationOptions,
+    providerName: string,
+    budgetCheck: BudgetCheckResult,
+    history: ChatMessage[],
+    compactionSessionId: string,
+  ): Promise<ChatMessage[]> {
+    let conversationMessages = history;
+    const dpgCompactionSessionId = compactionSessionId;
+    const compactor = new ContextCompactor(
+      {
+        provider: providerName,
+        summarizationProvider:
+          this.conversationMemoryConfig?.conversationMemory
+            ?.summarizationProvider,
+        summarizationModel:
+          this.conversationMemoryConfig?.conversationMemory?.summarizationModel,
+      },
+      this.contextCompactorDeps(
+        this.decisionSiteContext(options, dpgCompactionSessionId),
+      ),
+    );
+    const compactionResult = await compactor.compact(
+      conversationMessages as import("./types/index.js").ChatMessage[],
+      resolveHistoryBudget(budgetCheck, options.compactionThreshold),
+      this.conversationMemoryConfig?.conversationMemory,
+      (options.context as Record<string, unknown>)?.requestId as
+        | string
+        | undefined,
+      { currentRequest: options.prompt },
+    );
+    if (compactionResult.compacted) {
+      const repairedResult = repairToolPairs(compactionResult.messages);
+      conversationMessages = repairedResult.messages;
+      this.lastCompactionMessageCount.set(
+        dpgCompactionSessionId,
+        conversationMessages.length,
+      );
+    }
+
+    // POST-COMPACTION BUDGET RE-CHECK (BUG-003 fix)
+    const postCompactBudget = checkContextBudget({
+      provider: providerName,
+      model: options.model,
+      maxTokens: options.maxTokens,
+      systemPrompt: options.systemPrompt,
+      conversationMessages: conversationMessages as Array<{
+        role: string;
+        content: string;
+      }>,
+      currentPrompt: options.prompt,
+      toolReplayMode: this.resolveToolReplayModeForBudget(options),
+      toolDefinitions: options.tools ? Object.values(options.tools) : undefined,
+    });
+
+    if (!postCompactBudget.withinBudget) {
+      logger.warn(
+        "[NeuroLink] directProviderGeneration: post-compaction still over budget, emergency truncation",
+        {
+          estimatedTokens: postCompactBudget.estimatedInputTokens,
+          availableTokens: postCompactBudget.availableInputTokens,
+          overagePercent: Math.round(
+            (postCompactBudget.usageRatio - 1.0) * 100,
+          ),
+        },
+      );
+
+      // Curator P1-2: emit `compaction.insufficient` whenever a
+      // single round of compaction wasn't enough — even when
+      // emergency truncation will save the day. Lets cost / audit
+      // listeners track the "compaction was insufficient" signal
+      // separately from the eventual outcome.
+      try {
+        this.emitter.emit("compaction.insufficient", {
+          stagesAttempted: compactionResult.stagesUsed,
+          finalTokens: postCompactBudget.estimatedInputTokens,
+          budget: postCompactBudget.availableInputTokens,
+          provider: providerName,
+          model: options.model,
+          phase: "mid-compaction",
+          willEmergencyTruncate: true,
+          timestamp: Date.now(),
+        });
+      } catch {
+        /* listener errors are non-fatal */
+      }
+
+      conversationMessages = emergencyContentTruncation(
+        conversationMessages as import("./types/index.js").ChatMessage[],
+        postCompactBudget.availableInputTokens,
+        postCompactBudget.breakdown,
+        providerName,
+      );
+
+      const finalBudget = checkContextBudget({
+        provider: providerName,
+        model: options.model,
+        maxTokens: options.maxTokens,
+        systemPrompt: options.systemPrompt,
+        conversationMessages: conversationMessages as Array<{
+          role: string;
+          content: string;
+        }>,
+        currentPrompt: options.prompt,
+        toolReplayMode: this.resolveToolReplayModeForBudget(options),
+        toolDefinitions: options.tools
+          ? Object.values(options.tools)
+          : undefined,
+      });
+
+      if (!finalBudget.withinBudget) {
+        // Clear watermark so handleContextOverflow recovery can re-compact
+        this.lastCompactionMessageCount.delete(dpgCompactionSessionId);
+
+        // Curator P1-2: emit `compaction.insufficient` so cost / audit
+        // listeners can record the specific failure mode (separate
+        // from a generic provider error).
+        try {
+          this.emitter.emit("compaction.insufficient", {
+            stagesAttempted: compactionResult.stagesUsed,
+            finalTokens: finalBudget.estimatedInputTokens,
+            budget: finalBudget.availableInputTokens,
+            provider: providerName,
+            model: options.model,
+            phase: "post-emergency-truncation",
+            timestamp: Date.now(),
+          });
+        } catch {
+          /* listener errors are non-fatal */
+        }
+
+        throw new ContextBudgetExceededError(
+          `Context exceeds model budget after all compaction stages. ` +
+            `Estimated: ${finalBudget.estimatedInputTokens} tokens, ` +
+            `Budget: ${finalBudget.availableInputTokens} tokens.`,
+          {
+            estimatedTokens: finalBudget.estimatedInputTokens,
+            availableTokens: finalBudget.availableInputTokens,
+            stagesUsed: compactionResult.stagesUsed,
+            breakdown: finalBudget.breakdown,
+          },
+        );
+      }
+    }
+    return conversationMessages;
+  }
+
+  /**
+   * The error thrown once every candidate provider has failed.
+   */
+  private buildAllProvidersFailedError(
+    providersToTry: string[],
+    lastError: Error | null,
+    startTime: number,
+    functionTag: string,
+  ): Error {
     const responseTime = Date.now() - startTime;
     logger.error(`[${functionTag}] All providers failed`, {
       triedProviders: providersToTry,
@@ -9956,7 +10003,7 @@ Current user's request: ${currentInput}`;
     // rejected on budget the caller still needs the typed error to
     // distinguish "context too large" from a generic provider failure.
     if (lastError instanceof ContextBudgetExceededError) {
-      throw lastError;
+      return lastError;
     }
 
     // A single-candidate list (an explicit provider, or
@@ -9985,12 +10032,12 @@ Current user's request: ${currentInput}`;
     };
 
     if (providersToTry.length === 1) {
-      throw wrapProviderError(
+      return wrapProviderError(
         `Provider ${providersToTry[0]} failed: ${lastError?.message || "Unknown error"}`,
       );
     }
 
-    throw wrapProviderError(
+    return wrapProviderError(
       `Failed to generate text with all providers. Last error: ${lastError?.message || "Unknown error"}`,
     );
   }
@@ -10872,69 +10919,8 @@ Current user's request: ${currentInput}`;
       // Constructed BEFORE the cache-hit check so it is available for all
       // outcome paths, including cache-hit turns (Finding 4).
       const routingStartTime = Date.now();
-      const emitDecision = (decision: ToolRoutingDecision): void => {
-        try {
-          const activeSpan = trace.getActiveSpan();
-          if (!activeSpan) {
-            return;
-          }
-          activeSpan.setAttribute("tool_routing.outcome", decision.outcome);
-          activeSpan.setAttribute(
-            "tool_routing.routable_server_count",
-            decision.routableServerCount,
-          );
-          activeSpan.setAttribute(
-            "tool_routing.selected_server_ids",
-            spanJsonAttribute(decision.selectedServerIds),
-          );
-          activeSpan.setAttribute(
-            "tool_routing.excluded_server_ids",
-            spanJsonAttribute(decision.excludedServerIds),
-          );
-          activeSpan.setAttribute(
-            "tool_routing.hallucinated_ids",
-            spanJsonAttribute(decision.hallucinatedIds),
-          );
-          activeSpan.setAttribute(
-            "tool_routing.excluded_tool_count",
-            decision.excludedToolCount,
-          );
-          activeSpan.setAttribute("tool_routing.cache_hit", decision.cacheHit);
-          activeSpan.setAttribute(
-            "tool_routing.duration_ms",
-            decision.durationMs,
-          );
-          // Optional L2 / tool-granularity fields (present only when embedding ran).
-          if (decision.embeddingActivated !== undefined) {
-            activeSpan.setAttribute(
-              "tool_routing.embedding_activated",
-              decision.embeddingActivated,
-            );
-          }
-          if (decision.candidateToolCount !== undefined) {
-            activeSpan.setAttribute(
-              "tool_routing.candidate_tool_count",
-              decision.candidateToolCount,
-            );
-          }
-          if (decision.granularity !== undefined) {
-            activeSpan.setAttribute(
-              "tool_routing.granularity",
-              decision.granularity,
-            );
-          }
-          // Which router actually decided. Three strategies can produce an
-          // "applied" outcome and they have wildly different cost and
-          // latency profiles, so an outcome without a strategy cannot be
-          // acted on — and a decision router that silently stopped firing
-          // looks identical to one that was never configured.
-          if (decision.strategy !== undefined) {
-            activeSpan.setAttribute("tool_routing.strategy", decision.strategy);
-          }
-        } catch {
-          // Telemetry must never affect routing behaviour.
-        }
-      };
+      const emitDecision = (decision: ToolRoutingDecision): void =>
+        this.recordToolRoutingSpan(decision);
 
       // Check the cache first.
       if (cacheEnabled && cache && cacheKey !== undefined) {
@@ -11005,64 +10991,16 @@ Current user's request: ${currentInput}`;
       // tool embedding vectors are computed once and reused across turns
       // (Finding 1 fix). It is cleared by setToolRoutingServers() when the
       // catalog changes so stale vectors are never used after an update.
-      let routingEmbedFn:
-        | ((texts: string[]) => Promise<number[][]>)
-        | undefined;
       // A host-owned routing callback owns every inference account. The
       // instance's embedding fast-path would otherwise borrow turn credentials.
       const embeddingCfg = routingConfig.generateFn
         ? undefined
         : routingConfig.embedding;
-      if (embeddingCfg?.enabled === true) {
-        try {
-          // Resolve the embedding provider: use the explicitly configured one
-          // if present, otherwise fall back to the stream/generate call's
-          // provider. The factory call is wrapped in try/catch so a provider
-          // that doesn't support embedMany (it throws at call time, not
-          // construction time) fails open when routingEmbedFn is invoked.
-          const embProviderName =
-            embeddingCfg.provider ??
-            ((options.provider && options.provider !== "auto"
-              ? options.provider
-              : undefined) as string | undefined) ??
-            routingConfig.routerModel?.provider;
-          if (embProviderName) {
-            const embProvider = await AIProviderFactory.createProvider(
-              embProviderName,
-              embeddingCfg.model,
-              true,
-              this,
-              undefined,
-              this.resolveCredentials(options.credentials),
-            );
-            // Bind embedMany with the configured model (may be undefined —
-            // the provider uses its default embedding model in that case).
-            routingEmbedFn = (texts: string[]) =>
-              withTimeout(
-                embProvider.embedMany(texts, embeddingCfg.model),
-                embeddingCfg.timeoutMs ?? 10000,
-              );
-
-            // Lazy-init the persistent vector cache for this instance.
-            // Subsequent turns reuse the same Map so text→vector lookups
-            // already populated from earlier turns are served from memory.
-            if (!this.toolRoutingVectorCache) {
-              this.toolRoutingVectorCache = new Map<string, number[]>();
-            }
-          }
-        } catch (embSetupError) {
-          logger.debug(
-            "[ToolRouting] Embedding provider setup failed, L2 path disabled for this turn",
-            {
-              error:
-                embSetupError instanceof Error
-                  ? embSetupError.message
-                  : String(embSetupError),
-            },
-          );
-          // routingEmbedFn remains undefined — fast-path is skipped.
-        }
-      }
+      const routingEmbedFn = await this.buildToolRoutingEmbedFn(
+        options,
+        routingConfig,
+        embeddingCfg,
+      );
 
       routedExcludeTools = await resolveToolRoutingExclusions({
         catalog,
@@ -11149,32 +11087,13 @@ Current user's request: ${currentInput}`;
 
       // --- ITEM C: store result for future turns ---
       if (resolvedDecision?.outcome === "applied" && cache) {
-        // Store the PRE-stickiness exclusion list in the cache so future hits
-        // re-apply the live stickiness window rather than the one from this
-        // turn (Finding 2).
-        if (cacheEnabled && cacheKey !== undefined) {
-          try {
-            cache.set(cacheKey, {
-              excludedToolNames: preStickinessExcludeTools,
-              selectedServerIds: resolvedDecision.selectedServerIds,
-            });
-          } catch {
-            // Cache write failure is non-fatal.
-          }
-        }
-        // Record selected servers for stickiness on subsequent turns. This must
-        // come after getStickyServerIds so the window count is not consumed on
-        // the same turn it is set (the off-by-one fix above).
-        if (stickinessEnabled && sessionId) {
-          try {
-            cache.recordSelection(
-              sessionId,
-              resolvedDecision.selectedServerIds,
-            );
-          } catch {
-            // Stickiness failure is non-fatal.
-          }
-        }
+        this.storeToolRoutingOutcome(
+          cache,
+          resolvedDecision,
+          cacheEnabled ? cacheKey : undefined,
+          preStickinessExcludeTools,
+          stickinessEnabled ? sessionId : "",
+        );
       }
 
       if (routedExcludeTools.length > 0) {
@@ -11190,6 +11109,170 @@ Current user's request: ${currentInput}`;
       logger.warn("[ToolRouting] Routing setup failed, failing open", {
         error: error instanceof Error ? error.message : String(error),
       });
+    }
+  }
+
+  /**
+   * Record a tool routing decision on the active span. Telemetry only.
+   */
+  private recordToolRoutingSpan(decision: ToolRoutingDecision): void {
+    try {
+      const activeSpan = trace.getActiveSpan();
+      if (!activeSpan) {
+        return;
+      }
+      activeSpan.setAttribute("tool_routing.outcome", decision.outcome);
+      activeSpan.setAttribute(
+        "tool_routing.routable_server_count",
+        decision.routableServerCount,
+      );
+      activeSpan.setAttribute(
+        "tool_routing.selected_server_ids",
+        spanJsonAttribute(decision.selectedServerIds),
+      );
+      activeSpan.setAttribute(
+        "tool_routing.excluded_server_ids",
+        spanJsonAttribute(decision.excludedServerIds),
+      );
+      activeSpan.setAttribute(
+        "tool_routing.hallucinated_ids",
+        spanJsonAttribute(decision.hallucinatedIds),
+      );
+      activeSpan.setAttribute(
+        "tool_routing.excluded_tool_count",
+        decision.excludedToolCount,
+      );
+      activeSpan.setAttribute("tool_routing.cache_hit", decision.cacheHit);
+      activeSpan.setAttribute("tool_routing.duration_ms", decision.durationMs);
+      // Optional L2 / tool-granularity fields (present only when embedding ran).
+      if (decision.embeddingActivated !== undefined) {
+        activeSpan.setAttribute(
+          "tool_routing.embedding_activated",
+          decision.embeddingActivated,
+        );
+      }
+      if (decision.candidateToolCount !== undefined) {
+        activeSpan.setAttribute(
+          "tool_routing.candidate_tool_count",
+          decision.candidateToolCount,
+        );
+      }
+      if (decision.granularity !== undefined) {
+        activeSpan.setAttribute(
+          "tool_routing.granularity",
+          decision.granularity,
+        );
+      }
+      // Which router actually decided. Three strategies can produce an
+      // "applied" outcome and they have wildly different cost and
+      // latency profiles, so an outcome without a strategy cannot be
+      // acted on — and a decision router that silently stopped firing
+      // looks identical to one that was never configured.
+      if (decision.strategy !== undefined) {
+        activeSpan.setAttribute("tool_routing.strategy", decision.strategy);
+      }
+    } catch {
+      // Telemetry must never affect routing behaviour.
+    }
+  }
+
+  /**
+   * Build the embedding function for the L2 routing fast-path, or undefined
+   * when embedding is off or its provider cannot be set up. Fails open.
+   */
+  private async buildToolRoutingEmbedFn(
+    options: StreamOptions | GenerateOptions,
+    routingConfig: ToolRoutingConfig,
+    embeddingCfg: ToolRoutingConfig["embedding"],
+  ): Promise<((texts: string[]) => Promise<number[][]>) | undefined> {
+    let routingEmbedFn: ((texts: string[]) => Promise<number[][]>) | undefined;
+    if (embeddingCfg?.enabled === true) {
+      try {
+        // Resolve the embedding provider: use the explicitly configured one
+        // if present, otherwise fall back to the stream/generate call's
+        // provider. The factory call is wrapped in try/catch so a provider
+        // that doesn't support embedMany (it throws at call time, not
+        // construction time) fails open when routingEmbedFn is invoked.
+        const embProviderName =
+          embeddingCfg.provider ??
+          ((options.provider && options.provider !== "auto"
+            ? options.provider
+            : undefined) as string | undefined) ??
+          routingConfig.routerModel?.provider;
+        if (embProviderName) {
+          const embProvider = await AIProviderFactory.createProvider(
+            embProviderName,
+            embeddingCfg.model,
+            true,
+            this,
+            undefined,
+            this.resolveCredentials(options.credentials),
+          );
+          // Bind embedMany with the configured model (may be undefined —
+          // the provider uses its default embedding model in that case).
+          routingEmbedFn = (texts: string[]) =>
+            withTimeout(
+              embProvider.embedMany(texts, embeddingCfg.model),
+              embeddingCfg.timeoutMs ?? 10000,
+            );
+
+          // Lazy-init the persistent vector cache for this instance.
+          // Subsequent turns reuse the same Map so text→vector lookups
+          // already populated from earlier turns are served from memory.
+          if (!this.toolRoutingVectorCache) {
+            this.toolRoutingVectorCache = new Map<string, number[]>();
+          }
+        }
+      } catch (embSetupError) {
+        logger.debug(
+          "[ToolRouting] Embedding provider setup failed, L2 path disabled for this turn",
+          {
+            error:
+              embSetupError instanceof Error
+                ? embSetupError.message
+                : String(embSetupError),
+          },
+        );
+        // routingEmbedFn remains undefined — fast-path is skipped.
+      }
+    }
+    return routingEmbedFn;
+  }
+
+  /**
+   * Store an applied routing decision for later turns: the cache entry (under
+   * `cacheKey`, when caching is on) and the sticky servers (for
+   * `stickySessionId`, when stickiness is on).
+   */
+  private storeToolRoutingOutcome(
+    cache: ToolRoutingCache,
+    decision: ToolRoutingDecision,
+    cacheKey: string | undefined,
+    preStickinessExcludeTools: string[],
+    stickySessionId: string,
+  ): void {
+    // Store the PRE-stickiness exclusion list in the cache so future hits
+    // re-apply the live stickiness window rather than the one from this
+    // turn (Finding 2).
+    if (cacheKey !== undefined) {
+      try {
+        cache.set(cacheKey, {
+          excludedToolNames: preStickinessExcludeTools,
+          selectedServerIds: decision.selectedServerIds,
+        });
+      } catch {
+        // Cache write failure is non-fatal.
+      }
+    }
+    // Record selected servers for stickiness on subsequent turns. This must
+    // come after getStickyServerIds so the window count is not consumed on
+    // the same turn it is set (the off-by-one fix above).
+    if (stickySessionId) {
+      try {
+        cache.recordSelection(stickySessionId, decision.selectedServerIds);
+      } catch {
+        // Stickiness failure is non-fatal.
+      }
     }
   }
 
@@ -13194,147 +13277,14 @@ Current user's request: ${currentInput}`;
       streamMessageCount >
         (this.lastCompactionMessageCount.get(streamCompactionSessionId) ?? 0)
     ) {
-      const compactor = new ContextCompactor(
-        {
-          provider: providerName,
-          summarizationProvider:
-            this.conversationMemoryConfig?.conversationMemory
-              ?.summarizationProvider,
-          summarizationModel:
-            this.conversationMemoryConfig?.conversationMemory
-              ?.summarizationModel,
-        },
-        this.contextCompactorDeps(
-          this.decisionSiteContext(options, streamCompactionSessionId),
-        ),
+      conversationMessages = await this.compactStreamHistory(
+        options,
+        providerName,
+        streamBudget,
+        enhancedSystemPrompt,
+        availableTools,
+        conversationMessages,
       );
-      const compactionResult = await compactor.compact(
-        conversationMessages as import("./types/index.js").ChatMessage[],
-        resolveHistoryBudget(streamBudget, options.compactionThreshold),
-        this.conversationMemoryConfig?.conversationMemory,
-        (options.context as Record<string, unknown> | undefined)?.requestId as
-          | string
-          | undefined,
-        { currentRequest: options.input.text },
-      );
-      if (compactionResult.compacted) {
-        const repairedResult = repairToolPairs(compactionResult.messages);
-        conversationMessages = repairedResult.messages;
-        // Keep options.conversationMessages in sync so downstream consumers
-        // (e.g. handleStreamFallback) use the compacted history rather than
-        // re-reading from conversationMemory.
-        options.conversationMessages = conversationMessages;
-        this.lastCompactionMessageCount.set(
-          streamCompactionSessionId,
-          conversationMessages.length,
-        );
-      }
-
-      // POST-COMPACTION BUDGET RE-CHECK (mirrors tryMCPGeneration / directProviderGeneration)
-      const postCompactBudget = checkContextBudget({
-        provider: providerName,
-        model: options.model,
-        maxTokens: options.maxTokens,
-        systemPrompt: enhancedSystemPrompt,
-        toolReplayMode: this.resolveToolReplayModeForBudget(options),
-        conversationMessages: conversationMessages as Array<{
-          role: string;
-          content: string;
-        }>,
-        currentPrompt: options.input.text,
-        toolDefinitions: availableTools,
-      });
-
-      if (!postCompactBudget.withinBudget) {
-        logger.warn(
-          "[NeuroLink] Stream: post-compaction still over budget, emergency truncation",
-          {
-            estimatedTokens: postCompactBudget.estimatedInputTokens,
-            availableTokens: postCompactBudget.availableInputTokens,
-            overagePercent: Math.round(
-              (postCompactBudget.usageRatio - 1.0) * 100,
-            ),
-          },
-        );
-
-        // Curator P1-2: emit `compaction.insufficient` whenever a single
-        // round of compaction wasn't enough — even when emergency
-        // truncation will save the day. Lets cost / audit listeners track
-        // the "compaction was insufficient" signal separately from the
-        // eventual outcome.
-        try {
-          this.emitter.emit("compaction.insufficient", {
-            stagesAttempted: compactionResult.stagesUsed,
-            finalTokens: postCompactBudget.estimatedInputTokens,
-            budget: postCompactBudget.availableInputTokens,
-            provider: providerName,
-            model: options.model,
-            phase: "mid-compaction",
-            willEmergencyTruncate: true,
-            timestamp: Date.now(),
-          });
-        } catch {
-          /* listener errors are non-fatal */
-        }
-
-        conversationMessages = emergencyContentTruncation(
-          conversationMessages as import("./types/index.js").ChatMessage[],
-          postCompactBudget.availableInputTokens,
-          postCompactBudget.breakdown,
-          providerName,
-        );
-        // Keep options in sync after emergency truncation so fallback paths
-        // use the truncated history.
-        options.conversationMessages = conversationMessages;
-
-        const finalBudget = checkContextBudget({
-          provider: providerName,
-          model: options.model,
-          maxTokens: options.maxTokens,
-          systemPrompt: enhancedSystemPrompt,
-          toolReplayMode: this.resolveToolReplayModeForBudget(options),
-          conversationMessages: conversationMessages as Array<{
-            role: string;
-            content: string;
-          }>,
-          currentPrompt: options.input.text,
-          toolDefinitions: availableTools,
-        });
-
-        if (!finalBudget.withinBudget) {
-          // Clear watermark so handleContextOverflow recovery can re-compact
-          this.lastCompactionMessageCount.delete(streamCompactionSessionId);
-
-          // Curator P1-2: emit `compaction.insufficient` on the terminal
-          // failure path so cost / audit listeners can record the specific
-          // failure mode (compaction + emergency truncation both insufficient).
-          try {
-            this.emitter.emit("compaction.insufficient", {
-              stagesAttempted: compactionResult.stagesUsed,
-              finalTokens: finalBudget.estimatedInputTokens,
-              budget: finalBudget.availableInputTokens,
-              provider: providerName,
-              model: options.model,
-              phase: "post-emergency-truncation",
-              timestamp: Date.now(),
-            });
-          } catch {
-            /* listener errors are non-fatal */
-          }
-
-          throw new ContextBudgetExceededError(
-            `Stream context exceeds model budget after all compaction stages. ` +
-              `Estimated: ${finalBudget.estimatedInputTokens} tokens, ` +
-              `Budget: ${finalBudget.availableInputTokens} tokens.`,
-            {
-              estimatedTokens: finalBudget.estimatedInputTokens,
-              availableTokens: finalBudget.availableInputTokens,
-              stagesUsed: compactionResult.stagesUsed,
-              breakdown: finalBudget.breakdown,
-            },
-          );
-        }
-      }
     }
 
     // ─── ModelPool stream path ────────────────────────────────────────────────
@@ -13347,139 +13297,11 @@ Current user's request: ${currentInput}`;
     // On exhaustion, throws the last member error — does NOT fall through to
     // the static provider path below.
     if (this.modelPool) {
-      const streamPool = this.modelPool;
-      const maxStreamAttempts = streamPool.maxAttempts;
-      const streamTriedKeys = new Set<string>();
-      let streamLastError: Error | null = null;
-
-      for (let attempt = 0; attempt < maxStreamAttempts; attempt++) {
-        if (options.abortSignal?.aborted) {
-          throw new DOMException("The operation was aborted", "AbortError");
-        }
-
-        const streamMember = streamPool.selectNext(streamTriedKeys);
-        if (!streamMember) {
-          break;
-        }
-        streamTriedKeys.add(streamPool.memberKey(streamMember));
-
-        // Override provider/model/region from the pool member.
-        // When the member omits model/region, use undefined (provider default)
-        // rather than inheriting the caller's value for a different provider.
-        const poolStreamProviderName = streamMember.provider;
-        const poolStreamModel = streamMember.model ?? undefined;
-        const poolStreamRegion = streamMember.region ?? undefined;
-
-        logger.debug(
-          `[createMCPStream] ModelPool: attempting member ${poolStreamProviderName}`,
-          { model: poolStreamModel, attempt },
-        );
-
-        try {
-          const poolStreamProvider = await AIProviderFactory.createProvider(
-            poolStreamProviderName as AIProviderName,
-            poolStreamModel,
-            !options.disableTools,
-            this,
-            poolStreamRegion,
-            this.resolveCredentials(options.credentials),
-          );
-          poolStreamProvider.setTraceContext(this._metricsTraceContext);
-          poolStreamProvider.setupToolExecutor(
-            {
-              customTools: this.getCustomTools(),
-              executeTool: (toolName: string, params: unknown) =>
-                this.executeTool(toolName, params, {
-                  disableToolCache: options.disableToolCache,
-                }),
-            },
-            "NeuroLink.createMCPStream",
-          );
-
-          poolStreamProvider.setFileToolRootPolicy?.(
-            this.fileToolRootsFor(options),
-          );
-          const poolStreamResult = await poolStreamProvider.stream({
-            ...this.deferProviderStreamTTS(options),
-            provider: poolStreamProviderName as AIProviderName,
-            model: poolStreamModel,
-            region: poolStreamRegion,
-            systemPrompt: enhancedSystemPrompt,
-            conversationMessages,
-          });
-
-          logger.debug("[createMCPStream] ModelPool stream handle obtained", {
-            provider: poolStreamProviderName,
-          });
-
-          // Wrap the stream so we can record success/failure based on what
-          // actually happens during consumption, not merely on obtaining the
-          // handle.  Recording success at handle-acquisition time (before any
-          // tokens are delivered) would mean a mid-stream provider drop is
-          // never reflected as a cooldown.
-          const capturedMember = streamMember;
-          const wrappedStream = (async function* () {
-            try {
-              yield* poolStreamResult.stream;
-              streamPool.recordSuccess(capturedMember);
-            } catch (streamConsumeErr) {
-              streamPool.recordFailure(
-                capturedMember,
-                classifyProviderError(streamConsumeErr),
-              );
-              throw streamConsumeErr;
-            }
-          })();
-
-          return preserveLiveStreamAccessors(poolStreamResult, {
-            ...poolStreamResult,
-            stream: wrappedStream,
-            provider: poolStreamProviderName,
-            model: poolStreamResult.model || poolStreamModel,
-            toolCalls: poolStreamResult.toolCalls ?? [],
-            toolResults: poolStreamResult.toolResults ?? [],
-          });
-        } catch (poolStreamError) {
-          if (isAbortError(poolStreamError)) {
-            throw poolStreamError;
-          }
-          if (isNonRetryableForPool(poolStreamError)) {
-            const poolStreamErrMsg =
-              poolStreamError instanceof Error
-                ? poolStreamError.message
-                : String(poolStreamError);
-            streamPool.recordFailure(
-              streamMember,
-              classifyProviderError(poolStreamError),
-            );
-            // Wrap in a plain Error so runWithFallbackOrchestration /
-            // streamWithIterationFallback does not re-activate the modelChain
-            // layer on top of an already-exhausted pool.
-            throw new Error(`[ModelPool] non-retryable: ${poolStreamErrMsg}`, {
-              cause: poolStreamError,
-            });
-          }
-          streamPool.recordFailure(
-            streamMember,
-            classifyProviderError(poolStreamError),
-          );
-          streamLastError =
-            poolStreamError instanceof Error
-              ? poolStreamError
-              : new Error(String(poolStreamError));
-          logger.warn(
-            `[createMCPStream] ModelPool: member ${poolStreamProviderName} failed`,
-            { error: streamLastError.message },
-          );
-        }
-      }
-
-      // All pool stream members failed.
-      // Wrap in a plain Error (not a typed error class) so that the
-      // surrounding fallback orchestrator does not start a second retry layer
-      // over the already-exhausted pool.
-      throw new Error(
-        `[ModelPool] all stream members failed: ${streamLastError?.message ?? "no stream members available"}`,
+      return this.streamViaModelPool(
+        this.modelPool,
+        options,
+        enhancedSystemPrompt,
+        conversationMessages,
       );
     }
     // ─── End ModelPool stream path ────────────────────────────────────────────
@@ -13509,6 +13331,310 @@ Current user's request: ${currentInput}`;
       toolCalls: streamResult.toolCalls ?? [],
       toolResults: streamResult.toolResults ?? [],
     });
+  }
+
+  /**
+   * Compact the history before a stream, re-checking the budget and
+   * truncating as a last resort; keeps `options.conversationMessages` in sync.
+   * Returns the history to send.
+   */
+  private async compactStreamHistory(
+    options: StreamOptions,
+    providerName: string,
+    streamBudget: BudgetCheckResult,
+    enhancedSystemPrompt: string,
+    availableTools: ToolInfo[],
+    history: ChatMessage[] | undefined,
+  ): Promise<ChatMessage[] | undefined> {
+    let conversationMessages = history;
+    const streamCompactionSessionId = this.getCompactionSessionId(options);
+    const compactor = new ContextCompactor(
+      {
+        provider: providerName,
+        summarizationProvider:
+          this.conversationMemoryConfig?.conversationMemory
+            ?.summarizationProvider,
+        summarizationModel:
+          this.conversationMemoryConfig?.conversationMemory?.summarizationModel,
+      },
+      this.contextCompactorDeps(
+        this.decisionSiteContext(options, streamCompactionSessionId),
+      ),
+    );
+    const compactionResult = await compactor.compact(
+      conversationMessages as import("./types/index.js").ChatMessage[],
+      resolveHistoryBudget(streamBudget, options.compactionThreshold),
+      this.conversationMemoryConfig?.conversationMemory,
+      (options.context as Record<string, unknown> | undefined)?.requestId as
+        | string
+        | undefined,
+      { currentRequest: options.input.text },
+    );
+    if (compactionResult.compacted) {
+      const repairedResult = repairToolPairs(compactionResult.messages);
+      conversationMessages = repairedResult.messages;
+      // Keep options.conversationMessages in sync so downstream consumers
+      // (e.g. handleStreamFallback) use the compacted history rather than
+      // re-reading from conversationMemory.
+      options.conversationMessages = conversationMessages;
+      this.lastCompactionMessageCount.set(
+        streamCompactionSessionId,
+        conversationMessages.length,
+      );
+    }
+
+    // POST-COMPACTION BUDGET RE-CHECK (mirrors tryMCPGeneration / directProviderGeneration)
+    const postCompactBudget = checkContextBudget({
+      provider: providerName,
+      model: options.model,
+      maxTokens: options.maxTokens,
+      systemPrompt: enhancedSystemPrompt,
+      toolReplayMode: this.resolveToolReplayModeForBudget(options),
+      conversationMessages: conversationMessages as Array<{
+        role: string;
+        content: string;
+      }>,
+      currentPrompt: options.input.text,
+      toolDefinitions: availableTools,
+    });
+
+    if (!postCompactBudget.withinBudget) {
+      logger.warn(
+        "[NeuroLink] Stream: post-compaction still over budget, emergency truncation",
+        {
+          estimatedTokens: postCompactBudget.estimatedInputTokens,
+          availableTokens: postCompactBudget.availableInputTokens,
+          overagePercent: Math.round(
+            (postCompactBudget.usageRatio - 1.0) * 100,
+          ),
+        },
+      );
+
+      // Curator P1-2: emit `compaction.insufficient` whenever a single
+      // round of compaction wasn't enough — even when emergency
+      // truncation will save the day. Lets cost / audit listeners track
+      // the "compaction was insufficient" signal separately from the
+      // eventual outcome.
+      try {
+        this.emitter.emit("compaction.insufficient", {
+          stagesAttempted: compactionResult.stagesUsed,
+          finalTokens: postCompactBudget.estimatedInputTokens,
+          budget: postCompactBudget.availableInputTokens,
+          provider: providerName,
+          model: options.model,
+          phase: "mid-compaction",
+          willEmergencyTruncate: true,
+          timestamp: Date.now(),
+        });
+      } catch {
+        /* listener errors are non-fatal */
+      }
+
+      conversationMessages = emergencyContentTruncation(
+        conversationMessages as import("./types/index.js").ChatMessage[],
+        postCompactBudget.availableInputTokens,
+        postCompactBudget.breakdown,
+        providerName,
+      );
+      // Keep options in sync after emergency truncation so fallback paths
+      // use the truncated history.
+      options.conversationMessages = conversationMessages;
+
+      const finalBudget = checkContextBudget({
+        provider: providerName,
+        model: options.model,
+        maxTokens: options.maxTokens,
+        systemPrompt: enhancedSystemPrompt,
+        toolReplayMode: this.resolveToolReplayModeForBudget(options),
+        conversationMessages: conversationMessages as Array<{
+          role: string;
+          content: string;
+        }>,
+        currentPrompt: options.input.text,
+        toolDefinitions: availableTools,
+      });
+
+      if (!finalBudget.withinBudget) {
+        // Clear watermark so handleContextOverflow recovery can re-compact
+        this.lastCompactionMessageCount.delete(streamCompactionSessionId);
+
+        // Curator P1-2: emit `compaction.insufficient` on the terminal
+        // failure path so cost / audit listeners can record the specific
+        // failure mode (compaction + emergency truncation both insufficient).
+        try {
+          this.emitter.emit("compaction.insufficient", {
+            stagesAttempted: compactionResult.stagesUsed,
+            finalTokens: finalBudget.estimatedInputTokens,
+            budget: finalBudget.availableInputTokens,
+            provider: providerName,
+            model: options.model,
+            phase: "post-emergency-truncation",
+            timestamp: Date.now(),
+          });
+        } catch {
+          /* listener errors are non-fatal */
+        }
+
+        throw new ContextBudgetExceededError(
+          `Stream context exceeds model budget after all compaction stages. ` +
+            `Estimated: ${finalBudget.estimatedInputTokens} tokens, ` +
+            `Budget: ${finalBudget.availableInputTokens} tokens.`,
+          {
+            estimatedTokens: finalBudget.estimatedInputTokens,
+            availableTokens: finalBudget.availableInputTokens,
+            stagesUsed: compactionResult.stagesUsed,
+            breakdown: finalBudget.breakdown,
+          },
+        );
+      }
+    }
+    return conversationMessages;
+  }
+
+  /**
+   * Stream through the configured ModelPool, walking its members until one
+   * yields a stream. Always returns or throws; never falls through to the
+   * single-provider path.
+   */
+  private async streamViaModelPool(
+    streamPool: ModelPool,
+    options: StreamOptions,
+    enhancedSystemPrompt: string,
+    conversationMessages: ChatMessage[] | undefined,
+  ): Promise<StreamResult> {
+    const maxStreamAttempts = streamPool.maxAttempts;
+    const streamTriedKeys = new Set<string>();
+    let streamLastError: Error | null = null;
+
+    for (let attempt = 0; attempt < maxStreamAttempts; attempt++) {
+      if (options.abortSignal?.aborted) {
+        throw new DOMException("The operation was aborted", "AbortError");
+      }
+
+      const streamMember = streamPool.selectNext(streamTriedKeys);
+      if (!streamMember) {
+        break;
+      }
+      streamTriedKeys.add(streamPool.memberKey(streamMember));
+
+      // Override provider/model/region from the pool member.
+      // When the member omits model/region, use undefined (provider default)
+      // rather than inheriting the caller's value for a different provider.
+      const poolStreamProviderName = streamMember.provider;
+      const poolStreamModel = streamMember.model ?? undefined;
+      const poolStreamRegion = streamMember.region ?? undefined;
+
+      logger.debug(
+        `[createMCPStream] ModelPool: attempting member ${poolStreamProviderName}`,
+        { model: poolStreamModel, attempt },
+      );
+
+      try {
+        const poolStreamProvider = await AIProviderFactory.createProvider(
+          poolStreamProviderName as AIProviderName,
+          poolStreamModel,
+          !options.disableTools,
+          this,
+          poolStreamRegion,
+          this.resolveCredentials(options.credentials),
+        );
+        poolStreamProvider.setTraceContext(this._metricsTraceContext);
+        poolStreamProvider.setupToolExecutor(
+          {
+            customTools: this.getCustomTools(),
+            executeTool: (toolName: string, params: unknown) =>
+              this.executeTool(toolName, params, {
+                disableToolCache: options.disableToolCache,
+              }),
+          },
+          "NeuroLink.createMCPStream",
+        );
+
+        poolStreamProvider.setFileToolRootPolicy?.(
+          this.fileToolRootsFor(options),
+        );
+        const poolStreamResult = await poolStreamProvider.stream({
+          ...this.deferProviderStreamTTS(options),
+          provider: poolStreamProviderName as AIProviderName,
+          model: poolStreamModel,
+          region: poolStreamRegion,
+          systemPrompt: enhancedSystemPrompt,
+          conversationMessages,
+        });
+
+        logger.debug("[createMCPStream] ModelPool stream handle obtained", {
+          provider: poolStreamProviderName,
+        });
+
+        // Wrap the stream so we can record success/failure based on what
+        // actually happens during consumption, not merely on obtaining the
+        // handle.  Recording success at handle-acquisition time (before any
+        // tokens are delivered) would mean a mid-stream provider drop is
+        // never reflected as a cooldown.
+        const capturedMember = streamMember;
+        const wrappedStream = (async function* () {
+          try {
+            yield* poolStreamResult.stream;
+            streamPool.recordSuccess(capturedMember);
+          } catch (streamConsumeErr) {
+            streamPool.recordFailure(
+              capturedMember,
+              classifyProviderError(streamConsumeErr),
+            );
+            throw streamConsumeErr;
+          }
+        })();
+
+        return preserveLiveStreamAccessors(poolStreamResult, {
+          ...poolStreamResult,
+          stream: wrappedStream,
+          provider: poolStreamProviderName,
+          model: poolStreamResult.model || poolStreamModel,
+          toolCalls: poolStreamResult.toolCalls ?? [],
+          toolResults: poolStreamResult.toolResults ?? [],
+        });
+      } catch (poolStreamError) {
+        if (isAbortError(poolStreamError)) {
+          throw poolStreamError;
+        }
+        if (isNonRetryableForPool(poolStreamError)) {
+          const poolStreamErrMsg =
+            poolStreamError instanceof Error
+              ? poolStreamError.message
+              : String(poolStreamError);
+          streamPool.recordFailure(
+            streamMember,
+            classifyProviderError(poolStreamError),
+          );
+          // Wrap in a plain Error so runWithFallbackOrchestration /
+          // streamWithIterationFallback does not re-activate the modelChain
+          // layer on top of an already-exhausted pool.
+          throw new Error(`[ModelPool] non-retryable: ${poolStreamErrMsg}`, {
+            cause: poolStreamError,
+          });
+        }
+        streamPool.recordFailure(
+          streamMember,
+          classifyProviderError(poolStreamError),
+        );
+        streamLastError =
+          poolStreamError instanceof Error
+            ? poolStreamError
+            : new Error(String(poolStreamError));
+        logger.warn(
+          `[createMCPStream] ModelPool: member ${poolStreamProviderName} failed`,
+          { error: streamLastError.message },
+        );
+      }
+    }
+
+    // All pool stream members failed.
+    // Wrap in a plain Error (not a typed error class) so that the
+    // surrounding fallback orchestrator does not start a second retry layer
+    // over the already-exhausted pool.
+    throw new Error(
+      `[ModelPool] all stream members failed: ${streamLastError?.message ?? "no stream members available"}`,
+    );
   }
 
   /**

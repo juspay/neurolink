@@ -678,73 +678,11 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
           const normalizedUserId = options.userId || "randomUser";
 
           if (!conversation) {
-            const titleGenerationKey = `${options.sessionId}:${normalizedUserId}`;
-
-            const generateTitleWithContext = context.bind(
-              context.active(),
-              async () => {
-                if (this.titleGenerationInProgress.has(titleGenerationKey)) {
-                  return;
-                }
-                this.titleGenerationInProgress.add(titleGenerationKey);
-
-                try {
-                  const title = await this.generateConversationTitle(
-                    options.userMessage,
-                  );
-
-                  const updatedRedisKey = getSessionKey(
-                    this.redisConfig,
-                    options.sessionId,
-                    options.userId || undefined,
-                  );
-                  const updatedConversationData =
-                    await this.redisClient?.get(updatedRedisKey);
-                  const updatedConversation = deserializeConversation(
-                    updatedConversationData || null,
-                  );
-
-                  if (updatedConversation) {
-                    updatedConversation.title = title;
-                    updatedConversation.updatedAt = new Date().toISOString();
-
-                    const serializedData =
-                      serializeConversation(updatedConversation);
-                    if (this.redisClient) {
-                      await fencedSessionMetadataWrite(
-                        this.redisClient,
-                        this.redisConfig,
-                        options.sessionId,
-                        options.userId || undefined,
-                        serializedData,
-                        writeContext,
-                      );
-                      this.emitTitleGenerated({
-                        sessionId: options.sessionId,
-                        userId: normalizedUserId,
-                        title,
-                        timestamp: Date.now(),
-                      });
-                    }
-                  }
-                } catch (titleError) {
-                  logger.warn(
-                    "[RedisConversationMemoryManager] Failed to generate conversation title in background",
-                    {
-                      sessionId: options.sessionId,
-                      userId: normalizedUserId,
-                      error:
-                        titleError instanceof Error
-                          ? titleError.message
-                          : String(titleError),
-                    },
-                  );
-                } finally {
-                  this.titleGenerationInProgress.delete(titleGenerationKey);
-                }
-              },
+            this.scheduleTitleGeneration(
+              options,
+              normalizedUserId,
+              writeContext,
             );
-            setImmediate(generateTitleWithContext);
 
             conversation = {
               id: randomUUID(),
@@ -835,66 +773,15 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
           // would strip the marker while the companion LIST already held the
           // messages — the next read would then serve the stale inline copy.
           if (shouldSummarize) {
-            const normalizedUserId = options.userId || "randomUser";
-            const summarizationKey = `${options.sessionId}:${normalizedUserId}`;
-
-            // Only trigger summarization if not already in progress for this session
-            if (!this.summarizationInProgress.has(summarizationKey)) {
-              const summarizeWithContext = context.bind(
-                context.active(),
-                async () => {
-                  try {
-                    await this.checkAndSummarize(
-                      conversation,
-                      tokenThreshold,
-                      options.sessionId,
-                      options.userId,
-                      options.requestId,
-                      writeContext,
-                    );
-                  } catch (error) {
-                    logger.error("Background summarization failed", {
-                      sessionId: conversation.sessionId,
-                      error:
-                        error instanceof Error ? error.message : String(error),
-                    });
-                  }
-                },
-              );
-              setImmediate(summarizeWithContext);
-            } else {
-              logger.debug(
-                "[RedisConversationMemoryManager] Summarization already in progress, skipping",
-                {
-                  sessionId: options.sessionId,
-                  userId: normalizedUserId,
-                },
-              );
-            }
+            this.scheduleSummarization(
+              conversation,
+              tokenThreshold,
+              options,
+              writeContext,
+            );
           }
 
-          // Log turn storage metadata for observability
-          const blobSizeBytes = Buffer.byteLength(
-            serializeConversationMetadata(conversation),
-            "utf8",
-          );
-          logger.info("[ConversationMemory] Turn stored", {
-            requestId: options.requestId,
-            sessionId: options.sessionId,
-            blobSizeBytes,
-            totalMessages: conversation.messages.length,
-            userMsgChars: options.userMessage.length,
-            assistantMsgChars: options.aiResponse.length,
-          });
-
-          if (blobSizeBytes > 512 * 1024) {
-            logger.warn("[ConversationMemory] Large session blob", {
-              requestId: options.requestId,
-              sessionId: options.sessionId,
-              blobSizeBytes,
-              messageCount: conversation.messages.length,
-            });
-          }
+          this.logTurnStored(conversation, options);
 
           if (options.userId) {
             await this.addUserSession(
@@ -935,6 +822,156 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
         }
       },
     );
+  }
+
+  /**
+   * Generate a title for a new session in the background and write it back.
+   */
+  private scheduleTitleGeneration(
+    options: StoreConversationTurnOptions,
+    normalizedUserId: string,
+    writeContext: ConversationErasureWriteContext | undefined,
+  ): void {
+    const titleGenerationKey = `${options.sessionId}:${normalizedUserId}`;
+
+    const generateTitleWithContext = context.bind(
+      context.active(),
+      async () => {
+        if (this.titleGenerationInProgress.has(titleGenerationKey)) {
+          return;
+        }
+        this.titleGenerationInProgress.add(titleGenerationKey);
+
+        try {
+          const title = await this.generateConversationTitle(
+            options.userMessage,
+          );
+
+          const updatedRedisKey = getSessionKey(
+            this.redisConfig,
+            options.sessionId,
+            options.userId || undefined,
+          );
+          const updatedConversationData =
+            await this.redisClient?.get(updatedRedisKey);
+          const updatedConversation = deserializeConversation(
+            updatedConversationData || null,
+          );
+
+          if (updatedConversation) {
+            updatedConversation.title = title;
+            updatedConversation.updatedAt = new Date().toISOString();
+
+            const serializedData = serializeConversation(updatedConversation);
+            if (this.redisClient) {
+              await fencedSessionMetadataWrite(
+                this.redisClient,
+                this.redisConfig,
+                options.sessionId,
+                options.userId || undefined,
+                serializedData,
+                writeContext,
+              );
+              this.emitTitleGenerated({
+                sessionId: options.sessionId,
+                userId: normalizedUserId,
+                title,
+                timestamp: Date.now(),
+              });
+            }
+          }
+        } catch (titleError) {
+          logger.warn(
+            "[RedisConversationMemoryManager] Failed to generate conversation title in background",
+            {
+              sessionId: options.sessionId,
+              userId: normalizedUserId,
+              error:
+                titleError instanceof Error
+                  ? titleError.message
+                  : String(titleError),
+            },
+          );
+        } finally {
+          this.titleGenerationInProgress.delete(titleGenerationKey);
+        }
+      },
+    );
+    setImmediate(generateTitleWithContext);
+  }
+
+  /**
+   * Summarize in the background when the session is not already being
+   * summarized.
+   */
+  private scheduleSummarization(
+    conversation: RedisConversationObject,
+    tokenThreshold: number,
+    options: StoreConversationTurnOptions,
+    writeContext: ConversationErasureWriteContext | undefined,
+  ): void {
+    const normalizedUserId = options.userId || "randomUser";
+    const summarizationKey = `${options.sessionId}:${normalizedUserId}`;
+
+    // Only trigger summarization if not already in progress for this session
+    if (!this.summarizationInProgress.has(summarizationKey)) {
+      const summarizeWithContext = context.bind(context.active(), async () => {
+        try {
+          await this.checkAndSummarize(
+            conversation,
+            tokenThreshold,
+            options.sessionId,
+            options.userId,
+            options.requestId,
+            writeContext,
+          );
+        } catch (error) {
+          logger.error("Background summarization failed", {
+            sessionId: conversation.sessionId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      });
+      setImmediate(summarizeWithContext);
+    } else {
+      logger.debug(
+        "[RedisConversationMemoryManager] Summarization already in progress, skipping",
+        {
+          sessionId: options.sessionId,
+          userId: normalizedUserId,
+        },
+      );
+    }
+  }
+
+  /**
+   * Log turn storage metadata for observability.
+   */
+  private logTurnStored(
+    conversation: RedisConversationObject,
+    options: StoreConversationTurnOptions,
+  ): void {
+    const blobSizeBytes = Buffer.byteLength(
+      serializeConversationMetadata(conversation),
+      "utf8",
+    );
+    logger.info("[ConversationMemory] Turn stored", {
+      requestId: options.requestId,
+      sessionId: options.sessionId,
+      blobSizeBytes,
+      totalMessages: conversation.messages.length,
+      userMsgChars: options.userMessage.length,
+      assistantMsgChars: options.aiResponse.length,
+    });
+
+    if (blobSizeBytes > 512 * 1024) {
+      logger.warn("[ConversationMemory] Large session blob", {
+        requestId: options.requestId,
+        sessionId: options.sessionId,
+        blobSizeBytes,
+        messageCount: conversation.messages.length,
+      });
+    }
   }
 
   /**
