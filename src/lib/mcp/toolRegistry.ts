@@ -255,8 +255,11 @@ export class MCPToolRegistry extends MCPRegistry {
       configuration: {},
     };
 
-    // Call the parent register method
-    this.register(plugin);
+    // Key by the server id, the same key unregisterServer() removes by.
+    // metadata.name is display text: two servers may share it, and the
+    // parent register() would let the second silently replace the first.
+    this.plugins.set(serverId, plugin);
+    registryLogger.debug(`Registered plugin: ${plugin.metadata.name}`);
 
     // Use MCPServerInfo.tools array directly - ZERO conversions!
     const tools = serverInfo.tools;

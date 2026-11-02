@@ -31,8 +31,7 @@
           "properties": {
             "e": {
               "type": "string",
-              "format": "email",
-              "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+              "format": "email"
             },
             "u": {
               "type": "string",
@@ -40,18 +39,15 @@
             },
             "id": {
               "type": "string",
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              "format": "uuid"
             },
             "dt": {
               "type": "string",
-              "format": "date-time",
-              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              "format": "date-time"
             },
             "ip": {
               "type": "string",
-              "format": "ipv4",
-              "pattern": "^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$"
+              "format": "ipv4"
             }
           },
           "required": ["e", "u", "id", "dt", "ip"],
@@ -87,7 +83,11 @@
     },
     "bigint_val": {
       "type": "object",
-      "properties": {}
+      "properties": {
+        "value": {}
+      },
+      "required": ["value"],
+      "additionalProperties": false
     },
     "boolean_val": {
       "type": "object",
@@ -200,7 +200,6 @@
               }
             }
           },
-          "required": ["a", "b", "c"],
           "additionalProperties": false
         }
       },
@@ -235,7 +234,7 @@
             }
           },
           "required": ["a"],
-          "additionalProperties": {}
+          "additionalProperties": true
         }
       },
       "required": ["value"],
@@ -276,8 +275,8 @@
             }
           },
           "required": ["q"],
-          "additionalProperties": false,
-          "description": "search args"
+          "description": "search args",
+          "additionalProperties": false
         }
       },
       "required": ["value"],
@@ -394,9 +393,6 @@
       "properties": {
         "value": {
           "type": "object",
-          "propertyNames": {
-            "type": "string"
-          },
           "additionalProperties": {
             "type": "number"
           }
@@ -437,7 +433,7 @@
       "type": "object",
       "properties": {
         "value": {
-          "oneOf": [
+          "anyOf": [
             {
               "type": "object",
               "properties": {
@@ -529,7 +525,6 @@
               "type": "string"
             }
           },
-          "required": ["a"],
           "additionalProperties": false
         }
       },
@@ -558,11 +553,9 @@
       "type": "object",
       "properties": {
         "value": {
-          "default": "fallback",
           "type": "string"
         }
       },
-      "required": ["value"],
       "additionalProperties": false
     },
     "coerce_number": {
@@ -577,7 +570,14 @@
     },
     "date_val": {
       "type": "object",
-      "properties": {}
+      "properties": {
+        "value": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
     },
     "refine_val": {
       "type": "object",
@@ -598,14 +598,19 @@
     },
     "transform_val": {
       "type": "object",
-      "properties": {}
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": ["value"],
+      "additionalProperties": false
     },
     "pipe_val": {
       "type": "object",
       "properties": {
         "value": {
-          "type": "string",
-          "minLength": 2
+          "type": "string"
         }
       },
       "required": ["value"],
@@ -618,7 +623,6 @@
           "type": "string"
         }
       },
-      "required": ["value"],
       "additionalProperties": false
     },
     "template_literal": {
@@ -634,11 +638,19 @@
     },
     "set_val": {
       "type": "object",
-      "properties": {}
+      "properties": {
+        "value": {}
+      },
+      "required": ["value"],
+      "additionalProperties": false
     },
     "map_val": {
       "type": "object",
-      "properties": {}
+      "properties": {
+        "value": {}
+      },
+      "required": ["value"],
+      "additionalProperties": false
     },
     "any_val": {
       "type": "object",
@@ -658,7 +670,11 @@
     },
     "void_val": {
       "type": "object",
-      "properties": {}
+      "properties": {
+        "value": {}
+      },
+      "required": ["value"],
+      "additionalProperties": false
     },
     "never_val": {
       "type": "object",
@@ -750,7 +766,7 @@
               "additionalProperties": false
             }
           },
-          "required": ["path", "mode"],
+          "required": ["path"],
           "additionalProperties": false
         }
       },
@@ -793,8 +809,7 @@
             "properties": {
               "e": {
                 "type": "string",
-                "format": "email",
-                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                "format": "email"
               },
               "u": {
                 "type": "string",
@@ -802,18 +817,15 @@
               },
               "id": {
                 "type": "string",
-                "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                "format": "uuid"
               },
               "dt": {
                 "type": "string",
-                "format": "date-time",
-                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                "format": "date-time"
               },
               "ip": {
                 "type": "string",
-                "format": "ipv4",
-                "pattern": "^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$"
+                "format": "ipv4"
               }
             },
             "required": ["e", "u", "id", "dt", "ip"]
@@ -851,7 +863,10 @@
     "bigint_val": {
       "parametersJsonSchema": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "value": {}
+        },
+        "required": ["value"]
       }
     },
     "boolean_val": {
@@ -956,8 +971,7 @@
                   "type": "string"
                 }
               }
-            },
-            "required": ["a", "b", "c"]
+            }
           }
         },
         "required": ["value"]
@@ -1243,8 +1257,7 @@
               "a": {
                 "type": "string"
               }
-            },
-            "required": ["a"]
+            }
           }
         },
         "required": ["value"]
@@ -1275,8 +1288,7 @@
           "value": {
             "type": "string"
           }
-        },
-        "required": ["value"]
+        }
       }
     },
     "coerce_number": {
@@ -1293,7 +1305,13 @@
     "date_val": {
       "parametersJsonSchema": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "value": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["value"]
       }
     },
     "refine_val": {
@@ -1316,7 +1334,12 @@
     "transform_val": {
       "parametersJsonSchema": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": ["value"]
       }
     },
     "pipe_val": {
@@ -1324,8 +1347,7 @@
         "type": "object",
         "properties": {
           "value": {
-            "type": "string",
-            "minLength": 2
+            "type": "string"
           }
         },
         "required": ["value"]
@@ -1338,8 +1360,7 @@
           "value": {
             "type": "string"
           }
-        },
-        "required": ["value"]
+        }
       }
     },
     "template_literal": {
@@ -1357,13 +1378,19 @@
     "set_val": {
       "parametersJsonSchema": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "value": {}
+        },
+        "required": ["value"]
       }
     },
     "map_val": {
       "parametersJsonSchema": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "value": {}
+        },
+        "required": ["value"]
       }
     },
     "any_val": {
@@ -1387,7 +1414,10 @@
     "void_val": {
       "parametersJsonSchema": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "value": {}
+        },
+        "required": ["value"]
       }
     },
     "never_val": {
@@ -1481,7 +1511,7 @@
                 }
               }
             },
-            "required": ["path", "mode"]
+            "required": ["path"]
           }
         },
         "required": ["value"]

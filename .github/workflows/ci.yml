@@ -736,6 +736,8 @@ jobs:
           pnpm run test:tool-replay
           pnpm run test:stream-tool-telemetry
           pnpm run test:forced-tool-declared
+          pnpm run test:zod4-tool-schema-shape
+          pnpm run test:mcp-server-id-and-tool-error
           pnpm run test:span-content-redaction
           pnpm run test:voice-turn-memory
           pnpm run test:redis-atomic-expiry
