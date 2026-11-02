@@ -26,7 +26,7 @@ Error types specific to conversation memory
 
 ##### code
 
-`"STORAGE_ERROR"` \| `"CONFIG_ERROR"` \| `"SESSION_NOT_FOUND"` \| `"CLEANUP_ERROR"`
+`"STORAGE_ERROR"` \| `"CONFIG_ERROR"` \| `"SESSION_NOT_FOUND"` \| `"CLEANUP_ERROR"` \| `"SESSION_ERASED"`
 
 ##### details?
 
@@ -44,7 +44,7 @@ Error types specific to conversation memory
 
 ### code
 
-> **code**: `"STORAGE_ERROR"` \| `"CONFIG_ERROR"` \| `"SESSION_NOT_FOUND"` \| `"CLEANUP_ERROR"`
+> **code**: `"STORAGE_ERROR"` \| `"CONFIG_ERROR"` \| `"SESSION_NOT_FOUND"` \| `"CLEANUP_ERROR"` \| `"SESSION_ERASED"`
 
 ---
 

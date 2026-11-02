@@ -16,6 +16,9 @@ import type {
   ChatMessageMetadata,
   ToolResultData,
   ConversationMemoryConfig,
+  ConversationErasureResult,
+  ConversationErasureWriteContext,
+  ConversationErasureWriterStatus,
   ConversationMemoryStats,
   RedisConversationObject,
   RedisStorageConfig,
@@ -30,7 +33,11 @@ import type {
   PendingToolExecution,
   TypedEventEmitter,
 } from "../types/index.js";
-import { ConversationMemoryError } from "../types/index.js";
+import {
+  ConversationMemoryError,
+  ConversationSessionErasedError,
+  ConversationWriterEpochError,
+} from "../types/index.js";
 import { withTimeout } from "../utils/errorHandling.js";
 
 import {
@@ -39,6 +46,14 @@ import {
 } from "../utils/conversationMemory.js";
 import { logger } from "../utils/logger.js";
 import {
+  conversationErasureWriterStatus,
+  eraseSessionPermanently as erasePermanently,
+  fencedSessionIndexWrite,
+  fencedSessionMetadataWrite,
+  fencedSessionPersist,
+  prepareConversationWriteContext,
+} from "./conversationErasureFence.js";
+import {
   assistantTurnIdentity,
   isTurnAlreadyStored,
   turnMessageFields,
@@ -46,11 +61,9 @@ import {
 } from "../utils/conversationTurnIdentity.js";
 import { extractIsErrorText } from "../utils/toolResultStatus.js";
 import {
-  addToSetWithTtl,
   createRedisClient,
   deserializeConversation,
   encodeStoredMessages,
-  getSessionMessagesKey,
   MESSAGES_KEY_SUFFIX,
   isSessionMessagesKey,
   parseStoredMessages,
@@ -63,11 +76,15 @@ import {
   releasePooledRedisClient,
   scanKeys,
   serializeConversation,
-  setWithTtl,
 } from "../utils/redis.js";
 
 const redisTracer = tracers.redis;
 const REDIS_TIMEOUT_MS = 5000;
+
+/** A fence refusal must reach the caller; a swallowed one reads as a stored write. */
+const isErasureFenceRefusal = (error: unknown): boolean =>
+  error instanceof ConversationSessionErasedError ||
+  error instanceof ConversationWriterEpochError;
 
 /**
  * Redis-based implementation of the ConversationMemoryManager
@@ -81,6 +98,12 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
   private redisConfig: Required<RedisStorageConfig>;
   private redisClient: Awaited<ReturnType<typeof createRedisClient>> | null =
     null;
+  /**
+   * Resolved once per initialization, before any write is admitted. Every
+   * write reads it up front so an in-flight write keeps the epoch it started
+   * under.
+   */
+  private erasureWriteContext: ConversationErasureWriteContext | undefined;
 
   /**
    * Receives `conversation:titleGenerated` once a new conversation's title is
@@ -127,6 +150,8 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
       return;
     }
 
+    this.erasureWriteContext = undefined;
+
     await redisTracer.startActiveSpan(
       "memory.initialize",
       {
@@ -150,6 +175,11 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
           );
 
           this.redisClient = await getPooledRedisClient(this.redisConfig);
+          this.erasureWriteContext = await prepareConversationWriteContext(
+            this.redisClient,
+            this.redisConfig,
+            this.config.erasureWriteProtocol === "conversation-erasure-v1",
+          );
           this.isInitialized = true;
 
           logger.info("RedisConversationMemoryManager initialized", {
@@ -168,6 +198,14 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
             },
           );
         } catch (error) {
+          if (this.redisClient && !this.isInitialized) {
+            this.redisClient = null;
+            try {
+              await releasePooledRedisClient(this.redisConfig);
+            } catch {
+              // The initialization error below stays authoritative.
+            }
+          }
           span.setStatus({
             code: SpanStatusCode.ERROR,
             message: error instanceof Error ? error.message : String(error),
@@ -186,6 +224,13 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
               },
             },
           );
+
+          // A strict writer the server cannot admit (cluster, an evicting
+          // policy, no readable epoch) is a typed refusal callers can match;
+          // wrapping it as a generic CONFIG_ERROR would hide which it was.
+          if (error instanceof ConversationWriterEpochError) {
+            throw error;
+          }
 
           throw new ConversationMemoryError(
             "Failed to initialize Redis conversation memory",
@@ -410,20 +455,25 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
   private async addUserSession(
     userId: string,
     sessionId: string,
+    writeContext: ConversationErasureWriteContext | undefined = this
+      .erasureWriteContext,
   ): Promise<void> {
     if (!this.redisClient || !userId) {
       return;
     }
 
     try {
-      const userSessionsKey = getUserSessionsKey(this.redisConfig, userId);
-      await addToSetWithTtl(
+      await fencedSessionIndexWrite(
         this.redisClient,
-        userSessionsKey,
+        this.redisConfig,
         sessionId,
-        this.redisConfig.ttl,
+        userId,
+        writeContext,
       );
     } catch (error) {
+      if (isErasureFenceRefusal(error)) {
+        throw error;
+      }
       logger.error(
         "[RedisConversationMemoryManager] Failed to add session to user set",
         {
@@ -584,6 +634,7 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
     });
 
     await this.ensureInitialized();
+    const writeContext = this.erasureWriteContext;
 
     // NLK-GAP-012: Add span for storeTurn CRUD operation
     return redisTracer.startActiveSpan(
@@ -660,11 +711,13 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
                     const serializedData =
                       serializeConversation(updatedConversation);
                     if (this.redisClient) {
-                      await setWithTtl(
+                      await fencedSessionMetadataWrite(
                         this.redisClient,
-                        updatedRedisKey,
+                        this.redisConfig,
+                        options.sessionId,
+                        options.userId || undefined,
                         serializedData,
-                        this.redisConfig.ttl,
+                        writeContext,
                       );
                       this.emitTitleGenerated({
                         sessionId: options.sessionId,
@@ -772,6 +825,7 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
             options.sessionId,
             options.userId,
             wasSplitStorage ? messageCountBeforeTurn : undefined,
+            writeContext,
           );
 
           // Scheduled AFTER the write, never before it. On the single turn that
@@ -796,6 +850,7 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
                       options.sessionId,
                       options.userId,
                       options.requestId,
+                      writeContext,
                     );
                   } catch (error) {
                     logger.error("Background summarization failed", {
@@ -842,7 +897,11 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
           }
 
           if (options.userId) {
-            await this.addUserSession(options.userId, options.sessionId);
+            await this.addUserSession(
+              options.userId,
+              options.sessionId,
+              writeContext,
+            );
           }
 
           span.setAttribute("message.count", conversation.messages.length);
@@ -887,6 +946,8 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
     sessionId: string,
     userId?: string,
     requestId?: string,
+    writeContext: ConversationErasureWriteContext | undefined = this
+      .erasureWriteContext,
   ): Promise<void> {
     const normalizedUserId = userId || "randomUser";
     const summarizationKey = `${sessionId}:${normalizedUserId}`;
@@ -958,11 +1019,13 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
               )
                 ? serializeConversationMetadata(latestConversation)
                 : serializeConversation(latestConversation);
-              await setWithTtl(
+              await fencedSessionMetadataWrite(
                 this.redisClient,
-                redisKey,
+                this.redisConfig,
+                sessionId,
+                userId,
                 freshSerialized,
-                this.redisConfig.ttl,
+                writeContext,
               );
             }
           }
@@ -1071,39 +1134,37 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
     sessionId: string,
     userId: string | undefined,
     appendFrom?: number,
+    writeContext: ConversationErasureWriteContext | undefined = this
+      .erasureWriteContext,
   ): Promise<void> {
     if (!this.redisClient) {
       return;
     }
-    const redisKey = getSessionKey(this.redisConfig, sessionId, userId);
-    const messagesKey = getSessionMessagesKey(
-      this.redisConfig,
-      sessionId,
-      userId,
-    );
     // One MULTI, not four to six independent commands. The replace path is a
     // DEL followed by an RPUSH, and on the legacy-conversion path the inline
     // blob is the only copy of the history until the SET lands — so a failure
     // between any two of them leaves the session either empty or unrecoverable.
     // Grouping them also collapses the round trips, which is the point of the
     // append-only layout.
-    const tx = this.redisClient.multi();
-    if (appendFrom === undefined) {
-      tx.del(messagesKey);
-    }
     const toPush =
       appendFrom === undefined
         ? conversation.messages
         : conversation.messages.slice(appendFrom);
-    if (toPush.length > 0) {
-      tx.rPush(messagesKey, encodeStoredMessages(toPush));
-    }
-    tx.set(redisKey, serializeConversationMetadata(conversation));
-    if (this.redisConfig.ttl > 0) {
-      tx.expire(redisKey, this.redisConfig.ttl);
-      tx.expire(messagesKey, this.redisConfig.ttl);
-    }
-    await withTimeout(tx.exec(), REDIS_TIMEOUT_MS);
+    await withTimeout(
+      fencedSessionPersist(
+        this.redisClient,
+        this.redisConfig,
+        sessionId,
+        userId,
+        {
+          mode: appendFrom === undefined ? "replace" : "append",
+          messages: toPush.length > 0 ? encodeStoredMessages(toPush) : [],
+          payload: serializeConversationMetadata(conversation),
+        },
+        writeContext,
+      ),
+      REDIS_TIMEOUT_MS,
+    );
   }
 
   /**
@@ -1692,6 +1753,7 @@ User message: "${userMessage}"`;
     userId?: string,
   ): Promise<void> {
     await this.ensureInitialized();
+    const writeContext = this.erasureWriteContext;
     if (!this.redisClient) {
       throw new ConversationMemoryError(
         "Redis client not initialized",
@@ -1723,7 +1785,13 @@ User message: "${userMessage}"`;
       conversation.lastCountedAt = undefined;
 
       // Wholesale replacement: rewrite the LIST rather than appending.
-      await this.persistConversation(conversation, sessionId, userId);
+      await this.persistConversation(
+        conversation,
+        sessionId,
+        userId,
+        undefined,
+        writeContext,
+      );
 
       logger.debug(
         "[RedisConversationMemoryManager] Session messages replaced",
@@ -1734,6 +1802,9 @@ User message: "${userMessage}"`;
         },
       );
     } catch (error) {
+      if (isErasureFenceRefusal(error)) {
+        throw error;
+      }
       if (error instanceof ConversationMemoryError) {
         throw error;
       }
@@ -1811,6 +1882,40 @@ User message: "${userMessage}"`;
       totalSessions: sessionKeys.length,
       totalTurns,
     };
+  }
+
+  /**
+   * Whether this writer participates in the `conversation-erasure-v1` fence.
+   * Only participating writers are fenced; others are NOT.
+   */
+  public getConversationErasureWriterStatus(): ConversationErasureWriterStatus {
+    return conversationErasureWriterStatus(this.erasureWriteContext);
+  }
+
+  /**
+   * Permanently erase one session. Fences participating writers only, and
+   * needs a writer initialized with `erasureWriteProtocol:
+   * "conversation-erasure-v1"`.
+   */
+  public async eraseSessionPermanently(
+    sessionId: string,
+    userId: string,
+  ): Promise<ConversationErasureResult> {
+    await this.ensureInitialized();
+    if (!this.redisClient) {
+      throw new ConversationMemoryError(
+        "Redis unavailable; erasure unconfirmed",
+        "STORAGE_ERROR",
+        { sessionId },
+      );
+    }
+    return erasePermanently(
+      this.redisClient,
+      this.redisConfig,
+      sessionId,
+      userId,
+      this.erasureWriteContext,
+    );
   }
 
   /**
@@ -2372,6 +2477,7 @@ User message: "${userMessage}"`;
     );
 
     await this.ensureInitialized();
+    const writeContext = this.erasureWriteContext;
 
     if (!this.redisClient) {
       logger.warn(
@@ -2447,11 +2553,13 @@ User message: "${userMessage}"`;
         ? serializeConversationMetadata(conversation)
         : serializeConversation(conversation);
       await withTimeout(
-        setWithTtl(
+        fencedSessionMetadataWrite(
           this.redisClient,
-          redisKey,
+          this.redisConfig,
+          sessionId,
+          userId || undefined,
           serializedData,
-          this.redisConfig.ttl,
+          writeContext,
         ),
         5000,
       );
@@ -2466,6 +2574,9 @@ User message: "${userMessage}"`;
         },
       );
     } catch (error) {
+      if (isErasureFenceRefusal(error)) {
+        throw error;
+      }
       logger.error(
         "[RedisConversationMemoryManager] Failed to update agentic loop report",
         {

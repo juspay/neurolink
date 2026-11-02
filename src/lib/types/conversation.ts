@@ -151,6 +151,15 @@ export type ConversationMemoryConfig = {
   enabled: boolean;
 
   /**
+   * Opt in to the `conversation-erasure-v1` write protocol on the Redis
+   * backend. Initialization then refuses to proceed (and `NeuroLink` does not
+   * fall back to in-memory history) unless the server is a standalone Redis
+   * with `maxmemory-policy noeviction`. Left unset, writers keep the ordinary
+   * storage behaviour and cannot erase permanently.
+   */
+  erasureWriteProtocol?: ConversationErasureProtocol;
+
+  /**
    * How a session's stored tool steps are replayed into later prompts.
    * Default `"marker"`. `"full"` replays real tool-call / tool-result turns
    * (costs tokens per replayed step and, on Anthropic, changes the prompt
@@ -562,13 +571,105 @@ export class ConversationMemoryError extends Error {
       | "STORAGE_ERROR"
       | "CONFIG_ERROR"
       | "SESSION_NOT_FOUND"
-      | "CLEANUP_ERROR",
+      | "CLEANUP_ERROR"
+      | "SESSION_ERASED",
     public details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "ConversationMemoryError";
   }
 }
+
+/** Write-protocol identifier of the conversation erasure fence. */
+export type ConversationErasureProtocol = "conversation-erasure-v1";
+
+/**
+ * Raised when a write reaches a session that was permanently erased. The
+ * erasure tombstone outlives the session's data, so a late writer cannot
+ * resurrect it.
+ */
+export class ConversationSessionErasedError extends Error {
+  readonly code = "SESSION_ERASED";
+
+  constructor() {
+    super("Session permanently erased; write refused");
+    this.name = "ConversationSessionErasedError";
+  }
+}
+
+/**
+ * Raised when a fenced write cannot prove it belongs to the store epoch it was
+ * admitted under: the context is missing or not fenced, the Redis server
+ * restarted, or its eviction counter moved.
+ */
+export class ConversationWriterEpochError extends Error {
+  readonly code = "SESSION_WRITER_EPOCH_LOST";
+
+  constructor() {
+    super("Conversation writer epoch is unavailable or changed; write refused");
+    this.name = "ConversationWriterEpochError";
+  }
+}
+
+/**
+ * What a Redis conversation writer resolved at initialization.
+ * `legacy` keeps the ordinary storage behaviour and cannot erase permanently;
+ * `fenced` binds every write to the server run id, store epoch and eviction
+ * counter observed at initialization.
+ */
+export type ConversationErasureWriteContext =
+  | {
+      mode: "legacy";
+      reason: string;
+      strict: false;
+    }
+  | {
+      mode: "fenced";
+      strict: boolean;
+      runId: string;
+      epoch: string;
+      evictedKeys: string;
+      evictionPolicy: "noeviction";
+    };
+
+/** Whether this writer participates in the v1 erasure fence. */
+export type ConversationErasureWriterStatus =
+  | {
+      status: "unsupported";
+      protocol: ConversationErasureProtocol;
+      strict: boolean;
+      reason: string;
+    }
+  | {
+      status: "participating";
+      strict: boolean;
+      backend: "redis-standalone";
+      protocol: ConversationErasureProtocol;
+      serverRunIdDigest: string;
+      storeEpochDigest: string;
+      evictionPolicy: "noeviction";
+      evictionCounter: number;
+    };
+
+/** Receipt returned by a confirmed permanent erasure. */
+export type ConversationErasureResult = {
+  status: "erased";
+  backend: "redis-standalone";
+  protocol: ConversationErasureProtocol;
+  participatingWritesFenced: true;
+  strictWriteProtocol: true;
+  legacyWritersFenced: false;
+  sessionId: string;
+  userId: string;
+  namespaceDigest: string;
+  serverRunIdDigest: string;
+  storeEpochDigest: string;
+  evictionPolicy: "noeviction";
+  evictionCounter: number;
+  deletedKeys: number;
+  removedIndexMembers: number;
+  tombstoneExpiry: null;
+};
 
 /**
  * NeuroLink initialization options

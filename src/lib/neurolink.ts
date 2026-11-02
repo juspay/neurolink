@@ -332,6 +332,7 @@ import {
   SpanType,
   CircuitBreakerOpenError,
   ConversationMemoryError,
+  ConversationWriterEpochError,
   DEFAULT_DECISION_HOOK_TIMEOUT_MS,
   MAX_DECISION_HOOK_TIMEOUT_MS,
   ModelAccessDeniedError,
@@ -8263,6 +8264,13 @@ Current user's request: ${currentInput}`;
       try {
         await this.conversationMemory.initialize();
       } catch (err) {
+        // Strict storage admission must not silently downgrade to process-local history.
+        if (
+          this.conversationMemoryConfig?.conversationMemory
+            ?.erasureWriteProtocol === "conversation-erasure-v1"
+        ) {
+          throw err;
+        }
         logger.warn(
           "[NEUROLINK] Redis memory init failed, falling back to in-memory",
           {
@@ -13685,6 +13693,23 @@ Current user's request: ${currentInput}`;
   }
 
   /**
+   * Whether `error` is the refusal of a conversation memory writer that opted in
+   * to the erasure write protocol: the typed epoch error, or the CONFIG_ERROR
+   * that storage which is unreachable, or not Redis, raises while the protocol is on.
+   */
+  private isStrictConversationAdmissionFailure(error: unknown): boolean {
+    if (error instanceof ConversationWriterEpochError) {
+      return true;
+    }
+    return (
+      error instanceof ConversationMemoryError &&
+      error.code === "CONFIG_ERROR" &&
+      this.conversationMemoryConfig?.conversationMemory
+        ?.erasureWriteProtocol === "conversation-erasure-v1"
+    );
+  }
+
+  /**
    * Handle stream error with fallback
    */
   private async handleStreamError(
@@ -13702,6 +13727,13 @@ Current user's request: ${currentInput}`;
     // the hard cap was meant to save. Rethrow so the caller sees the
     // typed error instead of a fallback ProviderError that hides it.
     if (error instanceof ContextBudgetExceededError) {
+      throw error;
+    }
+
+    // A writer that opted in to the erasure write protocol and could not be
+    // admitted must not be answered by a fallback provider that has none of
+    // its history and stores nothing: fail closed, as generate() does.
+    if (this.isStrictConversationAdmissionFailure(error)) {
       throw error;
     }
 

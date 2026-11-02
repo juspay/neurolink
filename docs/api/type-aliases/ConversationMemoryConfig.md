@@ -20,6 +20,18 @@ Enable conversation memory feature
 
 ---
 
+### erasureWriteProtocol?
+
+> `optional` **erasureWriteProtocol?**: [`ConversationErasureProtocol`](ConversationErasureProtocol.md)
+
+Opt in to the `conversation-erasure-v1` write protocol on the Redis
+backend. Initialization then refuses to proceed (and `NeuroLink` does not
+fall back to in-memory history) unless the server is a standalone Redis
+with `maxmemory-policy noeviction`. Left unset, writers keep the ordinary
+storage behaviour and cannot erase permanently.
+
+---
+
 ### replayToolSteps?
 
 > `optional` **replayToolSteps?**: [`ToolReplayMode`](ToolReplayMode.md)
