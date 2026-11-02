@@ -297,6 +297,7 @@ type Backend = {
 type ManagerInternals = {
   isInitialized: boolean;
   redisClient: unknown;
+  erasureWriteContext: unknown;
   generateConversationTitle: (message: string) => Promise<string>;
   summarizationEngine: unknown;
   addUserSession: (userId: string, sessionId: string) => Promise<void>;
@@ -325,6 +326,12 @@ const openStandIn = async (): Promise<Backend> => {
       const internals = manager as unknown as ManagerInternals;
       internals.isInitialized = true;
       internals.redisClient = fake;
+      // What initialize() resolves for a writer that did not opt in.
+      internals.erasureWriteContext = {
+        mode: "legacy",
+        reason: "compatible-client",
+        strict: false,
+      };
       return fake;
     },
     attachSessions: async (storage) => {

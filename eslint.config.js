@@ -401,6 +401,14 @@ export default [
             // TTL semantics; the real-server cases SKIP when nothing answers.
             // Its header states the exception in full.
             "test/continuous-test-suite-redis-atomic-expiry.ts",
+            // The erasure fence guards a Redis server restart, an eviction
+            // counter change, a rewritten epoch record and a write landing
+            // after a permanent erasure; no live run produces them or lands a
+            // write between a writer's admission and its commit. Offline against
+            // an in-process stand-in that models the scripts; the real-server
+            // cases run the Lua and SKIP when nothing answers. Its header
+            // states the exception in full.
+            "test/continuous-test-suite-conversation-erasure-fence.ts",
             // Chunk boundaries and reranker ordering are exact outcomes;
             // generate({ rag }) only ever shows the model's answer.
             "test/continuous-test-suite-rag.ts",

@@ -182,10 +182,17 @@ const attachFakeRedis = (
   const internals = manager as unknown as {
     isInitialized: boolean;
     redisClient: FakeRedis;
+    erasureWriteContext: unknown;
     generateConversationTitle: (message: string) => Promise<string>;
   };
   internals.isInitialized = true;
   internals.redisClient = fake;
+  // What initialize() resolves for a writer that did not opt in.
+  internals.erasureWriteContext = {
+    mode: "legacy",
+    reason: "compatible-client",
+    strict: false,
+  };
   // The title is made by a model in the background; nothing here may call one.
   internals.generateConversationTitle = async () => STUB_TITLE;
   return fake;

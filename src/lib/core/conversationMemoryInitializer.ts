@@ -3,6 +3,7 @@
  * Provides integration with Redis storage for conversation memory
  */
 
+import { ConversationMemoryError } from "../types/index.js";
 import type {
   ConversationMemoryConfig,
   NeuroLinkEvents,
@@ -145,6 +146,16 @@ export async function initializeConversationMemory(
         "[conversationMemoryInitializer] Initializing in-memory conversation memory manager",
       );
 
+      // The erasure write protocol is a Redis-only fence. Handing back a
+      // process-local manager would let a writer that asked for it run with no
+      // fence and no permanent erasure, which is the downgrade it exists to refuse.
+      if (memoryConfig.erasureWriteProtocol === "conversation-erasure-v1") {
+        throw new ConversationMemoryError(
+          'erasureWriteProtocol "conversation-erasure-v1" requires Redis conversation storage',
+          "CONFIG_ERROR",
+          { storageType },
+        );
+      }
       // Create in-memory conversation memory manager
       logger.debug(
         "[conversationMemoryInitializer] Creating in-memory conversation memory manager",
