@@ -51,14 +51,14 @@ Two things to know when stacking:
   also replays the parent's commit under a new SHA, so the child still carries
   the parent's old commit and fails the single-commit policy until it is
   rebased — see "rebase-merge rewrites the parent, so rebase each child" for
-  the `git rebase --onto origin/release <parent-old-head>` recipe.
+  the `git rebase --onto origin/release <parent-commit-in-child>` recipe.
 
   The same applies to a parent that is merely **force-pushed while still
   open**, which is the more common case: rebasing a parent orphans the copy of
   its commit that each child carries, and every child flips to `CONFLICTING`
   the moment the parent is pushed. Rebasing #1668 and #1647 onto a moved
   `release` did exactly that to #1670 and #1648, each of which needed
-  `git rebase --onto origin/<parent-branch> <parent-old-head>` before it was
+  `git rebase --onto origin/<parent-branch> <parent-commit-in-child>` before it was
   mergeable again. Expect to fix up the whole stack, bottom-up, after touching
   any link in it. A force-push does re-trigger stale bot reviews on the child,
   but that is a cost of the rebase, not a reason to skip it.
@@ -235,13 +235,17 @@ commits** and fails `🔒 Single Commit Policy Validation`, a policy it has not
 broken.
 
 Rebase each child onto the new tip between merges. Use `--onto` with the
-parent's old head, which replays only the child's own commit and never asks
-about the parent's:
+parent commit the child already carries (the commit just below the child's own,
+`<child>~1` when the child has one commit of its own), which replays only the
+child's own commit and never asks about the parent's. Do not pass the merged
+parent PR's final head: when the parent was amended after the child was
+branched, that head is not an ancestor of the child, and the rebase replays the
+child's older copy of the parent and conflicts:
 
 ```bash
-git fetch origin release
+git fetch origin +refs/heads/release:refs/remotes/origin/release
 git switch <child>
-git rebase --onto origin/release <parent-old-head>
+git rebase --onto origin/release <parent-commit-in-child>
 ```
 
 `git switch` first is not optional: `--onto` replays whatever is on `HEAD`, and
