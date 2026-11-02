@@ -295,9 +295,11 @@ const PROVIDERS: readonly ProviderUnderTest[] = [
     // account", so these are chosen from what this account can actually
     // reach and each was probed live for the property the cases need:
     // gpt-oss-20b returns reasoning_content (E1 thinking.high) and calls
-    // tools (B2 stream-with-tools); llama-3.2-11b is the vision route.
+    // tools (B2 stream-with-tools). llama-3.2-11b-vision went the same way
+    // ("not found for account") on 2026-11-02; nemotron-3.5-super-vl is the
+    // vision route, and unlike it accepts an image together with a tools array.
     reasoningModel: "openai/gpt-oss-20b",
-    visionModel: "meta/llama-3.2-11b-vision-instruct",
+    visionModel: "nvidia/nemotron-3.5-super-vl-120b-a12b",
     fastModel: "openai/gpt-oss-20b",
   },
   {
@@ -807,7 +809,9 @@ function describeSampleImageRequest(p: ProviderUnderTest, signal: AbortSignal) {
     provider: p.name,
     abortSignal: signal,
     model: p.visionModel,
-    maxTokens: 64,
+    // nemotron-3.5-super-vl reasons before it answers: at 64 it returned empty
+    // content in 5 of 8 calls, at 256 in none.
+    maxTokens: 256,
   };
 }
 
@@ -863,16 +867,7 @@ async function section3Multimodal(): Promise<void> {
     }
     await runProviderTest("C1 image.basic", p, async (signal) => {
       const sdk = makeSdk();
-      const res = await sdk.generate({
-        ...describeSampleImageRequest(p, signal),
-        // NIM's meta/llama-3.2-11b-vision-instruct answers HTTP 400 "The
-        // number of image tokens (0) must be the same as the number of images
-        // (1)" to ANY request that carries both an image and a `tools` array,
-        // and NeuroLink attaches its tools unless told not to. C1 is about the
-        // image reaching the model, so NIM runs it without tools; the
-        // tools-plus-image combination is C1b below.
-        ...(p.name === "nvidia-nim" ? { disableTools: true } : {}),
-      });
+      const res = await sdk.generate(describeSampleImageRequest(p, signal));
       if (res?.content) {
         return true;
       }
@@ -889,42 +884,6 @@ async function section3Multimodal(): Promise<void> {
         );
       }
       return false;
-    });
-  }
-
-  // C1b: the same image with NeuroLink's default tools attached. NIM's
-  // meta/llama-3.2-11b-vision-instruct rejects this combination at the service.
-  // Probed live on 2026-10-24 by replaying NeuroLink's exact request, then
-  // stripping one feature at a time: with the `tools` array removed the request
-  // answers 200; with any `tools` array present (26 of them, or a single
-  // trivial one, with or without tool_choice "none") it answers HTTP 400 "The
-  // number of image tokens (0) must be the same as the number of images (1)".
-  // The system message, the image's position in the content array and the
-  // data-URL format make no difference, and nvidia/nemotron-3.5-super-vl
-  // accepts the identical raw request, so the request shape is not at fault. The
-  // case reports that error as a service limitation by name, and still fails on
-  // any other error or on empty content.
-  const nim = PROVIDERS.find((candidate) => candidate.name === "nvidia-nim");
-  if (nim?.available) {
-    await runProviderTest("C1b image.with-tools", nim, async (signal) => {
-      const sdk = makeSdk();
-      try {
-        const res = await sdk.generate(describeSampleImageRequest(nim, signal));
-        return Boolean(res?.content);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (
-          /number of image tokens \(0\) must be the same as the number of images/i.test(
-            msg,
-          )
-        ) {
-          // logTest prints only the first 100 characters of a skip reason.
-          throw new Skip(
-            'NIM service limit, not request shape: 400 "image tokens (0)" on image + tools; C1 passes without',
-          );
-        }
-        throw err;
-      }
     });
   }
 }
@@ -1532,6 +1491,17 @@ async function section9Errors(): Promise<void> {
           // Timeout / abort surfaces because NIM ran cold or rate-limited.
           if (isUpstreamSlowPath(msg, signal)) {
             throw new Skip(`upstream slow path (${msg.slice(0, 60)})`);
+          }
+          // On 2026-11-02 the pinned model answered "not available" (404, not
+          // found for this account), and no model this account reaches rejects
+          // reasoning_budget with a 400: probed raw, the reasoning ones reason
+          // anyway and nemotron-3.5-bolt-e4b ignores the flags. A different pin
+          // would pass without ever stripping anything. The strip itself is
+          // asserted offline in continuous-test-suite-adjust-body-after-400.
+          if (/not available|not found/i.test(msg)) {
+            throw new Skip(
+              "pinned non-reasoning model not served on this account; strip covered offline",
+            );
           }
           throw err;
         }
