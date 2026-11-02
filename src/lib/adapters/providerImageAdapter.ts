@@ -548,6 +548,7 @@ const VISION_CAPABILITIES: Record<string, readonly string[]> = {
   "nvidia-nim": [
     "meta/llama-3.2-90b-vision-instruct",
     "meta/llama-3.2-11b-vision-instruct",
+    "nvidia/nemotron-3.5-super-vl-120b-a12b",
   ],
   // LM Studio + llama.cpp: vision depends on the loaded model.
   // Substrings must point at known multimodal variants only — bare
