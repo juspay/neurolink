@@ -15950,6 +15950,8 @@ Current user's request: ${currentInput}`;
 
     structuredError = new NeuroLinkError({
       ...structuredError,
+      // Error#message is non-enumerable, so the spread above drops it.
+      message: structuredError.message,
       context: {
         ...structuredError.context,
         executionTime,

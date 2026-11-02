@@ -353,6 +353,12 @@ export default [
             // branch is reached by no shipped call site at all. Its header
             // states the exception in full.
             "test/continuous-test-suite-forced-tool-declared.ts",
+            // convertZodToJsonSchema is exported from no package entry point,
+            // and what is asserted is a fixed table of Zod constructs to exact
+            // JSON Schema output; a live call cannot be made to present a
+            // transform or a catch on demand. Its header states the exception
+            // in full.
+            "test/continuous-test-suite-zod4-tool-schema-shape.ts",
             // The span content helpers are exported from no package entry
             // point, and a live call cannot produce what is asserted: output
             // byte-identical to the previous serializer across a thousand

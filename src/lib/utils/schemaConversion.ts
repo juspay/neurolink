@@ -10,6 +10,9 @@ import type {
   ZodToJsonSchemaInput,
   Zod4NativeTarget,
   Zod4NativeParams,
+  Zod4OverrideContext,
+  Zod4ObjectDefinition,
+  Zod4DiscriminatedUnionDefinition,
 } from "../types/index.js";
 import { logger } from "./logger.js";
 import { vetRegexPattern } from "../middleware/utils/regexSafety.js";
@@ -516,6 +519,139 @@ export function ensureNestedSchemaTypes(
   return result;
 }
 
+// Zod 4's converter reads the output side of a schema by default and throws on
+// `.transform()`, dates and `z.instanceof()`, which sent a whole tool to the
+// provider as one with no parameters. Convert the input side instead (that is
+// what a model has to supply) and give the result the shape zod-to-json-schema
+// gave the Zod 3 equivalent, so the schemas providers receive do not change
+// with the Zod major.
+//
+// String formats zod-to-json-schema emitted as a bare `format`. Zod 4 adds the
+// regex it validates with beside them, and emits includes / startsWith /
+// endsWith as non-standard formats next to their pattern.
+const STANDARD_STRING_FORMATS = new Set([
+  "email",
+  "uri",
+  "uuid",
+  "date-time",
+  "date",
+  "time",
+  "duration",
+  "ipv4",
+  "ipv6",
+]);
+
+// A key is required exactly when Zod rejects the object without it
+// (handlePropertyResult in zod/v4/core). Zod's own converter marks `.catch()`
+// and some `.preprocess()` keys required although parsing accepts them
+// missing. Deciding that parses `undefined`, so a callback on that path
+// (`.preprocess()`, `.transform()`, a `.default()` thunk) runs once per
+// conversion, with the value Zod would give it for a missing key at call time.
+function acceptsMissingKey(field: Zod4OverrideContext["zodSchema"]): boolean {
+  if (field._zod.optin === undefined) {
+    return false;
+  }
+  if (field._zod.optout === "optional") {
+    return true;
+  }
+  // `.catch()` replaces every failure, so a missing key always passes. Zod's
+  // own converter already calls a catch callback once, to read its default;
+  // saying so here keeps this check from calling it a second time.
+  if (field._zod.def.type === "catch") {
+    return true;
+  }
+  try {
+    return zodModule.safeParse(field, undefined).success;
+  } catch {
+    // An async preprocess or transform cannot be parsed synchronously, so
+    // whether it accepts a missing key is not known. Required is the safe side:
+    // a model that supplies a key the schema would have defaulted loses
+    // nothing, while one that omits a key the schema rejects fails the call.
+    return false;
+  }
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function isObjectDefinition(
+  definition: Zod4OverrideContext["zodSchema"]["_zod"]["def"],
+): definition is Zod4ObjectDefinition {
+  return definition.type === "object";
+}
+
+// `z.xor()` is also an exclusive union that Zod 4 writes as `oneOf`, but it is
+// not a discriminated union: only a discriminator marks the one that
+// `zod-to-json-schema` wrote as `anyOf`.
+function isDiscriminatedUnionDefinition(
+  definition: Zod4OverrideContext["zodSchema"]["_zod"]["def"],
+): definition is Zod4DiscriminatedUnionDefinition {
+  return (
+    definition.type === "union" &&
+    "discriminator" in definition &&
+    typeof definition.discriminator === "string"
+  );
+}
+
+function shapeLikeZodToJsonSchema({
+  zodSchema,
+  jsonSchema,
+}: Zod4OverrideContext): void {
+  const definition = zodSchema._zod.def;
+  if (isObjectDefinition(definition)) {
+    if (definition.catchall === undefined) {
+      jsonSchema.additionalProperties = false;
+    } else if (
+      isPlainRecord(jsonSchema.additionalProperties) &&
+      Object.keys(jsonSchema.additionalProperties).length === 0
+    ) {
+      jsonSchema.additionalProperties = true;
+    }
+    const required = Object.entries(definition.shape)
+      .filter(([, field]) => !acceptsMissingKey(field))
+      .map(([key]) => key);
+    if (required.length > 0) {
+      jsonSchema.required = required;
+    } else {
+      delete jsonSchema.required;
+    }
+  }
+  if (
+    isDiscriminatedUnionDefinition(definition) &&
+    Array.isArray(jsonSchema.oneOf)
+  ) {
+    jsonSchema.anyOf = jsonSchema.oneOf;
+    delete jsonSchema.oneOf;
+  }
+  if (typeof jsonSchema.format === "string") {
+    if (STANDARD_STRING_FORMATS.has(jsonSchema.format)) {
+      delete jsonSchema.pattern;
+    } else {
+      delete jsonSchema.format;
+    }
+  }
+  if (definition.type === "catch") {
+    delete jsonSchema.default;
+  }
+  if (
+    definition.type === "record" &&
+    isPlainRecord(jsonSchema.propertyNames) &&
+    Object.keys(jsonSchema.propertyNames).length === 1 &&
+    jsonSchema.propertyNames.type === "string"
+  ) {
+    delete jsonSchema.propertyNames;
+  }
+  if (definition.type === "date") {
+    // JSON carries no Date, so a model can only send a date-time string, which
+    // is how zod-to-json-schema described z.date() for Zod 3. A plain z.date()
+    // then rejects that string when the call is validated; z.coerce.date()
+    // accepts it. Dropping the field instead would hide a date the tool needs.
+    jsonSchema.type = "string";
+    jsonSchema.format = "date-time";
+  }
+}
+
 /**
  * Convert Zod schema to JSON Schema format for provider APIs.
  *
@@ -571,6 +707,9 @@ export function convertZodToJsonSchema(
     try {
       const native = zodToJsonSchemaV4(zodSchema as unknown, {
         target: nativeTarget,
+        io: "input",
+        unrepresentable: "any",
+        override: shapeLikeZodToJsonSchema,
       });
       // Drop the $schema metadata Vertex/Gemini doesn't need, then walk to
       // backfill any missing nested types (Zod 4's output is already flat

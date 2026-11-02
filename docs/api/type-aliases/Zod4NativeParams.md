@@ -16,3 +16,31 @@ the type stays stable even if Zod 4 grows the surface in future releases.
 ### target?
 
 > `optional` **target?**: [`Zod4NativeTarget`](Zod4NativeTarget.md)
+
+---
+
+### io?
+
+> `optional` **io?**: `"input"` \| `"output"`
+
+---
+
+### unrepresentable?
+
+> `optional` **unrepresentable?**: `"throw"` \| `"any"`
+
+---
+
+### override?
+
+> `optional` **override?**: (`context`) => `void`
+
+#### Parameters
+
+##### context
+
+[`Zod4OverrideContext`](Zod4OverrideContext.md)
+
+#### Returns
+
+`void`

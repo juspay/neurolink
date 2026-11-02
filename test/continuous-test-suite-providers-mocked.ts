@@ -18297,9 +18297,25 @@ async function runOpenAIStrictGateSection(): Promise<void> {
       strict: true,
     },
     {
-      name: "a nested discriminated union (oneOf) is not strict",
+      // A discriminated union reaches the wire as anyOf, the way
+      // zod-to-json-schema wrote it, and every branch is closed, so it stays
+      // strict.
+      name: "a nested discriminated union (anyOf) stays strict",
       schema: z.object({
         shape: z.discriminatedUnion("kind", [
+          z.object({ kind: z.literal("a"), x: z.string() }),
+          z.object({ kind: z.literal("b"), y: z.number() }),
+        ]),
+      }),
+      strict: true,
+      expectKeyword: "anyOf",
+    },
+    {
+      // z.xor keeps oneOf (a value that matches two branches is rejected), and
+      // strict mode refuses oneOf.
+      name: "a nested exclusive union (z.xor, oneOf) is not strict",
+      schema: z.object({
+        shape: z.xor([
           z.object({ kind: z.literal("a"), x: z.string() }),
           z.object({ kind: z.literal("b"), y: z.number() }),
         ]),
@@ -18320,8 +18336,17 @@ async function runOpenAIStrictGateSection(): Promise<void> {
       expectedSchema: unchangedRootAnyOf,
     },
     {
-      name: "a root discriminated union (oneOf) is not strict",
+      name: "a root discriminated union (anyOf) is not strict",
       schema: z.discriminatedUnion("kind", [
+        z.object({ kind: z.literal("a") }),
+        z.object({ kind: z.literal("b") }),
+      ]),
+      strict: false,
+      expectKeyword: "anyOf",
+    },
+    {
+      name: "a root exclusive union (z.xor, oneOf) is not strict",
+      schema: z.xor([
         z.object({ kind: z.literal("a") }),
         z.object({ kind: z.literal("b") }),
       ]),

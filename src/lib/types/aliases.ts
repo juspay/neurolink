@@ -3,7 +3,7 @@
  * Centralizes commonly used complex types to improve readability and maintainability
  */
 
-import type { ZodTypeAny } from "zod";
+import type { ZodTypeAny, core as ZodCore } from "zod";
 import type { JsonValue, Result, AsyncFunction } from "./common.js";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { Schema } from "./tools.js";
@@ -39,7 +39,29 @@ export type Zod4NativeTarget = "draft-07" | "openapi-3.0";
  * Subset of Zod 4's `ToJSONSchemaParams` we forward through. Kept minimal so
  * the type stays stable even if Zod 4 grows the surface in future releases.
  */
-export type Zod4NativeParams = { target?: Zod4NativeTarget };
+export type Zod4NativeParams = {
+  target?: Zod4NativeTarget;
+  io?: "input" | "output";
+  unrepresentable?: "throw" | "any";
+  override?: (context: Zod4OverrideContext) => void;
+};
+
+/** The definition of a Zod 4 object schema, as `override` reads it. */
+export type Zod4ObjectDefinition = ZodCore.$ZodObjectDef;
+
+/** The definition of a Zod 4 discriminated union, as `override` reads it. */
+export type Zod4DiscriminatedUnionDefinition =
+  ZodCore.$ZodDiscriminatedUnionDef;
+
+/**
+ * What Zod 4's `override` hook is handed for each node it converts: the
+ * schema node, and the JSON Schema it produced for it, which the hook edits
+ * in place.
+ */
+export type Zod4OverrideContext = {
+  zodSchema: ZodCore.$ZodType;
+  jsonSchema: Record<string, unknown>;
+};
 
 /**
  * Union type for schema validation (Zod or AI SDK schema)
