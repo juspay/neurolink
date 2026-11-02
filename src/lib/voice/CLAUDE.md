@@ -24,7 +24,9 @@ first configured descriptor — `whisper`, `deepgram`, `elevenlabs-stt`,
 Reordering the list changes which engine every implicit transcription uses.
 Note that `OPENAI_API_KEY` configures `whisper` and the Google AI Studio keys
 configure `google-stt`, so an ambient text-provider key silently becomes the
-STT default; a test asserting the Whistle default must blank them.
+STT default; a test asserting the implicit Whistle default must clear every hosted-provider
+credential (each descriptor's env vars and any credentials slice passed in) and
+leave `NEUROLINK_STT_PROVIDER` unset.
 
 **Whistle is the zero-config default, and it ships with the package.**
 `voice/providers/WhistleSTT.ts` runs a 17 MB model in WebAssembly on this
