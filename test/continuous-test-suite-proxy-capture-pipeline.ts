@@ -2072,6 +2072,7 @@ await test("interrupted and endless HTTP 200 responses stay unconfirmed and obey
               callback(result);
             });
           },
+          forceFlush: () => transport.forceFlush(),
           shutdown: () => transport.shutdown(),
         }),
       ],

@@ -372,6 +372,7 @@ function createTrackedProcessor(
       };
       send();
     },
+    forceFlush: () => transport.forceFlush(),
     shutdown: () => transport.shutdown(),
   };
   const batch = new BatchLogRecordProcessor(exporter, {

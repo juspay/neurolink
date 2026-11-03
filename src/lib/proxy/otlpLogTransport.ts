@@ -480,6 +480,9 @@ export function createProxyOtlpLogTransport(
       active.add(operation);
       void operation.finally(() => active.delete(operation)).catch(() => {});
     },
+    async forceFlush() {
+      await Promise.allSettled(active);
+    },
     async shutdown() {
       closed = true;
       await Promise.allSettled(active);
