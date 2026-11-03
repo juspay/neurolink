@@ -1495,8 +1495,20 @@ export type GoogleVertexProviderSettings = {
  * instead of standing up Application Default Credentials.
  */
 export type VertexAnthropicAuthClient = {
-  getRequestHeaders: () => Promise<Record<string, string>>;
+  // A `Headers`, as google-auth-library 10 returns: the Vertex SDK 1.x calls
+  // `.get()` on it, which a plain object does not have.
+  getRequestHeaders: () => Promise<Headers>;
   projectId?: string | null;
+};
+
+/**
+ * The sampling fields a Messages request still carries on the wire. SDK 1.x no
+ * longer declares them on its request types, but NeuroLink sends them (per
+ * model, through `resolveSamplingParams`) and reads them back for tracing.
+ */
+export type AnthropicSamplingParams = {
+  temperature?: number;
+  top_p?: number;
 };
 
 export type AnthropicVertexSettings = {
@@ -1514,6 +1526,8 @@ export type AnthropicVertexSettings = {
    * a compatible endpoint is reached by setting this instead.
    */
   baseURL?: string;
+  /** Headers sent with every request (the SDK reads the API version from here). */
+  defaultHeaders?: Record<string, string>;
   /**
    * Supply the request credentials directly, bypassing Application Default
    * Credentials.

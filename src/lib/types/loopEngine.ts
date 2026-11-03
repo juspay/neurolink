@@ -3,6 +3,7 @@ import type { Span } from "@opentelemetry/api";
 import type { Tool } from "./tools.js";
 import type { GenerateStopReason } from "./generate.js";
 import type { UnknownRecord } from "./common.js";
+import type { AnthropicSamplingParams } from "./providers.js";
 import type { GenerationOperation, GenerationRecord } from "./observability.js";
 import type {
   CollectedChunkResult,
@@ -345,8 +346,12 @@ export type AnthropicLoopAdapterConfig<
     conversation: TMessage[],
     step: number,
   ) =>
-    | Anthropic.Messages.MessageCreateParamsNonStreaming
-    | Promise<Anthropic.Messages.MessageCreateParamsNonStreaming>;
+    | (Anthropic.Messages.MessageCreateParamsNonStreaming &
+        AnthropicSamplingParams)
+    | Promise<
+        Anthropic.Messages.MessageCreateParamsNonStreaming &
+          AnthropicSamplingParams
+      >;
   /** The turn's live tool record, used for deferred-catalog resolution. */
   toolsRecord: Record<string, Tool>;
   /**

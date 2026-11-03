@@ -2258,6 +2258,7 @@ console.log(result.content);
 - [GoogleGenAIClass](type-aliases/GoogleGenAIClass.md)
 - [GoogleVertexProviderSettings](type-aliases/GoogleVertexProviderSettings.md)
 - [VertexAnthropicAuthClient](type-aliases/VertexAnthropicAuthClient.md)
+- [AnthropicSamplingParams](type-aliases/AnthropicSamplingParams.md)
 - [AnthropicVertexSettings](type-aliases/AnthropicVertexSettings.md)
 - [ModelsResponse](type-aliases/ModelsResponse.md)
 - [AdaptiveSemaphoreConfig](type-aliases/AdaptiveSemaphoreConfig.md)

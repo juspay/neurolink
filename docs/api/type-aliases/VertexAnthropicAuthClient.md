@@ -19,11 +19,11 @@ instead of standing up Application Default Credentials.
 
 ### getRequestHeaders
 
-> **getRequestHeaders**: () => `Promise`\<`Record`\<`string`, `string`\>\>
+> **getRequestHeaders**: () => `Promise`\<`Headers`\>
 
 #### Returns
 
-`Promise`\<`Record`\<`string`, `string`\>\>
+`Promise`\<`Headers`\>
 
 ---
 

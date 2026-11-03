@@ -157,7 +157,7 @@ import {
 import { createStreamChannel } from "../../core/streamChannel.js";
 import { toNativeToolDeclarations } from "../../core/nativeToolFormat.js";
 
-import { ANTHROPIC_BETA_HEADERS } from "./constants.js";
+import { ANTHROPIC_API_VERSION, ANTHROPIC_BETA_HEADERS } from "./constants.js";
 import { cacheControlOf, withLastToolCacheBreakpoint } from "./cacheControl.js";
 import { createNativeGenerateGuard } from "../../context/nativeGenerateGuard.js";
 import {
@@ -860,6 +860,10 @@ export class AnthropicProvider extends BaseProvider {
       // The claude-code-20250219 beta header triggers "credential only for Claude Code" error
       client = new Anthropic({
         apiKey: "oauth-authenticated", // Placeholder, actual auth is in fetch wrapper
+        // The fetch wrapper returns before it sets a version when it skips the
+        // body transform, which this client always does, so the SDK's own
+        // default (2026-10-21 in 1.x) would go out. Pin what this path sent.
+        defaultHeaders: { "anthropic-version": ANTHROPIC_API_VERSION },
         // The same gateway the API-key branch honours: without it, OAuth
         // credentials that also name a base URL would still reach the vendor.
         ...(this.baseURL && { baseURL: this.baseURL }),
@@ -898,7 +902,18 @@ export class AnthropicProvider extends BaseProvider {
 
       client = new Anthropic({
         apiKey: apiKeyToUse,
-        defaultHeaders: headers,
+        // SDK 1.x moved two defaults with its API version: it sends an apiKey
+        // as `Authorization: Bearer` and states 2026-10-21. This provider, the
+        // gateways in front of it and the NeuroLink Claude proxy authenticate
+        // with `x-api-key` on 2023-06-01, so both are stated here (a null
+        // `authorization` drops the SDK's own). A caller's headers still win.
+        defaultHeaders: {
+          "anthropic-version": ANTHROPIC_API_VERSION,
+          ...(apiKeyToUse
+            ? { "x-api-key": apiKeyToUse, authorization: null }
+            : {}),
+          ...headers,
+        },
         ...(this.baseURL && { baseURL: this.baseURL }),
         // Same capture as the OAuth branch: works for direct API-key traffic
         // (legacy requests/tokens counters) and for the NeuroLink Claude proxy
@@ -2453,7 +2468,11 @@ export class AnthropicProvider extends BaseProvider {
             continue;
           }
           const message = conversation[i];
-          if (truncateSet.has(i) && Array.isArray(message.content)) {
+          if (
+            truncateSet.has(i) &&
+            message.role !== "system" &&
+            Array.isArray(message.content)
+          ) {
             rebuilt.push({
               ...message,
               content: message.content.map((block) =>

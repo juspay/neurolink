@@ -47,6 +47,7 @@ import type {
   TextGenerationOptions,
   GenAIClient,
   GoogleGenAIClass,
+  AnthropicSamplingParams,
   AnthropicVertexSettings,
   StreamOptions,
   StreamResult,
@@ -92,6 +93,7 @@ import {
   processUnifiedFilesArray,
 } from "../../utils/messageBuilder.js";
 import { logger } from "../../utils/logger.js";
+import { VERTEX_ANTHROPIC_VERSION } from "../anthropic/constants.js";
 import { drainDetachedPump } from "../../utils/drainDetachedPump.js";
 import { releaseIterator } from "../../utils/streamCancellation.js";
 import {
@@ -625,6 +627,9 @@ const createVertexAnthropicSettings = async (
     // bound (a 429 with retry-after: 8549 sleeps 2.4h per retry, invisible
     // to fallback orchestration). Retries are the orchestrator's job.
     maxRetries: 0,
+    // The Vertex SDK copies its default API version into the body when none is
+    // set, and that default moves with its releases; Vertex expects this one.
+    defaultHeaders: { "anthropic-version": VERTEX_ANTHROPIC_VERSION },
     // Outside the express branch too: an endpoint override is about WHERE the
     // request goes, not how it is authenticated, so a caller using ADC against
     // a gateway needs it just as much.
@@ -638,9 +643,8 @@ const createVertexAnthropicSettings = async (
           // credentials error that names nothing useful. `authClient` is the
           // option the SDK actually consults.
           authClient: {
-            getRequestHeaders: async () => ({
-              Authorization: `Bearer ${direct.apiKey}`,
-            }),
+            getRequestHeaders: async () =>
+              new Headers({ Authorization: `Bearer ${direct.apiKey}` }),
             projectId: null,
           },
         }
@@ -4478,7 +4482,8 @@ export class GoogleVertexProvider extends BaseProvider {
       forceFinalResult,
     );
 
-    const requestParams: Parameters<typeof client.messages.stream>[0] = {
+    const requestParams: Parameters<typeof client.messages.stream>[0] &
+      AnthropicSamplingParams = {
       model: modelName,
       // Default to the model's real output ceiling (e.g. 64K for Sonnet 4.x)
       // instead of the legacy 4096, which silently truncated large structured

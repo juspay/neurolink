@@ -18983,6 +18983,216 @@ async function runVisionModelFallbackSection(): Promise<void> {
 // directly instead of a full request/response round trip)
 // ───────────────────────────────────────────────────────────────────────
 
+// ───────────────────────────────────────────────────────────────────────
+// Section: the Anthropic OAuth client keeps the API version and auth it sent.
+//
+// The OAuth client hands the SDK a placeholder key and lets a fetch wrapper set
+// the real credential. The wrapper skips the version header for this client, so
+// the SDK's own default would go out unless the client states it.
+// ───────────────────────────────────────────────────────────────────────
+
+async function runAnthropicOAuthApiVersionSection(): Promise<void> {
+  const section = "LLM anthropic (OAuth)";
+  console.log(`\n=== ${section} ===`);
+  const touched = [
+    "ANTHROPIC_OAUTH_TOKEN",
+    "CLAUDE_OAUTH_TOKEN",
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_AUTH_METHOD",
+  ];
+  const before = touched.map((name) => [name, process.env[name]] as const);
+  setEnv("ANTHROPIC_OAUTH_TOKEN", "test-fake-anthropic-oauth-credential");
+  setEnv("ANTHROPIC_AUTH_METHOD", "oauth");
+  for (const name of [
+    "CLAUDE_OAUTH_TOKEN",
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_BASE_URL",
+  ]) {
+    setEnv(name, undefined);
+  }
+  const label = `${section}: sends anthropic-version 2023-06-01 and the Bearer token, no x-api-key`;
+  try {
+    const model = "claude-sonnet-4-6";
+    const { NeuroLink } = await import("../dist/index.js");
+    await withMocks(
+      [
+        {
+          // An OAuth token handed over by environment variable has no expiry,
+          // so the client refreshes it before the first request.
+          method: "POST",
+          url: "api.anthropic.com/v1/oauth/token",
+          respond: {
+            status: 200,
+            json: {
+              access_token: "test-fake-refreshed-oauth-credential",
+              refresh_token: "test-fake-refresh-credential",
+              expires_in: 3600,
+              token_type: "Bearer",
+            },
+          },
+        },
+        {
+          method: "POST",
+          url: "api.anthropic.com/v1/messages",
+          respond: {
+            status: 200,
+            json: anthropicMessageResponse("pong", model),
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        await nl
+          .generate({
+            provider: "anthropic",
+            model,
+            input: { text: "ping" },
+            disableTools: true,
+          })
+          .catch(() => undefined);
+        const call = calls.find((c) => c.url.includes("/v1/messages"));
+        expect(call !== undefined, "a Messages request was captured");
+        if (call === undefined) {
+          return;
+        }
+        expectEq(
+          call.headers["anthropic-version"],
+          "2023-06-01",
+          "anthropic-version header",
+        );
+        // Either the token from the environment or the one the refresh returns,
+        // depending on whether the client judged it due; the scheme and that it
+        // is the OAuth credential, not an API key, is what is under test.
+        expect(
+          /^Bearer test-fake-.*oauth-credential$/.test(
+            call.headers["authorization"] ?? "",
+          ),
+          "authorization carries the OAuth token",
+        );
+        expect(!("x-api-key" in call.headers), "x-api-key must not be set");
+      },
+    );
+    record(results, label, true);
+  } catch (err) {
+    record(
+      results,
+      label,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  } finally {
+    for (const [name, value] of before) {
+      if (value === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = value;
+      }
+    }
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section: Vertex Claude keeps the API version it has always sent.
+//
+// The Vertex SDK copies its own default `anthropic-version` into the request
+// body when none is set, and that default moves with the SDK's releases. The
+// version Vertex expects is `vertex-2023-10-16`, so the client states it. The
+// express-key path is used because it authenticates without Application
+// Default Credentials, whose token exchange this suite cannot intercept.
+// ───────────────────────────────────────────────────────────────────────
+
+async function runVertexClaudeApiVersionSection(): Promise<void> {
+  const section = "Vertex Claude (API version)";
+  console.log(`\n=== ${section} ===`);
+  // Put back only what this section changes. restoreEnv() resets every
+  // variable any earlier section set, including the ones later sections still
+  // rely on (the dist-instanceof case needs the OPENAI_API_KEY that an earlier
+  // section leaves in place).
+  const touched = [
+    "GOOGLE_VERTEX_API_KEY",
+    "GOOGLE_CLOUD_PROJECT_ID",
+    "VERTEX_PROJECT_ID",
+    "GOOGLE_VERTEX_PROJECT",
+    "GOOGLE_CLOUD_PROJECT",
+    "GOOGLE_VERTEX_BASE_URL",
+  ];
+  const before = touched.map((name) => [name, process.env[name]] as const);
+  setEnv("GOOGLE_VERTEX_API_KEY", "test-fake-vertex-express-credential");
+  for (const name of touched.slice(1)) {
+    setEnv(name, undefined);
+  }
+  const label = `${section}: the request body names vertex-2023-10-16`;
+  try {
+    const model = "claude-sonnet-4-5";
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "aiplatform.googleapis.com",
+          respond: {
+            status: 200,
+            json: anthropicMessageResponse("pong", model),
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const { GoogleVertexProvider } =
+          await import("../dist/providers/googleVertex/client.js");
+        const provider = new GoogleVertexProvider(
+          model,
+          "vertex",
+          undefined,
+          "us-east5",
+        );
+        const client = await (
+          provider as unknown as {
+            createAnthropicVertexClient(timeoutMs?: number): Promise<{
+              messages: {
+                create(params: {
+                  model: string;
+                  max_tokens: number;
+                  messages: Array<{ role: "user"; content: string }>;
+                }): Promise<unknown>;
+              };
+            }>;
+          }
+        ).createAnthropicVertexClient(10_000);
+        await client.messages
+          .create({
+            model,
+            max_tokens: 8,
+            messages: [{ role: "user", content: "ping" }],
+          })
+          .catch(() => undefined);
+        expect(calls.length > 0, "a Vertex request was captured");
+        const body = calls[0].bodyJson as { anthropic_version?: string };
+        expectEq(
+          body.anthropic_version,
+          "vertex-2023-10-16",
+          "body.anthropic_version",
+        );
+      },
+    );
+    record(results, label, true);
+  } catch (err) {
+    record(
+      results,
+      label,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  } finally {
+    for (const [name, value] of before) {
+      if (value === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = value;
+      }
+    }
+  }
+}
+
 async function runVertexSection(): Promise<void> {
   const section = "Vertex (construction + formatProviderError contract)";
   console.log(`\n=== ${section} ===`);
@@ -19735,6 +19945,8 @@ async function main(): Promise<void> {
   const FOCUSED_RUNS: Record<string, Array<() => Promise<void>>> = {
     "--image-downloads-only": [runImageGenSection, runImageDnsRebindingSection],
     "--openai-strict-gate-only": [runOpenAIStrictGateSection],
+    "--vertex-claude-version-only": [runVertexClaudeApiVersionSection],
+    "--anthropic-oauth-version-only": [runAnthropicOAuthApiVersionSection],
     "--embeddings-only": [runEmbeddingsSection],
     "--catalog-per-model-tools-only": [runCatalogPerModelToolsSection],
     "--decide-only": [runDecideSection],
@@ -19769,6 +19981,7 @@ async function main(): Promise<void> {
     await runOpenAISection();
     await runAzureSection();
     await runAnthropicSection();
+    await runAnthropicOAuthApiVersionSection();
     await runCloudflareContentFormatSection();
     await runStructuredReaskBillingSection();
     await runReasoningReplaySection();
@@ -19778,6 +19991,7 @@ async function main(): Promise<void> {
     await runInvalidModelFallbackSection();
     await runVisionModelFallbackSection();
     await runVertexSection();
+    await runVertexClaudeApiVersionSection();
     await runBedrockSection();
     await runProviderErrorFieldSection();
     await runSingleProviderWrapperMessageSection();
