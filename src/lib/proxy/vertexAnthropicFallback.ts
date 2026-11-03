@@ -15,6 +15,7 @@
 
 import type { GoogleAuth } from "google-auth-library";
 import { logger } from "../utils/logger.js";
+import { VERTEX_ANTHROPIC_VERSION } from "../providers/anthropic/constants.js";
 import {
   claudeDisabledThinkingReplacement,
   modelSupportsForcedToolChoice,
@@ -28,9 +29,6 @@ import type {
   VertexAnthropicPassthroughRequest,
   VertexAnthropicPassthroughTarget,
 } from "../types/index.js";
-
-/** Vertex pins the Anthropic API version in the body, not a header. */
-const VERTEX_ANTHROPIC_VERSION = "vertex-2023-10-16";
 
 const CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform";
 

@@ -52,6 +52,14 @@ a compatible endpoint is reached by setting this instead.
 
 ---
 
+### defaultHeaders?
+
+> `optional` **defaultHeaders?**: `Record`\<`string`, `string`\>
+
+Headers sent with every request (the SDK reads the API version from here).
+
+---
+
 ### authClient?
 
 > `optional` **authClient?**: [`VertexAnthropicAuthClient`](VertexAnthropicAuthClient.md)

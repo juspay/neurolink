@@ -62,7 +62,7 @@ Provider name recorded on each step's generation and used to price it.
 
 ### buildParams
 
-> **buildParams**: (`conversation`, `step`) => `Anthropic.Messages.MessageCreateParamsNonStreaming` \| `Promise`\<`Anthropic.Messages.MessageCreateParamsNonStreaming`\>
+> **buildParams**: (`conversation`, `step`) => `Anthropic.Messages.MessageCreateParamsNonStreaming` & [`AnthropicSamplingParams`](AnthropicSamplingParams.md) \| `Promise`\<`Anthropic.Messages.MessageCreateParamsNonStreaming` & [`AnthropicSamplingParams`](AnthropicSamplingParams.md)\>
 
 Returns the NON-streaming params. The adapter adds `stream: true` itself,
 so requiring the streaming variant here would force every caller to
@@ -82,7 +82,7 @@ the adapter is about to overwrite.
 
 #### Returns
 
-`Anthropic.Messages.MessageCreateParamsNonStreaming` \| `Promise`\<`Anthropic.Messages.MessageCreateParamsNonStreaming`\>
+`Anthropic.Messages.MessageCreateParamsNonStreaming` & [`AnthropicSamplingParams`](AnthropicSamplingParams.md) \| `Promise`\<`Anthropic.Messages.MessageCreateParamsNonStreaming` & [`AnthropicSamplingParams`](AnthropicSamplingParams.md)\>
 
 ---
 
