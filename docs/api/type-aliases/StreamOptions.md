@@ -504,6 +504,26 @@ before you set it:
 
 ---
 
+### messageThreads?
+
+> `optional` **messageThreads?**: `boolean`
+
+Send this turn's steps as an Anthropic message thread (beta,
+`message-threads-2026-08-12`): the first step sends the whole conversation
+and a later step only the messages since the last response, while nothing
+the thread fixes has changed (otherwise it starts a new thread), so the
+request stops growing with the turn. Off by default.
+
+Native Anthropic streaming with API-key auth only; other providers and
+OAuth ignore it. The server keeps a thread for minutes and may drop it, in
+which case the step is resent in full; a change to the tools, system
+prompt, tool choice or earlier messages starts a new thread. Threads are
+not zero-data-retention eligible, and the API has no way to delete one
+(it expires within an hour). It was measured to shrink the request, not to
+lower time to first token when prompt caching is already on.
+
+---
+
 ### stallTimeoutMs?
 
 > `optional` **stallTimeoutMs?**: `number`

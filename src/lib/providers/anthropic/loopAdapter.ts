@@ -31,10 +31,14 @@ import type {
   AgenticLoopToolCallResult,
   AnthropicLoopAdapterConfig,
   AnthropicPendingToolUse,
+  AnthropicSamplingParams,
+  AnthropicThreadPlan,
+  AnthropicThreadSession,
 } from "../../types/index.js";
 import { resolveDeferredTool } from "../../tools/toolDiscovery.js";
 import { stringifyAnthropicToolOutput } from "./toolOutput.js";
 import { stringifyFinalResultInput } from "./structuredOutput.js";
+import { settleThread, threadRecovery } from "./threads.js";
 import {
   composeAbortSignalsScoped,
   createTimeoutController,
@@ -78,6 +82,8 @@ async function readAnthropicStep({
   finalResultToolName,
   onTerminalResult,
   requireTerminalEvent,
+  threads,
+  requestHeaders,
 }: {
   params: Anthropic.Messages.MessageCreateParams;
   client: AnthropicLoopAdapterConfig["client"];
@@ -94,6 +100,10 @@ async function readAnthropicStep({
   finalResultToolName?: string;
   onTerminalResult?: (text: string) => void;
   requireTerminalEvent?: boolean;
+  /** Records whether this response can be continued from. */
+  threads?: AnthropicThreadSession;
+  /** Per-request headers; the thread beta rides here. */
+  requestHeaders?: Record<string, string>;
 }): Promise<AgenticLoopStepResult<Anthropic.Messages.ContentBlockParam[]>> {
   // Single assertion, not a double: `messages.create` returns a union of
   // Message and Stream, and Stream<RawMessageStreamEvent> already IS an
@@ -105,7 +115,10 @@ async function readAnthropicStep({
     // runAgenticLoop already derives the engine signal from the caller's
     // abortSignal, so preferring config's would ignore engine-initiated
     // cancellation entirely.
-    { signal: stepSignal },
+    {
+      signal: stepSignal,
+      ...(requestHeaders ? { headers: requestHeaders } : {}),
+    },
   )) as AsyncIterable<Anthropic.Messages.RawMessageStreamEvent>;
 
   const textByIndex = new Map<number, string>();
@@ -139,6 +152,7 @@ async function readAnthropicStep({
   // content blocks that DID arrive are syntactically complete.
   let sawTerminalEvent = false;
   let responseModel: string | undefined;
+  let messageId: string | undefined;
 
   for await (const rawEvent of events) {
     if (stepSignal.aborted) {
@@ -151,6 +165,7 @@ async function readAnthropicStep({
     const event = rawEvent;
 
     if (event.type === "message_start") {
+      messageId = event.message?.id ?? messageId;
       responseModel = event.message?.model ?? responseModel;
       const usage = event.message?.usage;
       inputTokens += usage?.input_tokens ?? 0;
@@ -290,6 +305,14 @@ async function readAnthropicStep({
       severity: ErrorSeverity.HIGH,
       retriable: false,
       context: { provider: "anthropic", rawStopReason },
+    });
+  }
+
+  if (threads) {
+    settleThread(threads, {
+      sawTerminalEvent,
+      messageId,
+      stopReason: rawStopReason,
     });
   }
 
@@ -498,53 +521,92 @@ export function createAnthropicLoopAdapter<
       channel: { push(chunk: AgenticLoopChunk): void },
       signal: AbortSignal,
     ): Promise<AgenticLoopStepResult<Anthropic.Messages.ContentBlockParam[]>> {
-      const params = request.raw as Anthropic.Messages.MessageCreateParams;
-      // Per-REQUEST deadline, armed fresh for this step and disposed the moment
-      // it settles. Being armed per step is what makes it unresettable from a
-      // step boundary: the boundary runs between two steps, when no request
-      // deadline is running at all.
-      //
-      // Scoped composition rather than AbortSignal.any: the engine signal lives
-      // for the whole turn, and `any` keeps its registration on that signal
-      // until the derived one is collected, so composing per step accumulates
-      // listeners for the turn's whole length.
-      const requestTimeout = config.requestTimeoutMs
-        ? createTimeoutController(
-            config.requestTimeoutMs,
-            "anthropic",
-            "stream",
-          )
-        : null;
-      const composed = composeAbortSignalsScoped(
-        signal,
-        requestTimeout?.controller.signal,
-      );
-      try {
-        return await readAnthropicStep({
-          params,
-          client: config.client,
-          channel,
-          // The engine's signal, not config's: runAgenticLoop already derives
-          // it from the caller's abortSignal, so preferring config's would
-          // ignore engine-initiated cancellation entirely.
-          stepSignal: composed.signal ?? signal,
-          requestTimeoutSignal: requestTimeout?.controller.signal,
-          ...(config.noteObservedPromptTokens
-            ? { noteObservedPromptTokens: config.noteObservedPromptTokens }
-            : {}),
-          ...(config.finalResultToolName
-            ? { finalResultToolName: config.finalResultToolName }
-            : {}),
-          ...(config.onTerminalResult
-            ? { onTerminalResult: config.onTerminalResult }
-            : {}),
-          ...(config.requireTerminalEvent
-            ? { requireTerminalEvent: config.requireTerminalEvent }
-            : {}),
-        });
-      } finally {
-        composed.dispose();
-        requestTimeout?.cleanup();
+      const params = request.raw as Anthropic.Messages.MessageCreateParams &
+        AnthropicSamplingParams;
+
+      const runStep = async (
+        stepParams: Anthropic.Messages.MessageCreateParams,
+        threadPlan?: AnthropicThreadPlan,
+      ): Promise<
+        AgenticLoopStepResult<Anthropic.Messages.ContentBlockParam[]>
+      > => {
+        // Per-REQUEST deadline, armed fresh for this step and disposed the moment
+        // it settles. Being armed per step is what makes it unresettable from a
+        // step boundary: the boundary runs between two steps, when no request
+        // deadline is running at all.
+        //
+        // Scoped composition rather than AbortSignal.any: the engine signal lives
+        // for the whole turn, and `any` keeps its registration on that signal
+        // until the derived one is collected, so composing per step accumulates
+        // listeners for the turn's whole length.
+        const requestTimeout = config.requestTimeoutMs
+          ? createTimeoutController(
+              config.requestTimeoutMs,
+              "anthropic",
+              "stream",
+            )
+          : null;
+        const composed = composeAbortSignalsScoped(
+          signal,
+          requestTimeout?.controller.signal,
+        );
+        try {
+          return await readAnthropicStep({
+            params: stepParams,
+            ...(threadPlan
+              ? { threads: config.threads, requestHeaders: threadPlan.headers }
+              : {}),
+            client: config.client,
+            channel,
+            // The engine's signal, not config's: runAgenticLoop already derives
+            // it from the caller's abortSignal, so preferring config's would
+            // ignore engine-initiated cancellation entirely.
+            stepSignal: composed.signal ?? signal,
+            requestTimeoutSignal: requestTimeout?.controller.signal,
+            ...(config.noteObservedPromptTokens
+              ? { noteObservedPromptTokens: config.noteObservedPromptTokens }
+              : {}),
+            ...(config.finalResultToolName
+              ? { finalResultToolName: config.finalResultToolName }
+              : {}),
+            ...(config.onTerminalResult
+              ? { onTerminalResult: config.onTerminalResult }
+              : {}),
+            ...(config.requireTerminalEvent
+              ? { requireTerminalEvent: config.requireTerminalEvent }
+              : {}),
+          });
+        } finally {
+          composed.dispose();
+          requestTimeout?.cleanup();
+        }
+      };
+
+      const threads = config.threads;
+      if (!threads?.enabled) {
+        return runStep(params);
+      }
+      // A thread step goes out as a create or a continue. When the API cannot
+      // continue it, or cannot thread the request at all, the same step is
+      // sent once more in full; any other failure just ends the thread, so the
+      // next step starts a new one.
+      let plan = threads.plan(params);
+      for (let attempt = 0; ; attempt++) {
+        try {
+          return await runStep(plan.params, plan);
+        } catch (error) {
+          threads.reset();
+          const recovery = attempt === 0 ? threadRecovery(error) : undefined;
+          if (recovery === "recreate") {
+            plan = threads.plan(params);
+            continue;
+          }
+          if (recovery === "unthreaded") {
+            threads.disable();
+            return runStep(params);
+          }
+          throw error;
+        }
       }
     },
 

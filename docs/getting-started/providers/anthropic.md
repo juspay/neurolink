@@ -457,6 +457,28 @@ enum AnthropicBetaFeature {
 
 For OAuth mode, the beta headers are different: `oauth-2025-04-20` and `interleaved-thinking-2025-05-14` are sent (the `claude-code-20250219` header is only included if it was present in the original request headers, as it can trigger authorization errors with OAuth tokens).
 
+### Message threads (beta)
+
+A turn with tools makes several requests, and each one carries the whole conversation so far. With `messageThreads: true` the first request creates an Anthropic [message thread](https://platform.claude.com/docs/en/build-with-claude/message-threads). A later request sends only the messages since the last response, plus the previous response id, while nothing the thread fixes has changed; otherwise it sends the whole conversation as a new thread. It adds the `message-threads-2026-08-12` beta header to those requests.
+
+```typescript
+const result = await neurolink.stream({
+  input: { text: "Look the order up and summarise it" },
+  provider: "anthropic",
+  tools,
+  messageThreads: true, // off by default
+});
+```
+
+What to know before turning it on:
+
+- **It shrinks the request, it did not lower latency in a measurement.** Against the Messages API, with prompt caching on in both modes, a tool turn's later requests went from about 79 KB to about 0.3 KB at 25k tokens of context, and from about 337 KB to about 0.3 KB at 110k tokens. Median time to first token was the same either way (672 vs 700 ms, and 739 vs 724 ms; one model, one network, no tools in the loop). The saving is bandwidth, not time.
+- **Streaming `stream()` turns on API-key auth only.** `generate()`, other providers and OAuth (subscription) auth ignore the option.
+- **It is best-effort and the conversation stays yours.** The API keeps a thread in memory for a few minutes. If it cannot continue one (`thread_not_found` and similar), the same step is resent once in full as a new thread. If it cannot thread the request at all (`thread_unsupported_request`: HIPAA or inference-hook organisations, for example), that step and the rest of the turn go out unthreaded.
+- **Anything a thread fixes starts a new one.** A change to the tools, the system prompt, the tool choice or the earlier messages (a context reclaim, for example) is sent as a new thread rather than a continue. A forced first-step tool choice therefore makes step 2 a new thread.
+- **A cut-off, refused or otherwise abnormal response is never continued from.**
+- **Retention.** Threads are not zero-data-retention eligible, there is no API to delete one, and each is deleted within an hour of its last use. Leave the option off where that matters, for example with the conversation-erasure write protocol.
+
 ---
 
 ## Multimodal Capabilities

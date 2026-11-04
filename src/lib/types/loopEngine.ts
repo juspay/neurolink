@@ -299,6 +299,42 @@ export type AgenticLoopAdapter<TConversation = unknown, TRaw = unknown> = {
  * Anthropic has never had one, and setting it for both would change native
  * Anthropic's behaviour under the guise of a shared refactor.
  */
+/** The `thread` field of an Anthropic Messages request (message threads, beta). */
+export type AnthropicThreadRef =
+  | { type: "create" }
+  | { type: "continue"; previous_message_id: string };
+
+/** One step's request, shaped for a thread. */
+export type AnthropicThreadPlan = {
+  /** `continue` sends only the new messages and leaves out `system` and `tools`. */
+  mode: "create" | "continue";
+  params: Anthropic.Messages.MessageCreateParams &
+    AnthropicSamplingParams & { thread: AnthropicThreadRef };
+  /** The `anthropic-beta` value for this request: the client's own plus the thread beta. */
+  headers: Record<string, string>;
+};
+
+/**
+ * The state of one Anthropic message thread across the steps of a turn.
+ *
+ * The thread lives on the server for minutes and is best-effort, so this is a
+ * cache of a conversation the caller still owns: whenever it is unsure, the
+ * next plan is a `create` that resends everything.
+ */
+export type AnthropicThreadSession = {
+  /** False once the API has said it cannot thread this request. */
+  readonly enabled: boolean;
+  plan(
+    params: Anthropic.Messages.MessageCreateParams & AnthropicSamplingParams,
+  ): AnthropicThreadPlan;
+  /** The response was complete and stored: the next step may continue from it. */
+  accept(messageId: string): void;
+  /** The next plan is a `create`. */
+  reset(): void;
+  /** Stop threading for the rest of the turn. */
+  disable(): void;
+};
+
 /**
  * Construction input for `createAnthropicLoopAdapter`, shared by direct
  * Anthropic and Claude-on-Vertex.
@@ -330,6 +366,12 @@ export type AnthropicLoopAdapterConfig<
   /** Provider name recorded on each step's generation and used to price it. */
   provider: string;
   maxSteps: number;
+  /**
+   * Send the turn's steps as an Anthropic message thread. Only the direct
+   * Anthropic client sets it, and only on request; without it every step
+   * resends the whole conversation, as before.
+   */
+  threads?: AnthropicThreadSession;
   /**
    * Build one step's request. A closure so the per-turn work the caller
    * already does — system prompt, tool declarations, sampling, thinking
