@@ -153,6 +153,24 @@ leaves it off for them whatever the thinking setting.
 default applies. If `enabled: true` and `budgetTokens` are also set, thinking is
 enabled, as before.
 
+### When thinking is left off a request
+
+Anthropic rejects some requests that carry thinking, so on the `anthropic`
+provider NeuroLink leaves `thinking` off those requests and logs a warning,
+instead of sending a request that would fail with a 400. (Claude on `vertex`
+does the same for `generate({ schema })` and caps the budget the same way.)
+
+- **A forced tool choice.** `toolChoice: "required"`, a named tool, a choice
+  forced on a step by `prepareStep` or `toolChoiceSteps`, and `generate({ schema })`
+  without tools (which forces a JSON tool) all force tool use, and Anthropic does
+  not allow thinking with that. `"auto"` and `"none"` keep thinking.
+- **The rest of a tool turn that started without thinking.** Thinking cannot
+  start partway through a tool call, so after a forced step it stays off until
+  the model stops calling tools. The next call thinks again.
+- **A budget that cannot fit.** `budgetTokens` is capped at the request's
+  `maxTokens` minus 1,024, which leaves room for the answer. When that cap is
+  under Anthropic's 1,024-token minimum, thinking is left off.
+
 ## Configuration Options
 
 The `thinkingConfig` object supports the following options:
