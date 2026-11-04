@@ -1,0 +1,110 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "cheaper-inference",
+  "displayName": "Cheaper Inference",
+  "aliases": ["cheaperinference"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.cheaperinference.com/v1"
+  },
+  "models": {
+    "default": "gpt-5.4-mini",
+    "fallbacks": ["gpt-5.4", "claude-sonnet-5", "deepseek-v4-flash"],
+    "defaultContextWindow": 400000,
+    "defaultMaxOutputTokens": 128000,
+    "catalog": {
+      "gpt-5.4-mini": {
+        "contextWindow": 400000,
+        "maxOutputTokens": 128000,
+        "vision": true,
+        "status": "production",
+        "description": "GPT-5.4 mini — default. Public roster (GET https://api.cheaperinference.com/public/models, 2026-11-04): context_length 400000, max_output_tokens 128000, supports_vision true, features include tool-use and structured-output. Roster-verified only; not probed live without a key."
+      },
+      "gpt-5.4": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "vision": true,
+        "status": "production",
+        "description": "GPT-5.4 — first fallback. Public roster (2026-11-04): context_length 1000000, max_output_tokens 128000, supports_vision true, features include tool-use and structured-output. Roster-verified only."
+      },
+      "claude-sonnet-5": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "vision": true,
+        "status": "production",
+        "description": "Claude Sonnet 5 — fallback from a second model family. Public roster (2026-11-04): context_length 1000000, max_output_tokens 128000, supports_vision true, features include tool-use and structured-output. Roster-verified only."
+      },
+      "deepseek-v4-flash": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 384000,
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V4 Flash — fallback from a third model family. Public roster (2026-11-04): context_length 1000000, max_output_tokens 384000, supports_vision false, features include tool-use and structured-output. Roster-verified only."
+      },
+      "gemini-3.1-pro-preview": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 65536,
+        "vision": true,
+        "status": "preview",
+        "description": "Gemini 3.1 Pro (preview). Public roster (2026-11-04): context_length 1000000, max_output_tokens 65536, supports_vision true, features include tool-use and structured-output. Roster-verified only."
+      },
+      "glm-5.3": {
+        "contextWindow": 1000000,
+        "vision": false,
+        "status": "production",
+        "description": "GLM 5.3. Public roster (2026-11-04): context_length 1000000, max_output_tokens 1000000 (equal to the context window, so not recorded as a distinct output ceiling), supports_vision false, features include tool-use and structured-output. Roster-verified only."
+      }
+    },
+    "visionModel": "gpt-5.4-mini",
+    "topModels": [
+      "gpt-5.4-mini",
+      "gpt-5.4",
+      "claude-sonnet-5",
+      "deepseek-v4-flash",
+      "gemini-3.1-pro-preview",
+      "glm-5.3"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": false,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "class": "authentication",
+      "message": "Invalid Cheaper Inference API key (HTTP 401). Check {apiKeyEnvVar}; create a key at {setupUrl}"
+    }
+  ],
+  "setup": {
+    "url": "https://cheaperinference.com",
+    "apiKeyFormat": "^ci_live_.+$",
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://cheaperinference.com and create an account",
+      "2. Add funds to your balance (there is no free tier; the minimum top-up is $5)",
+      "3. Generate an API key in your dashboard (keys start with ci_live_)",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-11-04",
+      "status": 200,
+      "method": "unauthenticated GET https://api.cheaperinference.com/public/models — 570 models (350 text); credential-free, no key used"
+    },
+    "authProbe": {
+      "date": "2026-11-04",
+      "status": 401,
+      "method": "unauthenticated GET https://api.cheaperinference.com/v1/models — 401 invalid_api_key"
+    },
+    "liveMatrix": null,
+    "addedInPR": "PENDING_PR"
+  }
+}

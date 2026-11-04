@@ -562,6 +562,20 @@ counts as unset.
 
 ---
 
+### cheaperInference?
+
+> `optional` **cheaperInference?**: `object`
+
+#### apiKey?
+
+> `optional` **apiKey?**: `string`
+
+#### baseURL?
+
+> `optional` **baseURL?**: `string`
+
+---
+
 ### chutes?
 
 > `optional` **chutes?**: `object`

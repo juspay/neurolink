@@ -208,6 +208,12 @@ Supported AI Provider Names
 
 ---
 
+### CHEAPER_INFERENCE
+
+> **CHEAPER_INFERENCE**: `"cheaper-inference"`
+
+---
+
 ### CHUTES
 
 > **CHUTES**: `"chutes"`

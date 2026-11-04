@@ -269,6 +269,7 @@ export type NeurolinkCredentials = {
   bytez?: { apiKey?: string; baseURL?: string };
   cerebras?: { apiKey?: string; baseURL?: string };
   charmHyper?: { apiKey?: string; baseURL?: string };
+  cheaperInference?: { apiKey?: string; baseURL?: string };
   chutes?: { apiKey?: string; baseURL?: string };
   cloudflare?: { apiKey?: string; baseURL?: string; accountId?: string };
   crusoe?: { apiKey?: string; baseURL?: string };
