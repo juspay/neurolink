@@ -43,6 +43,7 @@ import {
 import type {
   ToolExecutionSummaryInternal,
   AnthropicProviderConfig,
+  AnthropicThreadSession,
   StreamOptions,
   StreamResult,
   StreamToolResult,
@@ -95,6 +96,7 @@ import type {
 } from "../../types/index.js";
 import { stringifyAnthropicToolOutput } from "./toolOutput.js";
 import { createAnthropicLoopAdapter } from "./loopAdapter.js";
+import { createAnthropicThreadSession } from "./threads.js";
 import { DEFAULT_BEFORE_STEP_TIMEOUT_MS } from "../../utils/parameterValidation.js";
 import type {
   AgenticLoopReclaimResult,
@@ -961,6 +963,31 @@ export class AnthropicProvider extends BaseProvider {
         ? ANTHROPIC_BETA_HEADERS["anthropic-beta"]
         : "disabled",
     });
+  }
+
+  /**
+   * The thread state for this turn, or undefined when message threads (beta)
+   * were not asked for. Opt-in per call (`StreamOptions.messageThreads`) and
+   * limited to API-key auth, because the subscription (OAuth) path rewrites
+   * beta headers in its own fetch wrapper, which has not been checked against
+   * the thread beta.
+   */
+  private createMessageThreadSession(
+    options: StreamOptions,
+  ): AnthropicThreadSession | undefined {
+    if (options.messageThreads !== true) {
+      return undefined;
+    }
+    if (this.authMethod !== "api_key") {
+      logger.debug(
+        "[anthropic] messageThreads requested but not used: it needs API-key auth",
+        { authMethod: this.authMethod },
+      );
+      return undefined;
+    }
+    return createAnthropicThreadSession(
+      this.getAuthHeaders()["anthropic-beta"],
+    );
   }
 
   /**
@@ -2616,10 +2643,13 @@ export class AnthropicProvider extends BaseProvider {
         };
       };
 
+      const messageThreads = this.createMessageThreadSession(options);
+
       const baseAdapter = createAnthropicLoopAdapter({
         client,
         provider: this.providerName,
         maxSteps,
+        ...(messageThreads ? { threads: messageThreads } : {}),
         toolsRecord,
         buildParams,
         planReclaim,

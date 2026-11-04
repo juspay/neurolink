@@ -60,6 +60,16 @@ Provider name recorded on each step's generation and used to price it.
 
 ---
 
+### threads?
+
+> `optional` **threads?**: [`AnthropicThreadSession`](AnthropicThreadSession.md)
+
+Send the turn's steps as an Anthropic message thread. Only the direct
+Anthropic client sets it, and only on request; without it every step
+resends the whole conversation, as before.
+
+---
+
 ### buildParams
 
 > **buildParams**: (`conversation`, `step`) => `Anthropic.Messages.MessageCreateParamsNonStreaming` & [`AnthropicSamplingParams`](AnthropicSamplingParams.md) \| `Promise`\<`Anthropic.Messages.MessageCreateParamsNonStreaming` & [`AnthropicSamplingParams`](AnthropicSamplingParams.md)\>
