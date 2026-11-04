@@ -57,6 +57,7 @@ import type {
   ProxyLimitsRefreshResponse,
   ProxyState,
   StoredCredentials,
+  StoredOAuthTokens,
   SupportedProvider,
   YamlModule,
 } from "../../lib/types/index.js";
@@ -70,7 +71,10 @@ import {
   listAnthropicAccountsForUsage,
   usageToQuota,
 } from "../../lib/proxy/accountUsage.js";
-import { importCodexAuthFile } from "../../lib/auth/codexOAuth.js";
+import {
+  importCodexAuthFile,
+  type CodexImportedCredential,
+} from "../../lib/auth/codexOAuth.js";
 import {
   fetchCodexAccountUsage,
   listCodexAccountsForUsage,
@@ -200,37 +204,107 @@ export async function handleLogin(argv: AuthCommandArgs): Promise<void> {
  * then pools all imported accounts and rotates automatically — no manual
  * account switching during use.
  */
+/**
+ * Core validation and persistence logic for importing a Codex credential into
+ * the account pool. Extracted from handleCodexLogin so import rules, keying,
+ * collision avoidance, and --force semantics are directly testable without
+ * process.exit.
+ */
+export async function importCodexCredentialToStore(
+  credential: CodexImportedCredential,
+  options: { label?: string; force?: boolean } = {},
+  store: {
+    loadTokens: (key: string) => Promise<StoredOAuthTokens | null>;
+    getProviderSnapshot: () => Promise<
+      Record<string, { tokens?: StoredOAuthTokens }>
+    >;
+    saveTokens: (key: string, tokens: StoredOAuthTokens) => Promise<void>;
+    markEnabled: (key: string) => Promise<void>;
+  } = defaultTokenStore,
+): Promise<{ compoundKey: string; label: string }> {
+  let defaultLabel: string;
+  if (credential.email && credential.accountId) {
+    defaultLabel = `${credential.email}:${credential.accountId}`;
+  } else if (credential.email) {
+    defaultLabel = credential.email;
+  } else if (credential.accountId) {
+    defaultLabel = credential.accountId;
+  } else {
+    defaultLabel = Date.now().toString(36).slice(-6);
+  }
+  const rawLabel = options.label ?? defaultLabel;
+  const label = validateAccountLabel(rawLabel);
+  const compoundKey = `codex:${label}`;
+
+  // Refuse overwrite if key already exists unless --force is specified
+  if (!options.force) {
+    const existing = await store.loadTokens(compoundKey);
+    if (existing) {
+      throw new Error(
+        `Account "${compoundKey}" already exists. Pass --force to overwrite.`,
+      );
+    }
+  }
+
+  // Refuse duplicate refresh token across labels unless --force is specified
+  if (!options.force && credential.refreshToken) {
+    const snapshot = await store.getProviderSnapshot();
+    for (const [existingKey, entry] of Object.entries(snapshot)) {
+      if (
+        existingKey.startsWith("codex:") &&
+        existingKey !== compoundKey &&
+        entry.tokens?.refreshToken === credential.refreshToken
+      ) {
+        throw new Error(
+          `A Codex account with the same refresh token already exists ("${existingKey}"). ` +
+            `Sharing a refresh token across multiple accounts causes token rotation invalidations. ` +
+            `Pass --force to proceed anyway.`,
+        );
+      }
+    }
+  }
+
+  const scopeParts = ["codex"];
+  if (credential.planType) {
+    scopeParts.push(`plan:${credential.planType}`);
+  }
+  if (credential.email) {
+    scopeParts.push(`email:${credential.email}`);
+  }
+  if (credential.accountId) {
+    scopeParts.push(`account:${credential.accountId}`);
+  }
+
+  await store.saveTokens(compoundKey, {
+    accessToken: credential.accessToken,
+    refreshToken: credential.refreshToken,
+    expiresAt: credential.expiresAt ?? Date.now() + 3_600_000,
+    tokenType: "Bearer",
+    scope: scopeParts.join(" "),
+  });
+  await store.markEnabled(compoundKey);
+
+  return { compoundKey, label };
+}
+
+/**
+ * Handle Codex (ChatGPT) login by importing the current credential from
+ * `~/.codex/auth.json` into the account pool under a `codex:<label>` key.
+ *
+ * To add multiple ChatGPT accounts: `codex login` as account A, then
+ * `neurolink auth login codex --label a`; repeat for account B, etc. The proxy
+ * then pools all imported accounts and rotates automatically — no manual
+ * account switching during use.
+ */
 export async function handleCodexLogin(argv: AuthCommandArgs): Promise<void> {
   const spinner = ora("Importing Codex (ChatGPT) credential…").start();
   try {
-    const credential = await importCodexAuthFile();
-    const rawLabel =
-      argv.label ??
-      credential.email ??
-      credential.accountId?.slice(0, 8) ??
-      Date.now().toString(36).slice(-6);
-    const label = validateAccountLabel(rawLabel);
-    const compoundKey = `codex:${label}`;
-
-    const scopeParts = ["codex"];
-    if (credential.planType) {
-      scopeParts.push(`plan:${credential.planType}`);
-    }
-    if (credential.email) {
-      scopeParts.push(`email:${credential.email}`);
-    }
-    if (credential.accountId) {
-      scopeParts.push(`account:${credential.accountId}`);
-    }
-
-    await defaultTokenStore.saveTokens(compoundKey, {
-      accessToken: credential.accessToken,
-      refreshToken: credential.refreshToken,
-      expiresAt: credential.expiresAt ?? Date.now() + 3_600_000,
-      tokenType: "Bearer",
-      scope: scopeParts.join(" "),
-    });
-    await defaultTokenStore.markEnabled(compoundKey);
+    const credential = await importCodexAuthFile(argv.config);
+    const { compoundKey } = await importCodexCredentialToStore(
+      credential,
+      { label: argv.label, force: argv.force },
+      defaultTokenStore,
+    );
 
     spinner.succeed(`Codex account added to pool: ${chalk.cyan(compoundKey)}`);
     if (credential.planType) {
@@ -741,7 +815,11 @@ export async function handleList(argv: AuthCommandArgs): Promise<void> {
         // every login — reading email from it would show the LATEST login's
         // email for ALL accounts.  The label is the per-account source of truth.
         if (label && label.includes("@")) {
-          email = label;
+          const parts = label.split(":");
+          const emailPart = parts.find((p) => p.includes("@"));
+          if (emailPart) {
+            email = emailPart;
+          }
         }
 
         // Fall back to credentials file ONLY for the default (unlabeled) account.

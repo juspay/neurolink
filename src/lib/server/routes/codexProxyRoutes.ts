@@ -142,6 +142,7 @@ import type {
   ProxyInboundAuthOptions,
   ProxyRuntimeConfigProvider,
   ResponseInfoContext,
+  StoredOAuthTokens,
   UsageContext,
 } from "../../types/index.js";
 import { raceWithAbort } from "../../utils/async/withTimeout.js";
@@ -230,7 +231,7 @@ function readCodexRequestRefusal(
  */
 const codexRefreshInFlight = new Map<
   string,
-  Promise<{ accessToken: string; refreshToken: string; expiresAt?: number }>
+  Promise<{ accessToken: string; refreshToken: string; expiresAt: number }>
 >();
 
 async function refreshCodexTokenOnceWithDependencies(
@@ -238,10 +239,26 @@ async function refreshCodexTokenOnceWithDependencies(
   refreshToken: string,
   store: CodexRefreshTokenStore,
   refresh: CodexTokenRefresher,
-): Promise<{ accessToken: string; refreshToken: string; expiresAt?: number }> {
-  const existing = codexRefreshInFlight.get(key);
+): Promise<{ accessToken: string; refreshToken: string; expiresAt: number }> {
+  // Key by refreshToken when present so multiple accounts sharing one token
+  // share the single-flight refresh; fall back to account key.
+  const flightKey = refreshToken || key;
+  const existing = codexRefreshInFlight.get(flightKey);
   if (existing) {
-    return existing;
+    const resolved = await existing;
+    // Keep this caller's key persisted with the newly rotated token
+    const latest = await store.peekTokens(key).catch(() => null);
+    if (latest) {
+      await store.saveTokens(key, {
+        accessToken: resolved.accessToken,
+        refreshToken: resolved.refreshToken,
+        expiresAt:
+          resolved.expiresAt ?? latest.expiresAt ?? Date.now() + 3_600_000,
+        tokenType: "Bearer",
+        ...(latest.scope ? { scope: latest.scope } : {}),
+      });
+    }
+    return resolved;
   }
   const pending = (async () => {
     // Re-read the stored token instead of trusting the caller's snapshot. A
@@ -268,11 +285,36 @@ async function refreshCodexTokenOnceWithDependencies(
         ...(latest.scope ? { scope: latest.scope } : {}),
       });
     }
+    const snapshotStore = store as {
+      getProviderSnapshot?: () => Promise<
+        Record<string, { tokens?: StoredOAuthTokens }>
+      >;
+    };
+    if (typeof snapshotStore.getProviderSnapshot === "function") {
+      try {
+        const snapshot = await snapshotStore.getProviderSnapshot();
+        for (const [existingKey, entry] of Object.entries(snapshot)) {
+          if (
+            existingKey.startsWith("codex:") &&
+            existingKey !== key &&
+            entry?.tokens?.refreshToken === current
+          ) {
+            await store.saveTokens(existingKey, {
+              ...resolved,
+              tokenType: "Bearer",
+              ...(entry.tokens?.scope ? { scope: entry.tokens.scope } : {}),
+            });
+          }
+        }
+      } catch {
+        /* non-fatal */
+      }
+    }
     return resolved;
   })().finally(() => {
-    codexRefreshInFlight.delete(key);
+    codexRefreshInFlight.delete(flightKey);
   });
-  codexRefreshInFlight.set(key, pending);
+  codexRefreshInFlight.set(flightKey, pending);
   return pending;
 }
 
@@ -280,7 +322,7 @@ async function refreshCodexTokenOnceWithDependencies(
 async function refreshCodexTokenOnce(
   key: string,
   refreshToken: string,
-): Promise<{ accessToken: string; refreshToken: string; expiresAt?: number }> {
+): Promise<{ accessToken: string; refreshToken: string; expiresAt: number }> {
   return refreshCodexTokenOnceWithDependencies(
     key,
     refreshToken,
