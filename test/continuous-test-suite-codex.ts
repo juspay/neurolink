@@ -55,7 +55,13 @@
  */
 
 import "./helpers/proxyTestIsolation.js";
-import { mkdtempSync, rmSync, readFileSync, statSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  readFileSync,
+  statSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { writeFileSync } from "node:fs";
@@ -1100,6 +1106,470 @@ await test("a proactive refresh stays single-flight until the rotated token pers
     __testHooks.codexRefreshInFlightSize(),
     0,
     "the in-flight entry must be released after settling",
+  );
+});
+
+await test("two accounts sharing one refresh token share single-flight and both receive rotated token", async () => {
+  const { TokenStore } = await import("../src/lib/auth/tokenStore.js");
+  const store = new TokenStore({
+    encryptionEnabled: false,
+    customStoragePath: join(
+      mkdtempSync(join(tmpdir(), "neurolink-codex-multi-refresh-")),
+      "tokens.json",
+    ),
+  });
+  await store.saveTokens("codex:label-a", {
+    accessToken: "old-a",
+    refreshToken: "r_shared",
+    expiresAt: Date.now() + 3_600_000,
+    tokenType: "Bearer",
+  });
+  await store.saveTokens("codex:label-b", {
+    accessToken: "old-b",
+    refreshToken: "r_shared",
+    expiresAt: Date.now() + 3_600_000,
+    tokenType: "Bearer",
+  });
+
+  let calls = 0;
+  let releaseRefresh: (() => void) | undefined;
+  const refreshReleased = new Promise<void>((resolve) => {
+    releaseRefresh = resolve;
+  });
+  let refreshStarted: (() => void) | undefined;
+  const refreshStartedPromise = new Promise<void>((resolve) => {
+    refreshStarted = resolve;
+  });
+
+  const refresh = async () => {
+    calls += 1;
+    refreshStarted?.();
+    await refreshReleased;
+    return {
+      accessToken: fakeCodexJwt({}),
+      refreshToken: "r_rotated",
+      expiresAt: Date.now() + 3_600_000,
+    };
+  };
+
+  const first = __testHooks.refreshCodexTokenOnceWithDependencies(
+    "codex:label-a",
+    "r_shared",
+    store,
+    refresh,
+  );
+  await refreshStartedPromise;
+
+  const second = __testHooks.refreshCodexTokenOnceWithDependencies(
+    "codex:label-b",
+    "r_shared",
+    store,
+    refresh,
+  );
+
+  assertEqual(
+    calls,
+    1,
+    "two accounts sharing a refresh token must share the single-flight refresh",
+  );
+  releaseRefresh?.();
+
+  const [resA, resB] = await Promise.all([first, second]);
+  assertEqual(resA.refreshToken, "r_rotated");
+  assertEqual(resB.refreshToken, "r_rotated");
+
+  assertEqual(
+    (await store.peekTokens("codex:label-a"))?.refreshToken,
+    "r_rotated",
+    "label-a must be updated with rotated token in store",
+  );
+  assertEqual(
+    (await store.peekTokens("codex:label-b"))?.refreshToken,
+    "r_rotated",
+    "label-b must be updated with rotated token in store",
+  );
+  assertEqual(
+    __testHooks.codexRefreshInFlightSize(),
+    0,
+    "in-flight map must be empty after completion",
+  );
+});
+
+// The import cases below drive the built CLI (`auth login codex`) against an
+// isolated HOME, so they exercise the shipped import path with no module-graph
+// mixing. The key printed on success is the observable keying contract.
+function writeCodexAuthFile(
+  home: string,
+  identity: { email: string; accountId?: string; refreshToken: string },
+): void {
+  const b64 = (o: unknown): string =>
+    Buffer.from(JSON.stringify(o)).toString("base64url");
+  const jwt = (claims: Record<string, unknown>): string =>
+    `${b64({ alg: "none" })}.${b64(claims)}.sig`;
+  const dir = join(home, ".codex");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, "auth.json"),
+    JSON.stringify({
+      auth_mode: "chatgpt",
+      tokens: {
+        access_token: jwt({
+          "https://api.openai.com/auth": identity.accountId
+            ? { chatgpt_account_id: identity.accountId }
+            : {},
+          exp: Math.floor(Date.now() / 1000) + 3600,
+        }),
+        id_token: jwt({ email: identity.email }),
+        refresh_token: identity.refreshToken,
+        account_id: identity.accountId,
+      },
+    }),
+  );
+}
+
+async function loginCodex(
+  home: string,
+  extraArgs: string[] = [],
+): Promise<{ exitCode: number; output: string }> {
+  const result = await runCLI(["auth", "login", "codex", ...extraArgs], {
+    env: { HOME: home, USERPROFILE: home },
+    timeoutMs: 60_000,
+  });
+  return {
+    exitCode: result.exitCode,
+    output: `${result.stdout}${result.stderr}`,
+  };
+}
+
+await test("auth login codex keys by email and account id so accounts with the same email coexist", async () => {
+  const home = mkdtempSync(join(tmpdir(), "neurolink-codex-same-email-"));
+  writeCodexAuthFile(home, {
+    email: "dev@example.com",
+    accountId: "acct-team-alpha",
+    refreshToken: "ref-1",
+  });
+  const first = await loginCodex(home);
+  assertEqual(first.exitCode, 0, "first import must succeed");
+  assert(
+    first.output.includes("codex:dev@example.com:acct-team-alpha"),
+    "default label must combine email and account id",
+  );
+
+  writeCodexAuthFile(home, {
+    email: "dev@example.com",
+    accountId: "acct-team-beta",
+    refreshToken: "ref-2",
+  });
+  const second = await loginCodex(home);
+  assertEqual(
+    second.exitCode,
+    0,
+    "second account under the same email imports",
+  );
+  assert(
+    second.output.includes("codex:dev@example.com:acct-team-beta"),
+    "a different account id under the same email must get a different key",
+  );
+});
+
+await test("auth login codex re-imports the same account without --force and keeps a legacy bare-email key", async () => {
+  const home = mkdtempSync(join(tmpdir(), "neurolink-codex-legacy-"));
+  const identity = {
+    email: "user@example.com",
+    accountId: "acct-main",
+    refreshToken: "ref-legacy",
+  };
+  writeCodexAuthFile(home, identity);
+  // A key written by the previous release: bare email label.
+  const legacy = await loginCodex(home, ["--label", "user@example.com"]);
+  assertEqual(legacy.exitCode, 0, "legacy-style import must succeed");
+
+  writeCodexAuthFile(home, { ...identity, refreshToken: "ref-rotated" });
+  const again = await loginCodex(home);
+  assertEqual(
+    again.exitCode,
+    0,
+    "re-importing the same account must not require --force",
+  );
+  assert(
+    /codex:user@example\.com(?!:)/.test(again.output),
+    "the default label must keep resolving to the existing bare-email key",
+  );
+});
+
+await test("auth login codex refuses a label held by another account or a shared refresh token unless --force", async () => {
+  const home = mkdtempSync(join(tmpdir(), "neurolink-codex-dup-check-"));
+  writeCodexAuthFile(home, {
+    email: "user@example.com",
+    accountId: "acct-main",
+    refreshToken: "ref-shared-123",
+  });
+  assertEqual(
+    (await loginCodex(home, ["--label", "label-a"])).exitCode,
+    0,
+    "initial import must succeed",
+  );
+
+  const sameToken = await loginCodex(home, ["--label", "label-b"]);
+  assert(
+    sameToken.exitCode !== 0 &&
+      sameToken.output.includes("same refresh token already exists"),
+    "the same auth.json under a second label must be refused without --force",
+  );
+  assertEqual(
+    (await loginCodex(home, ["--label", "label-b", "--force"])).exitCode,
+    0,
+    "--force must allow the second label",
+  );
+
+  writeCodexAuthFile(home, {
+    email: "other@example.com",
+    accountId: "acct-other",
+    refreshToken: "ref-other",
+  });
+  const clash = await loginCodex(home, ["--label", "label-a"]);
+  assert(
+    clash.exitCode !== 0 && clash.output.includes("different Codex account"),
+    "a label held by a different account must be refused without --force",
+  );
+  assertEqual(
+    (await loginCodex(home, ["--label", "label-a", "--force"])).exitCode,
+    0,
+    "--force must overwrite a label held by a different account",
+  );
+});
+
+await test("auth login codex refuses an email-only credential over a key that holds an account id", async () => {
+  const home = mkdtempSync(join(tmpdir(), "neurolink-codex-email-only-"));
+  writeCodexAuthFile(home, {
+    email: "user@example.com",
+    accountId: "acct-A",
+    refreshToken: "ref-A",
+  });
+  assertEqual(
+    (await loginCodex(home, ["--label", "slot"])).exitCode,
+    0,
+    "initial import must succeed",
+  );
+
+  writeCodexAuthFile(home, {
+    email: "user@example.com",
+    refreshToken: "ref-B",
+  });
+  const clash = await loginCodex(home, ["--label", "slot"]);
+  assert(
+    clash.exitCode !== 0 && clash.output.includes("different Codex account"),
+    "a credential with no account id must not overwrite a key that has one",
+  );
+});
+
+await test("callers holding a stale and a current refresh token for one account share one flight", async () => {
+  const { TokenStore } = await import("../src/lib/auth/tokenStore.js");
+  const store = new TokenStore({
+    encryptionEnabled: false,
+    customStoragePath: join(
+      mkdtempSync(join(tmpdir(), "neurolink-codex-stale-flight-")),
+      "tokens.json",
+    ),
+  });
+  await store.saveTokens("codex:acct", {
+    accessToken: "access",
+    refreshToken: "r2-current",
+    expiresAt: Date.now() + 3_600_000,
+    tokenType: "Bearer",
+  });
+  const spent: string[] = [];
+  let releaseRefresh: (() => void) | undefined;
+  const refreshReleased = new Promise<void>((resolve) => {
+    releaseRefresh = resolve;
+  });
+  let refreshStarted: (() => void) | undefined;
+  const refreshStartedPromise = new Promise<void>((resolve) => {
+    refreshStarted = resolve;
+  });
+  const refresh = async (token: string) => {
+    spent.push(token);
+    refreshStarted?.();
+    await refreshReleased;
+    return {
+      accessToken: fakeCodexJwt({}),
+      refreshToken: "r3",
+      expiresAt: Date.now() + 3_600_000,
+    };
+  };
+  const stale = __testHooks.refreshCodexTokenOnceWithDependencies(
+    "codex:acct",
+    "r1-stale",
+    store,
+    refresh,
+  );
+  await refreshStartedPromise;
+  const current = __testHooks.refreshCodexTokenOnceWithDependencies(
+    "codex:acct",
+    "r2-current",
+    store,
+    refresh,
+  );
+  releaseRefresh?.();
+  await Promise.all([stale, current]);
+  assertEqual(
+    spent.length,
+    1,
+    "one account must spend its stored refresh token once",
+  );
+  assertEqual(spent[0], "r2-current", "the stored token is the one spent");
+});
+
+await test("a rotated token does not overwrite a credential imported during the refresh", async () => {
+  const { TokenStore } = await import("../src/lib/auth/tokenStore.js");
+  const store = new TokenStore({
+    encryptionEnabled: false,
+    customStoragePath: join(
+      mkdtempSync(join(tmpdir(), "neurolink-codex-cas-")),
+      "tokens.json",
+    ),
+  });
+  const base = {
+    accessToken: "access",
+    expiresAt: Date.now() + 3_600_000,
+    tokenType: "Bearer" as const,
+  };
+  await store.saveTokens("codex:acct", { ...base, refreshToken: "r1" });
+  await store.saveTokens("codex:sibling", { ...base, refreshToken: "r1" });
+  let releaseRefresh: (() => void) | undefined;
+  const refreshReleased = new Promise<void>((resolve) => {
+    releaseRefresh = resolve;
+  });
+  let refreshStarted: (() => void) | undefined;
+  const refreshStartedPromise = new Promise<void>((resolve) => {
+    refreshStarted = resolve;
+  });
+  const flight = __testHooks.refreshCodexTokenOnceWithDependencies(
+    "codex:acct",
+    "r1",
+    store,
+    async () => {
+      refreshStarted?.();
+      await refreshReleased;
+      return {
+        accessToken: fakeCodexJwt({}),
+        refreshToken: "r2",
+        expiresAt: Date.now() + 3_600_000,
+      };
+    },
+  );
+  await refreshStartedPromise;
+  // An operator re-imports one account with a fresh login mid-refresh.
+  await store.saveTokens("codex:acct", {
+    ...base,
+    accessToken: "imported",
+    refreshToken: "r-login",
+  });
+  releaseRefresh?.();
+  await flight;
+  assertEqual(
+    (await store.peekTokens("codex:acct"))?.refreshToken,
+    "r-login",
+    "the imported credential must survive the rotation write",
+  );
+  assertEqual(
+    (await store.peekTokens("codex:sibling"))?.refreshToken,
+    "r2",
+    "a sibling still on the rotated token must receive the new one",
+  );
+});
+
+await test("a caller whose stored-token read straddles a finished flight reuses the rotated token", async () => {
+  const { TokenStore } = await import("../src/lib/auth/tokenStore.js");
+  const store = new TokenStore({
+    encryptionEnabled: false,
+    customStoragePath: join(
+      mkdtempSync(join(tmpdir(), "neurolink-codex-straddle-")),
+      "tokens.json",
+    ),
+  });
+  await store.saveTokens("codex:acct", {
+    accessToken: "access-1",
+    refreshToken: "r1",
+    expiresAt: Date.now() + 3_600_000,
+    tokenType: "Bearer",
+  });
+  // The first read by the late caller returns r1 but resumes only after the
+  // first flight has finished and rotated r1 to r2.
+  let gate: (() => void) | undefined;
+  const gated = new Promise<void>((resolve) => {
+    gate = resolve;
+  });
+  let delayedOnce = false;
+  const lateStore = {
+    peekTokens: async (key: string) => {
+      const value = await store.peekTokens(key);
+      if (!delayedOnce) {
+        delayedOnce = true;
+        await gated;
+      }
+      return value;
+    },
+    saveTokens: store.saveTokens.bind(store),
+  };
+  const spent: string[] = [];
+  const refresh = async (token: string) => {
+    spent.push(token);
+    return {
+      accessToken: fakeCodexJwt({}),
+      refreshToken: "r2",
+      expiresAt: Date.now() + 3_600_000,
+    };
+  };
+  const late = __testHooks.refreshCodexTokenOnceWithDependencies(
+    "codex:acct",
+    "r1",
+    lateStore,
+    refresh,
+  );
+  await __testHooks.refreshCodexTokenOnceWithDependencies(
+    "codex:acct",
+    "r1",
+    store,
+    refresh,
+  );
+  gate?.();
+  const result = await late;
+  assertEqual(spent.length, 1, "the rotated token must not be spent again");
+  assertEqual(spent[0], "r1", "only the original token is spent");
+  assertEqual(
+    result.refreshToken,
+    "r2",
+    "the late caller must receive the rotated token",
+  );
+});
+
+await test("auth login codex needs --force to overwrite an email-only key with a credential that has an account id", async () => {
+  const home = mkdtempSync(join(tmpdir(), "neurolink-codex-email-only-key-"));
+  writeCodexAuthFile(home, {
+    email: "user@example.com",
+    refreshToken: "ref-1",
+  });
+  assertEqual(
+    (await loginCodex(home, ["--label", "slot"])).exitCode,
+    0,
+    "email-only import must succeed",
+  );
+  writeCodexAuthFile(home, {
+    email: "user@example.com",
+    accountId: "acct-A",
+    refreshToken: "ref-2",
+  });
+  const refused = await loginCodex(home, ["--label", "slot"]);
+  assert(
+    refused.exitCode !== 0 &&
+      refused.output.includes("different Codex account"),
+    "an account id cannot be matched to an email-only key without --force",
+  );
+  assertEqual(
+    (await loginCodex(home, ["--label", "slot", "--force"])).exitCode,
+    0,
+    "--force must allow the overwrite",
   );
 });
 

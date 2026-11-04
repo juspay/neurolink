@@ -19,6 +19,7 @@ import type {
   ClaudeTool,
   InternalResult,
 } from "./proxy.js";
+import type { StoredOAuthTokens } from "./auth.js";
 
 /** Token block inside `~/.codex/auth.json`. */
 export type CodexAuthFileTokens = {
@@ -49,6 +50,27 @@ export type CodexImportedCredential = {
   planType?: string;
   /** Account email decoded from the id token, for the account label. */
   email?: string;
+};
+
+/** Provider inventory as seen by a Codex credential import. */
+export type CodexImportProviders = Record<
+  string,
+  { tokens?: StoredOAuthTokens }
+>;
+
+/** Token-store operations needed to import a Codex credential into the pool. */
+export type CodexImportTokenStore = {
+  getProviderSnapshot: () => Promise<
+    Record<string, { tokens?: StoredOAuthTokens }>
+  >;
+  saveTokensIf: (
+    key: string,
+    tokens: StoredOAuthTokens,
+    guard: (
+      providers: Record<string, { tokens?: StoredOAuthTokens }>,
+    ) => boolean,
+    options?: { enable?: boolean },
+  ) => Promise<boolean>;
 };
 
 /** Raw OpenAI OAuth token endpoint response. */

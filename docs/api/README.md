@@ -952,6 +952,8 @@ console.log(result.content);
 - [CodexAuthFileTokens](type-aliases/CodexAuthFileTokens.md)
 - [CodexAuthFile](type-aliases/CodexAuthFile.md)
 - [CodexImportedCredential](type-aliases/CodexImportedCredential.md)
+- [CodexImportProviders](type-aliases/CodexImportProviders.md)
+- [CodexImportTokenStore](type-aliases/CodexImportTokenStore.md)
 - [CodexTokenResponse](type-aliases/CodexTokenResponse.md)
 - [CodexRateLimitWindow](type-aliases/CodexRateLimitWindow.md)
 - [CodexRateLimits](type-aliases/CodexRateLimits.md)

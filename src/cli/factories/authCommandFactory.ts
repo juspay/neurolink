@@ -333,6 +333,12 @@ export class AuthCommandFactory {
         type: "string",
         description: "Human-readable label for this account (used with --add)",
       })
+      .option("force", {
+        type: "boolean",
+        default: false,
+        description:
+          "Codex import: overwrite a label that holds a different account, or reuse a refresh token already registered under another label",
+      })
       .example(
         "$0 auth login anthropic",
         "Interactive authentication (choose method)",
