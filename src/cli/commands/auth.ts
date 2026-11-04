@@ -52,6 +52,9 @@ import type {
   AuthListRefreshOutcome,
   AuthStatusResult,
   CliProxyConfigDoc,
+  CodexImportedCredential,
+  CodexImportProviders,
+  CodexImportTokenStore,
   OAuthTokens as OAuthTokensType,
   ProxyPassthroughAccount,
   ProxyLimitsRefreshResponse,
@@ -192,6 +195,138 @@ export async function handleLogin(argv: AuthCommandArgs): Promise<void> {
 }
 
 /**
+ * Core validation and persistence logic for importing a Codex credential into
+ * the account pool. Extracted from handleCodexLogin so import rules, keying,
+ * collision avoidance, and --force semantics are directly testable without
+ * process.exit.
+ */
+export async function importCodexCredentialToStore(
+  credential: CodexImportedCredential,
+  options: { label?: string; force?: boolean } = {},
+  store: CodexImportTokenStore = defaultTokenStore,
+): Promise<{ compoundKey: string; label: string }> {
+  const scopePart = (
+    key: string,
+    providers: CodexImportProviders,
+    name: string,
+  ) =>
+    providers[key]?.tokens?.scope
+      ?.split(" ")
+      .find((part) => part.startsWith(`${name}:`))
+      ?.slice(name.length + 1);
+  // A key holds "the same account" only on positive identity evidence. When
+  // the stored key carries an account id, ids must match. When it does not (a
+  // key imported before an account id was available), only a credential that
+  // also lacks one can match it, by email. A credential that does carry an
+  // account id is NOT matched to an email-only key: the same email can belong
+  // to several workspaces, so that overwrite needs --force. Keys the earlier
+  // release wrote always include `account:` when the id was known, so the
+  // bare-email migration (default login reuses the existing key) is unaffected.
+  const sameAccount = (
+    key: string,
+    providers: CodexImportProviders,
+  ): boolean => {
+    const storedAccount = scopePart(key, providers, "account");
+    if (storedAccount) {
+      return storedAccount === credential.accountId;
+    }
+    if (credential.accountId) {
+      return false;
+    }
+    const storedEmail = scopePart(key, providers, "email");
+    return Boolean(storedEmail) && storedEmail === credential.email;
+  };
+  const resolveLabel = (providers: CodexImportProviders): string => {
+    if (options.label) {
+      return options.label;
+    }
+    if (credential.email && credential.accountId) {
+      const combined = `${credential.email}:${credential.accountId}`;
+      // Keys written before the account id joined the label are bare emails;
+      // keep updating those in place when they belong to this account.
+      return !providers[`codex:${combined}`] &&
+        providers[`codex:${credential.email}`] &&
+        sameAccount(`codex:${credential.email}`, providers)
+        ? credential.email
+        : combined;
+    }
+    return (
+      credential.email ??
+      credential.accountId ??
+      Date.now().toString(36).slice(-6)
+    );
+  };
+  const refuse = (providers: CodexImportProviders, key: string): void => {
+    if (options.force) {
+      return;
+    }
+    // Re-importing the same account refreshes its credential; only a key that
+    // holds a different account needs --force.
+    if (providers[key] && !sameAccount(key, providers)) {
+      throw new Error(
+        `Account "${key}" already holds a different Codex account. Pass --force to overwrite.`,
+      );
+    }
+    if (credential.refreshToken) {
+      for (const [existingKey, entry] of Object.entries(providers)) {
+        if (
+          existingKey.startsWith("codex:") &&
+          existingKey !== key &&
+          entry.tokens?.refreshToken === credential.refreshToken
+        ) {
+          throw new Error(
+            `A Codex account with the same refresh token already exists ("${existingKey}"). ` +
+              `Sharing a refresh token across multiple accounts causes token rotation invalidations. ` +
+              `Pass --force to proceed anyway.`,
+          );
+        }
+      }
+    }
+  };
+
+  const label = validateAccountLabel(
+    resolveLabel(await store.getProviderSnapshot()),
+  );
+  const compoundKey = `codex:${label}`;
+
+  const scopeParts = ["codex"];
+  if (credential.planType) {
+    scopeParts.push(`plan:${credential.planType}`);
+  }
+  if (credential.email) {
+    scopeParts.push(`email:${credential.email}`);
+  }
+  if (credential.accountId) {
+    scopeParts.push(`account:${credential.accountId}`);
+  }
+
+  // The checks run again under the store's cross-process lock, so two
+  // concurrent imports cannot both pass them and then overwrite each other.
+  const saved = await store.saveTokensIf(
+    compoundKey,
+    {
+      accessToken: credential.accessToken,
+      refreshToken: credential.refreshToken,
+      expiresAt: credential.expiresAt ?? Date.now() + 3_600_000,
+      tokenType: "Bearer",
+      scope: scopeParts.join(" "),
+    },
+    (providers) => {
+      refuse(providers, compoundKey);
+      return validateAccountLabel(resolveLabel(providers)) === label;
+    },
+    { enable: true },
+  );
+  if (!saved) {
+    throw new Error(
+      "Codex accounts changed while importing. Re-run the command.",
+    );
+  }
+
+  return { compoundKey, label };
+}
+
+/**
  * Handle Codex (ChatGPT) login by importing the current credential from
  * `~/.codex/auth.json` into the account pool under a `codex:<label>` key.
  *
@@ -204,33 +339,11 @@ export async function handleCodexLogin(argv: AuthCommandArgs): Promise<void> {
   const spinner = ora("Importing Codex (ChatGPT) credential…").start();
   try {
     const credential = await importCodexAuthFile();
-    const rawLabel =
-      argv.label ??
-      credential.email ??
-      credential.accountId?.slice(0, 8) ??
-      Date.now().toString(36).slice(-6);
-    const label = validateAccountLabel(rawLabel);
-    const compoundKey = `codex:${label}`;
-
-    const scopeParts = ["codex"];
-    if (credential.planType) {
-      scopeParts.push(`plan:${credential.planType}`);
-    }
-    if (credential.email) {
-      scopeParts.push(`email:${credential.email}`);
-    }
-    if (credential.accountId) {
-      scopeParts.push(`account:${credential.accountId}`);
-    }
-
-    await defaultTokenStore.saveTokens(compoundKey, {
-      accessToken: credential.accessToken,
-      refreshToken: credential.refreshToken,
-      expiresAt: credential.expiresAt ?? Date.now() + 3_600_000,
-      tokenType: "Bearer",
-      scope: scopeParts.join(" "),
-    });
-    await defaultTokenStore.markEnabled(compoundKey);
+    const { compoundKey } = await importCodexCredentialToStore(
+      credential,
+      { label: argv.label, force: argv.force },
+      defaultTokenStore,
+    );
 
     spinner.succeed(`Codex account added to pool: ${chalk.cyan(compoundKey)}`);
     if (credential.planType) {
@@ -747,7 +860,8 @@ export async function handleList(argv: AuthCommandArgs): Promise<void> {
         // every login — reading email from it would show the LATEST login's
         // email for ALL accounts.  The label is the per-account source of truth.
         if (label && label.includes("@")) {
-          email = label;
+          // Codex labels may be `email:accountId`: drop a trailing id segment.
+          email = provider === "codex" ? label.replace(/:[^:@]*$/, "") : label;
         }
 
         // Fall back to credentials file ONLY for the default (unlabeled) account.

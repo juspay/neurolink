@@ -181,6 +181,47 @@ export class TokenStore {
   }
 
   /**
+   * Saves tokens only when `guard` approves the provider inventory read under
+   * the same cross-process lock as the write (compare-and-set). The guard may
+   * throw to refuse with a specific error. Returns false when it declines.
+   *
+   * @param options.enable - Also clear the disabled flag, as a fresh login does.
+   */
+  async saveTokensIf(
+    provider: string,
+    tokens: StoredOAuthTokens,
+    guard: (providers: TokenStorageData["providers"]) => boolean,
+    options: { enable?: boolean } = {},
+  ): Promise<boolean> {
+    return this.runExclusiveLocked(async () => {
+      let providers: TokenStorageData["providers"];
+      try {
+        providers = (await this.loadStorageData()).providers;
+      } catch (error) {
+        if (!(error instanceof TokenStoreError && error.code === "NOT_FOUND")) {
+          throw error;
+        }
+        providers = {};
+      }
+      if (!guard(providers)) {
+        return false;
+      }
+      await this._saveTokensInternal(provider, tokens);
+      if (options.enable) {
+        const storageData = await this.loadStorageData();
+        const entry = storageData.providers[provider];
+        if (entry) {
+          entry.disabled = false;
+          delete entry.disabledAt;
+          delete entry.disabledReason;
+          await this.saveStorageData(storageData);
+        }
+      }
+      return true;
+    });
+  }
+
+  /**
    * Internal save without mutex — callers must already hold the mutex.
    */
   private async _saveTokensInternal(

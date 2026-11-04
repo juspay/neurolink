@@ -230,7 +230,7 @@ function readCodexRequestRefusal(
  */
 const codexRefreshInFlight = new Map<
   string,
-  Promise<{ accessToken: string; refreshToken: string; expiresAt?: number }>
+  Promise<{ accessToken: string; refreshToken: string; expiresAt: number }>
 >();
 
 async function refreshCodexTokenOnceWithDependencies(
@@ -238,18 +238,44 @@ async function refreshCodexTokenOnceWithDependencies(
   refreshToken: string,
   store: CodexRefreshTokenStore,
   refresh: CodexTokenRefresher,
-): Promise<{ accessToken: string; refreshToken: string; expiresAt?: number }> {
-  const existing = codexRefreshInFlight.get(key);
+): Promise<{ accessToken: string; refreshToken: string; expiresAt: number }> {
+  // Re-read the stored token instead of trusting the caller's snapshot. A
+  // request that captured the pool just before a previous refresh completed
+  // holds a token that has since been rotated; using it would spend a real
+  // attempt on a grant the server has already invalidated.
+  const latest = await store.peekTokens(key).catch(() => null);
+  const current = latest?.refreshToken ?? refreshToken;
+
+  // Flights are keyed by the token that is actually spent, read from the store
+  // rather than from the caller. Every caller for one account therefore
+  // shares one flight whatever snapshot it holds, and accounts that share a
+  // refresh token share it too. Nothing awaits between this lookup and the
+  // set below, so two callers cannot both start a flight.
+  const flightKey = current || key;
+  const existing = codexRefreshInFlight.get(flightKey);
   if (existing) {
-    return existing;
+    const resolved = await existing;
+    // Normally the owner's fan-out already persisted this key; this repairs
+    // the case where that write failed, and only while the stored token is
+    // still the one that was rotated.
+    await saveRotatedIfCurrent(store, key, current, resolved, latest?.scope);
+    return resolved;
   }
   const pending = (async () => {
-    // Re-read the stored token instead of trusting the caller's snapshot. A
-    // request that captured the pool just before a previous refresh completed
-    // holds a token that has since been rotated; using it would spend a real
-    // attempt on a grant the server has already invalidated.
-    const latest = await store.peekTokens(key).catch(() => null);
-    const current = latest?.refreshToken ?? refreshToken;
+    // The peek above ran outside any flight. If a flight for this token ended
+    // between that peek and this point, `current` has already been rotated;
+    // spending it would be an invalid_grant. Re-read inside the flight and use
+    // what the finished flight stored instead of refreshing again.
+    if (latest) {
+      const fresh = await store.peekTokens(key).catch(() => null);
+      if (fresh?.refreshToken && fresh.refreshToken !== current) {
+        return {
+          accessToken: fresh.accessToken,
+          refreshToken: fresh.refreshToken,
+          expiresAt: fresh.expiresAt ?? latest.expiresAt ?? Date.now(),
+        };
+      }
+    }
     const refreshed = await refresh(current);
     const resolved = {
       accessToken: refreshed.accessToken,
@@ -262,25 +288,103 @@ async function refreshCodexTokenOnceWithDependencies(
     // rotating refresh token, receive an invalid_grant, and disable an account
     // another request has already healed.
     if (latest) {
-      await store.saveTokens(key, {
-        ...resolved,
-        tokenType: "Bearer",
-        ...(latest.scope ? { scope: latest.scope } : {}),
-      });
+      const saved = await saveRotatedIfCurrent(
+        store,
+        key,
+        current,
+        resolved,
+        latest.scope,
+      );
+      if (!saved) {
+        logger.warn(
+          `[codex] ${key} changed during refresh; kept the stored credential instead of the rotated token`,
+        );
+      }
+    }
+    if (store.getProviderSnapshot) {
+      let snapshot: Awaited<
+        ReturnType<NonNullable<CodexRefreshTokenStore["getProviderSnapshot"]>>
+      > = {};
+      try {
+        snapshot = await store.getProviderSnapshot();
+      } catch (error) {
+        logger.warn(
+          `[codex] could not read sibling accounts to propagate the rotated token: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+      for (const [siblingKey, entry] of Object.entries(snapshot)) {
+        if (
+          !siblingKey.startsWith("codex:") ||
+          siblingKey === key ||
+          entry?.tokens?.refreshToken !== current
+        ) {
+          continue;
+        }
+        try {
+          await saveRotatedIfCurrent(
+            store,
+            siblingKey,
+            current,
+            resolved,
+            entry.tokens?.scope,
+          );
+        } catch (error) {
+          logger.warn(
+            `[codex] could not propagate the rotated token to ${siblingKey}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      }
     }
     return resolved;
   })().finally(() => {
-    codexRefreshInFlight.delete(key);
+    codexRefreshInFlight.delete(flightKey);
   });
-  codexRefreshInFlight.set(key, pending);
+  codexRefreshInFlight.set(flightKey, pending);
   return pending;
+}
+
+/**
+ * Persist a rotated token for `key` only while its stored refresh token is
+ * still `rotatedFrom`, so a concurrent `auth login --force` import is never
+ * overwritten. Atomic under the token store's lock when it offers
+ * `saveTokensIf`; otherwise a best-effort peek-then-save.
+ */
+async function saveRotatedIfCurrent(
+  store: CodexRefreshTokenStore,
+  key: string,
+  rotatedFrom: string,
+  resolved: { accessToken: string; refreshToken: string; expiresAt: number },
+  scope: string | undefined,
+): Promise<boolean> {
+  const tokens = {
+    ...resolved,
+    tokenType: "Bearer" as const,
+    ...(scope ? { scope } : {}),
+  };
+  if (store.saveTokensIf) {
+    return store.saveTokensIf(
+      key,
+      tokens,
+      (providers) => providers[key]?.tokens?.refreshToken === rotatedFrom,
+    );
+  }
+  const stored = await store.peekTokens(key).catch(() => null);
+  if (stored?.refreshToken !== rotatedFrom) {
+    return false;
+  }
+  await store.saveTokens(key, tokens);
+  return true;
 }
 
 /** Refresh an account's token at most once at a time. */
 async function refreshCodexTokenOnce(
   key: string,
   refreshToken: string,
-): Promise<{ accessToken: string; refreshToken: string; expiresAt?: number }> {
+): Promise<{ accessToken: string; refreshToken: string; expiresAt: number }> {
   return refreshCodexTokenOnceWithDependencies(
     key,
     refreshToken,

@@ -1318,6 +1318,18 @@ export type CodexRotationFailure = {
 export type CodexRefreshTokenStore = {
   peekTokens(provider: string): Promise<StoredOAuthTokens | null>;
   saveTokens(provider: string, tokens: StoredOAuthTokens): Promise<void>;
+  /** Compare-and-set save under the store's lock; the real token store has it. */
+  saveTokensIf?(
+    provider: string,
+    tokens: StoredOAuthTokens,
+    guard: (
+      providers: Record<string, { tokens?: StoredOAuthTokens }>,
+    ) => boolean,
+  ): Promise<boolean>;
+  /** Present on the real token store; lets a refresh also reach sibling labels. */
+  getProviderSnapshot?(): Promise<
+    Record<string, { tokens?: StoredOAuthTokens }>
+  >;
 };
 
 /** Result contract for a Codex OAuth refresh operation. */
