@@ -19922,6 +19922,11 @@ async function main(): Promise<void> {
   setEnv("XOR_MODEL", undefined);
   setEnv("XOR_API_KEY", undefined);
   setEnv("XOR_BASE_URL", undefined);
+  // A developer's .env may also point OTEL_EXPORTER_OTLP_ENDPOINT at a
+  // collector. With it set, the Perplexity retry cases below see a second
+  // 1000 ms timer in the call under test and fail ("1000,1000" for "1000");
+  // with it unset the whole suite passes. CI has none.
+  setEnv("OTEL_EXPORTER_OTLP_ENDPOINT", undefined);
   setEnv("PERPLEXITY_API_KEY", undefined);
   setEnv("PERPLEXITY_DECIDER_BASE_URL", undefined);
   setEnv("PERPLEXITY_DECIDER_MODEL", undefined);
