@@ -224,14 +224,17 @@ export class OllamaProvider extends OpenAIChatCompletionsProvider {
   }
 
   /**
-   * Local models are slow; the base already defaults Ollama to a 5-minute
-   * timeout and honors a per-call `options.timeout`. Preserve the legacy
-   * `OLLAMA_TIMEOUT` env override for callers who relied on it, applied only
+   * Local models are slow; the base defaults Ollama generation to 5 minutes
+   * and streaming idle time to 2 minutes, and honors a per-call `options.timeout`.
+   * Preserve the legacy `OLLAMA_TIMEOUT` env override, applied only
    * when no explicit per-call timeout is set. Parsed with the shared
    * `parseTimeout` so both millisecond numbers ("240000") and duration strings
    * ("4m", "30s") work; a malformed value is ignored in favour of the default.
    */
-  public getTimeout(options: TextGenerationOptions | StreamOptions): number {
+  public getTimeout(
+    options: TextGenerationOptions | StreamOptions,
+    operation: "generate" | "stream" = "generate",
+  ): number {
     if (options.timeout === undefined || options.timeout === null) {
       const envTimeout = process.env.OLLAMA_TIMEOUT?.trim();
       if (envTimeout) {
@@ -248,7 +251,7 @@ export class OllamaProvider extends OpenAIChatCompletionsProvider {
         }
       }
     }
-    return super.getTimeout(options);
+    return super.getTimeout(options, operation);
   }
 
   /**

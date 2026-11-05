@@ -2,7 +2,7 @@
 import "dotenv/config";
 
 /**
- * Continuous Test Suite — Anthropic native-loop 429/5xx retry parity
+ * Continuous Test Suite — Anthropic native-loop retry and timeout behavior
  * (Plan 07, Task 9).
  *
  * ALL-DIST module graph (rule 15): the provider call below is driven
@@ -322,6 +322,81 @@ void runSuite(async () => {
     } finally {
       clearTimeout(safety);
       clearTimeout(cancelTimer);
+      server.close();
+      restoreEnv(envSnapshot);
+    }
+  });
+
+  section("native stream idle deadline");
+
+  await test("Anthropic events keep a stream alive past its timeout", async () => {
+    const envSnapshot = snapshotEnv();
+    let ticks = 0;
+    const server = createServer((_req, res) => {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write(
+        `event: message_start\ndata: ${JSON.stringify({
+          type: "message_start",
+          message: {
+            id: "msg_1",
+            usage: { input_tokens: 5, output_tokens: 0 },
+          },
+        })}\n\n`,
+      );
+      const interval = setInterval(() => {
+        if (++ticks < 9) {
+          res.write(
+            `event: ping\ndata: ${JSON.stringify({ type: "ping" })}\n\n`,
+          );
+        } else {
+          clearInterval(interval);
+          res.write(
+            `event: content_block_delta\ndata: ${JSON.stringify({
+              type: "content_block_delta",
+              index: 0,
+              delta: { type: "text_delta", text: "finished" },
+            })}\n\n`,
+          );
+          res.end(
+            `event: message_stop\ndata: ${JSON.stringify({ type: "message_stop" })}\n\n`,
+          );
+        }
+      }, 300);
+      res.on("close", () => clearInterval(interval));
+    });
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    try {
+      process.env.ANTHROPIC_API_KEY = "test-key";
+      process.env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${port}`;
+      process.env.ANTHROPIC_AUTH_METHOD = "api_key";
+      delete process.env.ANTHROPIC_OAUTH_TOKEN;
+      delete process.env.CLAUDE_OAUTH_TOKEN;
+
+      const started = Date.now();
+      const result = await nl().stream({
+        provider: "anthropic",
+        model: "claude-3-5-sonnet-20241022",
+        input: { text: "hi" },
+        maxSteps: 1,
+        timeout: 2_000,
+        disableInternalFallback: true,
+      });
+      let text = "";
+      for await (const chunk of result.stream) {
+        text += ("content" in chunk ? chunk.content : undefined) ?? "";
+      }
+      assert(
+        text.includes("finished"),
+        `the live native stream was cut off (ticks=${ticks}, text=${JSON.stringify(text)}, stop=${String(result.metadata?.stopReason)}, finish=${String(result.finishReason)})`,
+      );
+      assert(
+        Date.now() - started > 2_000,
+        "the fixture did not cross the old deadline",
+      );
+    } finally {
+      server.closeAllConnections();
       server.close();
       restoreEnv(envSnapshot);
     }
