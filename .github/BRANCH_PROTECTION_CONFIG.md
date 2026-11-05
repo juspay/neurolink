@@ -4,8 +4,8 @@ What gates a merge to `release`, what the live configuration was found to be in
 the 2026-10 security audit, and the exact ruleset a repository admin applies to
 close the gap. `.github/settings.yml` carries the same configuration in the
 settings-app schema; `.github/workflows/branch-protection-audit.yml` sweeps the
-live state hourly and fails when a required context or the `pull_request` rule
-is missing.
+live state hourly, fails when a required context is missing and warns when the
+`pull_request` rule is missing.
 
 ## Two layers, enforced as a union
 
@@ -127,7 +127,8 @@ The single-commit policy is enforced by `🔒 Single Commit Policy Validation`
 ## Verification after applying
 
 1. `branch-protection-audit.yml` goes green on its next hourly run (or
-   `gh workflow run branch-protection-audit.yml`).
+   `gh workflow run branch-protection-audit.yml`) and its log carries no
+   `::warning::` about the `pull_request` rule.
 2. A direct push to `release` is refused with `GH013` naming the
    `pull_request` rule, not only the status checks.
 3. A pull request with five green checks and no approval shows "Review

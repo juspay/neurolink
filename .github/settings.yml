@@ -214,8 +214,8 @@ labels:
 #   gh api repos/juspay/neurolink/rulesets/11413189 --jq '.rules[].type'
 #   gh api repos/juspay/neurolink/branches/release \
 #     --jq '.protection.required_status_checks.contexts[]'
-# .github/workflows/branch-protection-audit.yml sweeps both hourly and fails
-# when a required context or the pull_request rule is missing.
+# .github/workflows/branch-protection-audit.yml sweeps both hourly, fails when a
+# required context is missing and warns when the pull_request rule is missing.
 rulesets:
   - name: release
     target: branch
