@@ -315,6 +315,25 @@ export type AnthropicThreadPlan = {
 };
 
 /**
+ * What one call hands the next call of the same session so it can continue the
+ * thread instead of creating another: the last stored response, the fixed
+ * fields the thread was created with, and a hash of each message the call
+ * started from (the history conversation memory rebuilt for it).
+ */
+export type AnthropicThreadCarry = {
+  previousMessageId: string;
+  fingerprint: string;
+  anchor: string[];
+};
+
+/** A thread a NeuroLink instance keeps for its session's next call. */
+export type AnthropicStoredThread = {
+  sessionId: string;
+  carry: AnthropicThreadCarry;
+  expiresAt: number;
+};
+
+/**
  * The state of one Anthropic message thread across the steps of a turn.
  *
  * The thread lives on the server for minutes and is best-effort, so this is a
@@ -324,11 +343,21 @@ export type AnthropicThreadPlan = {
 export type AnthropicThreadSession = {
   /** False once the API has said it cannot thread this request. */
   readonly enabled: boolean;
+  /**
+   * What the next call of the same session needs to continue this thread, or
+   * undefined when it cannot: the turn did not end on a normal stop, or no
+   * response was stored. `assistantText` is the text the turn streamed, which
+   * is what conversation memory will hand back as the assistant's reply.
+   */
+  carry(assistantText: string): AnthropicThreadCarry | undefined;
   plan(
     params: Anthropic.Messages.MessageCreateParams & AnthropicSamplingParams,
   ): AnthropicThreadPlan;
-  /** The response was complete and stored: the next step may continue from it. */
-  accept(messageId: string): void;
+  /**
+   * The response was complete and stored: the next step may continue from it.
+   * `stopReason` says whether it also ended the turn.
+   */
+  accept(messageId: string, stopReason?: string): void;
   /** The next plan is a `create`. */
   reset(): void;
   /** Stop threading for the rest of the turn. */

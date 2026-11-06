@@ -232,6 +232,7 @@ import {
   DEFAULT_RECENT_TURNS,
   KnowledgeGroundingEngine,
 } from "./knowledge/index.js";
+import { AnthropicThreadStore } from "./providers/anthropic/threads.js";
 import { AIProviderFactory } from "./core/factory.js";
 import {
   describeDecisionProviderKeys,
@@ -1092,6 +1093,12 @@ export class NeuroLink {
   // Compaction watermark: prevents re-triggering compaction on already-compacted messages
   // Per-session map to avoid cross-session pollution in server mode
   private lastCompactionMessageCount = new Map<string, number>();
+  /**
+   * Anthropic message threads left for sessions' next calls (opt-in, in memory,
+   * per process). Forgetting one here does not delete it on the server: the API
+   * has no delete, and the thread expires within an hour.
+   */
+  readonly anthropicThreadStore = new AnthropicThreadStore();
 
   /** Extract sessionId from options context for compaction watermark keying */
   private getCompactionSessionId(options: { context?: unknown }): string {
@@ -4633,6 +4640,7 @@ Current user's request: ${currentInput}`;
   async shutdown(): Promise<void> {
     try {
       logger.debug("[NeuroLink] Starting graceful shutdown");
+      this.anthropicThreadStore.forget();
 
       // Kill host-owned background work first: a shutdown must not leave
       // child processes or delegate workers running with nobody to collect
@@ -17490,6 +17498,9 @@ Current user's request: ${currentInput}`;
    * Clear conversation history for a specific session (public API)
    */
   async clearConversationSession(sessionId: string): Promise<boolean> {
+    // The Anthropic thread is local state and goes first, so it is forgotten
+    // even when conversation memory is off and the rest of this throws.
+    this.anthropicThreadStore.forget(sessionId);
     // First ensure memory is initialized
     const initId = `clear-session-init-${Date.now()}`;
     await this.initializeConversationMemoryForGeneration(
@@ -17516,6 +17527,8 @@ Current user's request: ${currentInput}`;
    * Clear all conversation history (public API)
    */
   async clearAllConversations(): Promise<void> {
+    // Local state first, for the same reason as clearConversationSession.
+    this.anthropicThreadStore.forget();
     // First ensure memory is initialized
     const initId = `clear-all-init-${Date.now()}`;
     await this.initializeConversationMemoryForGeneration(
@@ -18111,6 +18124,11 @@ Current user's request: ${currentInput}`;
     messages: ChatMessage[],
     userId?: string,
   ): Promise<void> {
+    // The replaced history is not the one an Anthropic thread was built on
+    // (rows may have been removed or redacted), so the thread goes. Forgotten
+    // before the write, so even a call failing validation leaves none, and
+    // again after it, so a call that started in between cannot keep one.
+    this.anthropicThreadStore.forget(sessionId);
     const initId = `set-msgs-init-${Date.now()}`;
     await this.initializeConversationMemoryForGeneration(
       initId,
@@ -18144,6 +18162,7 @@ Current user's request: ${currentInput}`;
       messages,
       userId,
     );
+    this.anthropicThreadStore.forget(sessionId);
   }
 
   /**
@@ -21592,6 +21611,7 @@ Current user's request: ${currentInput}`;
 
     // Clear per-session compaction watermarks
     this.lastCompactionMessageCount.clear();
+    this.anthropicThreadStore.forget();
 
     const cleanupErrors: Error[] = [];
 

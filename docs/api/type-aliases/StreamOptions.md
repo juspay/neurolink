@@ -506,7 +506,7 @@ before you set it:
 
 ### messageThreads?
 
-> `optional` **messageThreads?**: `boolean`
+> `optional` **messageThreads?**: `boolean` \| `"session"`
 
 Send this turn's steps as an Anthropic message thread (beta,
 `message-threads-2026-08-12`): the first step sends the whole conversation
@@ -521,6 +521,15 @@ prompt, tool choice or earlier messages starts a new thread. Threads are
 not zero-data-retention eligible, and the API has no way to delete one
 (it expires within an hour). It was measured to shrink the request, not to
 lower time to first token when prompt caching is already on.
+
+`"session"` also keeps the thread for the session's next call (same user,
+session id, credential and endpoint; in memory on the NeuroLink instance,
+for up to four minutes), so that call sends only its new message. Two
+things to know. Conversation memory keeps only each turn's final text, so
+the thread still holds the tool calls and results that memory dropped: the
+model sees more than it would without a thread. And the thread outlives
+`clearConversationSession()`: NeuroLink forgets it, the server keeps it
+until it expires, up to an hour, and cannot be asked to delete it.
 
 ---
 

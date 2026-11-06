@@ -24,6 +24,16 @@
 
 ## Properties
 
+### anthropicThreadStore
+
+> `readonly` **anthropicThreadStore**: `AnthropicThreadStore`
+
+Anthropic message threads left for sessions' next calls (opt-in, in memory,
+per process). Forgetting one here does not delete it on the server: the API
+has no delete, and the thread expires within an hour.
+
+---
+
 ### conversationMemory?
 
 > `optional` **conversationMemory?**: `ConversationMemoryManager` \| `RedisConversationMemoryManager` \| `null`

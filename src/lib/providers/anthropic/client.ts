@@ -96,7 +96,10 @@ import type {
 } from "../../types/index.js";
 import { stringifyAnthropicToolOutput } from "./toolOutput.js";
 import { createAnthropicLoopAdapter } from "./loopAdapter.js";
-import { createAnthropicThreadSession } from "./threads.js";
+import {
+  AnthropicThreadStore,
+  createAnthropicThreadSession,
+} from "./threads.js";
 import { DEFAULT_BEFORE_STEP_TIMEOUT_MS } from "../../utils/parameterValidation.js";
 import type {
   AgenticLoopReclaimResult,
@@ -718,6 +721,8 @@ const ANTHROPIC_CLIENT_TIMEOUT_MS = 600_000;
  */
 export class AnthropicProvider extends BaseProvider {
   private client: Anthropic;
+  /** The API key this client was built with; only ever hashed, never logged or sent elsewhere. */
+  private apiKeyForThreads: string | undefined;
   private readonly authMethod: AnthropicAuthMethod;
   private readonly subscriptionTier: ClaudeSubscriptionTier;
   private readonly enableBetaFeatures: boolean;
@@ -901,6 +906,7 @@ export class AnthropicProvider extends BaseProvider {
       // Traditional API key authentication
       const apiKeyToUse =
         credentials?.apiKey ?? config?.apiKey ?? getAnthropicApiKey();
+      this.apiKeyForThreads = apiKeyToUse;
 
       client = new Anthropic({
         apiKey: apiKeyToUse,
@@ -972,10 +978,17 @@ export class AnthropicProvider extends BaseProvider {
    * beta headers in its own fetch wrapper, which has not been checked against
    * the thread beta.
    */
-  private createMessageThreadSession(
-    options: StreamOptions,
-  ): AnthropicThreadSession | undefined {
-    if (options.messageThreads !== true) {
+  private createMessageThreadSession(options: StreamOptions):
+    | {
+        session: AnthropicThreadSession;
+        /** Leave the thread for the session's next call (`messageThreads: "session"`). */
+        leave?: (assistantText: string) => void;
+      }
+    | undefined {
+    if (
+      options.messageThreads !== true &&
+      options.messageThreads !== "session"
+    ) {
       return undefined;
     }
     if (this.authMethod !== "api_key") {
@@ -985,9 +998,82 @@ export class AnthropicProvider extends BaseProvider {
       );
       return undefined;
     }
-    return createAnthropicThreadSession(
+    const scope =
+      options.messageThreads === "session"
+        ? this.sessionThreadScope(options)
+        : undefined;
+    const session = createAnthropicThreadSession(
       this.getAuthHeaders()["anthropic-beta"],
+      scope ? scope.store.take(scope.key) : undefined,
     );
+    return {
+      session,
+      ...(scope
+        ? {
+            leave: (assistantText: string) => {
+              const carry = session.carry(assistantText);
+              if (carry) {
+                scope.store.put(scope.key, scope.sessionId, carry, scope.epoch);
+              }
+            },
+          }
+        : {}),
+    };
+  }
+
+  /**
+   * Where this call's thread is kept for the session's next call, or undefined
+   * when it cannot be (no NeuroLink instance, or no session id). The owner is
+   * the user, the session, the credential and the endpoint: a thread belongs to
+   * the key that made it, and is not shared across any of them.
+   */
+  private sessionThreadScope(options: StreamOptions):
+    | {
+        store: AnthropicThreadStore;
+        key: string;
+        sessionId: string;
+        epoch: string;
+      }
+    | undefined {
+    const store = this.neurolink?.anthropicThreadStore;
+    const context = options.context as Record<string, unknown> | undefined;
+    const rawSession = context?.sessionId;
+    const sessionId =
+      typeof rawSession === "string" && rawSession.length > 0
+        ? rawSession
+        : typeof rawSession === "number"
+          ? String(rawSession)
+          : undefined;
+    if (store === undefined || sessionId === undefined) {
+      return undefined;
+    }
+    // A thread is private to a user. An id of a kind that cannot be told apart
+    // from another's (anything but a string or a number) means the call cannot
+    // be attributed, so it does not share a thread rather than falling into the
+    // anonymous scope.
+    const rawUser = context?.userId;
+    if (
+      rawUser !== undefined &&
+      rawUser !== null &&
+      typeof rawUser !== "string" &&
+      typeof rawUser !== "number"
+    ) {
+      return undefined;
+    }
+    const userId =
+      rawUser === undefined || rawUser === null ? undefined : String(rawUser);
+    const credential = this.apiKeyForThreads ?? getAnthropicApiKey() ?? "";
+    return {
+      store,
+      sessionId,
+      epoch: store.epochOf(sessionId),
+      key: AnthropicThreadStore.keyOf({
+        ...(userId !== undefined ? { userId } : {}),
+        sessionId,
+        credential,
+        ...(this.baseURL !== undefined ? { baseURL: this.baseURL } : {}),
+      }),
+    };
   }
 
   /**
@@ -2643,7 +2729,11 @@ export class AnthropicProvider extends BaseProvider {
         };
       };
 
-      const messageThreads = this.createMessageThreadSession(options);
+      const threadState = this.createMessageThreadSession(options);
+      const messageThreads = threadState?.session;
+      // Text streamed to the consumer across the whole turn: what conversation
+      // memory will keep as this turn's reply.
+      let streamedText = "";
 
       const baseAdapter = createAnthropicLoopAdapter({
         client,
@@ -2924,6 +3014,7 @@ export class AnthropicProvider extends BaseProvider {
             if (finalResultActive) {
               bufferedText += chunk.content;
             } else {
+              streamedText += chunk.content;
               pushChunk({ content: chunk.content });
             }
           }
@@ -3001,6 +3092,12 @@ export class AnthropicProvider extends BaseProvider {
         finalResultText === undefined
       ) {
         turnMetadata.stopReason = "step-cap";
+      }
+
+      // Leave the thread for the session's next call. Not for a structured
+      // turn: its reply is the final_result payload, not the text above.
+      if (!finalResultActive) {
+        threadState?.leave?.(streamedText);
       }
 
       resolveUsage(buildDeferredUsage());
