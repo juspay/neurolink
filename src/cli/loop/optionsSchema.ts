@@ -20,6 +20,7 @@ export const textGenerationOptionsSchema: Record<
     | "conversationHistory"
     | "conversationMessages"
     | "conversationMemoryConfig"
+    | "messageThreads"
     | "originalPrompt"
     | "middleware"
     | "expectedOutcome"

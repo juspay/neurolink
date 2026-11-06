@@ -473,11 +473,21 @@ const result = await neurolink.stream({
 What to know before turning it on:
 
 - **It shrinks the request, it did not lower latency in a measurement.** Against the Messages API, with prompt caching on in both modes, a tool turn's later requests went from about 79 KB to about 0.3 KB at 25k tokens of context, and from about 337 KB to about 0.3 KB at 110k tokens. Median time to first token was the same either way (672 vs 700 ms, and 739 vs 724 ms; one model, one network, no tools in the loop). The saving is bandwidth, not time.
-- **Streaming `stream()` turns on API-key auth only.** `generate()`, other providers and OAuth (subscription) auth ignore the option.
+- **Native Anthropic `stream()` and `generate()` calls on API-key auth only.** Other providers and OAuth (subscription) auth ignore the option, and so does a client pointed at the NeuroLink Claude proxy over OAuth unless the proxy forwards the thread beta. `generate()` takes the same option (`GenerateOptions.messageThreads`), sends non-streaming requests, recovers from `thread_not_found` and `thread_unsupported_request` the same way, and shares the session store with `stream()`, so a `generate()` call can continue a thread a `stream()` call left, and the other way round.
 - **It is best-effort and the conversation stays yours.** The API keeps a thread in memory for a few minutes. If it cannot continue one (`thread_not_found` and similar), the same step is resent once in full as a new thread. If it cannot thread the request at all (`thread_unsupported_request`: HIPAA or inference-hook organisations, for example), that step and the rest of the turn go out unthreaded.
 - **Anything a thread fixes starts a new one.** A change to the tools, the system prompt, the tool choice or the earlier messages (a context reclaim, for example) is sent as a new thread rather than a continue. A forced first-step tool choice therefore makes step 2 a new thread.
 - **A cut-off, refused or otherwise abnormal response is never continued from.**
 - **Retention.** Threads are not zero-data-retention eligible, there is no API to delete one, and each is deleted within an hour of its last use. Leave the option off where that matters, for example with the conversation-erasure write protocol.
+
+#### Across the calls of a session (`messageThreads: "session"`)
+
+`"session"` also keeps the thread for the session's next call, so that call sends only its new message instead of the whole history. The thread is found again by user (`context.userId`), session (`context.sessionId`), API key (hashed) and endpoint; it lives in memory on the `NeuroLink` instance for up to four minutes (the API drops an idle thread after five), and another process simply starts a new one. A call continues only if its model, tools, system prompt (without the "you are continuing a conversation" note NeuroLink appends once there is history) and tool choice are the same, and the history conversation memory rebuilt matches what the thread holds. Otherwise it is a new thread.
+
+Three things differ from the per-turn option, and the first two are the price of the feature:
+
+- **The model sees more than the unthreaded path would.** When conversation memory rebuilds a session's history for the next call it replays each turn's final text plus a one-line `[called <tool> → ok]` marker per call (the default replay format; the tool arguments and results are still stored as `tool_call`/`tool_result` rows). The thread still holds the full tool calls and results from earlier turns, so after a tool turn a continued call has context a rebuilt-from-memory call does not. That is deliberate, and it is why this is a separate value rather than the default.
+- **The thread outlives `clearConversationSession()`.** NeuroLink forgets it, so the next call starts a new thread, but the server keeps the old one until it expires (up to an hour) and has no delete. It is not zero-data-retention eligible. There is no carve-out for the conversation-erasure write protocol: choose `"session"` only where that is acceptable.
+- **A continued call runs without the conversation note** in its system prompt, since the thread already holds the history the note points at.
 
 ---
 

@@ -13,6 +13,18 @@ Extended to support video generation mode
 
 ## Properties
 
+### messageThreads?
+
+> `optional` **messageThreads?**: `boolean` \| `"session"`
+
+Send this call's steps as an Anthropic message thread (beta); `"session"`
+also keeps the thread for the session's next call. The same option and the
+same limits as `StreamOptions.messageThreads`: native Anthropic with
+API-key auth only, off by default, not zero-data-retention eligible, and no
+way to delete a thread. See that option for the trade-offs.
+
+---
+
 ### prompt?
 
 > `optional` **prompt?**: `string`

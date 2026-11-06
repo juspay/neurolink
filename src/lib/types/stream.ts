@@ -645,15 +645,24 @@ export type StreamOptions = {
    * the thread fixes has changed (otherwise it starts a new thread), so the
    * request stops growing with the turn. Off by default.
    *
-   * Native Anthropic streaming with API-key auth only; other providers and
-   * OAuth ignore it. The server keeps a thread for minutes and may drop it, in
+   * Native Anthropic (`stream()` and `generate()`) with API-key auth only;
+   * other providers and OAuth ignore it. The server keeps a thread for minutes and may drop it, in
    * which case the step is resent in full; a change to the tools, system
    * prompt, tool choice or earlier messages starts a new thread. Threads are
    * not zero-data-retention eligible, and the API has no way to delete one
    * (it expires within an hour). It was measured to shrink the request, not to
    * lower time to first token when prompt caching is already on.
+   *
+   * `"session"` also keeps the thread for the session's next call (same user,
+   * session id, credential and endpoint; in memory on the NeuroLink instance,
+   * for up to four minutes), so that call sends only its new message. Two
+   * things to know. Conversation memory keeps only each turn's final text, so
+   * the thread still holds the tool calls and results that memory dropped: the
+   * model sees more than it would without a thread. And the thread outlives
+   * `clearConversationSession()`: NeuroLink forgets it, the server keeps it
+   * until it expires, up to an hour, and cannot be asked to delete it.
    */
-  messageThreads?: boolean;
+  messageThreads?: boolean | "session";
   /** Max time with no progress before the turn ends as "stalled" (ms). Native Vertex loops only — see GenerateOptions.stallTimeoutMs. */
   stallTimeoutMs?: number;
   /** Remaining-time threshold that triggers the wrap-up nudge (ms). See GenerateOptions.wrapupTimeLeadMs. */
