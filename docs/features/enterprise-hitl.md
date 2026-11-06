@@ -33,7 +33,7 @@ Tracking: [#752](https://github.com/juspay/neurolink/issues/752).
 
 ## Currently available
 
-`HITLConfig` has exactly these nine keys (see `src/lib/types/hitl.ts`).
+`HITLConfig` has exactly these ten keys (see `src/lib/types/hitl.ts`).
 Anything else on this page is not implemented.
 
 ```typescript
@@ -54,6 +54,7 @@ const neurolink = new NeuroLink({
     allowArgumentModification: false, // Default false. Only advertised to your UI as allowModification; not enforced
     auditLogging: true, // Log each request and decision
     customRules: [], // { name, condition(toolName, args), requiresConfirmation, customMessage? }
+    confirmBuiltinTools: true, // Default true. See the note below the example
   },
 });
 ```
@@ -69,6 +70,17 @@ either way, so forward only the arguments you accept. The
 `hitl:audit` event is emitted on the internal `HITLManager`, and `NeuroLink`
 forwards only `hitl:confirmation-request` and `hitl:timeout` to
 `getEventEmitter()`.
+
+`confirmBuiltinTools` (default `true`) applies only while `enabled` is `true`.
+With it on, the built-in `writeFile` and `executeBashCommand` tools need
+confirmation on every call the model makes during `generate()` or `stream()`,
+whether or not `dangerousActions` matches them. Setting it to `false` removes
+only that built-in rule: those tools are then gated like any other tool, so a
+`dangerousActions` keyword or a `customRules` match still requires approval.
+A direct `neurolink.executeTool("writeFile", ...)` call is checked against
+`dangerousActions` and `customRules` only, not against this rule, so list the
+tool names in `dangerousActions` if those calls must be confirmed too. With
+HITL disabled, no tool asks for confirmation.
 
 Approval is **event-based**, through the SDK emitter — there is no
 `reviewCallback`. The emitter is reached with `getEventEmitter()`; `NeuroLink`
