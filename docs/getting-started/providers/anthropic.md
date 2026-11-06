@@ -479,6 +479,16 @@ What to know before turning it on:
 - **A cut-off, refused or otherwise abnormal response is never continued from.**
 - **Retention.** Threads are not zero-data-retention eligible, there is no API to delete one, and each is deleted within an hour of its last use. Leave the option off where that matters, for example with the conversation-erasure write protocol.
 
+#### Across the calls of a session (`messageThreads: "session"`)
+
+`"session"` also keeps the thread for the session's next call, so that call sends only its new message instead of the whole history. The thread is found again by user (`context.userId`), session (`context.sessionId`), API key (hashed) and endpoint; it lives in memory on the `NeuroLink` instance for up to four minutes (the API drops an idle thread after five), and another process simply starts a new one. A call continues only if its model, tools, system prompt (without the "you are continuing a conversation" note NeuroLink appends once there is history) and tool choice are the same, and the history conversation memory rebuilt matches what the thread holds. Otherwise it is a new thread.
+
+Three things differ from the per-turn option, and the first two are the price of the feature:
+
+- **The model sees more than the unthreaded path would.** Conversation memory keeps only each turn's final text plus a one-line `[called <tool> → ok]` marker per call. The thread still holds the full tool calls and results from earlier turns, so after a tool turn a continued call has context a rebuilt-from-memory call does not. That is deliberate, and it is why this is a separate value rather than the default.
+- **The thread outlives `clearConversationSession()`.** NeuroLink forgets it, so the next call starts a new thread, but the server keeps the old one until it expires (up to an hour) and has no delete. It is not zero-data-retention eligible. There is no carve-out for the conversation-erasure write protocol: choose `"session"` only where that is acceptable.
+- **A continued call runs without the conversation note** in its system prompt, since the thread already holds the history the note points at.
+
 ---
 
 ## Multimodal Capabilities

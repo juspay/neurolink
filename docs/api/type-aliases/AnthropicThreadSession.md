@@ -24,6 +24,27 @@ False once the API has said it cannot thread this request.
 
 ## Methods
 
+### carry()
+
+> **carry**(`assistantText`): [`AnthropicThreadCarry`](AnthropicThreadCarry.md) \| `undefined`
+
+What the next call of the same session needs to continue this thread, or
+undefined when it cannot: the turn did not end on a normal stop, or no
+response was stored. `assistantText` is the text the turn streamed, which
+is what conversation memory will hand back as the assistant's reply.
+
+#### Parameters
+
+##### assistantText
+
+`string`
+
+#### Returns
+
+[`AnthropicThreadCarry`](AnthropicThreadCarry.md) \| `undefined`
+
+---
+
 ### plan()
 
 > **plan**(`params`): [`AnthropicThreadPlan`](AnthropicThreadPlan.md)
@@ -42,13 +63,18 @@ False once the API has said it cannot thread this request.
 
 ### accept()
 
-> **accept**(`messageId`): `void`
+> **accept**(`messageId`, `stopReason?`): `void`
 
 The response was complete and stored: the next step may continue from it.
+`stopReason` says whether it also ended the turn.
 
 #### Parameters
 
 ##### messageId
+
+`string`
+
+##### stopReason?
 
 `string`
 

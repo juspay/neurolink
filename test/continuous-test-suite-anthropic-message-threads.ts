@@ -132,12 +132,15 @@ type Reply = { frames: string[] } | { status: number; json: unknown };
 type Call = { body: Record<string, unknown>; headers: IncomingHttpHeaders };
 type StandIn = { calls: Call[]; port: number; close: () => Promise<void> };
 
-async function startStandIn(reply: (index: number) => Reply): Promise<StandIn> {
+async function startStandIn(
+  reply: (index: number) => Reply,
+  gate?: Promise<void>,
+): Promise<StandIn> {
   const calls: Call[] = [];
   const server: Server = createServer((req, res) => {
     const chunks: Buffer[] = [];
     req.on("data", (c: Buffer) => chunks.push(c));
-    req.on("end", () => {
+    req.on("end", async () => {
       let body: Record<string, unknown>;
       try {
         body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
@@ -146,6 +149,9 @@ async function startStandIn(reply: (index: number) => Reply): Promise<StandIn> {
       }
       calls.push({ body, headers: req.headers });
       const answer = reply(calls.length - 1);
+      if (gate) {
+        await gate;
+      }
       if ("frames" in answer) {
         res.writeHead(200, { "content-type": "text/event-stream" });
         for (const frame of answer.frames) {
@@ -178,6 +184,47 @@ const lookupTool = (): Record<string, Tool> => ({
     execute: async () => ({ found: true }),
   },
 });
+
+type SessionClient = {
+  nl: InstanceType<typeof NeuroLink>;
+  restore: () => void;
+};
+
+/** One NeuroLink with conversation memory on, for several calls of a session. */
+function sessionClient(port: number): SessionClient {
+  const restore = withAnthropicEnv(port);
+  return {
+    nl: new NeuroLink({ conversationMemory: { enabled: true } }),
+    restore,
+  };
+}
+
+async function sessionTurn(
+  client: SessionClient,
+  text: string,
+  extra: Record<string, unknown> = {},
+  sessionId = "s1",
+): Promise<string> {
+  const result = await client.nl.stream({
+    input: { text },
+    provider: "anthropic",
+    disableInternalFallback: true,
+    model: MODEL,
+    maxTokens: 64,
+    messageThreads: "session",
+    context: { sessionId, userId: "u1" },
+    ...extra,
+  });
+  let out = "";
+  for await (const chunk of result.stream) {
+    if ("content" in chunk && typeof chunk.content === "string") {
+      out += chunk.content;
+    }
+  }
+  return out;
+}
+
+const threadOf = (call: Call): string => JSON.stringify(call.body.thread);
 
 async function runTurn(
   port: number,
@@ -390,6 +437,424 @@ await test("a response that ended without message_stop is not continued", async 
     );
   } finally {
     await server.close();
+  }
+});
+
+await test("session scope: the next call of the session continues the thread with only its new message", async () => {
+  const server = await startStandIn((i) => ({
+    frames: textTurn(`answer ${i}`, `msg_${i}`),
+  }));
+  const client = sessionClient(server.port);
+  try {
+    await sessionTurn(client, "first question");
+    await sessionTurn(client, "second question");
+    assertEqual(server.calls.length, 2, "request count");
+    assertEqual(
+      threadOf(server.calls[0]),
+      '{"type":"create"}',
+      "call 1 thread",
+    );
+    assertEqual(
+      threadOf(server.calls[1]),
+      '{"type":"continue","previous_message_id":"msg_0"}',
+      "call 2 thread",
+    );
+    assertEqual(
+      messagesOf(server.calls[1]).length,
+      1,
+      "call 2 sends only its new message",
+    );
+    assert(
+      !("system" in server.calls[1].body),
+      "a continue must not send system",
+    );
+    assert(
+      !("tools" in server.calls[1].body),
+      "a continue must not send tools",
+    );
+    assertEqual(
+      server.calls[1].body.model,
+      server.calls[0].body.model,
+      "model is fixed",
+    );
+  } finally {
+    client.restore();
+    await server.close();
+  }
+});
+
+await test("session scope: a call after a tool turn continues from the last response, with the tool blocks only the thread holds", async () => {
+  const server = await startStandIn((i) => ({
+    frames:
+      i === 0
+        ? toolTurn("msg_0", "toolu_0")
+        : textTurn(`answer ${i}`, `msg_${i}`),
+  }));
+  const client = sessionClient(server.port);
+  try {
+    await sessionTurn(client, "look it up", { tools: lookupTool() });
+    await sessionTurn(client, "and again", { tools: lookupTool() });
+    assertEqual(server.calls.length, 3, "request count");
+    assertEqual(
+      threadOf(server.calls[1]),
+      '{"type":"continue","previous_message_id":"msg_0"}',
+      "step 2 of call 1 continues in-turn",
+    );
+    assertEqual(
+      threadOf(server.calls[2]),
+      '{"type":"continue","previous_message_id":"msg_1"}',
+      "call 2 continues from the last response of call 1",
+    );
+    assertEqual(
+      messagesOf(server.calls[2]).length,
+      1,
+      "call 2 sends only its new message",
+    );
+  } finally {
+    client.restore();
+    await server.close();
+  }
+});
+
+await test("session scope is opt-in: messageThreads true keeps a thread inside one call only", async () => {
+  const server = await startStandIn((i) => ({
+    frames: textTurn(`answer ${i}`, `msg_${i}`),
+  }));
+  const client = sessionClient(server.port);
+  try {
+    await sessionTurn(client, "first question", { messageThreads: true });
+    await sessionTurn(client, "second question", { messageThreads: true });
+    assertEqual(
+      threadOf(server.calls[1]),
+      '{"type":"create"}',
+      "call 2 thread",
+    );
+    assertEqual(
+      messagesOf(server.calls[1]).length,
+      3,
+      "call 2 resends the history",
+    );
+  } finally {
+    client.restore();
+    await server.close();
+  }
+});
+
+await test("session scope: another session, a changed model or tool set never continues the thread", async () => {
+  const server = await startStandIn((i) => ({
+    frames: textTurn(`answer ${i}`, `msg_${i}`),
+  }));
+  const client = sessionClient(server.port);
+  try {
+    await sessionTurn(client, "first question", {}, "alpha");
+    await sessionTurn(client, "other session", {}, "beta");
+    assertEqual(
+      threadOf(server.calls[1]),
+      '{"type":"create"}',
+      "another session",
+    );
+    await sessionTurn(
+      client,
+      "same session, new model",
+      { model: "claude-3-5-haiku-20241022" },
+      "alpha",
+    );
+    assertEqual(
+      threadOf(server.calls[2]),
+      '{"type":"create"}',
+      "another model",
+    );
+    await sessionTurn(
+      client,
+      "same session, new tools",
+      { tools: lookupTool() },
+      "alpha",
+    );
+    assertEqual(
+      threadOf(server.calls[3]),
+      '{"type":"create"}',
+      "another tool set",
+    );
+    assert(
+      messagesOf(server.calls[3]).length > 1,
+      "a new thread resends the history",
+    );
+  } finally {
+    client.restore();
+    await server.close();
+  }
+});
+
+await test("session scope: clearing the conversation forgets the thread locally", async () => {
+  const server = await startStandIn((i) => ({
+    frames: textTurn(`answer ${i}`, `msg_${i}`),
+  }));
+  const client = sessionClient(server.port);
+  try {
+    await sessionTurn(client, "first question");
+    assert(
+      client.nl.anthropicThreadStore.size === 1,
+      "a thread was left for the session",
+    );
+    await client.nl.clearConversationSession("s1");
+    assert(
+      client.nl.anthropicThreadStore.size === 0,
+      "the thread was forgotten",
+    );
+    await sessionTurn(client, "after clearing");
+    assertEqual(
+      threadOf(server.calls[1]),
+      '{"type":"create"}',
+      "call 2 thread",
+    );
+    assertEqual(
+      messagesOf(server.calls[1]).length,
+      1,
+      "the history is gone too",
+    );
+  } finally {
+    client.restore();
+    await server.close();
+  }
+});
+
+await test("session scope: a thread the server no longer has is recreated from the full history", async () => {
+  const server = await startStandIn((i) => {
+    if (i === 1) {
+      return threadError(404, "thread_not_found");
+    }
+    return { frames: textTurn(`answer ${i}`, `msg_${i}`) };
+  });
+  const client = sessionClient(server.port);
+  try {
+    await sessionTurn(client, "first question");
+    const text = await sessionTurn(client, "second question");
+    assert(
+      text.includes("answer 2"),
+      "the call did not finish after the replay",
+    );
+    assertEqual(server.calls.length, 3, "request count");
+    assertEqual(
+      threadOf(server.calls[2]),
+      '{"type":"create"}',
+      "replay thread",
+    );
+    assertEqual(
+      messagesOf(server.calls[2]).length,
+      3,
+      "the replay carries the whole history",
+    );
+    assert(
+      server.calls[2].body.system !== undefined,
+      "the replay declares system again",
+    );
+  } finally {
+    client.restore();
+    await server.close();
+  }
+});
+
+const carryOf = (id = "msg_x") => ({
+  previousMessageId: id,
+  fingerprint: "fp",
+  anchor: ["a"],
+});
+
+await test("store: a call that started before a clear cannot leave its thread afterwards", async () => {
+  const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+  const store = nl.anthropicThreadStore;
+  const epoch = store.epochOf("s1");
+  store.forget("s1");
+  store.put("k", "s1", carryOf(), epoch);
+  assertEqual(store.size, 0, "a stale call left a thread");
+  store.put("k", "s1", carryOf(), store.epochOf("s1"));
+  assertEqual(
+    store.size,
+    1,
+    "a call that started after the clear should keep one",
+  );
+  const other = store.epochOf("s2");
+  store.forget("s1");
+  store.put("k2", "s2", carryOf(), other);
+  assertEqual(store.size, 1, "clearing s1 must not fence s2");
+  const before = store.epochOf("s3");
+  store.forget();
+  store.put("k3", "s3", carryOf(), before);
+  assertEqual(store.size, 0, "clearing everything fences every call");
+  await nl.dispose();
+});
+
+await test("store: entries expire without another call, and forget() empties it", async () => {
+  const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+  const store = nl.anthropicThreadStore;
+  store.put("k", "s1", carryOf(), store.epochOf("s1"), 1_000);
+  store.sweep(1_000 + 10 * 60 * 1000);
+  assertEqual(store.size, 0, "an expired entry survived the sweep");
+  assertEqual(store.take("k"), undefined, "an expired entry was handed out");
+  store.put("k", "s1", carryOf(), store.epochOf("s1"));
+  store.forget();
+  assertEqual(store.size, 0, "forget() should empty the store");
+  await nl.dispose();
+});
+
+await test("session scope: a stream that finishes after its conversation was cleared leaves no thread", async () => {
+  const gate = Promise.withResolvers<void>();
+  const server = await startStandIn(
+    (i) => ({ frames: textTurn(`answer ${i}`, `msg_${i}`) }),
+    gate.promise,
+  );
+  const client = sessionClient(server.port);
+  try {
+    const first = sessionTurn(client, "first question");
+    const until = Date.now() + 10_000;
+    while (server.calls.length === 0 && Date.now() < until) {
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    assertEqual(
+      server.calls.length,
+      1,
+      "the first request should be in flight",
+    );
+    await client.nl.clearConversationSession("s1");
+    gate.resolve();
+    await first;
+    assertEqual(
+      client.nl.anthropicThreadStore.size,
+      0,
+      "the cleared conversation got its thread back",
+    );
+    await sessionTurn(client, "second question");
+    assertEqual(
+      threadOf(server.calls[1]),
+      '{"type":"create"}',
+      "call 2 thread",
+    );
+  } finally {
+    gate.resolve();
+    client.restore();
+    await server.close();
+  }
+});
+
+await test("session scope: a call whose first message carried an image does not continue the thread", async () => {
+  const server = await startStandIn((i) => ({
+    frames: textTurn(`answer ${i}`, `msg_${i}`),
+  }));
+  const client = sessionClient(server.port);
+  // A 1x1 PNG, so the request is a real image turn.
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  try {
+    await sessionTurn(client, "describe this", {
+      input: { text: "describe this", images: [png] },
+    });
+    await sessionTurn(client, "and now?");
+    assertEqual(
+      threadOf(server.calls[1]),
+      '{"type":"create"}',
+      "call 2 thread",
+    );
+  } finally {
+    client.restore();
+    await server.close();
+  }
+});
+
+await test("session scope: replacing the session's messages forgets the thread, so redacted history is not shadowed", async () => {
+  const server = await startStandIn((i) => ({
+    frames:
+      i === 0
+        ? toolTurn("msg_0", "toolu_0")
+        : textTurn(`answer ${i}`, `msg_${i}`),
+  }));
+  const client = sessionClient(server.port);
+  try {
+    await sessionTurn(client, "look it up", { tools: lookupTool() });
+    assertEqual(
+      client.nl.anthropicThreadStore.size,
+      1,
+      "a thread was left for the session",
+    );
+    const messages = await client.nl.getSessionMessages("s1", "u1");
+    await client.nl.setSessionMessages(
+      "s1",
+      messages.filter(
+        (m) => m.role !== "tool_call" && m.role !== "tool_result",
+      ),
+      "u1",
+    );
+    assertEqual(
+      client.nl.anthropicThreadStore.size,
+      0,
+      "the thread survived the replacement",
+    );
+    await sessionTurn(client, "and again", { tools: lookupTool() });
+    assertEqual(
+      threadOf(server.calls[2]),
+      '{"type":"create"}',
+      "call 2 thread",
+    );
+  } finally {
+    client.restore();
+    await server.close();
+  }
+});
+
+await test("session scope: two numeric user ids in one session do not share a thread", async () => {
+  const server = await startStandIn((i) => ({
+    frames: textTurn(`answer ${i}`, `msg_${i}`),
+  }));
+  const client = sessionClient(server.port);
+  try {
+    await sessionTurn(client, "first question", {
+      context: { sessionId: "s1", userId: 1 },
+    });
+    await sessionTurn(client, "second question", {
+      context: { sessionId: "s1", userId: 2 },
+    });
+    assertEqual(
+      threadOf(server.calls[1]),
+      '{"type":"create"}',
+      "user 2 must not continue user 1's thread",
+    );
+  } finally {
+    client.restore();
+    await server.close();
+  }
+});
+
+await test("clearing and disposing forget the thread even when conversation memory is off", async () => {
+  const restore = withAnthropicEnv(1);
+  try {
+    const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+    const put = (sessionId: string) =>
+      nl.anthropicThreadStore.put(
+        `k-${sessionId}`,
+        sessionId,
+        carryOf(),
+        nl.anthropicThreadStore.epochOf(sessionId),
+      );
+    put("s1");
+    await nl.clearConversationSession("s1").catch(() => undefined);
+    assertEqual(
+      nl.anthropicThreadStore.size,
+      0,
+      "clearConversationSession kept the thread",
+    );
+    put("s2");
+    await nl.clearAllConversations().catch(() => undefined);
+    assertEqual(
+      nl.anthropicThreadStore.size,
+      0,
+      "clearAllConversations kept the thread",
+    );
+    put("s3");
+    await nl.dispose();
+    assertEqual(nl.anthropicThreadStore.size, 0, "dispose kept the thread");
+  } finally {
+    restore();
   }
 });
 
