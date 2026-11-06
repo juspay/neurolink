@@ -43,6 +43,7 @@ import {
 import type {
   ToolExecutionSummaryInternal,
   AnthropicProviderConfig,
+  AnthropicThreadPlan,
   AnthropicThreadSession,
   StreamOptions,
   StreamResult,
@@ -96,7 +97,13 @@ import type {
 } from "../../types/index.js";
 import { stringifyAnthropicToolOutput } from "./toolOutput.js";
 import { createAnthropicLoopAdapter } from "./loopAdapter.js";
-import { createAnthropicThreadSession } from "./threads.js";
+import { AsyncLocalStorage } from "node:async_hooks";
+import {
+  AnthropicThreadStore,
+  createAnthropicThreadSession,
+  settleThread,
+  threadRecovery,
+} from "./threads.js";
 import { DEFAULT_BEFORE_STEP_TIMEOUT_MS } from "../../utils/parameterValidation.js";
 import type {
   AgenticLoopReclaimResult,
@@ -713,11 +720,33 @@ const mapAnthropicStopReason = (
 const ANTHROPIC_CLIENT_TIMEOUT_MS = 600_000;
 
 /**
+ * Send one non-streaming step of a thread. The SDK's request type does not know
+ * the beta `thread` field, so this is the one place it is added to the body,
+ * with the thread beta in the headers the plan carries.
+ */
+const createThreadedMessage = (
+  client: Anthropic,
+  plan: AnthropicThreadPlan,
+  signal: AbortSignal | undefined,
+): Promise<Anthropic.Messages.Message> =>
+  client.messages.create(
+    { ...plan.params, stream: false },
+    { ...(signal ? { signal } : {}), headers: plan.headers },
+  );
+
+/** The thread session of the generate() call in progress, for its doGenerate. */
+const generateThreadScope = new AsyncLocalStorage<
+  AnthropicThreadSession | undefined
+>();
+
+/**
  * Anthropic Provider v2 - BaseProvider Implementation
  * Enhanced with OAuth support, subscription tiers, and beta headers for Claude Code integration.
  */
 export class AnthropicProvider extends BaseProvider {
   private client: Anthropic;
+  /** The API key this client was built with; only ever hashed, never logged or sent elsewhere. */
+  private apiKeyForThreads: string | undefined;
   private readonly authMethod: AnthropicAuthMethod;
   private readonly subscriptionTier: ClaudeSubscriptionTier;
   private readonly enableBetaFeatures: boolean;
@@ -901,6 +930,7 @@ export class AnthropicProvider extends BaseProvider {
       // Traditional API key authentication
       const apiKeyToUse =
         credentials?.apiKey ?? config?.apiKey ?? getAnthropicApiKey();
+      this.apiKeyForThreads = apiKeyToUse;
 
       client = new Anthropic({
         apiKey: apiKeyToUse,
@@ -973,9 +1003,18 @@ export class AnthropicProvider extends BaseProvider {
    * the thread beta.
    */
   private createMessageThreadSession(
-    options: StreamOptions,
-  ): AnthropicThreadSession | undefined {
-    if (options.messageThreads !== true) {
+    options: Pick<StreamOptions, "messageThreads" | "context">,
+  ):
+    | {
+        session: AnthropicThreadSession;
+        /** Leave the thread for the session's next call (`messageThreads: "session"`). */
+        leave?: (assistantText: string) => void;
+      }
+    | undefined {
+    if (
+      options.messageThreads !== true &&
+      options.messageThreads !== "session"
+    ) {
       return undefined;
     }
     if (this.authMethod !== "api_key") {
@@ -985,9 +1024,84 @@ export class AnthropicProvider extends BaseProvider {
       );
       return undefined;
     }
-    return createAnthropicThreadSession(
+    const scope =
+      options.messageThreads === "session"
+        ? this.sessionThreadScope(options)
+        : undefined;
+    const session = createAnthropicThreadSession(
       this.getAuthHeaders()["anthropic-beta"],
+      scope ? scope.store.take(scope.key) : undefined,
     );
+    return {
+      session,
+      ...(scope
+        ? {
+            leave: (assistantText: string) => {
+              const carry = session.carry(assistantText);
+              if (carry) {
+                scope.store.put(scope.key, scope.sessionId, carry, scope.epoch);
+              }
+            },
+          }
+        : {}),
+    };
+  }
+
+  /**
+   * Where this call's thread is kept for the session's next call, or undefined
+   * when it cannot be (no NeuroLink instance, or no session id). The owner is
+   * the user, the session, the credential and the endpoint: a thread belongs to
+   * the key that made it, and is not shared across any of them.
+   */
+  private sessionThreadScope(
+    options: Pick<StreamOptions, "messageThreads" | "context">,
+  ):
+    | {
+        store: AnthropicThreadStore;
+        key: string;
+        sessionId: string;
+        epoch: string;
+      }
+    | undefined {
+    const store = this.neurolink?.anthropicThreadStore;
+    const context = options.context as Record<string, unknown> | undefined;
+    const rawSession = context?.sessionId;
+    const sessionId =
+      typeof rawSession === "string" && rawSession.length > 0
+        ? rawSession
+        : typeof rawSession === "number"
+          ? String(rawSession)
+          : undefined;
+    if (store === undefined || sessionId === undefined) {
+      return undefined;
+    }
+    // A thread is private to a user. An id of a kind that cannot be told apart
+    // from another's (anything but a string or a number) means the call cannot
+    // be attributed, so it does not share a thread rather than falling into the
+    // anonymous scope.
+    const rawUser = context?.userId;
+    if (
+      rawUser !== undefined &&
+      rawUser !== null &&
+      typeof rawUser !== "string" &&
+      typeof rawUser !== "number"
+    ) {
+      return undefined;
+    }
+    const userId =
+      rawUser === undefined || rawUser === null ? undefined : String(rawUser);
+    const credential = this.apiKeyForThreads ?? getAnthropicApiKey() ?? "";
+    return {
+      store,
+      sessionId,
+      epoch: store.epochOf(sessionId),
+      key: AnthropicThreadStore.keyOf({
+        ...(userId !== undefined ? { userId } : {}),
+        sessionId,
+        credential,
+        ...(this.baseURL !== undefined ? { baseURL: this.baseURL } : {}),
+      }),
+    };
   }
 
   /**
@@ -1695,9 +1809,49 @@ export class AnthropicProvider extends BaseProvider {
         );
         let response: Anthropic.Messages.Message;
         try {
-          response = await client.messages.create(params, {
-            signal: requestSignal,
-          });
+          const threads = generateThreadScope.getStore();
+          if (threads?.enabled) {
+            // A thread step goes out as a create or a continue. When the API
+            // cannot continue it, or cannot thread the request at all, the
+            // same step is sent once more in full; any other failure ends the
+            // thread so the next step starts a new one (as in the stream loop).
+            let plan = threads.plan(params);
+            for (let attempt = 0; ; attempt++) {
+              try {
+                response = await createThreadedMessage(
+                  client,
+                  plan,
+                  requestSignal,
+                );
+                settleThread(threads, {
+                  sawTerminalEvent: true,
+                  messageId: response.id,
+                  stopReason: response.stop_reason ?? undefined,
+                });
+                break;
+              } catch (threadError) {
+                threads.reset();
+                const recovery =
+                  attempt === 0 ? threadRecovery(threadError) : undefined;
+                if (recovery === "recreate") {
+                  plan = threads.plan(params);
+                  continue;
+                }
+                if (recovery === "unthreaded") {
+                  threads.disable();
+                  response = await client.messages.create(params, {
+                    signal: requestSignal,
+                  });
+                  break;
+                }
+                throw threadError;
+              }
+            }
+          } else {
+            response = await client.messages.create(params, {
+              signal: requestSignal,
+            });
+          }
         } catch (error) {
           // The Anthropic SDK collapses ANY fired signal into its generic
           // APIUserAbortError ("Request was aborted."), discarding the
@@ -1968,7 +2122,11 @@ export class AnthropicProvider extends BaseProvider {
     await this.ensureModelLimits();
     const options = this.normalizeTextOptions(optionsOrPrompt);
     if (resolveRequestKind(options, this.modelName) !== "text") {
-      return super.generate(options, analysisSchema);
+      // Run outside any thread scope: a nested non-text call must not read, or
+      // write into, the session of a text call that happens to be active.
+      return generateThreadScope.run(undefined, () =>
+        super.generate(options, analysisSchema),
+      );
     }
     this.validateOptions(options);
     const mergedTools = await this.getToolsForStream(options);
@@ -2070,74 +2228,84 @@ export class AnthropicProvider extends BaseProvider {
     )) as Array<Record<string, unknown>>;
 
     const toolExecutionSummaries: ToolExecutionSummaryInternal[] = [];
-    const loop = await runNativeGenerateLoop(
-      {
-        doGenerate,
-        provider: this.providerName,
-        ...createNativeGenerateGuard({
-          provider: "anthropic",
-          availableInputTokens: getAvailableInputTokens(
-            "anthropic",
-            modelId,
-            options.maxTokens ?? undefined,
-          ),
-          // Runs on every step of the generate loop, so a cyclic or
-          // oversized tool schema must not throw the turn away. Shares the
-          // estimator's own serializer, matching the OpenAI-compatible
-          // native guard's wiring: its fallback over-reports, which makes
-          // the guard fire rather than silently size the overhead at
-          // nothing.
-          getFixedOverheadTokens: () =>
-            estimateTokens(
-              serializeForEstimate({
-                tools: v3Tools,
-                responseFormat,
-                providerOptions,
-              }),
+    // Message threads (opt-in): the session is per call, carried to the model
+    // handle's doGenerate through an async scope because the handle itself is
+    // shared. A structured turn leaves no thread for the next call: its reply
+    // is a tool payload, not the text memory will hold.
+    const threadState = this.createMessageThreadSession(options);
+    const loop = await generateThreadScope.run(threadState?.session, () =>
+      runNativeGenerateLoop(
+        {
+          doGenerate,
+          provider: this.providerName,
+          ...createNativeGenerateGuard({
+            provider: "anthropic",
+            availableInputTokens: getAvailableInputTokens(
               "anthropic",
+              modelId,
+              options.maxTokens ?? undefined,
             ),
-        }),
-        conversation,
-        ...(hasTools ? { tools: v3Tools } : {}),
-        toolsRecord,
-        // A caller's toolChoice was dropped here while the streaming path and
-        // the OpenAI-compatible native path both forwarded it, so
-        // `toolChoice: "required"` and named-tool choices silently degraded to
-        // Anthropic's default `auto` on generate().
-        ...(hasTools && options.toolChoice
-          ? { toolChoice: resolveToolChoice(options, toolsRecord, true) }
-          : {}),
-        ...(options.toolChoiceSteps !== undefined
-          ? { toolChoiceSteps: options.toolChoiceSteps }
-          : {}),
-        ...(options.prepareStep ? { prepareStep: options.prepareStep } : {}),
-        modelId,
-        ...(responseFormat ? { responseFormat } : {}),
-        ...(providerOptions ? { providerOptions } : {}),
-        maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
-        ...(options.maxTokens ? { maxOutputTokens: options.maxTokens } : {}),
-        ...(options.temperature !== undefined
-          ? { temperature: options.temperature }
-          : {}),
-        ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}),
-        ...(options.toolTimeoutMs !== undefined
-          ? { toolTimeoutMs: options.toolTimeoutMs }
-          : {}),
-        runStep: (call) =>
-          withProviderRetry<Record<string, unknown>>(
-            call,
-            trace.getActiveSpan() ?? undefined,
-            "anthropic generate",
-            undefined,
-            options.abortSignal,
-          ).catch((err: unknown) => {
-            throw this.handleProviderError(err);
+            // Runs on every step of the generate loop, so a cyclic or
+            // oversized tool schema must not throw the turn away. Shares the
+            // estimator's own serializer, matching the OpenAI-compatible
+            // native guard's wiring: its fallback over-reports, which makes
+            // the guard fire rather than silently size the overhead at
+            // nothing.
+            getFixedOverheadTokens: () =>
+              estimateTokens(
+                serializeForEstimate({
+                  tools: v3Tools,
+                  responseFormat,
+                  providerOptions,
+                }),
+                "anthropic",
+              ),
           }),
-        onRejectedToolCall: (name, error, id) =>
-          this.emitRejectedToolCall(name, error, id),
-      },
-      toolExecutionSummaries,
+          conversation,
+          ...(hasTools ? { tools: v3Tools } : {}),
+          toolsRecord,
+          // A caller's toolChoice was dropped here while the streaming path and
+          // the OpenAI-compatible native path both forwarded it, so
+          // `toolChoice: "required"` and named-tool choices silently degraded to
+          // Anthropic's default `auto` on generate().
+          ...(hasTools && options.toolChoice
+            ? { toolChoice: resolveToolChoice(options, toolsRecord, true) }
+            : {}),
+          ...(options.toolChoiceSteps !== undefined
+            ? { toolChoiceSteps: options.toolChoiceSteps }
+            : {}),
+          ...(options.prepareStep ? { prepareStep: options.prepareStep } : {}),
+          modelId,
+          ...(responseFormat ? { responseFormat } : {}),
+          ...(providerOptions ? { providerOptions } : {}),
+          maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
+          ...(options.maxTokens ? { maxOutputTokens: options.maxTokens } : {}),
+          ...(options.temperature !== undefined
+            ? { temperature: options.temperature }
+            : {}),
+          ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}),
+          ...(options.toolTimeoutMs !== undefined
+            ? { toolTimeoutMs: options.toolTimeoutMs }
+            : {}),
+          runStep: (call) =>
+            withProviderRetry<Record<string, unknown>>(
+              call,
+              trace.getActiveSpan() ?? undefined,
+              "anthropic generate",
+              undefined,
+              options.abortSignal,
+            ).catch((err: unknown) => {
+              throw this.handleProviderError(err);
+            }),
+          onRejectedToolCall: (name, error, id) =>
+            this.emitRejectedToolCall(name, error, id),
+        },
+        toolExecutionSummaries,
+      ),
     );
+    if (!options.schema) {
+      threadState?.leave?.(loop.text);
+    }
 
     const enhanced: EnhancedGenerateResult = {
       content: loop.text,
@@ -2643,7 +2811,11 @@ export class AnthropicProvider extends BaseProvider {
         };
       };
 
-      const messageThreads = this.createMessageThreadSession(options);
+      const threadState = this.createMessageThreadSession(options);
+      const messageThreads = threadState?.session;
+      // Text streamed to the consumer across the whole turn: what conversation
+      // memory will keep as this turn's reply.
+      let streamedText = "";
 
       const baseAdapter = createAnthropicLoopAdapter({
         client,
@@ -2924,6 +3096,7 @@ export class AnthropicProvider extends BaseProvider {
             if (finalResultActive) {
               bufferedText += chunk.content;
             } else {
+              streamedText += chunk.content;
               pushChunk({ content: chunk.content });
             }
           }
@@ -3001,6 +3174,12 @@ export class AnthropicProvider extends BaseProvider {
         finalResultText === undefined
       ) {
         turnMetadata.stopReason = "step-cap";
+      }
+
+      // Leave the thread for the session's next call. Not for a structured
+      // turn: its reply is the final_result payload, not the text above.
+      if (!finalResultActive) {
+        threadState?.leave?.(streamedText);
       }
 
       resolveUsage(buildDeferredUsage());

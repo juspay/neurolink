@@ -1661,6 +1661,8 @@ console.log(result.content);
 - [AgenticLoopAdapter](type-aliases/AgenticLoopAdapter.md)
 - [AnthropicThreadRef](type-aliases/AnthropicThreadRef.md)
 - [AnthropicThreadPlan](type-aliases/AnthropicThreadPlan.md)
+- [AnthropicThreadCarry](type-aliases/AnthropicThreadCarry.md)
+- [AnthropicStoredThread](type-aliases/AnthropicStoredThread.md)
 - [AnthropicThreadSession](type-aliases/AnthropicThreadSession.md)
 - [AnthropicLoopAdapterConfig](type-aliases/AnthropicLoopAdapterConfig.md)
 - [ToolExecutionGuards](type-aliases/ToolExecutionGuards.md)

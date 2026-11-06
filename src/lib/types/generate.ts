@@ -65,6 +65,14 @@ import type { AttachmentPolicy } from "./attachments.js";
  */
 export type GenerateOptions = {
   /**
+   * Send this call's steps as an Anthropic message thread (beta); `"session"`
+   * also keeps the thread for the session's next call. The same option and the
+   * same limits as `StreamOptions.messageThreads`: native Anthropic with
+   * API-key auth only, off by default, not zero-data-retention eligible, and no
+   * way to delete a thread. See that option for the trade-offs.
+   */
+  messageThreads?: boolean | "session";
+  /**
    * Input content for generation. Optional for media-only modes (avatar, music,
    * video) where all configuration lives in `output`; the SDK synthesises an
    * empty `input` automatically when this field is omitted.
@@ -1376,6 +1384,14 @@ export type FactoryEnhancedProvider = EnhancedProvider & {
  * Extended to support video generation mode
  */
 export type TextGenerationOptions = {
+  /**
+   * Send this call's steps as an Anthropic message thread (beta); `"session"`
+   * also keeps the thread for the session's next call. The same option and the
+   * same limits as `StreamOptions.messageThreads`: native Anthropic with
+   * API-key auth only, off by default, not zero-data-retention eligible, and no
+   * way to delete a thread. See that option for the trade-offs.
+   */
+  messageThreads?: boolean | "session";
   prompt?: string;
   /**
    * Fraction of the model's context window at which compaction runs for this
