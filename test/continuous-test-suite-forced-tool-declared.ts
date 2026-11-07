@@ -43,6 +43,7 @@ import {
   resolveStepToolChoice,
   runNativeGenerateLoop,
 } from "../src/lib/core/nativeGenerateLoop.js";
+import { z } from "zod";
 import { logger } from "../src/lib/utils/logger.js";
 import type { StepToolChoiceInput, Tool } from "../src/lib/types/index.js";
 
@@ -663,4 +664,123 @@ void runSuite(async () => {
       assertEqual(rejected.length, 0, "the call was not rejected");
     });
   }
+
+  // A plain z.date() is described to the model as a date-time string, because
+  // JSON has no Date, so the model sends a string. The call used to be
+  // rejected at validation with "expected date".
+  const runDateTool = async (
+    inputSchema: unknown,
+    args: Record<string, unknown>,
+  ) => {
+    let received: unknown;
+    const rejected: string[] = [];
+    const record = Object.create(null) as Record<string, unknown>;
+    record.date_tool = {
+      description: "probe",
+      inputSchema,
+      execute: async (input: unknown) => {
+        received = input;
+        return { ok: true };
+      },
+    };
+    let call = 0;
+    const doGenerate = async () =>
+      call++ === 0
+        ? {
+            content: [
+              {
+                type: "tool-call",
+                toolCallId: "call-1",
+                toolName: "date_tool",
+                input: JSON.stringify(args),
+              },
+            ],
+            finishReason: { unified: "tool-calls" },
+            usage: { inputTokens: { total: 1 }, outputTokens: { total: 1 } },
+          }
+        : {
+            content: [{ type: "text", text: "done" }],
+            finishReason: { unified: "stop" },
+            usage: { inputTokens: { total: 1 }, outputTokens: { total: 1 } },
+          };
+    await runNativeGenerateLoop(
+      {
+        provider: "probe",
+        doGenerate,
+        conversation: [{ role: "user", content: "hi" }],
+        tools: [
+          {
+            type: "function",
+            name: "date_tool",
+            description: "probe",
+            inputSchema: { type: "object", properties: {} },
+          },
+        ],
+        toolsRecord: record as Record<string, Tool>,
+        onRejectedToolCall: (name) => {
+          rejected.push(name);
+        },
+        modelId: "test-model",
+        maxSteps: 3,
+        runStep: (invoke) => invoke(),
+      },
+      [],
+    );
+    return { received, rejected };
+  };
+
+  await test("generate loop: a date-time string for a plain z.date() reaches the tool as a Date", async () => {
+    const { received, rejected } = await runDateTool(
+      z.object({
+        day: z.date(),
+        items: z.array(z.object({ at: z.date().optional() })),
+        name: z.string(),
+      }),
+      {
+        day: "2026-11-07T10:00:00Z",
+        items: [{ at: "2026-11-08" }, {}],
+        name: "x",
+      },
+    );
+    assertEqual(rejected.length, 0, "the call was rejected");
+    const got = received as {
+      day: unknown;
+      items: Array<{ at?: unknown }>;
+      name: string;
+    };
+    assert(got.day instanceof Date, "day should arrive as a Date");
+    assertEqual(
+      (got.day as Date).toISOString(),
+      "2026-11-07T10:00:00.000Z",
+      "day value",
+    );
+    assert(got.items[0].at instanceof Date, "nested date should be a Date");
+    assertEqual(got.items[1].at, undefined, "an absent optional stays absent");
+    assertEqual(got.name, "x", "other fields are untouched");
+  });
+
+  await test("generate loop: a string that is not a date, or another mismatch, is still rejected", async () => {
+    const notADate = await runDateTool(z.object({ day: z.date() }), {
+      day: "next tuesday",
+    });
+    assertEqual(notADate.rejected.length, 1, "a non-date string was accepted");
+    assertEqual(notADate.received, undefined, "the tool must not run");
+    const otherField = await runDateTool(
+      z.object({ day: z.date(), count: z.number() }),
+      { day: "2026-11-07T10:00:00Z", count: "three" },
+    );
+    assertEqual(otherField.rejected.length, 1, "a bad number was accepted");
+    assertEqual(otherField.received, undefined, "the tool must not run");
+  });
+
+  await test("generate loop: z.coerce.date() and z.string() fields behave as before", async () => {
+    const { received, rejected } = await runDateTool(
+      z.object({ a: z.coerce.date(), b: z.string() }),
+      { a: "2026-11-07T10:00:00Z", b: "2026-11-07T10:00:00Z" },
+    );
+    assertEqual(rejected.length, 0, "the call was rejected");
+    const got = received as { a: unknown; b: unknown };
+    assert(got.a instanceof Date, "coerce still yields a Date");
+    assertEqual(got.b, "2026-11-07T10:00:00Z", "a string field stays a string");
+  });
 });

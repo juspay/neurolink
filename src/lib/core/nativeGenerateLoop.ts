@@ -485,6 +485,55 @@ function declaredInputSchema(name: string, tool: Tool): object {
 }
 
 /**
+ * A copy of `input` where each value Zod rejected as "expected date" and that
+ * is an ISO-8601 date or date-time string has become a `Date`; undefined when
+ * there is nothing to convert. The input itself is never mutated.
+ */
+const ISO_DATE_STRING =
+  /^\d{4}-\d{2}-\d{2}(?:[Tt ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:[Zz]|[+-]\d{2}:?\d{2})?)?$/;
+const reviveDateStrings = (input: unknown, error: unknown): unknown => {
+  const issues = (error as { issues?: unknown } | null)?.issues;
+  if (!Array.isArray(issues)) {
+    return undefined;
+  }
+  const copy: unknown = structuredClone(input);
+  let changed = false;
+  for (const issue of issues as Array<{
+    code?: unknown;
+    expected?: unknown;
+    path?: unknown;
+  }>) {
+    if (
+      issue.code !== "invalid_type" ||
+      issue.expected !== "date" ||
+      !Array.isArray(issue.path) ||
+      issue.path.length === 0
+    ) {
+      continue;
+    }
+    let parent = copy as Record<PropertyKey, unknown> | undefined;
+    for (const key of issue.path.slice(0, -1)) {
+      parent = (parent as Record<PropertyKey, unknown> | undefined)?.[
+        key as PropertyKey
+      ] as Record<PropertyKey, unknown> | undefined;
+    }
+    const last = issue.path[issue.path.length - 1] as PropertyKey;
+    const value = parent?.[last];
+    if (
+      parent !== undefined &&
+      parent !== null &&
+      typeof value === "string" &&
+      ISO_DATE_STRING.test(value) &&
+      !Number.isNaN(Date.parse(value))
+    ) {
+      parent[last] = new Date(value);
+      changed = true;
+    }
+  }
+  return changed ? copy : undefined;
+};
+
+/**
  * Validate parsed input against the tool's own schema when it exposes one.
  *
  * `generateText` validated tool input before dispatch; the native loop did
@@ -510,10 +559,24 @@ export const validateToolInput = async (
     ) {
       return { input };
     }
-    const result =
+    const parse = async (value: unknown) =>
       "safeParseAsync" in schema && typeof schema.safeParseAsync === "function"
-        ? await schema.safeParseAsync(input)
-        : schema.safeParse(input);
+        ? await schema.safeParseAsync(value)
+        : schema.safeParse(value);
+    let result = await parse(input);
+    if (!result.success) {
+      // The wire schema describes z.date() as a date-time string (JSON has no
+      // Date), so a model sends a string and a plain z.date() rejects it. Turn
+      // exactly the strings Zod named as "expected date" into Dates and
+      // validate again; every other mismatch is left to fail as before.
+      const revived = reviveDateStrings(input, result.error);
+      if (revived !== undefined) {
+        const second = await parse(revived);
+        if (second.success) {
+          result = second;
+        }
+      }
+    }
     if (result.success) {
       return { input: result.data };
     }
