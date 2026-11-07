@@ -43,6 +43,8 @@ import {
   resolveStepToolChoice,
   runNativeGenerateLoop,
 } from "../src/lib/core/nativeGenerateLoop.js";
+import { z } from "zod";
+import { z as z3 } from "zod/v3";
 import { logger } from "../src/lib/utils/logger.js";
 import type { StepToolChoiceInput, Tool } from "../src/lib/types/index.js";
 
@@ -663,4 +665,542 @@ void runSuite(async () => {
       assertEqual(rejected.length, 0, "the call was not rejected");
     });
   }
+
+  // A plain z.date() is described to the model as a date-time string, because
+  // JSON has no Date, so the model sends a string. The call used to be
+  // rejected at validation with "expected date".
+  const runDateTool = async (
+    inputSchema: unknown,
+    args: Record<string, unknown>,
+  ) => {
+    let received: unknown;
+    const rejected: string[] = [];
+    let rejectedMessage = "";
+    const record = Object.create(null) as Record<string, unknown>;
+    record.date_tool = {
+      description: "probe",
+      inputSchema,
+      execute: async (input: unknown) => {
+        received = input;
+        return { ok: true };
+      },
+    };
+    let call = 0;
+    const doGenerate = async () =>
+      call++ === 0
+        ? {
+            content: [
+              {
+                type: "tool-call",
+                toolCallId: "call-1",
+                toolName: "date_tool",
+                input: JSON.stringify(args),
+              },
+            ],
+            finishReason: { unified: "tool-calls" },
+            usage: { inputTokens: { total: 1 }, outputTokens: { total: 1 } },
+          }
+        : {
+            content: [{ type: "text", text: "done" }],
+            finishReason: { unified: "stop" },
+            usage: { inputTokens: { total: 1 }, outputTokens: { total: 1 } },
+          };
+    await runNativeGenerateLoop(
+      {
+        provider: "probe",
+        doGenerate,
+        conversation: [{ role: "user", content: "hi" }],
+        tools: [
+          {
+            type: "function",
+            name: "date_tool",
+            description: "probe",
+            inputSchema: { type: "object", properties: {} },
+          },
+        ],
+        toolsRecord: record as Record<string, Tool>,
+        onRejectedToolCall: (name, failure) => {
+          rejected.push(name);
+          rejectedMessage = failure;
+        },
+        modelId: "test-model",
+        maxSteps: 3,
+        runStep: (invoke) => invoke(),
+      },
+      [],
+    );
+    return { received, rejected, rejectedMessage };
+  };
+
+  await test("generate loop: a date-time string for a plain z.date() reaches the tool as a Date", async () => {
+    const { received, rejected } = await runDateTool(
+      z.object({
+        day: z.date(),
+        items: z.array(z.object({ at: z.date().optional() })),
+        name: z.string(),
+      }),
+      {
+        day: "2026-11-07T10:00:00Z",
+        items: [{ at: "2026-11-08" }, {}],
+        name: "x",
+      },
+    );
+    assertEqual(rejected.length, 0, "the call was rejected");
+    const got = received as {
+      day: unknown;
+      items: Array<{ at?: unknown }>;
+      name: string;
+    };
+    assert(got.day instanceof Date, "day should arrive as a Date");
+    assertEqual(
+      (got.day as Date).toISOString(),
+      "2026-11-07T10:00:00.000Z",
+      "day value",
+    );
+    assert(got.items[0].at instanceof Date, "nested date should be a Date");
+    assertEqual(got.items[1].at, undefined, "an absent optional stays absent");
+    assertEqual(got.name, "x", "other fields are untouched");
+  });
+
+  await test("generate loop: a string that is not a date, or another mismatch, is still rejected", async () => {
+    const notADate = await runDateTool(z.object({ day: z.date() }), {
+      day: "next tuesday",
+    });
+    assertEqual(notADate.rejected.length, 1, "a non-date string was accepted");
+    assertEqual(notADate.received, undefined, "the tool must not run");
+    const otherField = await runDateTool(
+      z.object({ day: z.date(), count: z.number() }),
+      { day: "2026-11-07T10:00:00Z", count: "three" },
+    );
+    assertEqual(otherField.rejected.length, 1, "a bad number was accepted");
+    assertEqual(otherField.received, undefined, "the tool must not run");
+  });
+
+  await test("generate loop: an impossible calendar date is rejected, not rolled over", async () => {
+    const r = await runDateTool(z.object({ day: z.date() }), {
+      day: "2026-02-31",
+    });
+    assertEqual(r.rejected.length, 1, "2026-02-31 was accepted");
+    assertEqual(r.received, undefined, "the tool must not run");
+  });
+
+  await test("generate loop: a date that parses but breaks .min() is rejected for that reason", async () => {
+    const r = await runDateTool(
+      z.object({ day: z.date().min(new Date("2030-01-01")) }),
+      { day: "2026-01-01T00:00:00Z" },
+    );
+    assertEqual(r.rejected.length, 1, "the early date was accepted");
+    assert(
+      /too_small|too small|>=/i.test(r.rejectedMessage),
+      "the error should name the minimum",
+    );
+  });
+
+  await test("generate loop: a preprocessed set of dates is converted, and a schema error survives an uncloneable input", async () => {
+    const set = await runDateTool(
+      z.object({
+        days: z.preprocess(
+          (v) => (Array.isArray(v) ? new Set(v) : v),
+          z.set(z.date()),
+        ),
+      }),
+      { days: ["2026-11-07T10:00:00Z", "2026-11-08"] },
+    );
+    assertEqual(set.rejected.length, 0, "the set was rejected");
+    const days = (set.received as { days: Set<unknown> }).days;
+    assert(days instanceof Set && days.size === 2, "two dates expected");
+    // The preprocess writes a function onto the input object itself, which
+    // structuredClone cannot copy.
+    const bad = await runDateTool(
+      z.object({
+        day: z.date(),
+        n: z.preprocess(
+          (v) => {
+            (v as Record<string, unknown>).f = () => 1;
+            return v;
+          },
+          z.object({ a: z.number() }),
+        ),
+      }),
+      { day: "2026-11-07T10:00:00Z", n: { a: "x" } },
+    );
+    assertEqual(bad.rejected.length, 1, "the bad call was accepted");
+    assert(
+      !/threw/i.test(bad.rejectedMessage),
+      "the schema error was replaced",
+    );
+  });
+
+  await test("generate loop: a year below 100 is a valid date", async () => {
+    const r = await runDateTool(z.object({ day: z.date() }), {
+      day: "0099-11-07T10:00:00Z",
+    });
+    assertEqual(r.rejected.length, 0, "year 0099 was rejected");
+    assertEqual(
+      (r.received as { day: Date }).day.toISOString(),
+      "0099-11-07T10:00:00.000Z",
+      "year 0099 value",
+    );
+  });
+
+  await test("generate loop: a root z.date() and a date inside a union are converted", async () => {
+    const root = await runDateTool(z.date(), "2026-11-07T10:00:00Z" as never);
+    assertEqual(root.rejected.length, 0, "a root date was rejected");
+    assert(root.received instanceof Date, "a root date should be a Date");
+    const union = await runDateTool(
+      z.object({ d: z.union([z.date(), z.number()]) }),
+      { d: "2026-11-07T10:00:00Z" },
+    );
+    assertEqual(union.rejected.length, 0, "a union date was rejected");
+    assert(
+      (union.received as { d: unknown }).d instanceof Date,
+      "a union date should be a Date",
+    );
+    const number = await runDateTool(
+      z.object({ d: z.union([z.date(), z.number()]) }),
+      { d: 5 },
+    );
+    assertEqual(number.rejected.length, 0, "the number branch was rejected");
+    assertEqual((number.received as { d: unknown }).d, 5, "the number stays");
+  });
+
+  await test("generate loop: dates inside a string a preprocess parses are not converted", async () => {
+    // The date's path does not exist in the input (it is inside a JSON
+    // string), so there is nothing to rewrite; the call fails with the schema's
+    // own error, and z.coerce.date() is the way to accept it.
+    const r = await runDateTool(
+      z.object({
+        p: z.preprocess(
+          (v) => (typeof v === "string" ? JSON.parse(v) : v),
+          z.object({ d: z.date() }),
+        ),
+      }),
+      { p: '{"d":"2026-11-07T10:00:00Z"}' },
+    );
+    assertEqual(r.rejected.length, 1, "the call should be rejected");
+    assertEqual(r.received, undefined, "the tool must not run");
+  });
+
+  await test("generate loop: a Zod 3 union of a date and a number accepts a date string", async () => {
+    const r = await runDateTool(
+      z3.object({ d: z3.union([z3.date(), z3.number()]) }),
+      { d: "2026-11-07T10:00:00Z" },
+    );
+    assertEqual(r.rejected.length, 0, "a Zod 3 union date was rejected");
+    assert(
+      (r.received as { d: unknown }).d instanceof Date,
+      "a Zod 3 union date should be a Date",
+    );
+  });
+
+  await test("generate loop: converting a date leaves class instances elsewhere in the input intact", async () => {
+    class Account {
+      constructor(readonly id: string) {}
+    }
+    const record = Object.create(null) as Record<string, unknown>;
+    record.date_tool = {
+      description: "probe",
+      inputSchema: z.object({
+        owner: z.instanceof(Account),
+        day: z.date(),
+      }),
+      execute: async () => ({ ok: true }),
+    };
+    const { validateToolInput } =
+      await import("../src/lib/core/nativeGenerateLoop.js");
+    const owner = new Account("a-1");
+    const validated = await validateToolInput(record.date_tool as Tool, {
+      owner,
+      day: "2026-11-07T10:00:00Z",
+    });
+    assertEqual(validated.error, undefined, "the call was rejected");
+    const got = validated.input as { owner: unknown; day: unknown };
+    assert(got.owner === owner, "the instance should be the same object");
+    assert(got.day instanceof Date, "the date should be converted");
+  });
+
+  await test("generate loop: union branches that want dates in different fields are each tried on their own", async () => {
+    const schema = z.union([
+      z.object({ kind: z.literal("a"), at: z.date() }),
+      z.object({ kind: z.literal("b"), until: z.date() }),
+    ]);
+    const a = await runDateTool(schema, {
+      kind: "a",
+      at: "2026-11-07T10:00:00Z",
+    });
+    assertEqual(a.rejected.length, 0, "branch a was rejected");
+    assert((a.received as { at: unknown }).at instanceof Date, "a.at");
+    const b = await runDateTool(schema, {
+      kind: "b",
+      until: "2026-11-08T10:00:00Z",
+    });
+    assertEqual(b.rejected.length, 0, "branch b was rejected");
+    assert((b.received as { until: unknown }).until instanceof Date, "b.until");
+  });
+
+  await test("generate loop: many independent unions do not lose the one usable conversion to the candidate cap", async () => {
+    const branch = z.union([
+      z.object({ a: z.date() }),
+      z.object({ b: z.date() }),
+    ]);
+    const r = await runDateTool(
+      z.object({
+        u1: branch,
+        u2: branch,
+        u3: branch,
+        u4: branch,
+        u5: branch,
+        u6: branch,
+        u7: branch,
+      }),
+      Object.fromEntries(
+        [1, 2, 3, 4, 5, 6, 7].map((i) => [
+          `u${i}`,
+          { b: "2026-11-07T10:00:00Z" },
+        ]),
+      ),
+    );
+    assertEqual(r.rejected.length, 0, "the call was rejected");
+  });
+
+  await test("generate loop: a set that accepts a date or a sentinel converts the dates and keeps the sentinel", async () => {
+    const r = await runDateTool(
+      z.object({
+        days: z.preprocess(
+          (v) => (Array.isArray(v) ? new Set(v) : v),
+          z.set(z.union([z.date(), z.literal("ongoing")])),
+        ),
+      }),
+      { days: ["2026-11-07T10:00:00Z", "ongoing"] },
+    );
+    assertEqual(r.rejected.length, 0, "the set was rejected");
+    const days = [...(r.received as { days: Set<unknown> }).days];
+    assert(
+      days.some((d) => d instanceof Date),
+      "the date should be converted",
+    );
+    assert(days.includes("ongoing"), "the sentinel should be kept");
+  });
+
+  await test("generate loop: an unrelated throwing getter on the input does not reject a convertible date", async () => {
+    const { validateToolInput } =
+      await import("../src/lib/core/nativeGenerateLoop.js");
+    const input: Record<string, unknown> = { day: "2026-11-07T10:00:00Z" };
+    Object.defineProperty(input, "trap", {
+      enumerable: true,
+      get() {
+        throw new Error("getter ran");
+      },
+    });
+    const validated = await validateToolInput(
+      { inputSchema: z.object({ day: z.date() }) } as unknown as Tool,
+      input,
+    );
+    assertEqual(validated.error, undefined, "the call was rejected");
+    assert(
+      (validated.input as { day: unknown }).day instanceof Date,
+      "the date should be converted",
+    );
+  });
+
+  await test("generate loop: a reading whose retry throws does not stop the readings after it", async () => {
+    const r = await runDateTool(
+      z.union([
+        z.object({ at: z.date(), until: z.string() }).refine(() => {
+          throw new Error("cannot take a Date");
+        }),
+        z.object({ at: z.string(), until: z.date() }),
+      ]),
+      { at: "2026-11-07T10:00:00Z", until: "2026-11-08T10:00:00Z" },
+    );
+    assertEqual(r.rejected.length, 0, "the call was rejected");
+    assert(
+      (r.received as { until: unknown }).until instanceof Date,
+      "the second reading should have been used",
+    );
+  });
+
+  await test("generate loop: a set whose date branch rejects a converted literal keeps the literal", async () => {
+    // 2099-01-01 as a Date breaks the max, so the only reading that validates
+    // leaves that member as the string the schema accepts as a literal.
+    const r = await runDateTool(
+      z.object({
+        days: z.preprocess(
+          (v) => (Array.isArray(v) ? new Set(v) : v),
+          z.set(
+            z.union([
+              z.date().max(new Date("2030-01-01")),
+              z.literal("2099-01-01"),
+            ]),
+          ),
+        ),
+      }),
+      { days: ["2026-11-07T10:00:00Z", "2099-01-01"] },
+    );
+    assertEqual(r.rejected.length, 0, "the set was rejected");
+    const days = [...(r.received as { days: Set<unknown> }).days];
+    assert(
+      days.some((d) => d instanceof Date),
+      "the date should be converted",
+    );
+    assert(
+      days.includes("2099-01-01"),
+      "the literal should be kept as a string",
+    );
+  });
+
+  await test("generate loop: a frozen property on the input does not stop a date conversion", async () => {
+    const { validateToolInput } =
+      await import("../src/lib/core/nativeGenerateLoop.js");
+    const input = Object.freeze({
+      day: "2026-11-07T10:00:00Z",
+      note: "x",
+    });
+    const validated = await validateToolInput(
+      {
+        inputSchema: z.object({ day: z.date(), note: z.string() }),
+      } as unknown as Tool,
+      input,
+    );
+    assertEqual(validated.error, undefined, "the call was rejected");
+    assert(
+      (validated.input as { day: unknown }).day instanceof Date,
+      "the date should be converted",
+    );
+  });
+
+  await test("agent: a date-time string for a plain z.date() input passes the agent's validation", async () => {
+    const { Agent } = await import("../src/lib/agent/agent.js");
+    const reached = "stub generate reached";
+    const stub = {
+      generate: async () => {
+        throw new Error(reached);
+      },
+      stream: async () => {
+        throw new Error(reached);
+      },
+    };
+    const agent = new Agent(
+      {
+        id: "date-agent",
+        name: "Date agent",
+        description: "takes a date",
+        instructions: "x",
+        inputSchema: z.object({ day: z.date() }),
+      },
+      stub as never,
+    );
+    const accepted = (await agent.execute({
+      day: "2026-11-07T10:00:00Z",
+    })) as { error?: string };
+    assert(
+      !(accepted.error ?? "").includes("Input validation failed"),
+      "a valid date string was rejected by the agent's validation",
+    );
+    const rejected = (await agent.execute({ day: "next tuesday" })) as {
+      error?: string;
+    };
+    assert(
+      (rejected.error ?? "").includes("Input validation failed"),
+      "a non-date string must still be rejected by the agent's validation",
+    );
+  });
+
+  await test("generate loop: a set of more than eight dates converts every member", async () => {
+    const days = Array.from(
+      { length: 12 },
+      (_, i) => `2026-11-${String(i + 1).padStart(2, "0")}T00:00:00Z`,
+    );
+    const r = await runDateTool(
+      z.object({
+        days: z.preprocess(
+          (v) => (Array.isArray(v) ? new Set(v) : v),
+          z.set(z.date()),
+        ),
+      }),
+      { days },
+    );
+    assertEqual(r.rejected.length, 0, "the set was rejected");
+    assertEqual(
+      (r.received as { days: Set<unknown> }).days.size,
+      12,
+      "all twelve members",
+    );
+  });
+
+  await test("generate loop: several date-shaped literals in a set are all preserved", async () => {
+    const r = await runDateTool(
+      z.object({
+        days: z.preprocess(
+          (v) => (Array.isArray(v) ? new Set(v) : v),
+          z.set(
+            z.union([
+              z.date().max(new Date("2030-01-01")),
+              z.literal("2099-01-01"),
+              z.literal("2098-01-01"),
+            ]),
+          ),
+        ),
+      }),
+      { days: ["2026-11-07T10:00:00Z", "2099-01-01", "2098-01-01"] },
+    );
+    assertEqual(r.rejected.length, 0, "the set was rejected");
+    const days = [...(r.received as { days: Set<unknown> }).days];
+    assert(
+      days.some((d) => d instanceof Date),
+      "the date should be converted",
+    );
+    assert(
+      days.includes("2099-01-01") && days.includes("2098-01-01"),
+      "both literals should be kept",
+    );
+  });
+
+  await test("generate loop: seven unions whose branches both want a date still find the one reading that validates", async () => {
+    const branch = z.union([
+      z.object({ kind: z.literal("a"), at: z.date() }),
+      z.object({ kind: z.literal("b"), at: z.date() }),
+    ]);
+    const item = { kind: "b", at: "2026-11-07T10:00:00Z" };
+    const r = await runDateTool(
+      z.object({
+        u1: branch,
+        u2: branch,
+        u3: branch,
+        u4: branch,
+        u5: branch,
+        u6: branch,
+        u7: branch,
+      }),
+      { u1: item, u2: item, u3: item, u4: item, u5: item, u6: item, u7: item },
+    );
+    assertEqual(r.rejected.length, 0, "the call was rejected");
+  });
+
+  await test("generate loop: an array with a throwing iterator is still converted", async () => {
+    const { validateToolInput } =
+      await import("../src/lib/core/nativeGenerateLoop.js");
+    const days: string[] = ["2026-11-07T10:00:00Z"];
+    Object.defineProperty(days, Symbol.iterator, {
+      get() {
+        throw new Error("iterator ran");
+      },
+    });
+    const validated = await validateToolInput(
+      { inputSchema: z.object({ days: z.array(z.date()) }) } as unknown as Tool,
+      { days },
+    );
+    assertEqual(validated.error, undefined, "the call was rejected");
+  });
+
+  await test("generate loop: z.coerce.date() and z.string() fields behave as before", async () => {
+    const { received, rejected } = await runDateTool(
+      z.object({ a: z.coerce.date(), b: z.string() }),
+      { a: "2026-11-07T10:00:00Z", b: "2026-11-07T10:00:00Z" },
+    );
+    assertEqual(rejected.length, 0, "the call was rejected");
+    const got = received as { a: unknown; b: unknown };
+    assert(got.a instanceof Date, "coerce still yields a Date");
+    assertEqual(got.b, "2026-11-07T10:00:00Z", "a string field stays a string");
+  });
 });

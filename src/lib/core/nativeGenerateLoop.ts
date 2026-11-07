@@ -28,6 +28,7 @@ import type {
   StepToolChoiceInput,
   Tool,
   ToolExecutionSummaryInternal,
+  ToolDateIssue,
 } from "../types/index.js";
 import { guardToolExecutor } from "./toolExecutionGuards.js";
 import { resolveLiveTool } from "../tools/toolDiscovery.js";
@@ -485,6 +486,241 @@ function declaredInputSchema(name: string, tool: Tool): object {
 }
 
 /**
+ * A copy of `input` where each value Zod rejected as "expected date" and that
+ * is an ISO-8601 date or date-time string has become a `Date`; undefined when
+ * there is nothing to convert. The input itself is never mutated.
+ */
+const ISO_DATE_STRING =
+  /^(\d{4})-(\d{2})-(\d{2})(?:[Tt ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:[Zz]|[+-]\d{2}:?\d{2})?)?$/;
+
+/** The Date for an ISO-8601 date or date-time string; undefined for anything else, including 2026-02-31. */
+const parseIsoDate = (value: unknown): Date | undefined => {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const match = ISO_DATE_STRING.exec(value);
+  if (match === null) {
+    return undefined;
+  }
+  // Date.parse rolls an impossible day over (2026-02-31 becomes March 3), which
+  // would hand the tool a date the model never named. Check the calendar day.
+  const [, year, month, day] = match;
+  // setUTCFullYear, not Date.UTC: Date.UTC reads years 0-99 as 1900-1999.
+  const probe = new Date(0);
+  probe.setUTCFullYear(Number(year), Number(month) - 1, Number(day));
+  if (
+    probe.getUTCFullYear() !== Number(year) ||
+    probe.getUTCMonth() !== Number(month) - 1 ||
+    probe.getUTCDate() !== Number(day)
+  ) {
+    return undefined;
+  }
+  const time = Date.parse(value);
+  return Number.isNaN(time) ? undefined : new Date(time);
+};
+
+/**
+ * The ways to read a failed validation as "these strings were meant as dates".
+ * Each candidate is a set of positions to convert together. Positions outside
+ * any union are in every candidate; a union contributes one alternative per
+ * branch, so a branch that wants a date in one field is tried without the dates
+ * the other branches wanted elsewhere.
+ *
+ * A union failure is one issue with each branch's issues nested. Zod 4 puts
+ * them in `errors` with paths relative to the union's; Zod 3 puts them in
+ * `unionErrors[].issues` with absolute paths.
+ */
+const valueAt = (input: unknown, path: PropertyKey[]): unknown => {
+  let cursor: unknown = input;
+  for (const key of path) {
+    cursor = (cursor as Record<PropertyKey, unknown> | null | undefined)?.[key];
+  }
+  return cursor;
+};
+
+const dateCandidates = (
+  issues: unknown,
+  base: PropertyKey[],
+  input: unknown,
+): PropertyKey[][][] => {
+  let candidates: PropertyKey[][][] = [[]];
+  if (!Array.isArray(issues)) {
+    return candidates;
+  }
+  for (const issue of issues as ToolDateIssue[]) {
+    if (!Array.isArray(issue.path)) {
+      continue;
+    }
+    const path = [...base, ...(issue.path as PropertyKey[])];
+    let alternatives: PropertyKey[][][] | undefined;
+    if (issue.code === "invalid_type" && issue.expected === "date") {
+      // A position that holds nothing convertible is left to fail as it did.
+      const value = valueAt(input, path);
+      if (Array.isArray(value)) {
+        // A set reached through a preprocess is reported at the field with the
+        // array as its value: convert its date strings member by member. The
+        // reading that converts every one is tried first; then, for up to
+        // eight members, one that leaves a member as the string it was, since
+        // the schema may accept a literal that merely looks like a date.
+        const members = value
+          .map((v, i) => (parseIsoDate(v) !== undefined ? i : -1))
+          .filter((i) => i >= 0);
+        if (members.length > 0) {
+          // The reading that converts every member comes first. Then, over the
+          // first six members, every smaller subset (largest first), so any
+          // number of date-shaped literals can be left as the strings they
+          // were: the schema may accept a literal that merely looks like a date.
+          const head = members.slice(0, 6);
+          const subsets: number[][] = [];
+          for (let mask = (1 << head.length) - 2; mask > 0; mask--) {
+            subsets.push(head.filter((_, bit) => (mask >> bit) & 1));
+          }
+          subsets.sort((x, y) => y.length - x.length);
+          alternatives = [
+            members.map((i) => [...path, i]),
+            ...subsets.map((subset) =>
+              [...subset, ...members.slice(6)].map((i) => [...path, i]),
+            ),
+          ];
+        }
+      } else if (parseIsoDate(value) !== undefined) {
+        alternatives = [[path]];
+      }
+    } else if (issue.code === "invalid_union") {
+      const branches: unknown[] = [];
+      if (Array.isArray(issue.errors)) {
+        for (const branch of issue.errors as unknown[]) {
+          branches.push(dateCandidates(branch, path, input));
+        }
+      }
+      if (Array.isArray(issue.unionErrors)) {
+        for (const e of issue.unionErrors as Array<{ issues?: unknown }>) {
+          branches.push(dateCandidates(e?.issues, [], input));
+        }
+      }
+      // Alternatives are the branches' own candidates, those that convert
+      // something; a union with none contributes nothing.
+      const useful = (branches as PropertyKey[][][][])
+        .flat()
+        .filter((candidate) => candidate.length > 0);
+      if (useful.length > 0) {
+        alternatives = useful;
+      }
+    }
+    if (alternatives !== undefined) {
+      const next: PropertyKey[][][] = [];
+      for (const have of candidates) {
+        for (const add of alternatives) {
+          next.push([...have, ...add]);
+        }
+      }
+      // Bounded: a schema with many unions must not multiply without limit.
+      // Only alternatives that can apply to this input got here, so the cap
+      // never drops the one conversion that would have worked.
+      candidates = next.slice(0, 512);
+    }
+  }
+  return candidates;
+};
+
+/**
+ * A copy of `input` with the string at each position converted, or undefined
+ * if any position holds something that is not a date string. Only the
+ * containers on the way to a converted value are copied: everything else is
+ * shared with `input`, so a class instance elsewhere in it keeps its prototype
+ * and nothing uncloneable is ever cloned.
+ */
+const applyDateConversions = (
+  input: unknown,
+  positions: PropertyKey[][],
+): unknown => {
+  const rewrite = (node: unknown, rest: PropertyKey[][]): unknown => {
+    // Positions that end here are converted; the others descend by their key.
+    const here = rest.find((path) => path.length === 0);
+    if (here !== undefined) {
+      return parseIsoDate(node);
+    }
+    if (node === null || typeof node !== "object") {
+      return undefined;
+    }
+    const byKey = new Map<PropertyKey, PropertyKey[][]>();
+    for (const path of rest) {
+      const [key, ...tail] = path;
+      byKey.set(key, [...(byKey.get(key) ?? []), tail]);
+    }
+    const replacements = new Map<PropertyKey, unknown>();
+    for (const [key, tails] of byKey) {
+      const replaced = rewrite(
+        (node as Record<PropertyKey, unknown>)[key],
+        tails,
+      );
+      if (replaced === undefined) {
+        return undefined;
+      }
+      replacements.set(key, replaced);
+    }
+    if (Array.isArray(node)) {
+      const copy = Array.prototype.slice.call(node) as unknown[];
+      for (const [key, value] of replacements) {
+        copy[key as number] = value;
+      }
+      return copy;
+    }
+    // Own property descriptors, not Object.assign: assigning would run every
+    // getter on the object, including ones outside the schema that throw. The
+    // converted properties are written into the descriptors before anything is
+    // defined, so a frozen or non-writable original is never redefined.
+    const descriptors = Object.getOwnPropertyDescriptors(node);
+    for (const [key, value] of replacements) {
+      descriptors[key as string] = {
+        value,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      };
+    }
+    const proto = Object.getPrototypeOf(node);
+    if (proto !== Object.prototype && proto !== null) {
+      // A class instance may keep state in private fields, which a copy made
+      // with Object.create would not have. A proxy keeps the original as the
+      // receiver for everything except the converted properties.
+      return new Proxy(node as object, {
+        get: (target, key) => {
+          if (replacements.has(key)) {
+            return replacements.get(key);
+          }
+          const value = Reflect.get(target, key, target);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+        has: (target, key) => replacements.has(key) || Reflect.has(target, key),
+      });
+    }
+    return Object.defineProperties(
+      Object.create(Object.getPrototypeOf(node)),
+      descriptors,
+    );
+  };
+  return positions.length === 0 ? undefined : rewrite(input, positions);
+};
+
+/**
+ * The inputs worth validating again after a failure: for each way of reading
+ * the issues as dates, the input with those strings converted. Empty when no
+ * reading applies.
+ */
+const reviveDateStrings = (input: unknown, error: unknown): unknown[] => {
+  const issues = (error as { issues?: unknown } | null)?.issues;
+  const out: unknown[] = [];
+  for (const positions of dateCandidates(issues, [], input)) {
+    const revived = applyDateConversions(input, positions);
+    if (revived !== undefined) {
+      out.push(revived);
+    }
+  }
+  return out;
+};
+
+/**
  * Validate parsed input against the tool's own schema when it exposes one.
  *
  * `generateText` validated tool input before dispatch; the native loop did
@@ -510,10 +746,34 @@ export const validateToolInput = async (
     ) {
       return { input };
     }
-    const result =
+    const parse = async (value: unknown) =>
       "safeParseAsync" in schema && typeof schema.safeParseAsync === "function"
-        ? await schema.safeParseAsync(input)
-        : schema.safeParse(input);
+        ? await schema.safeParseAsync(value)
+        : schema.safeParse(value);
+    let result = await parse(input);
+    if (!result.success) {
+      // The wire schema describes z.date() as a date-time string (JSON has no
+      // Date), so a model sends a string and a plain z.date() rejects it. Turn
+      // exactly the strings Zod named as "expected date" into Dates and
+      // validate again; every other mismatch is left to fail as before.
+      // Each reading of the failure is tried; the first that validates wins.
+      // When none does, the last retry's error is reported, so a date that
+      // parses but breaks `.min()` says so rather than repeating "expected
+      // date" and inviting the same value again.
+      for (const revived of reviveDateStrings(input, result.error)) {
+        try {
+          const retry = await parse(revived);
+          result = retry;
+          if (retry.success) {
+            break;
+          }
+        } catch {
+          // A branch that cannot take this reading (a refinement that throws
+          // on a Date) must not stop the readings that follow it.
+          continue;
+        }
+      }
+    }
     if (result.success) {
       return { input: result.data };
     }

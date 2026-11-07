@@ -2161,3 +2161,14 @@ export type SingleShotResult = {
   usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number };
   finishReason?: string;
 };
+
+/** The part of a Zod issue that date revival in `validateToolInput` reads. */
+export type ToolDateIssue = {
+  code?: unknown;
+  expected?: unknown;
+  path?: unknown;
+  /** Zod 4: the issues of each branch of a union, with paths relative to it. */
+  errors?: unknown;
+  /** Zod 3: one entry per union branch, its issues carrying absolute paths. */
+  unionErrors?: unknown;
+};

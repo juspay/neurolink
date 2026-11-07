@@ -20,10 +20,12 @@ import type {
   GenerateOptions,
   StreamOptions,
   StreamResult,
+  Tool,
 } from "../types/index.js";
 import { ErrorFactory } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
 import { toToolExecutionRecords } from "../core/toolExecutionRecorder.js";
+import { validateToolInput } from "../core/nativeGenerateLoop.js";
 
 /**
  * Agent - Wraps a NeuroLink instance with specialized behavior
@@ -163,11 +165,12 @@ export class Agent implements AgentInstance {
 
       // Validate input if schema provided
       if (this.inputSchema && typeof input !== "string") {
-        const validation = this.inputSchema.safeParse(input);
-        if (!validation.success) {
-          throw new Error(
-            `Input validation failed: ${validation.error.message}`,
-          );
+        const validation = await validateToolInput(
+          { inputSchema: this.inputSchema } as Tool,
+          input,
+        );
+        if (validation.error) {
+          throw new Error(`Input validation failed: ${validation.error}`);
         }
       }
 
@@ -301,11 +304,12 @@ export class Agent implements AgentInstance {
 
       // Validate input if schema provided
       if (this.inputSchema && typeof input !== "string") {
-        const validation = this.inputSchema.safeParse(input);
-        if (!validation.success) {
-          throw new Error(
-            `Input validation failed: ${validation.error.message}`,
-          );
+        const validation = await validateToolInput(
+          { inputSchema: this.inputSchema } as Tool,
+          input,
+        );
+        if (validation.error) {
+          throw new Error(`Input validation failed: ${validation.error}`);
         }
       }
 
