@@ -162,7 +162,7 @@ export function buildQuotaResponseHeaders(
   if (quota && context.source !== "none") {
     set(
       "x-neurolink-quota-session-left-pct",
-      quota.sessionStatus === "unknown"
+      quota.sessionUsed === undefined || quota.sessionStatus === "unknown"
         ? undefined
         : utilizationToLeftPct(quota.sessionUsed),
     );
@@ -173,7 +173,7 @@ export function buildQuotaResponseHeaders(
     );
     set(
       "x-neurolink-quota-weekly-left-pct",
-      quota.weeklyStatus === "unknown"
+      quota.weeklyUsed === undefined || quota.weeklyStatus === "unknown"
         ? undefined
         : utilizationToLeftPct(quota.weeklyUsed),
     );
@@ -233,7 +233,11 @@ export function summarizePoolHeadroom(
       continue;
     }
     available += 1;
-    if (entry.quota && entry.quota.sessionStatus !== "unknown") {
+    if (
+      entry.quota &&
+      entry.quota.sessionUsed !== undefined &&
+      entry.quota.sessionStatus !== "unknown"
+    ) {
       const left = utilizationToLeftPct(entry.quota.sessionUsed);
       if (bestSessionLeftPct === undefined || left > bestSessionLeftPct) {
         bestSessionLeftPct = left;

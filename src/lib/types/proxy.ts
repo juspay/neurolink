@@ -701,6 +701,11 @@ export type ProxyAccountSortMetrics = {
   coolingActive: boolean;
   coolingReason: AccountCoolingReason | null;
   coolingUntil: number;
+  /** False when the provider reports no 5h / 7d window for this account, as
+   *  opposed to a window that has expired. Ranking keeps its neutral defaults;
+   *  routing evidence uses these to leave the window out. */
+  sessionObserved: boolean;
+  weeklyObserved: boolean;
   unifiedStatus: string | null;
   fallbackStatus?: string | null;
   upgradePaths?: string | null;
@@ -1837,18 +1842,19 @@ export type AccountQuota = {
   /** Top-level unified status. A rejected value can be authoritative even
    *  while both 5h and 7d sub-window statuses still report allowed. */
   unifiedStatus?: string;
-  /** 0.0-1.0 utilization; ignore the numeric placeholder when status is unknown. */
-  sessionUsed: number;
-  /** "allowed" | "throttled" | "rejected" | "unknown" */
-  sessionStatus: string;
+  /** 0.0-1.0 utilization. Absent when the provider does not report a 5h
+   *  window for this account (the window is optional, not "0% used"). */
+  sessionUsed?: number;
+  /** "allowed" | "throttled" | "rejected" | "unknown". Absent with sessionUsed. */
+  sessionStatus?: string;
   /** Unix timestamp (seconds) when the 5h window resets */
-  sessionResetAt: number;
-  /** 0.0-1.0 utilization; ignore the numeric placeholder when status is unknown. */
-  weeklyUsed: number;
-  /** "allowed" | "throttled" | "rejected" | "unknown" */
-  weeklyStatus: string;
+  sessionResetAt?: number;
+  /** 0.0-1.0 utilization. Absent when the provider reports no 7d window. */
+  weeklyUsed?: number;
+  /** "allowed" | "throttled" | "rejected" | "unknown". Absent with weeklyUsed. */
+  weeklyStatus?: string;
   /** Unix timestamp (seconds) when the 7d window resets */
-  weeklyResetAt: number;
+  weeklyResetAt?: number;
   /** 0.0-1.0  (from fallback-percentage) */
   fallbackPercentage: number;
   /** Provider fallback availability, for example "available". */

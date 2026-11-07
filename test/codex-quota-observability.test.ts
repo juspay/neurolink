@@ -559,6 +559,79 @@ describe.sequential("Codex quota observability", () => {
     }
   });
 
+  it("emits only the weekly limit header when Codex reports no session window", async () => {
+    await saveCodexAccount();
+    globalThis.fetch = (async () =>
+      new Response("data: {}\n\n", {
+        status: 200,
+        headers: {
+          "content-type": "text/event-stream",
+          "x-codex-ratelimit": JSON.stringify({
+            secondary: { used_percent: 40, resets_in_seconds: 3600 },
+          }),
+        },
+      })) as typeof globalThis.fetch;
+
+    const ctx = requestContext("codex-weekly-only");
+    await handleCodexResponsesRequest(ctx);
+    const headers = ctx.responseHeaders ?? {};
+
+    expect(headers["x-neurolink-quota-weekly-left-pct"]).toBe("60");
+    expect("x-neurolink-quota-session-left-pct" in headers).toBe(false);
+  });
+
+  it("emits only the session limit header when Codex reports no weekly window", async () => {
+    await saveCodexAccount();
+    globalThis.fetch = (async () =>
+      new Response("data: {}\n\n", {
+        status: 200,
+        headers: {
+          "content-type": "text/event-stream",
+          "x-codex-ratelimit": JSON.stringify({
+            primary: { used_percent: 25, resets_in_seconds: 600 },
+          }),
+        },
+      })) as typeof globalThis.fetch;
+
+    const ctx = requestContext("codex-session-only");
+    await handleCodexResponsesRequest(ctx);
+    const headers = ctx.responseHeaders ?? {};
+
+    expect(headers["x-neurolink-quota-session-left-pct"]).toBe("75");
+    expect("x-neurolink-quota-weekly-left-pct" in headers).toBe(false);
+  });
+
+  it("cools a weekly-only rejected Codex account for the weekly reason", async () => {
+    const account = await saveCodexAccount();
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ error: "limit" }), {
+        status: 429,
+        headers: {
+          "content-type": "application/json",
+          "x-codex-ratelimit": JSON.stringify({
+            secondary: { used_percent: 100, resets_in_seconds: 7200 },
+          }),
+        },
+      })) as typeof globalThis.fetch;
+
+    const beforeRequest = Date.now();
+    const response = await handleCodexResponsesRequest(
+      requestContext("codex-weekly-only-429"),
+    );
+    expect(response.status).toBe(429);
+    await settleTerminalObservers();
+
+    const cooldown = (await loadAccountCooldowns())[account.key];
+    expect(cooldown?.reason).toBe("weekly");
+    // The fixture reports a 7,200s reset; one second of slack covers rounding.
+    expect(cooldown?.coolingUntil).toBeGreaterThanOrEqual(
+      beforeRequest + 7_200_000 - 1_000,
+    );
+    expect(cooldown?.coolingUntil).toBeLessThanOrEqual(
+      Date.now() + 7_200_000 + 1_000,
+    );
+  });
+
   it("delays a direct Codex final result until the stream completes and retains usage", async () => {
     const account = await saveCodexAccount();
     const sse = [

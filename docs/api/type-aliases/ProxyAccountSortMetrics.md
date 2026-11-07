@@ -124,6 +124,22 @@
 
 ---
 
+### sessionObserved
+
+> **sessionObserved**: `boolean`
+
+False when the provider reports no 5h / 7d window for this account, as
+opposed to a window that has expired. Ranking keeps its neutral defaults;
+routing evidence uses these to leave the window out.
+
+---
+
+### weeklyObserved
+
+> **weeklyObserved**: `boolean`
+
+---
+
 ### unifiedStatus
 
 > **unifiedStatus**: `string` \| `null`
