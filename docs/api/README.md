@@ -1443,6 +1443,7 @@ console.log(result.content);
 - [NativeGenerateLoopResult](type-aliases/NativeGenerateLoopResult.md)
 - [SingleShotRequest](type-aliases/SingleShotRequest.md)
 - [SingleShotResult](type-aliases/SingleShotResult.md)
+- [ToolDateIssue](type-aliases/ToolDateIssue.md)
 - [GitToolLogFormat](type-aliases/GitToolLogFormat.md)
 - [GitToolsetOptions](type-aliases/GitToolsetOptions.md)
 - [GitToolResult](type-aliases/GitToolResult.md)
