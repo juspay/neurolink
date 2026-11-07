@@ -9,6 +9,7 @@
     "declaration": true,
     "types": ["node"],
     "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
     "jsx": "react-jsx",
     "paths": {
       "$lib": ["./src/lib"],

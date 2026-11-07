@@ -893,6 +893,7 @@ function compileConsumers(): Promise<ConsumerDiagnostic[]> {
       [
         "--noEmit",
         "--strict",
+        "--ignoreConfig",
         "--target",
         "es2023",
         "--module",
