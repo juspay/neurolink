@@ -1323,6 +1323,12 @@ function isAllowedQuotaStatus(status: string | undefined): boolean {
   return status?.trim().toLowerCase() === "allowed";
 }
 
+/** An unreported window (status undefined) cannot be blocking; only a reported
+ *  status that is not "allowed" counts against the account. */
+function isAllowedOrAbsentQuotaStatus(status: string | undefined): boolean {
+  return status === undefined || isAllowedQuotaStatus(status);
+}
+
 function isScopedWindowExhausted(
   window: AccountQuotaWindow | null,
   now: number,
@@ -1351,8 +1357,8 @@ function getScopedOnlyExhaustion(
   if (
     !quota ||
     !requestedModel ||
-    !isAllowedQuotaStatus(quota.sessionStatus) ||
-    !isAllowedQuotaStatus(quota.weeklyStatus) ||
+    !isAllowedOrAbsentQuotaStatus(quota.sessionStatus) ||
+    !isAllowedOrAbsentQuotaStatus(quota.weeklyStatus) ||
     isOverageUsable(quota, policy)
   ) {
     return null;
@@ -1367,8 +1373,8 @@ function hasScopedOnlyExhaustion(
   policy: ProxyOveragePolicy = overagePolicy,
 ): boolean {
   if (
-    !isAllowedQuotaStatus(quota.sessionStatus) ||
-    !isAllowedQuotaStatus(quota.weeklyStatus) ||
+    !isAllowedOrAbsentQuotaStatus(quota.sessionStatus) ||
+    !isAllowedOrAbsentQuotaStatus(quota.weeklyStatus) ||
     isOverageUsable(quota, policy)
   ) {
     return false;
@@ -2308,6 +2314,16 @@ function accountSortMetrics(
   const sessionReset = resetEpochToMs(routingQuota?.sessionResetAt, now);
   const sessionTicking = sessionReset !== undefined;
   const weeklyTicking = weeklyReset !== undefined;
+  const sessionObserved =
+    routingQuota !== undefined &&
+    (routingQuota.sessionUsed !== undefined ||
+      routingQuota.sessionStatus !== undefined ||
+      routingQuota.sessionResetAt !== undefined);
+  const weeklyObserved =
+    routingQuota !== undefined &&
+    (routingQuota.weeklyUsed !== undefined ||
+      routingQuota.weeklyStatus !== undefined ||
+      routingQuota.weeklyResetAt !== undefined);
   const sessionUsed = routingQuota
     ? sessionTicking
       ? (routingQuota.sessionUsed ?? 0)
@@ -2420,6 +2436,8 @@ function accountSortMetrics(
     coolingActive,
     coolingReason: st?.coolingReason ?? null,
     coolingUntil: st?.coolingUntil ?? 0,
+    sessionObserved,
+    weeklyObserved,
     unifiedStatus: routingQuota?.unifiedStatus ?? null,
     fallbackStatus: routingQuota?.fallbackStatus ?? null,
     upgradePaths: routingQuota?.upgradePaths ?? null,
@@ -2713,16 +2731,16 @@ function buildRoutingDecision(args: {
       upgradePaths: metrics.upgradePaths,
       overageEligible: metrics.overageEligible,
       overageStatus: metrics.overageStatus,
-      sessionStatus: metrics.sessionStatus,
-      sessionUsed: metrics.sessionUsed,
+      sessionStatus: metrics.sessionObserved ? metrics.sessionStatus : null,
+      sessionUsed: metrics.sessionObserved ? metrics.sessionUsed : null,
       sessionResetAt: Number.isFinite(metrics.sessionReset)
         ? metrics.sessionReset
         : null,
       sessionResetBucket: Number.isFinite(metrics.sessionResetBucket)
         ? metrics.sessionResetBucket
         : null,
-      weeklyStatus: metrics.weeklyStatus,
-      weeklyUsed: metrics.weeklyUsed,
+      weeklyStatus: metrics.weeklyObserved ? metrics.weeklyStatus : null,
+      weeklyUsed: metrics.weeklyObserved ? metrics.weeklyUsed : null,
       weeklyResetAt: Number.isFinite(metrics.weeklyReset)
         ? metrics.weeklyReset
         : null,

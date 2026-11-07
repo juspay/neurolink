@@ -212,14 +212,20 @@ export function parseQuotaHeaders(
   const sessionUtilRaw = getHeader(headers, `${P}unified-5h-utilization`);
   const weeklyUtilRaw = getHeader(headers, `${P}unified-7d-utilization`);
 
-  if (sessionUtilRaw === undefined || weeklyUtilRaw === undefined) {
-    return null;
-  }
+  // Either window may be legitimately absent (the 5h window is optional on
+  // some plans). A window is reported only when its utilization parses; the
+  // snapshot is unusable only when neither does.
+  const parseUtilization = (raw: string | undefined): number | undefined => {
+    if (raw === undefined) {
+      return undefined;
+    }
+    const value = parseFloat(raw);
+    return Number.isNaN(value) ? undefined : value;
+  };
+  const sessionUsed = parseUtilization(sessionUtilRaw);
+  const weeklyUsed = parseUtilization(weeklyUtilRaw);
 
-  const sessionUsed = parseFloat(sessionUtilRaw);
-  const weeklyUsed = parseFloat(weeklyUtilRaw);
-
-  if (Number.isNaN(sessionUsed) || Number.isNaN(weeklyUsed)) {
+  if (sessionUsed === undefined && weeklyUsed === undefined) {
     return null;
   }
 
@@ -239,12 +245,24 @@ export function parseQuotaHeaders(
 
   return {
     unifiedStatus: getUnifiedRateLimitStatus(headers),
-    sessionUsed,
-    sessionStatus: getHeader(headers, `${P}unified-5h-status`) ?? "unknown",
-    sessionResetAt: sessionResetRaw ? parseInt(sessionResetRaw, 10) || 0 : 0,
-    weeklyUsed,
-    weeklyStatus: getHeader(headers, `${P}unified-7d-status`) ?? "unknown",
-    weeklyResetAt: weeklyResetRaw ? parseInt(weeklyResetRaw, 10) || 0 : 0,
+    ...(sessionUsed !== undefined
+      ? {
+          sessionUsed,
+          sessionStatus:
+            getHeader(headers, `${P}unified-5h-status`) ?? "unknown",
+          sessionResetAt: sessionResetRaw
+            ? parseInt(sessionResetRaw, 10) || 0
+            : 0,
+        }
+      : {}),
+    ...(weeklyUsed !== undefined
+      ? {
+          weeklyUsed,
+          weeklyStatus:
+            getHeader(headers, `${P}unified-7d-status`) ?? "unknown",
+          weeklyResetAt: weeklyResetRaw ? parseInt(weeklyResetRaw, 10) || 0 : 0,
+        }
+      : {}),
     fallbackPercentage: fallbackRaw ? parseFloat(fallbackRaw) || 0 : 0,
     // Anthropic does not send `unified-fallback` on the current wire, so this is
     // always "unknown" in practice, which keeps the legacy back-compat branch of

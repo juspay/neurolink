@@ -310,6 +310,11 @@ export function usageToQuota(
   const sessionLimit = limits.find((entry) => entry.kind === "session");
   const weeklyLimit = limits.find((entry) => entry.kind === "weekly_all");
 
+  // A window the provider does not report is omitted from the quota rather
+  // than defaulted to "0% used": the 5h window is optional on some plans, and
+  // a fabricated value reads as full headroom.
+  const hasSession = Boolean(usage.five_hour) || sessionLimit !== undefined;
+  const hasWeekly = Boolean(usage.seven_day) || weeklyLimit !== undefined;
   const sessionPct =
     usage.five_hour?.utilization ?? sessionLimit?.percent ?? undefined;
   const weeklyPct =
@@ -338,12 +343,20 @@ export function usageToQuota(
         : (prior?.overageStatus ?? "unknown");
 
   const quota: AccountQuota = {
-    sessionUsed: toFraction(sessionPct) ?? prior?.sessionUsed ?? 0,
-    sessionStatus: deriveWindowStatus(sessionPct, sessionLimit?.severity),
-    sessionResetAt,
-    weeklyUsed: toFraction(weeklyPct) ?? prior?.weeklyUsed ?? 0,
-    weeklyStatus: deriveWindowStatus(weeklyPct, weeklyLimit?.severity),
-    weeklyResetAt,
+    ...(hasSession
+      ? {
+          sessionUsed: toFraction(sessionPct) ?? prior?.sessionUsed ?? 0,
+          sessionStatus: deriveWindowStatus(sessionPct, sessionLimit?.severity),
+          sessionResetAt,
+        }
+      : {}),
+    ...(hasWeekly
+      ? {
+          weeklyUsed: toFraction(weeklyPct) ?? prior?.weeklyUsed ?? 0,
+          weeklyStatus: deriveWindowStatus(weeklyPct, weeklyLimit?.severity),
+          weeklyResetAt,
+        }
+      : {}),
     fallbackPercentage: prior?.fallbackPercentage ?? 0,
     overageStatus,
     // Authoritative: the header trio the legacy overage checks rely on is only

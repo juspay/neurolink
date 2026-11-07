@@ -8496,6 +8496,8 @@ function makeSortMetrics(
     coolingActive: false,
     coolingReason: null,
     coolingUntil: 0,
+    sessionObserved: true,
+    weeklyObserved: true,
     unifiedStatus: null,
     overageStatus: null,
     sessionStatus: "allowed",

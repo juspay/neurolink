@@ -19,49 +19,50 @@ while both 5h and 7d sub-window statuses still report allowed.
 
 ---
 
-### sessionUsed
+### sessionUsed?
 
-> **sessionUsed**: `number`
+> `optional` **sessionUsed?**: `number`
 
-0.0-1.0 utilization; ignore the numeric placeholder when status is unknown.
-
----
-
-### sessionStatus
-
-> **sessionStatus**: `string`
-
-"allowed" | "throttled" | "rejected" | "unknown"
+0.0-1.0 utilization. Absent when the provider does not report a 5h
+window for this account (the window is optional, not "0% used").
 
 ---
 
-### sessionResetAt
+### sessionStatus?
 
-> **sessionResetAt**: `number`
+> `optional` **sessionStatus?**: `string`
+
+"allowed" | "throttled" | "rejected" | "unknown". Absent with sessionUsed.
+
+---
+
+### sessionResetAt?
+
+> `optional` **sessionResetAt?**: `number`
 
 Unix timestamp (seconds) when the 5h window resets
 
 ---
 
-### weeklyUsed
+### weeklyUsed?
 
-> **weeklyUsed**: `number`
+> `optional` **weeklyUsed?**: `number`
 
-0.0-1.0 utilization; ignore the numeric placeholder when status is unknown.
-
----
-
-### weeklyStatus
-
-> **weeklyStatus**: `string`
-
-"allowed" | "throttled" | "rejected" | "unknown"
+0.0-1.0 utilization. Absent when the provider reports no 7d window.
 
 ---
 
-### weeklyResetAt
+### weeklyStatus?
 
-> **weeklyResetAt**: `number`
+> `optional` **weeklyStatus?**: `string`
+
+"allowed" | "throttled" | "rejected" | "unknown". Absent with weeklyUsed.
+
+---
+
+### weeklyResetAt?
+
+> `optional` **weeklyResetAt?**: `number`
 
 Unix timestamp (seconds) when the 7d window resets
 

@@ -142,7 +142,7 @@ const BORROWED_REQUEST_CONTEXT: ProxyShareRequestContext = {
   ledger: "unlimited",
 };
 
-await test("absent and malformed Codex quota windows remain unknown", () => {
+await test("absent Codex quota windows are omitted and malformed ones remain unknown", () => {
   for (const limits of [
     undefined,
     {},
@@ -151,14 +151,12 @@ await test("absent and malformed Codex quota windows remain unknown", () => {
     { primary: { used_percent: -1 }, secondary: { used_percent: -20 } },
   ]) {
     const quota = codexRateLimitsToQuota(limits, NOW);
-    assertEqual(
-      quota.sessionStatus,
-      "unknown",
+    assert(
+      quota.sessionStatus === undefined || quota.sessionStatus === "unknown",
       "missing session evidence became permission",
     );
-    assertEqual(
-      quota.weeklyStatus,
-      "unknown",
+    assert(
+      quota.weeklyStatus === undefined || quota.weeklyStatus === "unknown",
       "missing weekly evidence became permission",
     );
     assert(
@@ -170,8 +168,13 @@ await test("absent and malformed Codex quota windows remain unknown", () => {
   assertEqual(known.sessionStatus, "allowed", "an explicit zero was lost");
   assertEqual(
     known.weeklyStatus,
-    "unknown",
+    undefined,
     "a partial snapshot invented weekly evidence",
+  );
+  assertEqual(
+    known.weeklyUsed,
+    undefined,
+    "a partial snapshot invented a weekly reading",
   );
 });
 
@@ -748,8 +751,8 @@ await test("Codex usage refresh follows the WHAM account protocol", async () => 
     }
     assertEqual(result.quota.sessionUsed, 0.4, "primary usage was not parsed");
     assert(
-      result.quota.sessionResetAt >= beforeFetch + 3599 &&
-        result.quota.sessionResetAt <= beforeFetch + 3601,
+      (result.quota.sessionResetAt ?? 0) >= beforeFetch + 3599 &&
+        (result.quota.sessionResetAt ?? 0) <= beforeFetch + 3601,
       "reset_after_seconds was not resolved",
     );
     assertEqual(result.quota.weeklyUsed, 0.8, "secondary usage was not parsed");

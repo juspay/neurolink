@@ -196,8 +196,6 @@ export function codexRateLimitsToQuota(
   const nowSeconds = Math.floor(now / 1000);
   const primary = rateLimits?.primary ?? null;
   const secondary = rateLimits?.secondary ?? null;
-  const sessionUsed = toFraction(primary?.used_percent);
-  const weeklyUsed = toFraction(secondary?.used_percent);
   const windows: AccountQuotaWindow[] = [];
   const primaryWindow = toQuotaWindow(
     "session",
@@ -224,12 +222,20 @@ export function codexRateLimitsToQuota(
         : rateLimits?.allowed === true
           ? "allowed"
           : "unknown",
-    sessionUsed,
-    sessionStatus: deriveWindowStatus(primary?.used_percent),
-    sessionResetAt: windowResetEpochSeconds(primary, nowSeconds),
-    weeklyUsed,
-    weeklyStatus: deriveWindowStatus(secondary?.used_percent),
-    weeklyResetAt: windowResetEpochSeconds(secondary, nowSeconds),
+    ...(primary
+      ? {
+          sessionUsed: toFraction(primary.used_percent),
+          sessionStatus: deriveWindowStatus(primary.used_percent),
+          sessionResetAt: windowResetEpochSeconds(primary, nowSeconds),
+        }
+      : {}),
+    ...(secondary
+      ? {
+          weeklyUsed: toFraction(secondary.used_percent),
+          weeklyStatus: deriveWindowStatus(secondary.used_percent),
+          weeklyResetAt: windowResetEpochSeconds(secondary, nowSeconds),
+        }
+      : {}),
     // Codex has no overage/fallback concept; keep neutral defaults.
     fallbackPercentage: 0,
     overageStatus: "rejected",

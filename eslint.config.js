@@ -565,6 +565,11 @@ export default [
             // and provider-qualified persistence all need exact outcomes that
             // a live request cannot safely or deterministically reproduce.
             "test/codex-quota-observability.test.ts",
+            // The usage endpoint and rate-limit headers are provider wire
+            // formats; payloads that omit a window (the optional 5h limit)
+            // cannot be induced through a live account, so fixed payloads are
+            // parsed. Pure functions only.
+            "test/continuous-test-suite-proxy-optional-quota-windows.ts",
             // A TCP connect that never completes (a SYN lost on a lossy
             // uplink) cannot be induced through a live request, and the
             // outcomes under test are exact attempt counts and the shape of

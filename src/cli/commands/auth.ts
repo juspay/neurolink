@@ -330,8 +330,8 @@ function formatQuotaColumns(quota: AccountQuota): {
   sessionReset: string;
   weeklyReset: string;
 } {
-  const sessionRemaining = Math.round((1 - quota.sessionUsed) * 100);
-  const weeklyRemaining = Math.round((1 - quota.weeklyUsed) * 100);
+  const sessionRemaining = Math.round((1 - (quota.sessionUsed ?? 0)) * 100);
+  const weeklyRemaining = Math.round((1 - (quota.weeklyUsed ?? 0)) * 100);
 
   const colorize = (pct: number, text: string): string => {
     if (pct <= 10) {
@@ -344,21 +344,27 @@ function formatQuotaColumns(quota: AccountQuota): {
   };
 
   return {
+    // A window the provider does not report (the 5h window is optional on some
+    // plans) renders blank rather than as a fabricated "100% left".
     sessionText:
-      quota.sessionStatus === "unknown"
-        ? chalk.gray("unknown")
-        : colorize(sessionRemaining, `${sessionRemaining}% left`),
+      quota.sessionUsed === undefined
+        ? ""
+        : quota.sessionStatus === "unknown"
+          ? chalk.gray("unknown")
+          : colorize(sessionRemaining, `${sessionRemaining}% left`),
     weeklyText:
-      quota.weeklyStatus === "unknown"
-        ? chalk.gray("unknown")
-        : colorize(weeklyRemaining, `${weeklyRemaining}% left`),
+      quota.weeklyUsed === undefined
+        ? ""
+        : quota.weeklyStatus === "unknown"
+          ? chalk.gray("unknown")
+          : colorize(weeklyRemaining, `${weeklyRemaining}% left`),
     sessionReset:
-      quota.sessionResetAt > 0
-        ? chalk.gray(`resets ${formatTimeUntil(quota.sessionResetAt)}`)
+      quota.sessionUsed !== undefined && (quota.sessionResetAt ?? 0) > 0
+        ? chalk.gray(`resets ${formatTimeUntil(quota.sessionResetAt ?? 0)}`)
         : "",
     weeklyReset:
-      quota.weeklyResetAt > 0
-        ? chalk.gray(`resets ${formatTimeUntil(quota.weeklyResetAt)}`)
+      quota.weeklyUsed !== undefined && (quota.weeklyResetAt ?? 0) > 0
+        ? chalk.gray(`resets ${formatTimeUntil(quota.weeklyResetAt ?? 0)}`)
         : "",
   };
 }
@@ -899,16 +905,35 @@ export async function handleList(argv: AuthCommandArgs): Promise<void> {
         enrichedAccounts.map((acct) => acct.key),
       );
 
+      const quotaFor = (acct: (typeof enrichedAccounts)[number]) =>
+        quotas[acct.key] ??
+        (acct.provider === "anthropic" && acct.label
+          ? quotas[acct.label]
+          : undefined);
+      const knownQuotas = enrichedAccounts
+        .map(quotaFor)
+        .filter((q): q is AccountQuota => q !== undefined);
+      const anySession = knownQuotas.some((q) => q.sessionUsed !== undefined);
+      const anyWeekly = knownQuotas.some((q) => q.weeklyUsed !== undefined);
+      // Drop a column no account has data for; with no data at all keep both so
+      // the explicit "unavailable" / "n/a" refresh state still has a home.
+      const noQuotaData = !anySession && !anyWeekly;
+      const showSession = hasQuota && (anySession || noQuotaData);
+      const showWeekly = hasQuota && (anyWeekly || noQuotaData);
+      const limitHeader =
+        (showSession ? ` ${chalk.gray("SESSION".padEnd(14))}` : "") +
+        (showWeekly ? ` ${chalk.gray("WEEKLY".padEnd(14))}` : "");
+
       const colKey = "LABEL".padEnd(20);
       const colEmail = "EMAIL".padEnd(28);
       const colStatus = "TOKEN STATUS".padEnd(14);
       const colProvider = "PROVIDER".padEnd(12);
-      const colSession = hasQuota ? "SESSION".padEnd(14) : "";
-      const colWeekly = hasQuota ? "WEEKLY".padEnd(14) : "";
       logger.always(
-        `  ${chalk.gray(colKey)} ${chalk.gray(colProvider)} ${chalk.gray(colEmail)} ${chalk.gray(colStatus)}${hasQuota ? ` ${chalk.gray(colSession)} ${chalk.gray(colWeekly)}` : ""}`,
+        `  ${chalk.gray(colKey)} ${chalk.gray(colProvider)} ${chalk.gray(colEmail)} ${chalk.gray(colStatus)}${limitHeader}`,
       );
-      logger.always(`  ${chalk.gray("-".repeat(hasQuota ? 108 : 78))}`);
+      logger.always(
+        `  ${chalk.gray("-".repeat(78 + (showSession ? 15 : 0) + (showWeekly ? 15 : 0)))}`,
+      );
 
       for (const acct of enrichedAccounts) {
         const displayLabel = (acct.label ?? acct.key).padEnd(20);
@@ -924,23 +949,23 @@ export async function handleList(argv: AuthCommandArgs): Promise<void> {
           statusText = chalk.yellow("unknown".padEnd(14));
         }
 
-        const quota =
-          quotas[acct.key] ??
-          (acct.provider === "anthropic" && acct.label
-            ? quotas[acct.label]
-            : undefined);
+        const quota = quotaFor(acct);
         const poolNote = poolState[acct.key];
 
         if (hasQuota && quota) {
           const qc = formatQuotaColumns(quota);
           logger.always(
-            `  ${chalk.cyan(displayLabel)} ${displayProvider} ${displayEmail} ${statusText} ${qc.sessionText.padEnd(14)} ${qc.weeklyText.padEnd(14)}`,
+            `  ${chalk.cyan(displayLabel)} ${displayProvider} ${displayEmail} ${statusText}${showSession ? ` ${qc.sessionText.padEnd(14)}` : ""}${showWeekly ? ` ${qc.weeklyText.padEnd(14)}` : ""}`,
           );
           const indent = " ".repeat(2 + 20 + 1 + 12 + 1 + 28 + 1 + 14 + 1);
           // Second line: reset times (indented under session/weekly columns)
-          if (qc.sessionReset || qc.weeklyReset) {
+          const resetCells = [
+            ...(showSession ? [qc.sessionReset] : []),
+            ...(showWeekly ? [qc.weeklyReset] : []),
+          ];
+          if (resetCells.some((cell) => cell !== "")) {
             logger.always(
-              `${indent}${(qc.sessionReset || "").padEnd(14)} ${qc.weeklyReset || ""}`,
+              `${indent}${resetCells.map((cell, i) => (i < resetCells.length - 1 ? cell.padEnd(14) : cell)).join(" ")}`,
             );
           }
           // Dynamic per-plan windows (e.g. the Fable-only weekly limit)
@@ -963,7 +988,7 @@ export async function handleList(argv: AuthCommandArgs): Promise<void> {
               ? chalk.gray("  (api key — not refreshed)")
               : "";
           logger.always(
-            `  ${chalk.cyan(displayLabel)} ${displayProvider} ${displayEmail} ${statusText}${hasQuota ? ` ${chalk.yellow(unavailableText.padEnd(14))} ${chalk.gray("n/a".padEnd(14))}` : ""}${apiKeyNote}`,
+            `  ${chalk.cyan(displayLabel)} ${displayProvider} ${displayEmail} ${statusText}${showSession ? ` ${chalk.yellow(unavailableText.padEnd(14))}` : ""}${showWeekly ? ` ${showSession ? chalk.gray("n/a".padEnd(14)) : chalk.yellow(unavailableText.padEnd(14))}` : ""}${apiKeyNote}`,
           );
           if (poolNote) {
             logger.always(`  ${poolNote}`);

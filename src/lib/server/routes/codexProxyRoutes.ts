@@ -486,11 +486,11 @@ function orderCodexAccounts(
     if (aRejected !== bRejected) {
       return aRejected ? 1 : -1;
     }
-    const aUsed =
-      a.quota && a.quota.sessionStatus !== "unknown" ? a.quota.sessionUsed : -1;
-    const bUsed =
-      b.quota && b.quota.sessionStatus !== "unknown" ? b.quota.sessionUsed : -1;
-    return aUsed - bUsed;
+    const sessionUsedOf = (entry: typeof a): number =>
+      entry.quota?.sessionStatus !== "unknown"
+        ? (entry.quota?.sessionUsed ?? -1)
+        : -1;
+    return sessionUsedOf(a) - sessionUsedOf(b);
   });
 }
 
@@ -595,15 +595,17 @@ function planCodexCooldown(
       now + (MAX_COOLDOWN_MS_BY_REASON[reason] ?? MAX_TRANSIENT_COOLDOWN_MS),
     );
   if (quota) {
-    if (quota.weeklyStatus === "rejected" && quota.weeklyResetAt > 0) {
+    const weeklyResetAt = quota.weeklyResetAt ?? 0;
+    const sessionResetAt = quota.sessionResetAt ?? 0;
+    if (quota.weeklyStatus === "rejected" && weeklyResetAt > 0) {
       return {
-        coolingUntil: clamp(quota.weeklyResetAt * 1000, "weekly"),
+        coolingUntil: clamp(weeklyResetAt * 1000, "weekly"),
         reason: "weekly",
       };
     }
-    if (quota.sessionStatus === "rejected" && quota.sessionResetAt > 0) {
+    if (quota.sessionStatus === "rejected" && sessionResetAt > 0) {
       return {
-        coolingUntil: clamp(quota.sessionResetAt * 1000, "session"),
+        coolingUntil: clamp(sessionResetAt * 1000, "session"),
         reason: "session",
       };
     }
@@ -660,12 +662,20 @@ function publishCodexHeaders(
   ctx.responseHeaders["x-neurolink-served-by"] = "codex";
   ctx.responseHeaders["x-neurolink-attempt"] = String(attempt);
   ctx.responseHeaders["x-neurolink-quota-source"] = quota ? "live" : "none";
-  if (quota && quota.sessionStatus !== "unknown") {
+  if (
+    quota &&
+    quota.sessionUsed !== undefined &&
+    quota.sessionStatus !== "unknown"
+  ) {
     ctx.responseHeaders["x-neurolink-quota-session-left-pct"] = String(
       Math.round((1 - quota.sessionUsed) * 100),
     );
   }
-  if (quota && quota.weeklyStatus !== "unknown") {
+  if (
+    quota &&
+    quota.weeklyUsed !== undefined &&
+    quota.weeklyStatus !== "unknown"
+  ) {
     const remaining = String(Math.round((1 - quota.weeklyUsed) * 100));
     ctx.responseHeaders["x-neurolink-quota-weekly-left-pct"] = remaining;
     // Preserve the original Codex header for existing clients.

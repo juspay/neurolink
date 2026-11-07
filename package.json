@@ -263,6 +263,7 @@
     "test:auth": "pnpm exec tsx test/continuous-test-suite-auth.ts",
     "test:autoresearch": "pnpm exec tsx test/continuous-test-suite-autoresearch.ts",
     "test:codex-quota": "svelte-kit sync && vitest run test/codex-quota-observability.test.ts",
+    "test:optional-quota-windows": "pnpm exec tsx test/continuous-test-suite-proxy-optional-quota-windows.ts",
     "test:agents-live": "tsx test/continuous-test-agents-live.ts",
     "test:tool-routing-cli": "pnpm exec tsx test/continuous-test-suite-tool-routing-cli.ts",
     "test:tool-dedup": "pnpm exec tsx test/continuous-test-suite-tool-dedup.ts",
