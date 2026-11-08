@@ -1103,6 +1103,214 @@ await test("a proactive refresh stays single-flight until the rotated token pers
   );
 });
 
+await test("two accounts sharing one refresh token share single-flight and both receive rotated token", async () => {
+  const { TokenStore } = await import("../src/lib/auth/tokenStore.js");
+  const store = new TokenStore({
+    encryptionEnabled: false,
+    customStoragePath: join(
+      mkdtempSync(join(tmpdir(), "neurolink-codex-multi-refresh-")),
+      "tokens.json",
+    ),
+  });
+  await store.saveTokens("codex:label-a", {
+    accessToken: "old-a",
+    refreshToken: "r_shared",
+    expiresAt: Date.now() + 3_600_000,
+    tokenType: "Bearer",
+  });
+  await store.saveTokens("codex:label-b", {
+    accessToken: "old-b",
+    refreshToken: "r_shared",
+    expiresAt: Date.now() + 3_600_000,
+    tokenType: "Bearer",
+  });
+
+  let calls = 0;
+  let releaseRefresh: (() => void) | undefined;
+  const refreshReleased = new Promise<void>((resolve) => {
+    releaseRefresh = resolve;
+  });
+  let refreshStarted: (() => void) | undefined;
+  const refreshStartedPromise = new Promise<void>((resolve) => {
+    refreshStarted = resolve;
+  });
+
+  const refresh = async () => {
+    calls += 1;
+    refreshStarted?.();
+    await refreshReleased;
+    return {
+      accessToken: fakeCodexJwt({}),
+      refreshToken: "r_rotated",
+      expiresAt: Date.now() + 3_600_000,
+    };
+  };
+
+  const first = __testHooks.refreshCodexTokenOnceWithDependencies(
+    "codex:label-a",
+    "r_shared",
+    store,
+    refresh,
+  );
+  await refreshStartedPromise;
+
+  const second = __testHooks.refreshCodexTokenOnceWithDependencies(
+    "codex:label-b",
+    "r_shared",
+    store,
+    refresh,
+  );
+
+  assertEqual(
+    calls,
+    1,
+    "two accounts sharing a refresh token must share the single-flight refresh",
+  );
+  releaseRefresh?.();
+
+  const [resA, resB] = await Promise.all([first, second]);
+  assertEqual(resA.refreshToken, "r_rotated");
+  assertEqual(resB.refreshToken, "r_rotated");
+
+  assertEqual(
+    (await store.peekTokens("codex:label-a"))?.refreshToken,
+    "r_rotated",
+    "label-a must be updated with rotated token in store",
+  );
+  assertEqual(
+    (await store.peekTokens("codex:label-b"))?.refreshToken,
+    "r_rotated",
+    "label-b must be updated with rotated token in store",
+  );
+  assertEqual(
+    __testHooks.codexRefreshInFlightSize(),
+    0,
+    "in-flight map must be empty after completion",
+  );
+});
+
+await test("importCodexCredentialToStore keys by email and account id so accounts with same email coexist", async () => {
+  const { TokenStore } = await import("../src/lib/auth/tokenStore.js");
+  const { importCodexCredentialToStore } = await import("../src/cli/commands/auth.js");
+  const store = new TokenStore({
+    encryptionEnabled: false,
+    customStoragePath: join(
+      mkdtempSync(join(tmpdir(), "neurolink-codex-same-email-")),
+      "tokens.json",
+    ),
+  });
+
+  const cred1 = {
+    accessToken: "tok-1",
+    refreshToken: "ref-1",
+    email: "dev@example.com",
+    accountId: "acct-team-alpha",
+  };
+  const cred2 = {
+    accessToken: "tok-2",
+    refreshToken: "ref-2",
+    email: "dev@example.com",
+    accountId: "acct-team-beta",
+  };
+
+  const res1 = await importCodexCredentialToStore(cred1, {}, store);
+  assertEqual(
+    res1.compoundKey,
+    "codex:dev@example.com:acct-team-alpha",
+    "default label must combine email and account id",
+  );
+
+  const res2 = await importCodexCredentialToStore(cred2, {}, store);
+  assertEqual(
+    res2.compoundKey,
+    "codex:dev@example.com:acct-team-beta",
+    "different account id under same email must produce different key",
+  );
+
+  const saved1 = await store.loadTokens("codex:dev@example.com:acct-team-alpha");
+  const saved2 = await store.loadTokens("codex:dev@example.com:acct-team-beta");
+  assert(saved1 !== null, "first account must exist in store");
+  assert(saved2 !== null, "second account must exist in store");
+  assertEqual(saved1?.accessToken, "tok-1");
+  assertEqual(saved2?.accessToken, "tok-2");
+});
+
+await test("importCodexCredentialToStore refuses duplicate key or duplicate refresh token unless force", async () => {
+  const { TokenStore } = await import("../src/lib/auth/tokenStore.js");
+  const { importCodexCredentialToStore } = await import("../src/cli/commands/auth.js");
+  const store = new TokenStore({
+    encryptionEnabled: false,
+    customStoragePath: join(
+      mkdtempSync(join(tmpdir(), "neurolink-codex-dup-check-")),
+      "tokens.json",
+    ),
+  });
+
+  const authFileCred = {
+    accessToken: "tok-orig",
+    refreshToken: "ref-shared-123",
+    email: "user@example.com",
+    accountId: "acct-main",
+  };
+
+  // 1. Initial import under label-a
+  await importCodexCredentialToStore(authFileCred, { label: "label-a" }, store);
+
+  // 2. Overwrite existing key without --force must fail
+  let duplicateKeyRefused = false;
+  try {
+    await importCodexCredentialToStore(
+      { ...authFileCred, accessToken: "tok-new" },
+      { label: "label-a" },
+      store,
+    );
+  } catch (err) {
+    duplicateKeyRefused =
+      err instanceof Error && err.message.includes("already exists");
+  }
+  assert(
+    duplicateKeyRefused,
+    "re-importing into existing key without --force must be refused",
+  );
+
+  // 3. Overwrite with force must succeed
+  await importCodexCredentialToStore(
+    { ...authFileCred, accessToken: "tok-new" },
+    { label: "label-a", force: true },
+    store,
+  );
+  assertEqual(
+    (await store.loadTokens("codex:label-a"))?.accessToken,
+    "tok-new",
+    "re-importing with --force must overwrite",
+  );
+
+  // 4. Importing same auth.json (same refresh token) under label-b without --force must fail
+  let duplicateRefreshTokenRefused = false;
+  try {
+    await importCodexCredentialToStore(authFileCred, { label: "label-b" }, store);
+  } catch (err) {
+    duplicateRefreshTokenRefused =
+      err instanceof Error &&
+      err.message.includes("same refresh token already exists");
+  }
+  assert(
+    duplicateRefreshTokenRefused,
+    "importing same auth.json under two labels without --force must be refused",
+  );
+
+  // 5. Importing same auth.json under label-b with force must succeed
+  await importCodexCredentialToStore(
+    authFileCred,
+    { label: "label-b", force: true },
+    store,
+  );
+  assert(
+    (await store.loadTokens("codex:label-b")) !== null,
+    "importing under new label with --force must succeed",
+  );
+});
+
 // ---------------------------------------------------------------------------
 // Shipped surface
 // ---------------------------------------------------------------------------
