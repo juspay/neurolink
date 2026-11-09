@@ -577,6 +577,13 @@ export default [
             // process with fetch stubbed to the captured error shape; the
             // isolation helper blocks every provider host.
             "test/continuous-test-suite-proxy-connect-retry.ts",
+            // The header the proxy sends upstream for a client's anthropic-beta
+            // (and whether it keeps a `thread` body field) is only visible at
+            // the upstream request, which a live account cannot be made to
+            // record. Drives the shipped /v1/messages handler in process with
+            // fetch stubbed to capture it; the isolation helper blocks every
+            // provider host.
+            "test/continuous-test-suite-proxy-message-threads-beta.ts",
             // Proxy selection and direct-fallback behavior need a synthetic
             // hostname that cannot be reached except through a local proxy;
             // the built CLI cannot target that endpoint without live credentials.
