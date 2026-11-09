@@ -1,4 +1,6 @@
+import adapter from "@sveltejs/adapter-auto";
 import { sveltekit } from "@sveltejs/kit/vite";
+import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import type { UserConfig } from "vite";
 
 // Extend Vite config to support Vitest's test property
@@ -23,7 +25,12 @@ type VitestConfig = Omit<UserConfig, "plugins"> & {
 };
 
 const config: VitestConfig = {
-  plugins: [sveltekit()],
+  plugins: [
+    sveltekit({
+      preprocess: vitePreprocess(),
+      adapter: adapter(),
+    }),
+  ],
 
   // SSR configuration - externalize native dependencies
   ssr: {

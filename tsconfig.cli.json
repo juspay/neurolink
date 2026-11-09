@@ -10,6 +10,7 @@
     "types": ["node"],
     "baseUrl": ".",
     "ignoreDeprecations": "6.0",
+    "allowImportingTsExtensions": false,
     "jsx": "react-jsx",
     "paths": {
       "$lib": ["./src/lib"],
