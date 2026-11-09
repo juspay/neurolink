@@ -51,7 +51,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 # the inputs instead of `COPY . .` keeps tests, fixtures, docs, the Yama memory
 # database and anything a developer left in the checkout out of the image
 # layers, and makes a cache miss mean a real input changed.
-COPY svelte.config.js vite.config.ts tsconfig.json tsconfig.cli.json ./
+COPY vite.config.ts tsconfig.json tsconfig.cli.json ./
 COPY scripts/build-browser.mjs scripts/collapse-cli-lib-duplicate.mjs ./scripts/
 COPY README.md LICENSE ./
 COPY src ./src

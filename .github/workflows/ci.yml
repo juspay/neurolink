@@ -291,7 +291,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: dist
-          key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
+          key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
 
       # A cache HIT restores dist/ with the mtimes it was SAVED with, while
       # actions/checkout stamps src/ with checkout time — so the repo's
@@ -418,7 +418,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: dist
-          key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
+          key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
 
       # A cache HIT restores dist/ with the mtimes it was SAVED with, while
       # actions/checkout stamps src/ with checkout time — so the repo's
@@ -630,7 +630,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: dist
-          key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
+          key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
 
       # A cache HIT restores dist/ with the mtimes it was SAVED with, while
       # actions/checkout stamps src/ with checkout time — so the repo's
@@ -861,7 +861,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: dist
-          key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
+          key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
 
       # A cache HIT restores dist/ with the mtimes it was SAVED with, while
       # actions/checkout stamps src/ with checkout time — so the repo's
@@ -1022,7 +1022,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: dist
-          key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
+          key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
 
       # A cache HIT restores dist/ with the mtimes it was SAVED with, while
       # actions/checkout stamps src/ with checkout time — so the repo's

@@ -1,6 +1,7 @@
 {
-  "extends": "./.svelte-kit/tsconfig.json",
+  "extends": "$app/tsconfig",
   "compilerOptions": {
+    "allowImportingTsExtensions": false,
     "allowJs": true,
     "checkJs": true,
     "esModuleInterop": true,
@@ -12,9 +13,16 @@
     "noImplicitReturns": true,
     "allowSyntheticDefaultImports": true,
     "stripInternal": true,
-    "types": ["vite/client", "@sveltejs/kit", "vitest/globals", "node"],
+    "types": [
+      "$app/types",
+      "vite/client",
+      "@sveltejs/kit",
+      "vitest/globals",
+      "node"
+    ],
     "jsx": "react-jsx"
   },
+  "include": ["src", "vite.config.ts"],
   "exclude": [
     "action-dist",
     "docs-site",
