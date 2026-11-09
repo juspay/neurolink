@@ -3219,6 +3219,13 @@ const SNAPSHOT_STABLE_HEADERS = new Set([
   "x-stainless-timeout",
   "x-subscription-tier",
 ]);
+/**
+ * Anthropic message threads (beta). The Anthropic provider sends this on a
+ * request that carries a `thread` field; the proxy forwards it when a client
+ * names it. Kept as a literal here so the proxy does not import a provider.
+ */
+const MESSAGE_THREADS_BETA = "message-threads-2026-08-12";
+
 const NON_CLAUDE_OAUTH_BETAS = [
   "oauth-2025-04-20",
   "claude-code-20250219",
@@ -10055,9 +10062,15 @@ async function prepareAnthropicAccountAttempt(args: {
     const proxyBetas: readonly string[] = isClaudeClientRequest
       ? CLAUDE_CODE_OAUTH_BETAS
       : NON_CLAUDE_OAUTH_BETAS;
+    // Message threads (opt-in per call by the client) must reach the upstream
+    // intact: a request carrying a `thread` body field is rejected without the
+    // beta. It stays out of proxyBetas, so it is only forwarded when a client
+    // asks for it, and a tier that lacks it is skipped without re-ranking the
+    // pool (clientSuppliedBetaForwarded below).
     const knownBetas = new Set<string>([
       ...CLAUDE_CODE_OAUTH_BETAS,
       ...NON_CLAUDE_OAUTH_BETAS,
+      MESSAGE_THREADS_BETA,
     ]);
     const clientBetas = (headers["anthropic-beta"] ?? "")
       .split(",")
@@ -10069,7 +10082,16 @@ async function prepareAnthropicAccountAttempt(args: {
     const existing = new Set<string>(
       genuineClaudeCode
         ? clientBetas
-        : clientBetas.filter((beta) => knownBetas.has(beta)),
+        : clientBetas.filter(
+            (beta) =>
+              knownBetas.has(beta) &&
+              // Request-scoped: a beta replayed from a captured snapshot is
+              // not this client's ask, and a tier without it would reject it.
+              (beta !== MESSAGE_THREADS_BETA ||
+                (filteredHeaders["anthropic-beta"] ?? "")
+                  .split(",")
+                  .some((own: string) => own.trim() === beta)),
+          ),
     );
     clientSuppliedBetaForwarded = [...existing].some(
       (beta) => !proxyBetas.includes(beta),
