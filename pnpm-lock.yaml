@@ -15,6 +15,7 @@ overrides:
   glob@>=9.0.0 <14.0.2: '>=14.0.2'
   archiver-utils>glob: 14.0.2
   readdir-glob>minimatch: 11.0.2
+  glob@7>minimatch: 3.1.5
   '@semantic-release/npm': ^13.1.4
   '@opentelemetry/sdk-trace-base@<2.8.0': 2.8.0
   '@opentelemetry/sdk-trace-node@<2.8.0': 2.8.0
@@ -26,7 +27,9 @@ overrides:
   fast-copy@>=4.0.0 <4.1.0: '>=4.1.0 <5.0.0'
   minimatch@>=10.0.0 <10.2.3: '>=10.2.3'
   minimatch@>=9.0.0 <9.0.7: '>=9.0.7'
-  typedoc>minimatch: '>=10.2.3'
+  typedoc>minimatch: 10.2.4
+  eslint>minimatch: 11.0.2
+  '@eslint/config-array>minimatch': 11.0.2
   minimatch@>=5.0.0 <5.1.8: '>=5.1.8'
   minimatch@>=3.0.0 <3.1.4: '>=3.1.4'
   fast-xml-parser@>=5.0.0 <5.7.0: '>=5.7.0'
@@ -2964,6 +2967,9 @@ packages:
       react-native-b4a:
         optional: true
 
+  balanced-match@1.0.2:
+    resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
+
   balanced-match@4.0.4:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
     engines: {node: 18 || 20 || >=22}
@@ -3048,6 +3054,9 @@ packages:
 
   bowser@2.14.1:
     resolution: {integrity: sha512-tzPjzCxygAKWFOJP011oxFHs57HzIhOEracIgAePE4pqB3LikALKnSzUyU4MGs9/iCEUuHlAJTjTc5M+u7YEGg==}
+
+  brace-expansion@1.1.21:
+    resolution: {integrity: sha512-9zeA+KLZNNzglF2TPKRQEDyx6Yby7daAkuy8MiPzpXPsYDWi/DRM8jmwUDxokQjYqBpv5DgPiwD4h4ZZSy1Ujw==}
 
   brace-expansion@5.0.12:
     resolution: {integrity: sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ==}
@@ -3231,6 +3240,9 @@ packages:
   compress-commons@4.1.2:
     resolution: {integrity: sha512-D3uMHtGc/fcO1Gt1/L7i1e33VOvD4A9hfQLP+6ewd+BvG/gQ84Yh4oftEhAdjSMgBgwGL+jsppT7JYNpo6MHHg==}
     engines: {node: '>= 10'}
+
+  concat-map@0.0.1:
+    resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
 
   concat-stream@2.0.0:
     resolution: {integrity: sha512-MWufYdFw53ccGjCA+Ol7XJYpAlW6/prSMzuPOTRnJGcGzuhLn4Scrz7qf6o8bROZ514ltazcIFJZevcfbo0x7A==}
@@ -4709,6 +4721,9 @@ packages:
   minimatch@11.0.2:
     resolution: {integrity: sha512-pWTgz5CN3tjqyZNSK2tePlSmu9IwM41q8yn8Usdqqwe9TIHh+9dEpLLjF4uApsfPEAZY71qtSiA2B2APEr+1Yw==}
     engines: {node: 18 || 20 || >=22}
+
+  minimatch@3.1.5:
+    resolution: {integrity: sha512-VgjWUsnnT6n+NUk6eZq77zeFdpW2LWDzP6zFGrCbHXiYNul5Dzqk2HHQ5uFH2DNW5Xbp8+jVzaeNt94ssEEl4w==}
 
   minimist@1.2.8:
     resolution: {integrity: sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==}
@@ -7235,7 +7250,7 @@ snapshots:
     dependencies:
       '@eslint/object-schema': 3.0.3
       debug: 4.4.3
-      minimatch: 10.2.4
+      minimatch: 11.0.2
     transitivePeerDependencies:
       - supports-color
 
@@ -9508,6 +9523,9 @@ snapshots:
 
   b4a@1.8.0: {}
 
+  balanced-match@1.0.2:
+    optional: true
+
   balanced-match@4.0.4: {}
 
   bare-events@2.8.2: {}
@@ -9591,6 +9609,12 @@ snapshots:
   bottleneck@2.19.5: {}
 
   bowser@2.14.1:
+    optional: true
+
+  brace-expansion@1.1.21:
+    dependencies:
+      balanced-match: 1.0.2
+      concat-map: 0.0.1
     optional: true
 
   brace-expansion@5.0.12:
@@ -9790,6 +9814,9 @@ snapshots:
       crc32-stream: 4.0.3
       normalize-path: 3.0.0
       readable-stream: 3.6.2
+    optional: true
+
+  concat-map@0.0.1:
     optional: true
 
   concat-stream@2.0.0:
@@ -10162,7 +10189,7 @@ snapshots:
       imurmurhash: 0.1.4
       is-glob: 4.0.3
       json-stable-stringify-without-jsonify: 1.0.1
-      minimatch: 10.2.4
+      minimatch: 11.0.2
       natural-compare: 1.4.0
       optionator: 0.9.4
     transitivePeerDependencies:
@@ -10675,7 +10702,7 @@ snapshots:
       fs.realpath: 1.0.0
       inflight: 1.0.6
       inherits: 2.0.4
-      minimatch: 11.0.2
+      minimatch: 3.1.5
       once: 1.4.0
       path-is-absolute: 1.0.1
     optional: true
@@ -11440,6 +11467,11 @@ snapshots:
     dependencies:
       '@isaacs/nonrecursive-glob-match': 1.0.2
       brace-expansion: 5.0.12
+
+  minimatch@3.1.5:
+    dependencies:
+      brace-expansion: 1.1.21
+    optional: true
 
   minimist@1.2.8: {}
 
