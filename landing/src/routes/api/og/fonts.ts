@@ -2,19 +2,25 @@ import type { FontOptions } from "satori";
 
 let fontCache: ArrayBuffer[] | null = null;
 
+// satori parses TTF, OTF and WOFF but not WOFF2, which is what Google Fonts
+// serves. These are the same Inter latin subsets as WOFF, from a version-pinned
+// @fontsource/inter release (SIL OFL 1.1).
+const FONTSOURCE_INTER =
+  "https://cdn.jsdelivr.net/npm/@fontsource/inter@5.3.0/files";
+
 const INTER_FONTS = [
   {
-    url: "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfAZ9hiA.woff2",
+    url: `${FONTSOURCE_INTER}/inter-latin-400-normal.woff`,
     weight: 400 as const,
     style: "normal" as const,
   },
   {
-    url: "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuI6fAZ9hiA.woff2",
+    url: `${FONTSOURCE_INTER}/inter-latin-600-normal.woff`,
     weight: 600 as const,
     style: "normal" as const,
   },
   {
-    url: "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuFuYAZ9hiA.woff2",
+    url: `${FONTSOURCE_INTER}/inter-latin-700-normal.woff`,
     weight: 700 as const,
     style: "normal" as const,
   },
