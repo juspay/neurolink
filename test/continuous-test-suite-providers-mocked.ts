@@ -19002,6 +19002,12 @@ async function runAnthropicOAuthApiVersionSection(): Promise<void> {
     "ANTHROPIC_AUTH_METHOD",
   ];
   const before = touched.map((name) => [name, process.env[name]] as const);
+  // The client also reads ~/.neurolink/anthropic-credentials.json, so a
+  // developer machine that is logged in to Anthropic changed what this case
+  // sent. An empty HOME for the section keeps it hermetic.
+  const realHome = process.env.HOME;
+  const emptyHome = mkdtempSync(join(tmpdir(), "neurolink-oauth-home-"));
+  process.env.HOME = emptyHome;
   setEnv("ANTHROPIC_OAUTH_TOKEN", "test-fake-anthropic-oauth-credential");
   setEnv("ANTHROPIC_AUTH_METHOD", "oauth");
   for (const name of [
@@ -19082,6 +19088,12 @@ async function runAnthropicOAuthApiVersionSection(): Promise<void> {
       err instanceof Error ? err.message : String(err),
     );
   } finally {
+    if (realHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = realHome;
+    }
+    rmSync(emptyHome, { recursive: true, force: true });
     for (const [name, value] of before) {
       if (value === undefined) {
         delete process.env[name];
