@@ -1,4 +1,4 @@
-import type { FontOptions } from "satori";
+import type { Font as FontOptions } from "satori";
 
 let fontCache: ArrayBuffer[] | null = null;
 
