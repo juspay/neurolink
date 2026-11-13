@@ -758,6 +758,11 @@ void runSuite(async () => {
       "day value",
     );
     assert(got.items[0].at instanceof Date, "nested date should be a Date");
+    assertEqual(
+      (got.items[0].at as Date).toISOString(),
+      "2026-11-08T00:00:00.000Z",
+      "nested date value",
+    );
     assertEqual(got.items[1].at, undefined, "an absent optional stays absent");
     assertEqual(got.name, "x", "other fields are untouched");
   });
@@ -768,12 +773,22 @@ void runSuite(async () => {
     });
     assertEqual(notADate.rejected.length, 1, "a non-date string was accepted");
     assertEqual(notADate.received, undefined, "the tool must not run");
+    assert(
+      /day/i.test(notADate.rejectedMessage) &&
+        /date/i.test(notADate.rejectedMessage),
+      `the rejection should name the date field, got: ${notADate.rejectedMessage}`,
+    );
     const otherField = await runDateTool(
       z.object({ day: z.date(), count: z.number() }),
       { day: "2026-11-07T10:00:00Z", count: "three" },
     );
     assertEqual(otherField.rejected.length, 1, "a bad number was accepted");
     assertEqual(otherField.received, undefined, "the tool must not run");
+    assert(
+      /count/i.test(otherField.rejectedMessage) &&
+        /number/i.test(otherField.rejectedMessage),
+      `the rejection should name the count mismatch, got: ${otherField.rejectedMessage}`,
+    );
   });
 
   await test("generate loop: an impossible calendar date is rejected, not rolled over", async () => {
@@ -940,8 +955,8 @@ void runSuite(async () => {
 
   await test("generate loop: many independent unions do not lose the one usable conversion to the candidate cap", async () => {
     const branch = z.union([
-      z.object({ a: z.date() }),
-      z.object({ b: z.date() }),
+      z.object({ kind: z.literal("a"), a: z.date() }),
+      z.object({ kind: z.literal("b"), b: z.date() }),
     ]);
     const r = await runDateTool(
       z.object({
@@ -956,11 +971,26 @@ void runSuite(async () => {
       Object.fromEntries(
         [1, 2, 3, 4, 5, 6, 7].map((i) => [
           `u${i}`,
-          { b: "2026-11-07T10:00:00Z" },
+          {
+            kind: "b",
+            a: "2026-11-06T10:00:00Z",
+            b: "2026-11-07T10:00:00Z",
+          },
         ]),
       ),
     );
     assertEqual(r.rejected.length, 0, "the call was rejected");
+    const got = r.received as Record<string, { kind: string; b?: unknown }>;
+    for (const i of [1, 2, 3, 4, 5, 6, 7]) {
+      const member = got[`u${i}`];
+      assertEqual(member.kind, "b", `u${i} should take the second branch`);
+      assert(member.b instanceof Date, `u${i}.b should be a Date`);
+      assertEqual(
+        (member.b as Date).toISOString(),
+        "2026-11-07T10:00:00.000Z",
+        `u${i}.b value`,
+      );
+    }
   });
 
   await test("generate loop: a set that accepts a date or a sentinel converts the dates and keeps the sentinel", async () => {
@@ -980,6 +1010,15 @@ void runSuite(async () => {
       "the date should be converted",
     );
     assert(days.includes("ongoing"), "the sentinel should be kept");
+    assertEqual(
+      JSON.stringify(
+        days
+          .filter((d): d is Date => d instanceof Date)
+          .map((d) => d.toISOString()),
+      ),
+      '["2026-11-07T10:00:00.000Z"]',
+      "the converted member value",
+    );
   });
 
   await test("generate loop: an unrelated throwing getter on the input does not reject a convertible date", async () => {
@@ -1047,6 +1086,15 @@ void runSuite(async () => {
       days.includes("2099-01-01"),
       "the literal should be kept as a string",
     );
+    assertEqual(
+      JSON.stringify(
+        days
+          .filter((d): d is Date => d instanceof Date)
+          .map((d) => d.toISOString()),
+      ),
+      '["2026-11-07T10:00:00.000Z"]',
+      "the converted member value",
+    );
   });
 
   await test("generate loop: a frozen property on the input does not stop a date conversion", async () => {
@@ -1067,6 +1115,36 @@ void runSuite(async () => {
       (validated.input as { day: unknown }).day instanceof Date,
       "the date should be converted",
     );
+  });
+
+  await test("generate loop: validating an input leaves the caller's date strings unchanged, whether it passes or fails", async () => {
+    const { validateToolInput } =
+      await import("../src/lib/core/nativeGenerateLoop.js");
+    const tool = {
+      inputSchema: z.object({
+        day: z.date(),
+        items: z.array(z.object({ at: z.date() })),
+        count: z.number(),
+      }),
+    } as unknown as Tool;
+    const input = {
+      day: "2026-11-07T10:00:00Z",
+      items: [{ at: "2026-11-08" }],
+      count: 1,
+    };
+    const ok = await validateToolInput(tool, input);
+    assertEqual(ok.error, undefined, "the valid call was rejected");
+    assert(
+      (ok.input as { day: unknown }).day instanceof Date,
+      "the validated copy should hold a Date",
+    );
+    assertEqual(input.day, "2026-11-07T10:00:00Z", "day changed after success");
+    assertEqual(input.items[0].at, "2026-11-08", "at changed after success");
+    const bad = { ...input, count: "three" as unknown as number };
+    const failed = await validateToolInput(tool, bad);
+    assert(failed.error !== undefined, "the invalid call was accepted");
+    assertEqual(bad.day, "2026-11-07T10:00:00Z", "day changed after failure");
+    assertEqual(bad.items[0].at, "2026-11-08", "at changed after failure");
   });
 
   await test("agent: a date-time string for a plain z.date() input passes the agent's validation", async () => {
@@ -1103,6 +1181,25 @@ void runSuite(async () => {
     assert(
       (rejected.error ?? "").includes("Input validation failed"),
       "a non-date string must still be rejected by the agent's validation",
+    );
+    const lastError = async (day: string): Promise<string> => {
+      let error = "";
+      for await (const chunk of agent.stream({ day })) {
+        if (chunk.type === "agent-error") {
+          error = String((chunk as { error?: unknown }).error ?? "");
+        }
+      }
+      return error;
+    };
+    const streamAccepted = await lastError("2026-11-07T10:00:00Z");
+    assert(
+      streamAccepted.includes(reached),
+      `stream() should pass validation and reach the stub, got: ${streamAccepted}`,
+    );
+    const streamRejected = await lastError("next tuesday");
+    assert(
+      streamRejected.includes("Input validation failed"),
+      `stream() must reject a non-date string, got: ${streamRejected}`,
     );
   });
 

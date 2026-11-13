@@ -1496,11 +1496,12 @@ async function section9Errors(): Promise<void> {
           // found for this account), and no model this account reaches rejects
           // reasoning_budget with a 400: probed raw, the reasoning ones reason
           // anyway and nemotron-3.5-bolt-e4b ignores the flags. A different pin
-          // would pass without ever stripping anything. The strip itself is
-          // asserted offline in continuous-test-suite-adjust-body-after-400.
+          // would pass without ever stripping anything. Only the chat_template strip
+          // is asserted offline (continuous-test-suite-adjust-body-after-400);
+          // the reasoning_budget strip has no offline coverage.
           if (/not available|not found/i.test(msg)) {
             throw new Skip(
-              "pinned non-reasoning model not served on this account; strip covered offline",
+              "pin not served; reasoning_budget strip NOT run (offline covers chat_template only)",
             );
           }
           throw err;

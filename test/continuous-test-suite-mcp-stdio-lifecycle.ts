@@ -26,7 +26,6 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ExternalServerManager } from "../dist/index.js";
 import type {
   ExternalMCPServerEvents,
   ExternalMCPServerHealth,
@@ -37,6 +36,10 @@ import { assertDistFresh } from "./helpers/distFreshness.js";
 
 // Fail loudly rather than silently testing a stale build (see distFreshness.ts).
 assertDistFresh();
+
+// Dynamic so the freshness check runs first; a static import is hoisted and
+// would surface ERR_MODULE_NOT_FOUND instead of the build-first message.
+const { ExternalServerManager } = await import("../dist/index.js");
 
 const { test, runSuite } = defineSuite("MCP stdio lifecycle", {
   offline: true,
