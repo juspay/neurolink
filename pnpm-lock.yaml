@@ -73,9 +73,9 @@ overrides:
 pnpmfileChecksum: sha256-IOuJacdJrM1DaVu4E0VUU8po5yGx2L7t74wmXJARo8U=
 
 patchedDependencies:
-  hono@4.13.13:
+  hono@4.13.16:
     hash: 790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c
-    path: patches/hono@4.13.13.patch
+    path: patches/hono@4.13.16.patch
   mammoth@1.12.0:
     hash: 08d907da666d60e4aca12deab636e3795c9bacbec7f10f258653467aadea0362
     path: patches/mammoth@1.12.0.patch
@@ -184,8 +184,8 @@ importers:
         specifier: 10.6.2
         version: 10.6.2
       hono:
-        specifier: 4.13.13
-        version: 4.13.13(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c)
+        specifier: 4.13.16
+        version: 4.13.16(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c)
       iconv-lite:
         specifier: 0.7.2
         version: 0.7.2
@@ -429,8 +429,8 @@ importers:
         specifier: 6.4.0
         version: 6.4.0
       '@hono/node-server':
-        specifier: 2.1.5
-        version: 2.1.5(hono@4.13.13(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c))
+        specifier: 2.1.6
+        version: 2.1.6(hono@4.13.16(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c))
       '@koa/cors':
         specifier: 5.0.0
         version: 5.0.0
@@ -1061,8 +1061,8 @@ packages:
   '@hapi/bourne@3.0.0':
     resolution: {integrity: sha512-Waj1cwPXJDucOib4a3bAISsKJVb15MKi9IvmTI/7ssVEm6sywXGjVJDhl6/umt1pK1ZS7PacXU3A1PmFKHEZ2w==}
 
-  '@hono/node-server@2.1.5':
-    resolution: {integrity: sha512-MgP/I06GdvsilDspMk/qmRzpk8LOUStP6jFAbSRi40W09DhoyUn+Mj7eyKICPqeYKybOjVFLVIAQzvu1bfIa7Q==}
+  '@hono/node-server@2.1.6':
+    resolution: {integrity: sha512-p/KH9MnfNcsm3sR6x4lNgm5j+QN4Et8srKredl9DZfXiyZ1UQ3aQ2YVpFLbqktYN5JI+DB+VZFKM2PqE5hLKjQ==}
     engines: {node: '>=20'}
     peerDependencies:
       hono: ^4 || ^5.0.0-0
@@ -4055,8 +4055,8 @@ packages:
   highlight.js@10.7.3:
     resolution: {integrity: sha512-tzcUFauisWKNHaRkN4Wjl/ZA07gENAjFl3J/c480dprkGTg5EQstgaNFqBfUqCq54kZRIEcreTsAgF/m2quD7A==}
 
-  hono@4.13.13:
-    resolution: {integrity: sha512-CQ46U0ZkAGmbT/4UxdzzGJpacP2IeKgY4a5/tOI9AABbpOMfK739wfDXmv1usCk+3RkKj1hQy4/fjhiwa2xlrA==}
+  hono@4.13.16:
+    resolution: {integrity: sha512-AOLOEhvrV+iH92xXCnFr/5+3KjPKcI3xP63XJtX5spAnkznPdHijlIsUTpi7/9EhWqrTCekw5c5zh1K+YsVw7A==}
     engines: {node: '>=16.9.0'}
 
   hook-std@4.0.0:
@@ -7366,9 +7366,9 @@ snapshots:
   '@hapi/bourne@3.0.0':
     optional: true
 
-  '@hono/node-server@2.1.5(hono@4.13.13(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c))':
+  '@hono/node-server@2.1.6(hono@4.13.16(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c))':
     dependencies:
-      hono: 4.13.13(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c)
+      hono: 4.13.16(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c)
 
   '@huggingface/hub@2.4.1':
     dependencies:
@@ -7990,7 +7990,7 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.32.2(@cfworker/json-schema@4.1.1)(zod@4.6.7)':
     dependencies:
-      '@hono/node-server': 2.1.5(hono@4.13.13(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c))
+      '@hono/node-server': 2.1.6(hono@4.13.16(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c))
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
@@ -8000,7 +8000,7 @@ snapshots:
       eventsource-parser: 3.0.8
       express: 5.2.1
       express-rate-limit: 8.7.1(express@5.2.1)
-      hono: 4.13.13(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c)
+      hono: 4.13.16(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c)
       jose: 6.2.2
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -10789,7 +10789,7 @@ snapshots:
 
   highlight.js@10.7.3: {}
 
-  hono@4.13.13(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c): {}
+  hono@4.13.16(patch_hash=790e189054ffcc76ab8f7c3f69312977091b58a7c48a5888493cce89e3da905c): {}
 
   hook-std@4.0.0: {}
 
