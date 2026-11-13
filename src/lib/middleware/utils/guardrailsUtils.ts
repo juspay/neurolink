@@ -178,6 +178,8 @@ export async function performPrecallEvaluation(
 
     const result = await provider.generate({
       input: { text: prompt },
+      // The evaluator only classifies the input; it is given no tools.
+      disableTools: true,
     });
 
     if (!result || !result.content) {

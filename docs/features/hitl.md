@@ -48,10 +48,11 @@ const neurolink = new NeuroLink({
 });
 
 // When AI tries to use deleteFile:
-// 1. Tool execution pauses
-// 2. Returns USER_CONFIRMATION_REQUIRED error
+// 1. Tool execution pauses; the tool has not run
+// 2. hitl:confirmation-request is emitted
 // 3. Application shows confirmation dialog
-// 4. On approval, tool executes with confirmation_received = true
+// 4. On approval (hitl:confirmation-response), the paused call runs; the approval
+//    covers that one call, including any retry of a failed attempt
 ```
 
 1. Tool identifier used by the AI to invoke this function
@@ -150,13 +151,14 @@ const riskyTool = {
 
 ### Execution Flow
 
-1. **AI requests tool execution** → Tool executor checks if tool requires confirmation
-2. **Confirmation required?** → Returns `USER_CONFIRMATION_REQUIRED` error to LLM
-3. **LLM asks user** → "I need to [action]. Is that okay?"
-4. **User responds**:
-   - **Approve** → UI sets `confirmation_received = true` and retries tool execution
-   - **Deny** → UI sends "User cancelled" message back to LLM
-5. **Tool executes** → Permission flag immediately resets to `false`
+1. **AI requests tool execution** → The tool gateway checks whether the tool requires confirmation
+2. **Confirmation required?** → The call pauses and `hitl:confirmation-request` is emitted; the tool does not run yet and the model is not asked to retry
+3. **Your approval UI responds** by emitting `hitl:confirmation-response` with the `confirmationId`:
+   - **Approve** → the paused call resumes and runs (optionally with `modifiedArguments`); the approval covers that one call, so a retry of a failed or timed-out attempt runs the tool again without a new approval
+   - **Deny** → the call returns a refusal to the model and the tool never runs
+   - **No answer** → the confirmation times out (a refusal, unless auto-approve on timeout is configured)
+4. **Cancelled** → aborting the call's `abortSignal` withdraws the pending confirmation and emits `hitl:cancelled`
+5. **Tool executes** → Each approval covers exactly one call, including its retries; the next call asks again
 
 ### Security Features
 
@@ -194,7 +196,7 @@ const neurolink = new NeuroLink({
 ```
 
 A denied built-in call is reported to the model as a failed tool call
-(`Tool execution rejected by user: <reason>`); the model sees the denial and
+(`Built-in tool execution rejected by user: <reason>`); the model sees the denial and
 can continue without the side effect. A confirmation that returns
 `modifiedArguments` runs the tool with those arguments. The confirmation
 request carries `serverId: "direct"` for a built-in tool.
@@ -254,6 +256,104 @@ emitter.on("hitl:timeout", (event) => {
   }
 });
 ```
+
+**Cancelled Event** (`hitl:cancelled`): a pending confirmation was withdrawn
+because the call that asked was cancelled (its `abortSignal` fired, for
+example the turn was aborted). Retire the card in your UI; an answer sent for
+it is ignored.
+
+```typescript
+emitter.on("hitl:cancelled", (event) => {
+  event.payload: {
+    confirmationId: string;
+    toolName: string;
+    reason: string;              // The abort reason, when the caller gave one
+  }
+});
+```
+
+### Confirmation and the call's limits
+
+A call that needs confirmation is confirmed once, before its attempt timeout,
+its retries and the circuit breaker start, and nothing runs until the human
+approves or the card times out under the rule below. A denial or a
+cancellation is final: the call returns a refusal and is not retried. A card
+timeout is also final, unless `autoApproveOnTimeout` is enabled and the tool
+is not in `autoApproveExclusions`: then the timeout approves the call without
+a human response, and it runs like any approved call. Once approved, a failed
+or timed-out attempt is retried without a new approval, so a tool with side
+effects can run more than once. A model loop's per-tool deadline does
+not run while the card waits; approval resumes it with the time that was
+left.
+
+The rule applies to the tools of the instance and of its worker instances
+(`createWorkerInstance`, and so `runIsolatedAgent`, `registerAgentTool` and
+`delegate_task`): registered tools, external MCP tools and NeuroLink's
+built-in tools, matched by name (for example `readFile` by
+`dangerousActions: ["read"]`; `writeFile` and `executeBashCommand` are
+confirmed on every call a model loop makes unless `confirmBuiltinTools` is
+`false`, see [Built-in tools](#built-in-tools)). Registered and built-in tools
+are confirmed by the HITL manager the tool registry holds: the instance's own,
+unless another manager was installed there
+(`getToolRegistry().setHITLManager()`, or a worker with HITL of its own, see
+below). External MCP tools are confirmed by the external server manager's: the
+instance's own, or with none the registry's. A worker with no HITL of its own
+shares its host's registry, so its calls are confirmed by the manager that
+registry holds, normally the host's, and their cards reach that manager
+owner's emitter. When an agent tool's call ends, through its attempt timeout
+or the caller's abort, its worker run is stopped and any card it raised is
+withdrawn. Agent-tool calls are never batched. Model calls NeuroLink makes for
+its own text-only roles (evaluation, scoring, judging, guardrails checks,
+summaries, memory condensation, RAG answers and reranking) are given no tools.
+
+Not covered:
+
+- tools passed per call in `options.tools`, including the skill and RAG tools
+  NeuroLink adds to a call: they are the caller's own code;
+- a worker built with `createWorkerInstance({ shareToolRegistry: false })`:
+  it does not share the host's registry, so the host's rule does not apply;
+- a worker with its own enabled HITL: its own rule and emitter apply, and it
+  takes over the shared registry's manager, so from then on the registered
+  and built-in tools of the host, and of every worker on that registry with
+  no HITL of its own, are confirmed by that worker's manager, and their cards
+  reach that worker's emitter.
+
+Pass an `abortSignal` to `executeTool` to cancel a call; aborting it withdraws
+a pending confirmation:
+
+```typescript
+const controller = new AbortController();
+// Abort once the card is pending: that withdraws it and emits hitl:cancelled
+neurolink.getEventEmitter().once("hitl:confirmation-request", () => {
+  controller.abort();
+});
+const result = await neurolink.executeTool(
+  "deleteFile",
+  { path: "/tmp/x" },
+  {
+    abortSignal: controller.signal,
+  },
+);
+// result is the { success: false } refusal; a later answer runs nothing
+```
+
+`hitl:cancelled` is delivered after every `hitl:confirmation-request` listener
+has run, so an abort raised inside an early listener does not reach your
+approval UI before it has seen the card.
+
+A signal that has already fired when the call starts raises no card, so no
+`hitl:cancelled` is emitted, and the tool does not run. Unlike a cancellation
+while the card waits, the call does not return a refusal: `executeTool` rejects
+with an abort error, as it does for any call cancelled before it starts, so
+handle the rejection. A `HITLManager`
+of your own that ignores `context.signal` keeps its card when the call is
+aborted; the call still returns the refusal at once, and a later answer to that
+card runs nothing. An arguments object changed while its card waits is not
+detected, and does not change what runs: confirmation copies the arguments
+before the card is raised, the human reviews that copy, and the tool runs it
+(or the approver's `modifiedArguments`). Arguments that cannot be copied (a
+function value, for example) are used as they are, so changes to them are not
+isolated.
 
 ## Troubleshooting
 

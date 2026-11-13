@@ -484,6 +484,22 @@ jobs:
         if: matrix.group == 'rest'
         run: pnpm run test:agent:cost
 
+      - name: HITL confirm once (no timer, retry or breaker runs a tool before approval, no credentials)
+        if: matrix.group == 'rest'
+        run: pnpm run test:hitl:confirm-once
+
+      - name: Provider tool sites (every provider build is allowlisted with a reason; source scan, no credentials)
+        if: matrix.group == 'rest'
+        run: pnpm run test:provider-tool-sites
+
+      - name: Tool abort forwarding (a loop's abort reaches the tool, its card and its worker; local stand-ins, no credentials)
+        if: matrix.group == 'rest'
+        run: pnpm run test:tool-abort-forwarding
+
+      - name: HITL pausable deadline (a confirmation pauses the loop's per-tool deadline; local stand-ins, no credentials)
+        if: matrix.group == 'rest'
+        run: pnpm run test:hitl:pausable-deadline
+
       - name: Bedrock inference-profile fallback (local HTTP/2 stand-in, no API keys required)
         if: matrix.group == 'rest'
         run: pnpm run test:bedrock-inference-profile

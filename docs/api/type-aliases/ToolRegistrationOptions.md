@@ -11,8 +11,9 @@
 Options for tool registration via registerTool()
 
 These options configure per-tool execution behavior. When not provided,
-the SDK's global defaults are used (30s timeout, 2 retries), preserving
-backward compatibility with existing production systems.
+`executeTool` uses the SDK's defaults: a 120 s timeout per attempt and 3
+retries (up to 4 attempts), 1 s apart. A per-call `executeTool` option
+overrides the registered value.
 
 ## Example
 
@@ -20,7 +21,7 @@ backward compatibility with existing production systems.
 // Register with custom timeout and no retries
 sdk.registerTool("myTool", tool, { timeout: 5000, maxRetries: 0 });
 
-// Register with defaults (same as before — no behavior change)
+// Register with the defaults
 sdk.registerTool("myTool", tool);
 ```
 
@@ -30,8 +31,8 @@ sdk.registerTool("myTool", tool);
 
 > `optional` **timeout?**: `number`
 
-Per-tool execution timeout in milliseconds. Only applied when explicitly set.
-When omitted, the SDK's global default (30s) is used.
+Timeout for one attempt, in milliseconds. Only applied when explicitly
+set. When omitted, the SDK's default (120 s) is used.
 
 ---
 
@@ -39,9 +40,10 @@ When omitted, the SDK's global default (30s) is used.
 
 > `optional` **maxRetries?**: `number`
 
-Maximum retry attempts on failure. Only applied when explicitly set.
-When omitted, the SDK's global default (2 retries) is used.
-Set to 0 to disable retries for this tool.
+Maximum retries after a failed attempt. Only applied when explicitly set.
+When omitted, the SDK's default (3 retries, so up to 4 attempts) is used.
+Set to 0 to disable retries for this tool, as you should for a tool
+whose effect must not happen twice.
 
 ---
 
@@ -50,7 +52,9 @@ Set to 0 to disable retries for this tool.
 > `optional` **totalTimeoutMs?**: `number`
 
 Ceiling on the whole execution across every attempt and the delays
-between them. When omitted, `timeout * (maxRetries + 1)` is used.
+between them. When omitted,
+`timeout * (maxRetries + 1) + retryDelayMs * maxRetries` is used, the
+retry delay being 1 s unless the call sets `retryDelayMs`.
 
 ---
 

@@ -34919,6 +34919,74 @@ const PROVIDER_TEST_TIMEOUT = PROVIDER_TIMEOUTS.TEST_MS;
 const MCP_INIT_TIMEOUT = MCP_TIMEOUTS.INITIALIZATION_MS;
 const CIRCUIT_BREAKER_RESET_MS = CIRCUIT_BREAKER_TIMEOUTS.RESET_MS;
 
+;// CONCATENATED MODULE: ./src/lib/hitl/hitlErrors.ts
+/**
+ * HITL (Human-in-the-Loop) Error Classes
+ *
+ * Provides structured error handling for HITL safety mechanisms.
+ * These errors allow applications to distinguish between different
+ * types of HITL failures and handle them appropriately.
+ */
+/**
+ * Base class for all HITL-related errors
+ */
+class hitlErrors_HITLError extends Error {
+    confirmationId;
+    constructor(message, confirmationId) {
+        super(message);
+        this.confirmationId = confirmationId;
+        this.name = "HITLError";
+    }
+}
+/**
+ * Thrown when a user explicitly rejects a tool execution request
+ * This indicates the HITL system worked correctly - the user saw the request
+ * and made a conscious decision to deny it.
+ */
+class HITLUserRejectedError extends hitlErrors_HITLError {
+    toolName;
+    reason;
+    constructor(message, toolName, reason, confirmationId) {
+        super(message, confirmationId);
+        this.toolName = toolName;
+        this.reason = reason;
+        this.name = "HITLUserRejectedError";
+    }
+}
+/**
+ * Thrown when a confirmation request times out without user response
+ * This indicates the user didn't respond within the configured timeout period.
+ */
+class HITLTimeoutError extends hitlErrors_HITLError {
+    timeout;
+    constructor(message, confirmationId, timeout) {
+        super(message, confirmationId);
+        this.timeout = timeout;
+        this.name = "HITLTimeoutError";
+    }
+}
+/**
+ * Thrown when a confirmation is withdrawn before it could let the tool run:
+ * the call that asked was aborted, so a later answer must run nothing.
+ */
+class HITLCancelledError extends hitlErrors_HITLError {
+    reason;
+    constructor(message, confirmationId, reason) {
+        super(message, confirmationId);
+        this.reason = reason;
+        this.name = "HITLCancelledError";
+    }
+}
+/**
+ * Thrown when HITL configuration is invalid or missing required properties
+ */
+class HITLConfigurationError extends hitlErrors_HITLError {
+    constructor(message) {
+        super(message);
+        this.name = "HITLConfigurationError";
+    }
+}
+
 ;// CONCATENATED MODULE: ./src/lib/utils/errorHandling.ts
 /**
  * Robust Error Handling Utilities for NeuroLink
@@ -35080,7 +35148,9 @@ class ErrorFactory {
             message: `Tool '${toolName}' execution failed: ${originalError.message}`,
             category: enums_ErrorCategory.EXECUTION,
             severity: enums_ErrorSeverity.HIGH,
-            retriable: true,
+            // A human's answer (or a withdrawn card) is final: retrying would raise
+            // a second card for a call that was already decided.
+            retriable: !(originalError instanceof hitlErrors_HITLError),
             originalError,
             toolName,
             serverId,
@@ -36077,28 +36147,50 @@ class CircuitBreaker {
         this.resetTimeoutMs = resetTimeoutMs;
         this.name = name;
     }
-    async execute(operation) {
+    /**
+     * Run `operation` through the breaker. An outcome `options.isCancellation`
+     * accepts stays out of the count: a failure is rethrown without being
+     * counted, and a result is returned without resetting the count. The
+     * predicate gets the error on failure and nothing on success. A call its
+     * caller cancelled says nothing about the dependency's health.
+     */
+    async execute(operation, options) {
         if (this.state === "open") {
-            const retryAfterMs = this.resetTimeoutMs - (Date.now() - this.lastFailureTime);
-            if (retryAfterMs > 0) {
-                throw new CircuitBreakerOpenError({
-                    breakerName: this.name,
-                    retryAfter: new Date(this.lastFailureTime + this.resetTimeoutMs),
-                    retryAfterMs,
-                    breakerState: "open",
-                    failureCount: this.failures,
-                });
-            }
+            this.assertAvailable();
             this.state = "half-open";
         }
         try {
             const result = await operation();
-            this.onSuccess();
+            if (!options?.isCancellation?.()) {
+                this.onSuccess();
+            }
             return result;
         }
         catch (error) {
-            this.onFailure();
+            if (!options?.isCancellation?.(error)) {
+                this.onFailure();
+            }
             throw error;
+        }
+    }
+    /**
+     * Throw `CircuitBreakerOpenError` while the breaker is open and its reset
+     * timeout has not elapsed. Unlike `execute`, it never moves an elapsed
+     * breaker to half-open, so a caller can ask first without taking the probe.
+     */
+    assertAvailable() {
+        if (this.state !== "open") {
+            return;
+        }
+        const retryAfterMs = this.resetTimeoutMs - (Date.now() - this.lastFailureTime);
+        if (retryAfterMs > 0) {
+            throw new CircuitBreakerOpenError({
+                breakerName: this.name,
+                retryAfter: new Date(this.lastFailureTime + this.resetTimeoutMs),
+                retryAfterMs,
+                breakerState: "open",
+                failureCount: this.failures,
+            });
         }
     }
     onSuccess() {
@@ -36153,14 +36245,42 @@ function isAbortError(error) {
     return false;
 }
 /**
+ * Throw a typed, non-retriable abort error once `signal` has fired, so a call
+ * cancelled before it starts never runs. The signal's reason is kept when it
+ * is an Error (a loop's per-tool deadline names itself that way).
+ */
+function throwIfSignalAborted(signal) {
+    if (signal?.aborted) {
+        throw ErrorFactory.aborted(signal.reason instanceof Error ? signal.reason : undefined);
+    }
+}
+/**
+ * Whether `signal` fired because a caller cancelled the call (its own signal,
+ * or the turn's abort), not because a deadline expired. A per-tool deadline
+ * (the loop engine's, the guard's, an attempt's) aborts with a reason named
+ * "TimeoutError", as `AbortSignal.timeout()`'s is too, and is evidence about
+ * the tool. Any other reason, including none, is a cancellation and is not:
+ * so a turn clock that aborts with no reason (the Vertex and AI Studio turn
+ * limits) counts as a cancellation.
+ */
+function isCancelledByCaller(signal) {
+    if (!signal?.aborted) {
+        return false;
+    }
+    const reason = signal.reason;
+    return !(reason instanceof Error && reason.name === "TimeoutError");
+}
+/**
  * Error handler that decides whether to retry based on error type
  */
 function isRetriableError(error) {
+    // Denied, timed-out and cancelled confirmations are decisions, not faults:
+    // a retry would ask again, or act without the approval that was withheld.
+    if (error instanceof HITLError) {
+        return false;
+    }
     if (error instanceof NeuroLinkError) {
         return error.retriable;
-    }
-    if (error instanceof HITLTimeoutError) {
-        return false;
     }
     // Check for common retriable error patterns
     const retriablePatterns = [

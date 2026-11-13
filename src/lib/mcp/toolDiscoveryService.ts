@@ -658,7 +658,10 @@ export class ToolDiscoveryService extends EventEmitter {
                       arguments: effectiveParameters,
                     },
                     undefined,
-                    { timeout: effectiveTimeout },
+                    {
+                      timeout: effectiveTimeout,
+                      ...(options.signal && { signal: options.signal }),
+                    },
                   ),
                   timeout,
                   new Error(`Tool execution timeout: ${toolName}`),
@@ -784,6 +787,11 @@ export class ToolDiscoveryService extends EventEmitter {
       // Update tool statistics
       const toolKey = this.createToolKey(serverId, toolName);
       this.updateToolStats(toolKey, false, duration);
+
+      // The caller cancelled the request: report that, not a tool failure.
+      if (options.signal?.aborted) {
+        throw error;
+      }
 
       // Circuit breaker open errors: return a structured isError result with
       // actionable details so AI models understand the tool is temporarily

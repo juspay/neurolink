@@ -652,6 +652,12 @@ export type ExternalToolExecutionOptions = {
 
   /** Whether to validate output */
   validateOutput?: boolean;
+
+  /**
+   * Aborting it cancels the in-flight MCP request: the SDK rejects the call
+   * and sends `notifications/cancelled` to the server.
+   */
+  signal?: AbortSignal;
 };
 
 /**

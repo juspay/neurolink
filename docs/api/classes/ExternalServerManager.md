@@ -99,11 +99,33 @@ HITL manager instance (optional, can be undefined to disable)
 
 ---
 
+### setFallbackHITLManager()
+
+> **setFallbackHITLManager**(`resolve?`): `void`
+
+Set where to find a HITL manager when none was set with
+`setHITLManager`, resolved per call. NeuroLink points it at its tool
+registry's manager, so an instance with no HITL of its own on a shared
+registry confirms its external tools with that manager.
+
+#### Parameters
+
+##### resolve?
+
+() => `HITLManager` \| `undefined`
+
+#### Returns
+
+`void`
+
+---
+
 ### getHITLManager()
 
 > **getHITLManager**(): `HITLManager` \| `undefined`
 
-Get current HITL manager
+Get the HITL manager external tool calls are confirmed with: the one set
+with `setHITLManager` when it is enabled, else the fallback's.
 
 #### Returns
 
@@ -435,6 +457,25 @@ Execute a tool on a specific server
 ###### timeout?
 
 `number`
+
+###### hitlState?
+
+[`HITLExecutionState`](../type-aliases/HITLExecutionState.md)
+
+The call's HITL state; a recorded decision skips the inline check
+
+###### signal?
+
+`AbortSignal`
+
+Aborting it withdraws a pending inline confirmation; once it has
+fired, the call is not sent to the server.
+
+###### pauseDeadline?
+
+[`PauseDeadline`](../type-aliases/PauseDeadline.md)
+
+Pauses the caller's deadline while an inline confirmation waits
 
 #### Returns
 

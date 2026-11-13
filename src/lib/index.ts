@@ -1583,6 +1583,9 @@ export {
   NetworkOrchestrator,
   NetworkTopology,
   TopologyBuilder,
+  // Isolated sub-agent runs: the bounded summary of a run's tool executions
+  // that a host shows its model when the run produced no text of its own
+  buildMechanicalDigest,
 } from "./agent/index.js";
 
 // ============================================================================

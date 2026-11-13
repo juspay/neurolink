@@ -23,7 +23,7 @@ ISO timestamp of the event
 
 ### eventType
 
-> **eventType**: `"confirmation-requested"` \| `"confirmation-approved"` \| `"confirmation-rejected"` \| `"confirmation-timeout"` \| `"confirmation-auto-approved"`
+> **eventType**: `"confirmation-requested"` \| `"confirmation-approved"` \| `"confirmation-rejected"` \| `"confirmation-timeout"` \| `"confirmation-auto-approved"` \| `"confirmation-cancelled"`
 
 Type of HITL event
 

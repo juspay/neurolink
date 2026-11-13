@@ -90,6 +90,7 @@ const { InMemoryVectorStore } =
   await import("../src/lib/rag/retrieval/vectorQueryTool.js");
 const { directAgentTools, createBashTool } =
   await import("../src/lib/agent/directTools.js");
+const { HITLManager } = await import("../src/lib/hitl/hitlManager.js");
 
 const { test, section, runSuite } = defineSuite("Tool-layer security", {
   offline: true,
@@ -131,16 +132,19 @@ type HitlAnswer = {
 };
 
 /**
- * Wire a HITL responder onto an instance's emitter. Every confirmation request
- * is recorded and answered with `answer`, so a case can count requests and
- * check what the model asked for.
+ * Wire a HITL responder onto an emitter that carries the HITL events: an
+ * instance's (`getEventEmitter()`) or a `HITLManager` itself. Every
+ * confirmation request is recorded and answered with `answer`, so a case can
+ * count requests and check what the model asked for.
  */
 const answerConfirmations = (
-  nl: NeuroLinkType,
+  emitter: {
+    on: (event: string, listener: (...args: unknown[]) => void) => unknown;
+    emit: (event: string, ...args: unknown[]) => unknown;
+  },
   answer: (request: ConfirmationRequestEvent["payload"]) => HitlAnswer,
 ): ConfirmationRequestEvent["payload"][] => {
   const requests: ConfirmationRequestEvent["payload"][] = [];
-  const emitter = nl.getEventEmitter();
   emitter.on("hitl:confirmation-request", (...args: unknown[]) => {
     const { payload } = args[0] as ConfirmationRequestEvent;
     requests.push(payload);
@@ -174,15 +178,21 @@ const HITL_WITHOUT_BUILTIN_KEYWORDS: HITLConfig = {
  * Run one scripted turn: the stand-in asks for `toolName(args)`, then
  * answers "done". Returns the HITL requests seen and the instance's emitter
  * tool events, for the assertions.
+ *
+ * With `registryHitl`, a second manager built from it is installed on the
+ * instance's tool registry (`setHITLManager`); its requests are the ones
+ * answered and returned, and `ownRequests` counts the instance's own.
  */
 const runGatedTurn = async (options: {
   hitl: HITLConfig;
+  registryHitl?: HITLConfig;
   roots: string;
   toolName: string;
   args: Record<string, unknown>;
   answer: (request: ConfirmationRequestEvent["payload"]) => HitlAnswer;
 }): Promise<{
   requests: ConfirmationRequestEvent["payload"][];
+  ownRequests: number;
   toolEnds: Array<{ toolName: string; success: boolean }>;
   requestCount: number;
 }> => {
@@ -201,7 +211,22 @@ const runGatedTurn = async (options: {
       success: event.success === true,
     });
   });
-  const requests = answerConfirmations(nl, options.answer);
+  const registryManager = options.registryHitl
+    ? new HITLManager(options.registryHitl)
+    : undefined;
+  if (registryManager) {
+    nl.getToolRegistry().setHITLManager(registryManager);
+  }
+  let ownRequests = 0;
+  const requests = registryManager
+    ? answerConfirmations(registryManager, options.answer)
+    : answerConfirmations(nl.getEventEmitter(), options.answer);
+  if (registryManager) {
+    answerConfirmations(nl.getEventEmitter(), (request) => {
+      ownRequests++;
+      return options.answer(request);
+    });
+  }
   try {
     await nl.generate({
       input: { text: "use the tool, then say done" },
@@ -211,7 +236,12 @@ const runGatedTurn = async (options: {
       maxSteps: 3,
       maxTokens: 64,
     });
-    return { requests, toolEnds, requestCount: server.requestCount() };
+    return {
+      requests,
+      ownRequests: registryManager ? ownRequests : requests.length,
+      toolEnds,
+      requestCount: server.requestCount(),
+    };
   } finally {
     await nl.shutdown();
     await server.close();
@@ -474,6 +504,34 @@ await test("hitl.confirmBuiltinTools:false leaves writeFile to keyword gating", 
     existsSync(join(roots, "unconfirmed.txt")),
     "with the default off, writeFile runs unconfirmed",
   );
+});
+
+await test("a model-driven writeFile call is confirmed by the HITL manager on the tool registry, also when the instance has HITL of its own", async () => {
+  // The instance's own manager would not ask (no keyword, default off); the
+  // manager installed on its registry would (the default on). The registry's
+  // manager is the one built-in calls have always been confirmed with.
+  const roots = tempDir("nl-sec-hitl-registry-");
+  const { requests, ownRequests, toolEnds } = await runGatedTurn({
+    hitl: { ...HITL_WITHOUT_BUILTIN_KEYWORDS, confirmBuiltinTools: false },
+    registryHitl: HITL_WITHOUT_BUILTIN_KEYWORDS,
+    roots,
+    toolName: "writeFile",
+    args: { path: "registry.txt", content: "owned", mode: "create" },
+    answer: () => ({ approved: false, reason: "not today" }),
+  });
+  assertEqual(
+    requests.length,
+    1,
+    "exactly one confirmation request on the registry's manager",
+  );
+  assertEqual(ownRequests, 0, "the instance's own manager was not asked");
+  assertEqual(requests[0]?.serverId, "direct", "confirmation marks a built-in");
+  assert(
+    !existsSync(join(roots, "registry.txt")),
+    "a denied writeFile must not create the file",
+  );
+  const writeEnds = toolEnds.filter((e) => e.toolName === "writeFile");
+  assertEqual(writeEnds[0]?.success, false, "the denied call reports failure");
 });
 
 await test("the bash tool's description promises confirmation only under HITL", async () => {

@@ -15,16 +15,34 @@ import type {
   ConfirmationRequestEvent,
   ConfirmationResponseEvent,
   ConfirmationTimeoutEvent,
+  ConfirmationCancelledEvent,
+  HITLConfirmationContext,
   HITLStatistics,
   HITLAuditLog,
 } from "../types/index.js";
-import { HITLTimeoutError, HITLConfigurationError } from "./hitlErrors.js";
+import {
+  HITLCancelledError,
+  HITLTimeoutError,
+  HITLConfigurationError,
+} from "./hitlErrors.js";
 import { logger } from "../utils/logger.js";
 
 // Default configuration constants
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
 // Shared with NeuroLink's HITL init logs so they report the policy applied here
 export const DEFAULT_ALLOW_MODIFICATION = false;
+
+/** The abort reason as text for `hitl:cancelled`, whatever the caller passed. */
+export function describeAbortReason(signal: AbortSignal): string {
+  const reason: unknown = signal.reason;
+  if (typeof reason === "string" && reason.length > 0) {
+    return reason;
+  }
+  if (reason instanceof Error && reason.message) {
+    return reason.message;
+  }
+  return "Tool call was aborted";
+}
 
 /**
  * HITLManager - Central orchestrator for Human-in-the-Loop safety mechanisms
@@ -40,6 +58,8 @@ export const DEFAULT_ALLOW_MODIFICATION = false;
 export class HITLManager extends EventEmitter {
   private config: HITLConfig;
   private pendingConfirmations: Map<string, ConfirmationRequest> = new Map();
+  /** hitl:cancelled deliveries held back while that ID's request emit runs. */
+  private requestsEmitting: Map<string, Array<() => void>> = new Map();
   private statistics: HITLStatistics = {
     totalRequests: 0,
     pendingRequests: 0,
@@ -160,17 +180,25 @@ export class HITLManager extends EventEmitter {
   }
 
   /**
-   * Request confirmation for a tool execution
+   * Request confirmation for a tool execution.
+   *
+   * Aborting `context.signal` withdraws the request (see `cancelConfirmation`);
+   * a signal that is already aborted raises no card at all.
    */
   async requestConfirmation(
     toolName: string,
     arguments_: unknown,
-    context?: {
-      serverId?: string;
-      sessionId?: string;
-      userId?: string;
-    },
+    context?: HITLConfirmationContext,
   ): Promise<ConfirmationResult> {
+    const signal = context?.signal;
+    if (signal?.aborted) {
+      throw new HITLCancelledError(
+        `Confirmation cancelled before it was requested for tool: ${toolName}`,
+        undefined,
+        describeAbortReason(signal),
+      );
+    }
+
     const confirmationId = this.generateConfirmationId();
     const startTime = Date.now();
 
@@ -179,6 +207,15 @@ export class HITLManager extends EventEmitter {
     this.statistics.pendingRequests++;
 
     return new Promise<ConfirmationResult>((resolve, reject) => {
+      const onAbort = (): void => {
+        if (signal) {
+          this.cancelConfirmation(confirmationId, describeAbortReason(signal));
+        }
+      };
+      // Every way the request settles detaches the listener, so a signal
+      // that aborts after the answer cancels nothing.
+      const detach = (): void => signal?.removeEventListener("abort", onAbort);
+
       // Set up timeout
       const timeoutHandle = setTimeout(() => {
         this.handleTimeout(confirmationId);
@@ -191,11 +228,20 @@ export class HITLManager extends EventEmitter {
         arguments: arguments_,
         timestamp: startTime,
         timeoutHandle,
-        resolve,
-        reject,
+        resolve: (result) => {
+          detach();
+          resolve(result);
+        },
+        reject: (error) => {
+          detach();
+          reject(error);
+        },
       };
 
       this.pendingConfirmations.set(confirmationId, request);
+      // Attached before the card is emitted: a listener may answer, or the
+      // caller may abort, synchronously inside the emit below.
+      signal?.addEventListener("abort", onAbort, { once: true });
 
       // Create confirmation request event
       const requestEvent: ConfirmationRequestEvent = {
@@ -218,8 +264,18 @@ export class HITLManager extends EventEmitter {
         },
       };
 
-      // Emit confirmation request event
-      this.emit("hitl:confirmation-request", requestEvent);
+      // Emit confirmation request event. An abort raised inside a listener
+      // defers its hitl:cancelled until every request listener has run.
+      this.requestsEmitting.set(confirmationId, []);
+      try {
+        this.emit("hitl:confirmation-request", requestEvent);
+      } finally {
+        const deferred = this.requestsEmitting.get(confirmationId) ?? [];
+        this.requestsEmitting.delete(confirmationId);
+        for (const deliver of deferred) {
+          deliver();
+        }
+      }
 
       // Log audit trail if enabled
       if (this.config.auditLogging) {
@@ -398,6 +454,83 @@ export class HITLManager extends EventEmitter {
   }
 
   /**
+   * Withdraw a pending confirmation because the call that asked was aborted.
+   *
+   * Clears the timer, forgets the entry (so a later answer for this ID runs
+   * nothing), rejects the waiting call with `HITLCancelledError` and emits
+   * `hitl:cancelled` so the approval UI can retire the card.
+   *
+   * @returns false when nothing was pending under this ID
+   */
+  cancelConfirmation(
+    confirmationId: string,
+    reason = "Confirmation cancelled",
+  ): boolean {
+    const request = this.pendingConfirmations.get(confirmationId);
+    if (!request) {
+      return false;
+    }
+
+    clearTimeout(request.timeoutHandle);
+    this.pendingConfirmations.delete(confirmationId);
+    this.statistics.pendingRequests--;
+
+    if (this.config.auditLogging) {
+      this.logAuditEvent("confirmation-cancelled", {
+        confirmationId,
+        toolName: request.toolName,
+        reason,
+        arguments: request.arguments,
+      });
+    }
+
+    // Reject before emitting: a throwing listener must not leave the call
+    // waiting, and this often runs inside an AbortSignal listener, where a
+    // throw would surface as an uncaught exception.
+    request.reject(
+      new HITLCancelledError(
+        `Confirmation cancelled for tool: ${request.toolName}`,
+        confirmationId,
+        reason,
+      ),
+    );
+
+    this.deliverCancelled(confirmationId, request.toolName, reason);
+    return true;
+  }
+
+  /**
+   * Emit `hitl:cancelled`, or hold it until the request emit for this ID has
+   * finished so no listener sees the cancel before the card.
+   */
+  private deliverCancelled(
+    confirmationId: string,
+    toolName: string,
+    reason: string,
+  ): void {
+    const deliver = (): void => {
+      const cancelledEvent: ConfirmationCancelledEvent = {
+        type: "hitl:cancelled",
+        payload: { confirmationId, toolName, reason },
+      };
+      try {
+        this.emit("hitl:cancelled", cancelledEvent);
+      } catch (error) {
+        logger.warn("[HITL] A hitl:cancelled listener threw", {
+          confirmationId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    };
+    const held = this.requestsEmitting.get(confirmationId);
+    if (held) {
+      held.push(deliver);
+    } else {
+      deliver();
+    }
+  }
+
+  /**
    * Set up event handlers for processing responses
    */
   private setupEventHandlers(): void {
@@ -526,8 +659,17 @@ export class HITLManager extends EventEmitter {
 
     logger.info(`[HITL Audit] ${eventType}:`, auditLog);
 
-    // Emit audit event for external logging systems
-    this.emit("hitl:audit", auditLog);
+    // Emit audit event for external logging systems. Every caller logs before
+    // it settles the waiting call, often inside a timer or an AbortSignal
+    // listener, so a throwing listener must not reach it.
+    try {
+      this.emit("hitl:audit", auditLog);
+    } catch (error) {
+      logger.warn("[HITL] A hitl:audit listener threw", {
+        eventType,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   /**
@@ -568,21 +710,26 @@ export class HITLManager extends EventEmitter {
    * Clean up resources and reject pending confirmations
    */
   cleanup(): void {
-    // Clear all pending confirmations
-    for (const [confirmationId, request] of this.pendingConfirmations) {
-      clearTimeout(request.timeoutHandle);
-      request.reject(
-        new Error(`HITL cleanup: confirmation ${confirmationId} cancelled`),
-      );
-    }
+    const clearedConfirmations = this.pendingConfirmations.size;
+    const pending = [...this.pendingConfirmations];
 
     this.pendingConfirmations.clear();
     this.statistics.pendingRequests = 0;
 
+    for (const [confirmationId, request] of pending) {
+      clearTimeout(request.timeoutHandle);
+      request.reject(
+        new Error(`HITL cleanup: confirmation ${confirmationId} cancelled`),
+      );
+      this.deliverCancelled(
+        confirmationId,
+        request.toolName,
+        "HITL manager cleanup",
+      );
+    }
+
     if (this.config.auditLogging) {
-      this.logAuditEvent("manager-cleanup", {
-        clearedConfirmations: this.pendingConfirmations.size,
-      });
+      this.logAuditEvent("manager-cleanup", { clearedConfirmations });
     }
   }
 

@@ -52,6 +52,21 @@ export class HITLTimeoutError extends HITLError {
 }
 
 /**
+ * Thrown when a confirmation is withdrawn before it could let the tool run:
+ * the call that asked was aborted, so a later answer must run nothing.
+ */
+export class HITLCancelledError extends HITLError {
+  constructor(
+    message: string,
+    confirmationId?: string,
+    public readonly reason?: string,
+  ) {
+    super(message, confirmationId);
+    this.name = "HITLCancelledError";
+  }
+}
+
+/**
  * Thrown when HITL configuration is invalid or missing required properties
  */
 export class HITLConfigurationError extends HITLError {

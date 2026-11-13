@@ -20,6 +20,7 @@
  */
 
 export { delay, sleep } from "./delay.js";
+export { createPausableDeadline, pauseDeadlineOf } from "./pausableDeadline.js";
 export {
   calculateBackoff,
   createRetry,
@@ -29,6 +30,7 @@ export {
 } from "./retry.js";
 export {
   TimeoutError,
+  abortSignalOf,
   raceWithAbort,
   withTimeout,
   withTimeoutFn,

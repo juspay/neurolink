@@ -3570,6 +3570,8 @@ await test("Mode 2 audio resolves when setup falls back before iteration", async
     throw new Error("offline setup failure");
   });
   const fallbackProvider = {
+    // The stream fallback wires the tool executor as the primary path does.
+    setupToolExecutor: () => undefined,
     stream: async () => ({
       stream: makeTextStream("fallback text"),
       provider: "openai",

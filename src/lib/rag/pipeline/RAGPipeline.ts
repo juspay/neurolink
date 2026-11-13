@@ -983,6 +983,8 @@ export class RAGPipeline {
             "You are an image captioning assistant. Provide concise, descriptive captions.",
           input: { text: "", images: [dataUri] },
           maxTokens: 100,
+          // A caption is text; the captioner is given no tools.
+          disableTools: true,
         }),
         DEFAULT_TIMEOUT_MS,
         "Image captioning timed out",
@@ -1105,6 +1107,8 @@ Cite sources when possible using [Source N] format.`;
         temperature:
           temperature ?? this.config.generationModel?.temperature ?? 0.7,
         maxTokens: this.config.generationModel?.maxTokens ?? 1000,
+        // The answer is written from the retrieved context; no tools.
+        disableTools: true,
       }),
       DEFAULT_TIMEOUT_MS * 2,
       "Answer generation timed out",

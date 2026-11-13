@@ -311,6 +311,47 @@ Get current HITL manager
 
 ---
 
+### setToolUnbatchable()
+
+> **setToolUnbatchable**(`toolName`, `unbatchable`): `void`
+
+Mark a tool as never batched, or clear the mark. Agent tools are marked
+when they are registered.
+
+#### Parameters
+
+##### toolName
+
+`string`
+
+##### unbatchable
+
+`boolean`
+
+#### Returns
+
+`void`
+
+---
+
+### isToolUnbatchable()
+
+> **isToolUnbatchable**(`toolName`): `boolean`
+
+Whether a tool must never go through a request batcher.
+
+#### Parameters
+
+##### toolName
+
+`string`
+
+#### Returns
+
+`boolean`
+
+---
+
 ### setFileToolRootResolver()
 
 > **setFileToolRootResolver**(`resolver`): `void`

@@ -208,6 +208,8 @@ async function executeModel(
             temperature: model.temperature,
             maxTokens: model.maxTokens,
             abortSignal,
+            // An ensemble member answers in text; it is given no tools.
+            disableTools: true,
           });
         },
         timeout,

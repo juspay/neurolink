@@ -45,6 +45,7 @@ import type {
   StreamResult,
   Tool,
   ToolArgs,
+  ToolContext,
   ToolDefinition,
   ZodUnknownSchema,
   ToolWithLegacyParams,
@@ -64,6 +65,7 @@ import {
 } from "../../types/index.js";
 import { classifyProviderError } from "../../utils/errorClassifier.js";
 import { isAbortError, withTimeout } from "../../utils/errorHandling.js";
+import { abortSignalOf, pauseDeadlineOf } from "../../utils/async/index.js";
 import { ImageProcessor } from "../../utils/imageProcessor.js";
 import { logger } from "../../utils/logger.js";
 import { resolveSamplingParams } from "../../models/modelRegistry.js";
@@ -829,6 +831,7 @@ export class AmazonBedrockProvider extends BaseProvider {
     toolName: string,
     args: Record<string, unknown>,
     _toolUseId?: string,
+    context?: ToolContext,
   ): Promise<string> {
     return bedrockTracer.startActiveSpan(
       "bedrock.tool.execute",
@@ -886,7 +889,7 @@ export class AmazonBedrockProvider extends BaseProvider {
             }
           }
 
-          const result = await tool.execute(toolArgs);
+          const result = await tool.execute(toolArgs, context);
           logger.debug(`[AmazonBedrockProvider] Tool execution result:`, {
             toolName,
             result,
@@ -976,16 +979,43 @@ export class AmazonBedrockProvider extends BaseProvider {
     tools: Record<string, ToolDefinition<ToolArgs, JsonValue>>,
   ): Record<
     string,
-    { execute: (args: Record<string, unknown>) => Promise<unknown> }
+    {
+      execute: (
+        args: Record<string, unknown>,
+        opts?: unknown,
+      ) => Promise<unknown>;
+    }
   > {
     const engineTools: Record<
       string,
-      { execute: (args: Record<string, unknown>) => Promise<unknown> }
+      {
+        execute: (
+          args: Record<string, unknown>,
+          opts?: unknown,
+        ) => Promise<unknown>;
+      }
     > = {};
     for (const name of Object.keys(tools)) {
       engineTools[name] = {
-        execute: (args: Record<string, unknown>) =>
-          this.executeSingleTool(tools, name, args),
+        // The engine's signal for the call (the turn's abort or its per-tool
+        // deadline) goes down to the tool with it, and so does the pause a
+        // confirmation puts on that deadline.
+        execute: (args: Record<string, unknown>, opts?: unknown) => {
+          const abortSignal = abortSignalOf(opts);
+          const pauseDeadline = pauseDeadlineOf(opts);
+          return this.executeSingleTool(
+            tools,
+            name,
+            args,
+            undefined,
+            abortSignal || pauseDeadline
+              ? {
+                  ...(abortSignal && { abortSignal }),
+                  ...(pauseDeadline && { pauseDeadline }),
+                }
+              : undefined,
+          );
+        },
       };
     }
     return engineTools;
@@ -1006,11 +1036,17 @@ export class AmazonBedrockProvider extends BaseProvider {
         result[name] = {
           description: tool.description,
           parameters: extractedParams,
-          execute: async (params: ToolArgs) => {
+          execute: async (params: ToolArgs, context?: ToolContext) => {
             if ("execute" in tool && tool.execute) {
               const result = await tool.execute(params as ToolArgs, {
                 toolCallId: `tool_${Date.now()}`,
                 messages: [],
+                ...(context?.abortSignal
+                  ? { abortSignal: context.abortSignal }
+                  : {}),
+                ...(context?.pauseDeadline
+                  ? { pauseDeadline: context.pauseDeadline }
+                  : {}),
               });
               return {
                 success: true,

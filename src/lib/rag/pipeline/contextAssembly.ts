@@ -278,6 +278,7 @@ export async function summarizeContext(
       prompt: string;
       maxTokens: number;
       temperature: number;
+      disableTools?: boolean;
     }) => Promise<{ content?: string } | null>;
   },
 ): Promise<string> {
@@ -291,6 +292,8 @@ export async function summarizeContext(
       prompt: `Summarize the following context in no more than ${maxLength} words, preserving the key information:\n\n${context}\n\nSummary:`,
       maxTokens: Math.ceil(maxLength * 1.5),
       temperature: 0.3,
+      // A summary is text; the summarizing model is given no tools.
+      disableTools: true,
     });
 
     return result?.content?.trim() || truncateText(context, maxLength * 4);
