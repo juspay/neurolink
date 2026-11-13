@@ -695,10 +695,68 @@ await test("type-check control: a response with metadata satisfies ConfirmationR
   assertEqual(diagnostics.join("\n"), "");
 });
 
-const RESPONSE_EMIT = /\.emit\(\s*["']hitl:confirmation-response["']/;
+// Offsets of the `.` in every real `.emit("hitl:confirmation-response", …)`
+// call. Scanned as tokens, so an emit inside a comment, string or template
+// literal text is not a call and is not reported.
+const responseEmitOffsets = (code: string): number[] => {
+  const scanner = ts.createScanner(
+    ts.ScriptTarget.Latest,
+    true,
+    ts.LanguageVariant.Standard,
+    code,
+  );
+  const offsets: number[] = [];
+  const recent: Array<{ kind: ts.SyntaxKind; start: number; text: string }> =
+    [];
+  // Brace depth at which each open `${` substitution resumes template text
+  const templates: number[] = [];
+  let braces = 0;
+  for (let kind = scanner.scan(); kind !== ts.SyntaxKind.EndOfFileToken; ) {
+    if (kind === ts.SyntaxKind.TemplateHead) {
+      templates.push(braces);
+    } else if (kind === ts.SyntaxKind.OpenBraceToken) {
+      braces += 1;
+    } else if (kind === ts.SyntaxKind.CloseBraceToken) {
+      if (templates.length > 0 && templates[templates.length - 1] === braces) {
+        kind = scanner.reScanTemplateToken(false);
+        if (kind === ts.SyntaxKind.TemplateTail) {
+          templates.pop();
+        }
+        recent.length = 0;
+        kind = scanner.scan();
+        continue;
+      }
+      braces -= 1;
+    }
+    recent.push({
+      kind,
+      start: scanner.getTokenStart(),
+      text: scanner.getTokenValue(),
+    });
+    if (recent.length > 4) {
+      recent.shift();
+    }
+    const [dot, name, paren, arg] = recent;
+    if (
+      recent.length === 4 &&
+      dot.kind === ts.SyntaxKind.DotToken &&
+      name.kind === ts.SyntaxKind.Identifier &&
+      name.text === "emit" &&
+      paren.kind === ts.SyntaxKind.OpenParenToken &&
+      arg.kind === ts.SyntaxKind.StringLiteral &&
+      arg.text === "hitl:confirmation-response"
+    ) {
+      offsets.push(dot.start);
+    }
+    kind = scanner.scan();
+  }
+  return offsets;
+};
 
 await test("every documented handler checks its reply against ConfirmationResponseEvent", async () => {
-  const emitting = hitlSnippets.filter(({ code }) => RESPONSE_EMIT.test(code));
+  const emitting = hitlSnippets.filter(
+    ({ code }) => responseEmitOffsets(code).length > 0,
+  );
   assert(
     emitting.length >= 7,
     `only ${emitting.length} snippets emit a reply, so the check measured too little`,
@@ -850,8 +908,6 @@ await test("no doc example enables HITL without dangerousActions", async () => {
 // Every documented reply carries the metadata the type requires
 // ---------------------------------------------------------------------------
 
-const RESPONSE_EMITS = new RegExp(RESPONSE_EMIT.source, "g");
-
 // The text from the `(` or `{` at `open` to its matching close. Strings,
 // template literals and comments are skipped, so a `)` in "Press ) to close" or
 // an apostrophe in a `//` comment does not end the scan early.
@@ -898,8 +954,8 @@ const emittedPayload = (code: string, from: number): string => {
 
 // Text-level, so it also covers the pages whose fences are not compiled
 const replyProblems = (code: string): string[] => {
-  const payloads = [...code.matchAll(RESPONSE_EMITS)].map((match) =>
-    emittedPayload(code, match.index),
+  const payloads = responseEmitOffsets(code).map((offset) =>
+    emittedPayload(code, offset),
   );
   if (payloads.length === 0) {
     return [];
@@ -923,6 +979,41 @@ const replyProblems = (code: string): string[] => {
   }
   return problems;
 };
+
+await test("reply control: an emit inside a comment, string or template text is not a reply", async () => {
+  const bare =
+    'emitter.emit("hitl:confirmation-response", { type: "hitl:confirmation-response", payload: { confirmationId, approved } });';
+  const good =
+    'emitter.emit("hitl:confirmation-response", { type: "hitl:confirmation-response", payload: { confirmationId, approved, metadata: { timestamp: new Date().toISOString(), responseTime: Date.now() - receivedAt } } });';
+  assertEqual(replyProblems(`// ${bare}\n${good}`).join(", "), "");
+  assertEqual(replyProblems(`/* ${bare} */\n${good}`).join(", "), "");
+  assertEqual(
+    replyProblems(`const note = '${bare.replaceAll("'", "")}';\n${good}`).join(
+      ", ",
+    ),
+    "",
+  );
+  assertEqual(
+    replyProblems("const note = `see " + bare + "`;\n" + good).join(", "),
+    "",
+  );
+  // A real emit inside a template substitution still counts
+  assertEqual(
+    replyProblems("const x = `${" + bare + "}`;").join(", "),
+    "no metadata, no metadata.timestamp, no metadata.responseTime",
+  );
+  assertEqual(
+    responseEmitOffsets(`// ${bare}`).length + responseEmitOffsets(bare).length,
+    1,
+  );
+  // Tokens either side of a substitution boundary must not join into a call
+  assertEqual(
+    responseEmitOffsets(
+      'const note = `${emitter.emit} text ${("hitl:confirmation-response")}`;',
+    ).length,
+    0,
+  );
+});
 
 await test("reply control: a reply with no metadata, a zero or an epoch responseTime is flagged", async () => {
   const emit = (payload: string): string =>
