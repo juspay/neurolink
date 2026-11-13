@@ -34,6 +34,8 @@ import type {
   DeferredUsage,
   Tool,
 } from "../types/index.js";
+import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
+import { NeuroLinkError } from "../utils/errorHandling.js";
 import { sanitizeToolName } from "../mcp/toolConverter.js";
 import { resolveSamplingParams } from "../models/modelRegistry.js";
 import {
@@ -886,6 +888,10 @@ export const parseSSEStream = async (
   };
   const decoder = new TextDecoder();
   let parseErr: Error | undefined;
+  // An upstream error frame or `finish_reason: "error"`.
+  let streamErr: NeuroLinkError | undefined;
+  // True once the upstream said it was done: `[DONE]` or any finish_reason.
+  let sawTerminal = false;
   // Key of the tool call the previous delta wrote to (for unindexed deltas).
   let lastToolCallKey: number | undefined;
   let nextToolCallKey = 0;
@@ -893,7 +899,11 @@ export const parseSSEStream = async (
 
   const handleEvent = (msg: EventSourceMessage) => {
     const data = msg.data;
-    if (!data || data === "[DONE]") {
+    if (data === "[DONE]") {
+      sawTerminal = true;
+      return;
+    }
+    if (!data) {
       return;
     }
     let chunk: OpenAICompatChatStreamChunk;
@@ -901,6 +911,16 @@ export const parseSSEStream = async (
       chunk = JSON.parse(data) as OpenAICompatChatStreamChunk;
     } catch (err) {
       parseErr = err instanceof Error ? err : new Error(String(err));
+      return;
+    }
+    if (chunk.error) {
+      streamErr ??= streamFailure(
+        "OPENAI_COMPAT_STREAM_ERROR_FRAME",
+        `Upstream sent an error frame mid-stream: ${
+          chunk.error.message ?? JSON.stringify(chunk.error)
+        }`,
+        { upstreamError: chunk.error, partialTextLength: result.text.length },
+      );
       return;
     }
     if (chunk.usage) {
@@ -997,7 +1017,16 @@ export const parseSSEStream = async (
         }
       }
     }
+    if (choice.finish_reason === "error") {
+      streamErr ??= streamFailure(
+        "OPENAI_COMPAT_STREAM_FINISH_ERROR",
+        'Upstream ended the stream with finish_reason "error".',
+        { partialTextLength: result.text.length },
+      );
+      return;
+    }
     if (choice.finish_reason) {
+      sawTerminal = true;
       result.finishReason = choice.finish_reason;
     }
   };
@@ -1019,8 +1048,37 @@ export const parseSSEStream = async (
   if (parseErr) {
     throw parseErr;
   }
+
+  if (streamErr) {
+    throw streamErr;
+  }
+  // The body closed without `[DONE]` or a finish_reason: truncated stream.
+  // Not retriable (same as ANTHROPIC_STREAM_TRUNCATED).
+  if (!sawTerminal) {
+    throw streamFailure(
+      "OPENAI_COMPAT_STREAM_TRUNCATED",
+      "Stream ended before [DONE] or a finish_reason; the response is incomplete.",
+      { partialTextLength: result.text.length },
+    );
+  }
+
   return result;
 };
+
+function streamFailure(
+  code: string,
+  message: string,
+  context: Record<string, unknown>,
+): NeuroLinkError {
+  return new NeuroLinkError({
+    code,
+    message,
+    category: ErrorCategory.NETWORK,
+    severity: ErrorSeverity.HIGH,
+    retriable: false,
+    context,
+  });
+}
 
 function extractOpenAICompatErrorMessage(
   parsed: OpenAICompatErrorBody | undefined,
