@@ -151,7 +151,9 @@ import type {
   NeurolinkCredentials,
   OptionalValidationSchema,
   ProviderDescriptor,
+  PauseDeadline,
   ProviderStatus,
+  ProviderToolExecutorOptions,
   TextGenerationOptions,
   TextGenerationResult,
   TokenUsage,
@@ -176,6 +178,9 @@ import type {
   MetricsTraceContext,
   StreamGenerationEndContext,
   HITLExecutionState,
+  HITLManager as HITLConfirmationManager,
+  HITLOutcomeAction,
+  ToolResult,
   ToolRoutingConfig,
   ToolRoutingDecision,
   ToolRoutingServerDescriptor,
@@ -276,6 +281,16 @@ import { FileReferenceRegistry } from "./files/fileReferenceRegistry.js";
 import { resolveAttachmentPolicy } from "./utils/attachmentPolicy.js";
 import { createFileTools } from "./files/fileTools.js";
 import { HITLManager, DEFAULT_ALLOW_MODIFICATION } from "./hitl/hitlManager.js";
+import {
+  builtInToolAlwaysConfirmed,
+  createHITLExecutionState,
+  hitlStateRefused,
+  isRefusalResult,
+  markRefusalResult,
+  resolveToolCallConfirmation,
+} from "./hitl/toolCallConfirmation.js";
+import { HITLError } from "./hitl/hitlErrors.js";
+import { getAuthContext as getAmbientAuthContext } from "./auth/authContext.js";
 import { ToolCallBatcher } from "./mcp/batching/index.js";
 // MCP Enhancement modules - wired into core execution path
 import { ToolResultCache } from "./mcp/caching/index.js";
@@ -356,6 +371,8 @@ import { endSpanWhenDropped, withSpan } from "./telemetry/withSpan.js";
 import { getActiveTraceContext } from "./telemetry/traceContext.js";
 import { calculateCost } from "./utils/pricing.js";
 import { createToolExecutionId } from "./utils/toolExecutionId.js";
+import { TimeoutError, abortSignalOf } from "./utils/async/index.js";
+import { composeAbortSignalsScoped } from "./utils/timeout.js";
 import {
   acquireTelemetry,
   ensureTelemetry,
@@ -436,9 +453,11 @@ import {
   ERROR_CODES,
   ErrorFactory,
   isAbortError,
+  isCancelledByCaller,
   isRetriableError,
   logStructuredError,
   NeuroLinkError,
+  throwIfSignalAborted,
   withRetry,
   withTimeout,
 } from "./utils/errorHandling.js";
@@ -1709,7 +1728,9 @@ export class NeuroLink {
             "Memory condenser released: the host NeuroLink instance has been shut down",
           );
         }
-        return condenser.generate(options);
+        // Condensation writes text; the condenser is given no tools,
+        // whatever options its caller passes.
+        return condenser.generate({ ...options, disableTools: true });
       },
     };
   }
@@ -2103,6 +2124,12 @@ export class NeuroLink {
       constructorStartTime,
       constructorHrTimeStart,
     );
+    // With no HITL of its own, this instance's external tools are confirmed
+    // by the manager its tool registry holds (a host's, for a worker on a
+    // shared registry), as its registered tools are.
+    this.externalServerManager?.setFallbackHITLManager(() =>
+      this.toolRegistry.getHITLManager(),
+    );
     this.initializeHITL(
       config,
       constructorId,
@@ -2465,11 +2492,21 @@ export class NeuroLink {
       // Wire batcher to execute tools via the internal execution path (bypass batcher itself)
       this.mcpToolBatcher.setToolExecutor(
         async (tool: string, args: unknown) => {
-          return this.executeToolInternal(tool, args, {
-            timeout: TOOL_TIMEOUTS.EXECUTION_DEFAULT_MS,
-            maxRetries: RETRY_ATTEMPTS.DEFAULT,
-            retryDelayMs: RETRY_DELAYS.BASE_MS,
-          });
+          // A state of its own per call, so the safe-tool retry inside
+          // executeToolInternal reuses the first answer instead of asking again.
+          // A tool registered with no retries gets no safe-tool retry either.
+          return this.executeToolInternal(
+            tool,
+            args,
+            {
+              timeout: TOOL_TIMEOUTS.EXECUTION_DEFAULT_MS,
+              maxRetries:
+                this.toolRegistry.getToolInfo(tool)?.tool?.maxRetries ??
+                RETRY_ATTEMPTS.DEFAULT,
+              retryDelayMs: RETRY_DELAYS.BASE_MS,
+            },
+            createHITLExecutionState(),
+          );
         },
       );
       logger.debug("[NeuroLink] MCP tool call batcher initialized");
@@ -2808,7 +2845,7 @@ export class NeuroLink {
     });
 
     for (const [toolName, toolDef] of Object.entries(canonicalTools)) {
-      this.registerTool(toolName, {
+      const definition: MCPExecutableTool = {
         name: toolName,
         description: toolDef.description ?? toolName,
         // Zod schema — registerTool() detects isZodSchema and preserves it
@@ -2828,7 +2865,11 @@ export class NeuroLink {
               TOOL_TIMEOUTS.EXECUTION_DEFAULT_MS,
             ),
           ),
-      });
+      };
+      // Never retried: an attempt that times out keeps running in the
+      // background, so a retry would run the skill again, and a skill write
+      // would apply twice.
+      this.registerTool(toolName, definition, { maxRetries: 0 });
     }
 
     logger.info(
@@ -3470,6 +3511,15 @@ Current user's request: ${currentInput}`;
         toolName: event.payload?.toolName,
       });
       this.emitter.emit("hitl:timeout", event);
+    });
+
+    // Forward withdrawn confirmations so the approval UI can retire the card
+    this.hitlManager.on("hitl:cancelled", (event) => {
+      logger.debug("Forwarding HITL cancelled event", {
+        confirmationId: event.payload?.confirmationId,
+        toolName: event.payload?.toolName,
+      });
+      this.emitter.emit("hitl:cancelled", event);
     });
 
     // Listen for confirmation responses from main emitter and forward to HITL manager
@@ -9141,10 +9191,7 @@ Current user's request: ${currentInput}`;
     provider.setupToolExecutor(
       {
         customTools: this.getCustomTools(),
-        executeTool: (toolName: string, params: unknown) =>
-          this.executeTool(toolName, params, {
-            disableToolCache: options.disableToolCache,
-          }),
+        executeTool: this.providerToolExecutor(options.disableToolCache),
       },
       functionTag,
     );
@@ -9437,10 +9484,7 @@ Current user's request: ${currentInput}`;
         provider.setupToolExecutor(
           {
             customTools: this.getCustomTools(),
-            executeTool: (toolName: string, params: unknown) =>
-              this.executeTool(toolName, params, {
-                disableToolCache: options.disableToolCache,
-              }),
+            executeTool: this.providerToolExecutor(options.disableToolCache),
           },
           functionTag,
         );
@@ -9574,10 +9618,7 @@ Current user's request: ${currentInput}`;
         poolProvider.setupToolExecutor(
           {
             customTools: this.getCustomTools(),
-            executeTool: (toolName: string, params: unknown) =>
-              this.executeTool(toolName, params, {
-                disableToolCache: options.disableToolCache,
-              }),
+            executeTool: this.providerToolExecutor(options.disableToolCache),
           },
           functionTag,
         );
@@ -12772,11 +12813,13 @@ Current user's request: ${currentInput}`;
     });
 
     try {
+      // Built with this instance, like the primary provider, so the
+      // fallback's tools are confirmed by this instance's rule.
       const fallbackProvider = await AIProviderFactory.createProvider(
         fallbackRoute.provider,
         fallbackRoute.model,
         true,
-        undefined,
+        this,
         undefined,
         this.resolveCredentials(enhancedOptions.credentials),
       );
@@ -12785,10 +12828,9 @@ Current user's request: ${currentInput}`;
       fallbackProvider.setupToolExecutor(
         {
           customTools: this.getCustomTools(),
-          executeTool: (toolName: string, params: unknown) =>
-            this.executeTool(toolName, params, {
-              disableToolCache: enhancedOptions.disableToolCache,
-            }),
+          executeTool: this.providerToolExecutor(
+            enhancedOptions.disableToolCache,
+          ),
         },
         "NeuroLink.fallbackStream",
       );
@@ -13159,10 +13201,7 @@ Current user's request: ${currentInput}`;
     provider.setupToolExecutor(
       {
         customTools: this.getCustomTools(),
-        executeTool: (toolName: string, params: unknown) =>
-          this.executeTool(toolName, params, {
-            disableToolCache: options.disableToolCache,
-          }),
+        executeTool: this.providerToolExecutor(options.disableToolCache),
       },
       "NeuroLink.createMCPStream",
     );
@@ -13551,10 +13590,7 @@ Current user's request: ${currentInput}`;
         poolStreamProvider.setupToolExecutor(
           {
             customTools: this.getCustomTools(),
-            executeTool: (toolName: string, params: unknown) =>
-              this.executeTool(toolName, params, {
-                disableToolCache: options.disableToolCache,
-              }),
+            executeTool: this.providerToolExecutor(options.disableToolCache),
           },
           "NeuroLink.createMCPStream",
         );
@@ -13897,13 +13933,24 @@ Current user's request: ${currentInput}`;
     const originalPrompt = options.input.text;
     const responseTime = Date.now() - startTime;
     const providerName = await getBestProvider(options.provider);
+    // Built with this instance, like the primary provider, so the
+    // fallback's tools are confirmed by this instance's rule. It follows the
+    // call's tool options as the primary does: no tools when the call
+    // disabled them, and the call's tool filters, signal and cache choice.
     const provider = await AIProviderFactory.createProvider(
       providerName,
       options.model,
-      true,
-      undefined,
+      !options.disableTools,
+      this,
       undefined,
       this.resolveCredentials(options.credentials),
+    );
+    provider.setupToolExecutor(
+      {
+        customTools: this.getCustomTools(),
+        executeTool: this.providerToolExecutor(options.disableToolCache),
+      },
+      "NeuroLink.handleStreamError",
     );
     provider.setFileToolRootPolicy?.(this.fileToolRootsFor(options));
     const fallbackStreamResult = await provider.stream({
@@ -13912,6 +13959,26 @@ Current user's request: ${currentInput}`;
       temperature: options.temperature,
       maxTokens: options.maxTokens,
       conversationMessages: options.conversationMessages,
+      ...(options.disableTools !== undefined && {
+        disableTools: options.disableTools,
+      }),
+      ...(options.toolFilter && { toolFilter: options.toolFilter }),
+      ...(options.excludeTools && { excludeTools: options.excludeTools }),
+      ...(options.enabledToolNames && {
+        enabledToolNames: options.enabledToolNames,
+      }),
+      ...(options.abortSignal && { abortSignal: options.abortSignal }),
+      ...(options.disableToolCache !== undefined && {
+        disableToolCache: options.disableToolCache,
+      }),
+      ...(options.maxSteps !== undefined && { maxSteps: options.maxSteps }),
+      ...(options.toolTimeoutMs !== undefined && {
+        toolTimeoutMs: options.toolTimeoutMs,
+      }),
+      ...(options.turnTimeoutMs !== undefined && {
+        turnTimeoutMs: options.turnTimeoutMs,
+      }),
+      ...(options.timeout !== undefined && { timeout: options.timeout }),
     });
 
     // Create a wrapper around the fallback stream that accumulates content
@@ -15220,6 +15287,23 @@ Current user's request: ${currentInput}`;
   }
 
   /**
+   * The `executeTool` a provider's tool loop calls (via `setupToolExecutor`)
+   * for a registered tool. It forwards what the loop passes for the call,
+   * above all its signal (the turn's abort or the loop's per-tool deadline),
+   * so the call's confirmation, its attempts and the tool see a cancellation.
+   */
+  private providerToolExecutor(
+    disableToolCache: boolean | undefined,
+  ): (
+    toolName: string,
+    params: unknown,
+    callOptions?: ProviderToolExecutorOptions,
+  ) => Promise<unknown> {
+    return (toolName, params, callOptions) =>
+      this.executeTool(toolName, params, { ...callOptions, disableToolCache });
+  }
+
+  /**
    * Execute a specific tool by name with robust error handling
    * Supports both custom tools and MCP server tools with timeout, retry, and circuit breaker patterns
    * @param toolName - Name of the tool to execute
@@ -15245,6 +15329,28 @@ Current user's request: ${currentInput}`;
       disableToolCache?: boolean;
       /** Bypass the request batcher for this call */
       bypassBatcher?: boolean;
+      /**
+       * The caller's cancellation signal. Aborting it while the call waits
+       * for a human confirmation withdraws the card (`hitl:cancelled`) and
+       * runs nothing. Once it has fired, no attempt starts: a call cancelled
+       * before it starts rejects with an abort error, gated or not (a gated
+       * one raises no card), and an abort between attempts stops the
+       * retries. A
+       * registered tool also receives it as `abortSignal` in its execution
+       * context, in place of any signal set with `setToolContext()`; one
+       * passed in `authContext` still wins, and is used for all of the above
+       * when this option is absent. A result produced after it fired is
+       * never cached, and a call that passes it is never batched.
+       */
+      abortSignal?: AbortSignal;
+      /**
+       * Pauses the caller's own deadline for this call (a model loop's
+       * per-tool bound) while the call waits for a human confirmation, and
+       * returns the function that resumes it. The gate calls it around the
+       * wait only, and every outcome resumes it, with the time that was left.
+       * Provider tool loops pass it; a direct caller rarely needs it.
+       */
+      pauseDeadline?: PauseDeadline;
       authContext?: {
         userId?: string;
         sessionId?: string;
@@ -15253,7 +15359,22 @@ Current user's request: ${currentInput}`;
       };
     },
   ): Promise<T> {
-    if (this.mcpToolBatcher && !options?.bypassBatcher) {
+    // A call that needs a human's confirmation is never batched: the gate in
+    // runPreparedToolExecution must ask before any timer (a batch has its
+    // own), before the result cache, and with the caller's abortSignal. Nor
+    // is a call that carries a signal: only this path takes it to the
+    // confirmation, the attempts and the tool. Nor is an agent tool's: only
+    // this path's attempt signal stops its worker run when the call ends.
+    // Nor is a call made with no retries: the batch drops the call's
+    // options, and only this path keeps it to one run.
+    if (
+      this.mcpToolBatcher &&
+      !options?.bypassBatcher &&
+      options?.maxRetries !== 0 &&
+      !(options?.abortSignal ?? abortSignalOf(options?.authContext)) &&
+      !this.toolRegistry.isToolUnbatchable(toolName) &&
+      !this.callNeedsConfirmation(toolName, params)
+    ) {
       return this.mcpToolBatcher.execute(toolName, params) as Promise<T>;
     }
 
@@ -15294,6 +15415,8 @@ Current user's request: ${currentInput}`;
           retryDelayMs?: number;
           disableToolCache?: boolean;
           bypassBatcher?: boolean;
+          abortSignal?: AbortSignal;
+          pauseDeadline?: PauseDeadline;
           authContext?: {
             userId?: string;
             sessionId?: string;
@@ -15339,7 +15462,7 @@ Current user's request: ${currentInput}`;
       toolType,
       inputSize: inputStr.length,
       options,
-      hitlState: { triggered: false },
+      hitlState: createHITLExecutionState(),
     };
   }
 
@@ -15353,6 +15476,8 @@ Current user's request: ${currentInput}`;
           retryDelayMs?: number;
           disableToolCache?: boolean;
           bypassBatcher?: boolean;
+          abortSignal?: AbortSignal;
+          pauseDeadline?: PauseDeadline;
           authContext?: {
             userId?: string;
             sessionId?: string;
@@ -15418,6 +15543,8 @@ Current user's request: ${currentInput}`;
           retryDelayMs?: number;
           disableToolCache?: boolean;
           bypassBatcher?: boolean;
+          abortSignal?: AbortSignal;
+          pauseDeadline?: PauseDeadline;
           authContext?: {
             userId?: string;
             sessionId?: string;
@@ -15442,6 +15569,8 @@ Current user's request: ${currentInput}`;
           }
         | undefined;
       disableToolCache: boolean | undefined;
+      abortSignal: AbortSignal | undefined;
+      pauseDeadline: PauseDeadline | undefined;
     };
     startMemory: {
       rss: number;
@@ -15535,6 +15664,10 @@ Current user's request: ${currentInput}`;
       retryDelayMs,
       authContext: options?.authContext,
       disableToolCache: options?.disableToolCache,
+      // A caller that passes its signal only in authContext (the channel
+      // registerAgentTool reads) gets the same cancellation.
+      abortSignal: options?.abortSignal ?? abortSignalOf(options?.authContext),
+      pauseDeadline: options?.pauseDeadline,
     };
 
     const { MemoryManager } = await import("./utils/performance.js");
@@ -15586,11 +15719,52 @@ Current user's request: ${currentInput}`;
   ): Promise<T> {
     let toolRetryCount = 0;
     try {
+      // A call cancelled before it starts throws, gated or not, instead of
+      // coming back as a refusal.
+      throwIfSignalAborted(prepared.finalOptions.abortSignal);
+      // An open breaker refuses the call before it asks the human: an
+      // approval could not be acted on. Non-mutating, so the half-open probe
+      // is still taken by the execute below.
+      prepared.circuitBreaker.assertAvailable();
+      // Before the breaker, the retry loop and the attempt timeout: waiting
+      // for a human can neither time an attempt out nor be retried, and only
+      // an approved call reaches executeToolInternal.
+      const gate = await this.gateToolCall(
+        toolName,
+        params,
+        {
+          state: executionContext.hitlState,
+          serverId:
+            executionContext.externalTool?.serverId ??
+            this.toolRegistry.getToolInfo(toolName)?.tool?.serverId,
+          external: executionContext.externalTool !== undefined,
+          authContext: prepared.finalOptions.authContext,
+          span: toolSpan,
+        },
+        {
+          abortSignal: prepared.finalOptions.abortSignal,
+          pauseDeadline: prepared.finalOptions.pauseDeadline,
+        },
+      );
+      if ("refused" in gate) {
+        return this.handleRefusedToolExecution<T>(
+          toolName,
+          gate.refused,
+          prepared,
+          executionContext,
+          toolSpan,
+        );
+      }
+      const approvedParams = gate.params;
+      const { abortSignal } = prepared.finalOptions;
+      // Cancelled before the first attempt: nothing runs, and the breaker is
+      // not entered (a cancellation says nothing about the tool's health).
+      throwIfSignalAborted(abortSignal);
       mcpLogger.debug(
         `[${executionContext.functionTag}] Executing tool: ${toolName}`,
         {
           toolName,
-          params,
+          params: approvedParams,
           options: prepared.finalOptions,
           circuitBreakerState: prepared.circuitBreaker.getState(),
         },
@@ -15600,10 +15774,20 @@ Current user's request: ${currentInput}`;
       const budgetStart = Date.now();
       const deadline = budgetStart + totalTimeout;
       let attemptNumber = 0;
-      const result: T = await prepared.circuitBreaker.execute(async () => {
+      // Kept out of the breaker once the call is under way: the abort that
+      // stops a retry from starting, and any outcome after a caller's cancel
+      // (a failure is not counted, and a result does not reset the count).
+      // A failure after the call's own per-tool deadline fired still counts:
+      // the deadline is evidence about the tool.
+      const isCancellation = (error?: unknown): boolean =>
+        abortSignal?.aborted === true &&
+        (isAbortError(error) || isCancelledByCaller(abortSignal));
+      const runAttempts = async (): Promise<T> => {
         return withRetry(
           async () => {
             attemptNumber++;
+            // Cancelled during the retry delay: no further attempt starts.
+            throwIfSignalAborted(abortSignal);
             const remaining = deadline - Date.now();
             if (remaining <= 0) {
               throw ErrorFactory.toolTimeout(
@@ -15627,22 +15811,57 @@ Current user's request: ${currentInput}`;
               prepared.finalOptions.timeout,
               remaining,
             );
-            return withTimeout(
-              this.executeToolInternal<T>(
-                toolName,
-                params,
-                prepared.finalOptions,
-                executionContext.hitlState,
-              ),
+            // Each attempt runs under a signal of its own, linked to the
+            // call's, that is aborted with a TimeoutError when the attempt
+            // times out. An attempt the timer gives up on is thereby stopped,
+            // not left running: a confirmation it is waiting on is withdrawn,
+            // and the work it started is cancelled. The breaker still reads
+            // only the call's signal (isCancellation), so a timed-out attempt
+            // counts as before.
+            const attemptTimeoutError = ErrorFactory.toolTimeout(
+              toolName,
               attemptTimeout,
-              ErrorFactory.toolTimeout(toolName, attemptTimeout, undefined, {
+              undefined,
+              {
                 attempt: attemptNumber,
                 maxAttempts,
                 attemptTimeoutMs: prepared.finalOptions.timeout,
                 totalTimeoutMs: totalTimeout,
                 elapsedMs: Date.now() - budgetStart,
-              }),
+              },
             );
+            const attempt = this.attemptSignals(
+              abortSignal,
+              prepared.finalOptions.authContext,
+            );
+            try {
+              return await withTimeout(
+                this.executeToolInternal<T>(
+                  toolName,
+                  approvedParams,
+                  {
+                    ...prepared.finalOptions,
+                    abortSignal: attempt.callSignal,
+                    toolAbortSignal: attempt.toolSignal,
+                  },
+                  executionContext.hitlState,
+                ),
+                attemptTimeout,
+                attemptTimeoutError,
+              );
+            } catch (error) {
+              if (error === attemptTimeoutError) {
+                attempt.abort(
+                  new TimeoutError(
+                    `Tool "${toolName}" attempt timed out after ${attemptTimeout}ms`,
+                    attemptTimeout,
+                  ),
+                );
+              }
+              throw error;
+            } finally {
+              attempt.dispose();
+            }
           },
           {
             maxAttempts,
@@ -15650,6 +15869,7 @@ Current user's request: ${currentInput}`;
             // Stop when there is not enough budget left for the retry delay
             // plus any real work after it.
             isRetriable: (error: Error) =>
+              !abortSignal?.aborted &&
               Date.now() + prepared.finalOptions.retryDelayMs < deadline &&
               isRetriableError(error),
             onRetry: (attempt, error) => {
@@ -15665,6 +15885,9 @@ Current user's request: ${currentInput}`;
             },
           },
         );
+      };
+      const result: T = await prepared.circuitBreaker.execute(runAttempts, {
+        isCancellation,
       });
       toolSpan.setAttribute("tool.retry_count", toolRetryCount);
 
@@ -15687,6 +15910,232 @@ Current user's request: ${currentInput}`;
         toolSpan,
       );
     }
+  }
+
+  /**
+   * Confirm a tool call with the human, once, before any attempt timer, retry
+   * or circuit breaker the call is subject to starts. The decision is written
+   * to `ctx.state`, which every attempt carries down to the registry and the
+   * external server manager, so neither asks again. An approved (or
+   * not-required) call gets the parameters to run with, the approver's edits
+   * included; any other decision gets the registry's `{ success: false }`
+   * result, which `executeTool` returns without retrying.
+   */
+  private async gateToolCall(
+    toolName: string,
+    params: unknown,
+    ctx: {
+      state: HITLExecutionState;
+      serverId?: string;
+      /** The call goes to an external MCP server, not the tool registry. */
+      external: boolean;
+      authContext?: Record<string, unknown>;
+      span: Span;
+    },
+    options: { abortSignal?: AbortSignal; pauseDeadline?: PauseDeadline },
+  ): Promise<{ params: unknown } | { refused: ToolResult }> {
+    const hitl = this.confirmationManagerFor(ctx.external);
+    // HITL off everywhere this call can reach: nothing to confirm, and no
+    // decision is recorded.
+    if (!hitl?.isEnabled()) {
+      return { params };
+    }
+
+    // The identity the registry's inline check reports on the card.
+    const identity: Record<string, unknown> = {
+      ...this.toolExecutionContext,
+      ...ctx.authContext,
+    };
+    const sessionId =
+      typeof identity.sessionId === "string" ? identity.sessionId : undefined;
+    const userId =
+      typeof identity.userId === "string"
+        ? identity.userId
+        : getAmbientAuthContext()?.user?.id;
+    const startedAt = Date.now();
+
+    const action = await resolveToolCallConfirmation(
+      hitl,
+      toolName,
+      params,
+      ctx.state,
+      {
+        serverId: ctx.serverId,
+        sessionId: sessionId ?? crypto.randomUUID(),
+        userId,
+        signal: options.abortSignal,
+      },
+      { span: ctx.span, pauseDeadline: options.pauseDeadline },
+    );
+    if (action.run) {
+      return { params: action.args };
+    }
+    return {
+      refused: {
+        success: false,
+        data: null,
+        error: action.error.message,
+        usage: { executionTime: Date.now() - startedAt },
+        metadata: { toolName, sessionId },
+      },
+    };
+  }
+
+  /**
+   * The HITL manager that confirms a call before any timer starts.
+   *
+   * The one the call's inline check would ask, when it is enabled: the tool
+   * registry's for a registered or built-in tool, the external manager's for
+   * an external MCP tool. That is the manager these calls have always been
+   * confirmed with, and asking it here, before the attempt timer and the
+   * retries, records the decision so the inline check skips it. Otherwise
+   * this instance's own, when it has an enabled one.
+   *
+   * An instance with HITL installs its manager on its registry and its
+   * external manager, so the two usually agree. They differ when another
+   * manager was installed on the registry: with `setHITLManager`, or by a
+   * worker with HITL of its own on a shared registry, which takes it over.
+   * A worker built on a host's registry (`createWorkerInstance`, and so
+   * `runIsolatedAgent`, `registerAgentTool` and `delegate_task`) with no HITL
+   * of its own is confirmed by the registry's manager, the host's unless
+   * another took it over, and the card reaches that manager owner's emitter.
+   */
+  private confirmationManagerFor(
+    external: boolean,
+  ): HITLConfirmationManager | undefined {
+    const inlineManager = external
+      ? this.externalServerManager.getHITLManager()
+      : this.toolRegistry.getHITLManager();
+    if (inlineManager?.isEnabled()) {
+      return inlineManager;
+    }
+    return this.hitlManager?.isEnabled() ? this.hitlManager : inlineManager;
+  }
+
+  /**
+   * Confirm one call to a built-in tool that a model loop runs directly (the
+   * file, time and math tools a provider hands the model, which never pass
+   * through `executeTool`). It is the same confirmation step `executeTool`
+   * runs for a registered tool, before the tool's body: the same manager, the
+   * same rule (`requiresConfirmation` on the tool's name and arguments), the
+   * same outcomes, and the call's signal and the loop's deadline pause. The
+   * built-ins that change the machine (`writeFile`, `executeBashCommand`) are
+   * also asked when the rule does not match, unless the host set
+   * `hitl.confirmBuiltinTools: false`.
+   *
+   * Returns `{ run: true, args }` (the approved, possibly modified,
+   * arguments) or `{ run: false, error }` for a refusal. A tool that needs no
+   * confirmation, or HITL off, runs unchanged and nothing is asked.
+   */
+  // Not `@internal`: the provider tool manager calls it through the
+  // `NeuroLink` type, and stripInternal would drop it from the shipped
+  // declarations that manager compiles against.
+  async confirmBuiltInToolCall(
+    toolName: string,
+    args: unknown,
+    options: { abortSignal?: AbortSignal; pauseDeadline?: PauseDeadline } = {},
+  ): Promise<HITLOutcomeAction> {
+    const hitl = this.confirmationManagerFor(false);
+    if (!hitl?.isEnabled()) {
+      return { run: true, args };
+    }
+    const identity: Record<string, unknown> = { ...this.toolExecutionContext };
+    const sessionId =
+      typeof identity.sessionId === "string" ? identity.sessionId : undefined;
+    const userId =
+      typeof identity.userId === "string"
+        ? identity.userId
+        : getAmbientAuthContext()?.user?.id;
+    return resolveToolCallConfirmation(
+      hitl,
+      toolName,
+      args,
+      undefined,
+      {
+        // The serverId a built-in tool's card has always carried.
+        serverId: "direct",
+        sessionId: sessionId ?? crypto.randomUUID(),
+        userId,
+        signal: options.abortSignal,
+      },
+      {
+        log: (message) => mcpLogger.info(`[NeuroLink] ${message}`),
+        subject: "Built-in tool",
+        pauseDeadline: options.pauseDeadline,
+        alwaysConfirm: builtInToolAlwaysConfirmed(hitl, toolName),
+      },
+    );
+  }
+
+  /**
+   * Whether the gate would ask a human about this call, for a registered or
+   * an external tool. Each distinct manager is asked once; the registry and
+   * the external manager usually share the host's.
+   */
+  private callNeedsConfirmation(toolName: string, params: unknown): boolean {
+    const managers = new Set([
+      this.confirmationManagerFor(false),
+      this.confirmationManagerFor(true),
+    ]);
+    for (const manager of managers) {
+      if (manager?.requiresConfirmation(toolName, params)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Bookkeeping for a call its confirmation refused: `tool:end` with
+   * `success: false`, the span marked as an error and a failed execution
+   * counted. No circuit-breaker failure is recorded (a human's answer says
+   * nothing about the tool's health), and nothing ran.
+   */
+  private handleRefusedToolExecution<T>(
+    toolName: string,
+    refused: ToolResult,
+    prepared: Awaited<ReturnType<NeuroLink["prepareToolExecutionState"]>>,
+    executionContext: ReturnType<NeuroLink["createToolExecutionContext"]>,
+    toolSpan: Span,
+  ): T {
+    const executionTime = Date.now() - executionContext.executionStartTime;
+    const decision = executionContext.hitlState.decision;
+    const message =
+      typeof refused.error === "string" ? refused.error : "Tool call refused";
+    const category =
+      decision === "timeout"
+        ? ErrorCategory.TIMEOUT
+        : decision === "cancelled"
+          ? ErrorCategory.ABORT
+          : ErrorCategory.PERMISSION;
+
+    prepared.metrics.failedExecutions++;
+    prepared.metrics.errorCategories[category] =
+      (prepared.metrics.errorCategories[category] || 0) + 1;
+    mcpLogger.info(
+      `[${executionContext.functionTag}] Tool call refused by its HITL confirmation: ${toolName}`,
+      { toolName, decision, executionTime },
+    );
+
+    const error = new Error(message);
+    // Gate on listenerCount — see handleGenerateTextInternalFailure for the
+    // rationale (Node EventEmitter rethrows on no listener).
+    if (this.emitter.listenerCount("error") > 0) {
+      this.emitter.emit("error", error);
+    }
+    this.emitToolEndEvent(
+      toolName,
+      executionContext.executionStartTime,
+      false,
+      refused,
+      error,
+      executionContext.executionId,
+    );
+    toolSpan.setAttribute("tool.retry_count", 0);
+    toolSpan.setAttribute("tool.result.status", "refused");
+    toolSpan.setAttribute("tool.duration_ms", executionTime);
+    toolSpan.setStatus({ code: SpanStatusCode.ERROR, message });
+    return markRefusalResult(refused) as T;
   }
 
   private async handleSuccessfulToolExecution<T>(
@@ -15754,9 +16203,17 @@ Current user's request: ${currentInput}`;
 
     if (isToolError) {
       try {
-        await prepared.circuitBreaker.execute(async () => {
-          throw new Error(`Tool ${toolName} returned isError:true`);
-        });
+        await prepared.circuitBreaker.execute(
+          async () => {
+            throw new Error(`Tool ${toolName} returned isError:true`);
+          },
+          // A tool that stopped because its caller cancelled is not unwell; one
+          // its per-tool deadline stopped may be, and is counted.
+          {
+            isCancellation: () =>
+              isCancelledByCaller(prepared.finalOptions.abortSignal),
+          },
+        );
       } catch {
         // Expected — intentionally records the failure
       }
@@ -16012,6 +16469,8 @@ Current user's request: ${currentInput}`;
       maxRetries: number;
       retryDelayMs: number;
       disableToolCache?: boolean;
+      abortSignal?: AbortSignal;
+      toolAbortSignal?: AbortSignal; // see attemptSignals
       authContext?: {
         userId?: string;
         sessionId?: string;
@@ -16019,9 +16478,10 @@ Current user's request: ${currentInput}`;
         [key: string]: unknown;
       };
     },
-    HITLState?: HITLExecutionState,
+    hitlState: HITLExecutionState,
   ): Promise<T> {
     const functionTag = "NeuroLink.executeToolInternal";
+    const { abortSignal } = options;
 
     // === MCP ENHANCEMENT: Infer annotations for cache/retry decisions ===
     const toolAnnotations = this.getToolAnnotationsForExecution(toolName);
@@ -16164,7 +16624,7 @@ Current user's request: ${currentInput}`;
             externalTool.serverId,
             toolName,
             params as JsonObject,
-            { timeout: options.timeout },
+            { timeout: options.timeout, hitlState, signal: abortSignal },
           );
 
           logger.debug(
@@ -16178,36 +16638,18 @@ Current user's request: ${currentInput}`;
 
           return result as T;
         } catch (error) {
-          logger.error(`[${functionTag}] External MCP tool execution failed:`, {
+          throw this.externalToolFailure(
+            functionTag,
             toolName,
-            serverId: externalTool.serverId,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          throw ErrorFactory.toolExecutionFailed(
-            toolName,
-            error instanceof Error ? error : new Error(String(error)),
             externalTool.serverId,
+            error,
           );
         }
       }
 
       // Execute via tool registry (custom/built-in tools)
       try {
-        const storedContext = this.toolExecutionContext || {};
-        const passedAuthContext = options.authContext || {};
-
-        // This instance's roots, on the private channel (overwrites the caller's).
-        const context = bindFileToolRoots(
-          { ...storedContext, ...passedAuthContext, hitlState: HITLState },
-          this.resolveFileToolRoots(undefined),
-        );
-
-        logger.debug(`[Using merged context for unified registry tool:`, {
-          toolName,
-          storedContextKeys: Object.keys(storedContext),
-          finalContextKeys: Object.keys(context),
-        });
-
+        const context = this.registryToolContext(toolName, options, hitlState);
         const result = (await this.toolRegistry.executeTool(
           toolName,
           params,
@@ -16260,7 +16702,17 @@ Current user's request: ${currentInput}`;
       const result = await executeWithMiddleware(executeCore);
 
       // === MCP ENHANCEMENT: Cache store (after successful execution) ===
-      if (isCacheEnabled && toolResultCache && result !== undefined) {
+      // Never a refusal: the identical call must raise a new card. Never a
+      // result produced after the call's signal fired: a tool that stopped on
+      // it returned an early or partial value the next call must not get.
+      if (
+        isCacheEnabled &&
+        toolResultCache &&
+        result !== undefined &&
+        !hitlStateRefused(hitlState) &&
+        !isRefusalResult(result) &&
+        !abortSignal?.aborted
+      ) {
         toolResultCache.cacheResult(toolName, cacheParams, result);
         logger.debug(`[${functionTag}] Cached result for tool: ${toolName}`);
       }
@@ -16268,19 +16720,14 @@ Current user's request: ${currentInput}`;
       return result;
     } catch (error) {
       // === MCP ENHANCEMENT: Retry safe tools on failure ===
-      const toolStubForRetry = toolAnnotations
-        ? ({
-            name: toolName,
-            description: "",
-            annotations: toolAnnotations,
-            execute: async () => ({}),
-          } as MCPServerTool)
-        : undefined;
       if (
-        toolStubForRetry &&
-        isSafeToRetry(toolStubForRetry) &&
-        error instanceof Error &&
-        isRetriableError(error)
+        this.maySafelyRetryOnce(
+          toolName,
+          toolAnnotations,
+          options.maxRetries,
+          abortSignal,
+          error,
+        )
       ) {
         logger.debug(
           `[${functionTag}] Tool ${toolName} is safe to retry, attempting once more`,
@@ -16288,8 +16735,16 @@ Current user's request: ${currentInput}`;
         try {
           const retryResult = await executeWithMiddleware(executeCore);
 
-          // Cache the retry result
-          if (isCacheEnabled && toolResultCache && retryResult !== undefined) {
+          // Cache the retry result (never a refusal or a result produced
+          // after the abort, as above)
+          if (
+            isCacheEnabled &&
+            toolResultCache &&
+            retryResult !== undefined &&
+            !hitlStateRefused(hitlState) &&
+            !isRefusalResult(retryResult) &&
+            !abortSignal?.aborted
+          ) {
             toolResultCache.cacheResult(toolName, cacheParams, retryResult);
           }
 
@@ -16301,6 +16756,144 @@ Current user's request: ${currentInput}`;
 
       throw error;
     }
+  }
+
+  /**
+   * Whether a failed call gets executeToolInternal's one extra run: a tool
+   * whose annotations say it is safe to retry, a call that may be retried at
+   * all (a tool with no retries runs once per call, as its registration
+   * says), not cancelled, and a retriable error.
+   */
+  private maySafelyRetryOnce(
+    toolName: string,
+    toolAnnotations: MCPToolAnnotations | undefined,
+    maxRetries: number,
+    abortSignal: AbortSignal | undefined,
+    error: unknown,
+  ): boolean {
+    if (!toolAnnotations || maxRetries === 0 || abortSignal?.aborted) {
+      return false;
+    }
+    const toolStub = {
+      name: toolName,
+      description: "",
+      annotations: toolAnnotations,
+      execute: async () => ({}),
+    } as MCPServerTool;
+    return (
+      isSafeToRetry(toolStub) &&
+      error instanceof Error &&
+      isRetriableError(error)
+    );
+  }
+
+  /**
+   * What an external tool call's failure surfaces as from executeToolInternal.
+   * A call its caller cancelled stays the abort it is and is logged at info
+   * (an outcome, not a fault); any other failure is logged and wrapped.
+   */
+  private externalToolFailure(
+    functionTag: string,
+    toolName: string,
+    serverId: string,
+    error: unknown,
+  ): Error {
+    const cause = error instanceof Error ? error : new Error(String(error));
+    if (isAbortError(error)) {
+      logger.info(
+        `[${functionTag}] External MCP tool call cancelled: ${toolName}`,
+      );
+      return cause;
+    }
+    logger.error(`[${functionTag}] External MCP tool execution failed:`, {
+      toolName,
+      serverId,
+      error: cause.message,
+    });
+    return ErrorFactory.toolExecutionFailed(toolName, cause, serverId);
+  }
+
+  /**
+   * The signals one attempt of an `executeTool` call runs under, each linked
+   * to an attempt controller that `abort()` fires when the attempt times out.
+   *
+   * - `callSignal`: the call's own signal plus the attempt's. It is the
+   *   attempt's `abortSignal` (the external manager's `signal`, the cache and
+   *   safe-retry guards).
+   * - `toolSignal`: the signal the tool's context would otherwise carry (its
+   *   `authContext`'s, else the call's, else the one set with
+   *   `setToolContext()`) plus the attempt's. Precedence is unchanged; the
+   *   tool sees its usual signal, linked to the attempt's timer too.
+   */
+  private attemptSignals(
+    callSignal: AbortSignal | undefined,
+    authContext: Record<string, unknown> | undefined,
+  ): {
+    callSignal: AbortSignal | undefined;
+    toolSignal: AbortSignal | undefined;
+    abort: (reason: Error) => void;
+    dispose: () => void;
+  } {
+    const attemptAbort = new AbortController();
+    const call = composeAbortSignalsScoped(callSignal, attemptAbort.signal);
+    const toolSource =
+      abortSignalOf(authContext) ??
+      callSignal ??
+      abortSignalOf(this.toolExecutionContext);
+    const tool =
+      toolSource === callSignal
+        ? call
+        : composeAbortSignalsScoped(toolSource, attemptAbort.signal);
+    return {
+      callSignal: call.signal,
+      toolSignal: tool.signal,
+      abort: (reason) => {
+        if (!attemptAbort.signal.aborted) {
+          attemptAbort.abort(reason);
+        }
+      },
+      dispose: () => {
+        call.dispose();
+        tool.dispose();
+      },
+    };
+  }
+
+  /**
+   * The context a registry tool executes with: this instance's tool context
+   * (`setToolContext`), then the call's `abortSignal` (it replaces a stored
+   * one), then the caller's `authContext` (which wins), plus the call's HITL
+   * state and, on its private channel, this instance's file-tool roots.
+   */
+  private registryToolContext(
+    toolName: string,
+    options: {
+      authContext?: Record<string, unknown>;
+      abortSignal?: AbortSignal;
+      /** The attempt's tool signal (see attemptSignals); it wins when set */
+      toolAbortSignal?: AbortSignal;
+    },
+    hitlState: HITLExecutionState,
+  ) {
+    const storedContext = this.toolExecutionContext || {};
+    const context = bindFileToolRoots(
+      {
+        ...storedContext,
+        ...(options.abortSignal && { abortSignal: options.abortSignal }),
+        ...options.authContext,
+        ...(options.toolAbortSignal && {
+          abortSignal: options.toolAbortSignal,
+        }),
+        hitlState,
+      },
+      this.resolveFileToolRoots(undefined),
+    );
+    logger.debug(`[Using merged context for unified registry tool:`, {
+      toolName,
+      storedContextKeys: Object.keys(storedContext),
+      finalContextKeys: Object.keys(context),
+    });
+    return context;
   }
 
   /**
@@ -18388,14 +18981,23 @@ Current user's request: ${currentInput}`;
    * @param serverId - ID of the server
    * @param toolName - Name of the tool
    * @param parameters - Tool parameters
-   * @param options - Execution options
+   * @param options - Execution options. Aborting `abortSignal` withdraws the
+   *   call's pending confirmation; a call whose signal has already fired is
+   *   never sent to the server and rejects with an abort error, except that
+   *   a result already in the tool-result cache for this call is returned
+   *   first. `pauseDeadline` pauses the caller's deadline while that
+   *   confirmation waits.
    * @returns Tool execution result
    */
   async executeExternalMCPTool(
     serverId: string,
     requestedToolName: string,
     parameters: JsonObject,
-    options?: { timeout?: number },
+    options?: {
+      timeout?: number;
+      abortSignal?: AbortSignal;
+      pauseDeadline?: PauseDeadline;
+    },
   ): Promise<unknown> {
     // Falls back to the requested name so the catch block below still has
     // something meaningful to log if resolution itself is what throws.
@@ -18462,7 +19064,11 @@ Current user's request: ${currentInput}`;
         serverId,
         toolName,
         parameters,
-        options,
+        options && {
+          timeout: options.timeout,
+          signal: options.abortSignal,
+          pauseDeadline: options.pauseDeadline,
+        },
       );
 
       // BZ-664: Store result in cache after successful execution.
@@ -18500,10 +19106,21 @@ Current user's request: ${currentInput}`;
       );
       return result;
     } catch (error) {
-      mcpLogger.error(
-        `[NeuroLink] External MCP tool execution failed: ${toolName}`,
-        error,
-      );
+      if (error instanceof HITLError) {
+        // A human's "no" (or a withdrawn card) is an outcome, not a fault.
+        mcpLogger.info(
+          `[NeuroLink] External MCP tool refused by its HITL confirmation: ${toolName}`,
+        );
+      } else if (isAbortError(error)) {
+        mcpLogger.info(
+          `[NeuroLink] External MCP tool call cancelled by its caller: ${toolName}`,
+        );
+      } else {
+        mcpLogger.error(
+          `[NeuroLink] External MCP tool execution failed: ${toolName}`,
+          error,
+        );
+      }
       throw error;
     }
   }
@@ -19024,7 +19641,10 @@ Current user's request: ${currentInput}`;
         // The AI provider will handle parameters dynamically based on the tool description
         const toolDefinition = {
           description: tool.description,
-          execute: async (params: Record<string, unknown>) => {
+          execute: async (
+            params: Record<string, unknown>,
+            execOptions?: unknown,
+          ) => {
             try {
               mcpLogger.debug(
                 `[NeuroLink] Executing external MCP tool via AI SDK: ${tool.name}`,
@@ -19034,7 +19654,7 @@ Current user's request: ${currentInput}`;
                 tool.serverId,
                 tool.name,
                 params as JsonObject,
-                { timeout: 30000 },
+                { timeout: 30000, signal: abortSignalOf(execOptions) },
               );
               mcpLogger.debug(
                 `[NeuroLink] External MCP tool execution result: ${tool.name}`,
@@ -20988,6 +21608,9 @@ Current user's request: ${currentInput}`;
     const { registerAgentTool } = await import("./agent/agentToolRegistrar.js");
     const registered = registerAgentTool(this, definition, options);
     this.hasAgentTools = true;
+    // Marked on the registry, so every instance that shares it, including
+    // workers created before or after this call, never batches the tool.
+    this.toolRegistry.setToolUnbatchable(registered.name, true);
     return registered;
   }
 
@@ -21085,7 +21708,16 @@ Current user's request: ${currentInput}`;
       // Never cacheable: `delegate_task` starts a new worker every call and
       // `collect_results` claims each outcome exactly once. A cached result
       // would spawn nothing and hand the same worker back twice.
-      this.registerTool(toolName, toolDef, { cacheable: false });
+      // `delegate_task` is never retried either: once its spawn went through,
+      // a retry after any later failure starts a second worker for the same
+      // task.
+      this.registerTool(
+        toolName,
+        toolDef,
+        toolName === "delegate_task"
+          ? { cacheable: false, maxRetries: 0 }
+          : { cacheable: false },
+      );
     }
     this.hasBackgroundDelegationTools = true;
     logger.info(

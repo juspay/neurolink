@@ -276,6 +276,8 @@ export class FileSummarizationService {
           input: { text: prompt },
           provider: this.provider,
           model: this.model,
+          // A summary is text; the summarizer is given no tools.
+          disableTools: true,
         });
 
         const summaryText =

@@ -76,3 +76,11 @@ Moved from src/lib/mcp/contracts/mcpContract.ts
 ### hitlState?
 
 > `optional` **hitlState?**: [`HITLExecutionState`](HITLExecutionState.md)
+
+---
+
+### abortSignal?
+
+> `optional` **abortSignal?**: `AbortSignal`
+
+The caller's cancellation signal (`executeTool`'s `abortSignal` option)

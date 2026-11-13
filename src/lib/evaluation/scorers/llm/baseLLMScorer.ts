@@ -183,6 +183,8 @@ export abstract class BaseLLMScorer extends BaseScorer implements LLMScorer {
           prompt,
           temperature: this._llmConfig.temperature ?? 0.1,
           maxTokens: 2000,
+          // A scorer rates text; it is given no tools.
+          disableTools: true,
         }),
       timeout,
       `${this.metadata.id}-llm-call`,

@@ -761,6 +761,112 @@ await runSuite(async () => {
         "both workers must be accounted for",
       );
     });
+
+    section("Registration options (no retries for delegate_task)");
+
+    await test("delegate_task is never retried: a retriable failure after the spawn starts one worker", async () => {
+      const { host, sessionId } = newHost(server);
+      // Runs after the spawn went through, then fails once with an error the
+      // retry loop treats as retriable: a retry here would spawn again.
+      let failedOnce = false;
+      host.useToolMiddleware(async (tool, _params, _context, next) => {
+        const result = await next();
+        if (tool.name === "delegate_task" && !failedOnce) {
+          failedOnce = true;
+          throw new Error("temporary fixture failure");
+        }
+        return result;
+      });
+      const workerRequests = (): number =>
+        server
+          .getAllRequestBodies()
+          .filter((body) => body.includes("TAG:NORETRY")).length;
+      try {
+        await host.executeTool(
+          "delegate_task",
+          {
+            task: "TAG:NORETRY DELAY:50 - investigate and report.",
+            model: "gpt-4o-mini",
+          },
+          { authContext: { sessionId }, retryDelayMs: 10 },
+        );
+      } catch {
+        // Expected once retries are off: the middleware's failure surfaces.
+      }
+      assert(failedOnce, "the spawn never reached the tool middleware");
+      await delay(800);
+      assertEqual(
+        workerRequests(),
+        1,
+        `one delegate_task call started ${workerRequests()} workers`,
+      );
+      assertEqual(
+        host.getToolRegistry().getToolInfo("delegate_task")?.tool.maxRetries,
+        0,
+        "delegate_task is not registered with maxRetries: 0",
+      );
+    });
+
+    await test("collect_results keeps its registration options (no timeout or retry override)", async () => {
+      const { host } = newHost(server);
+      const tool = host.getToolRegistry().getToolInfo("collect_results")?.tool;
+      assert(tool !== undefined, "collect_results is not registered");
+      assertEqual(
+        tool?.maxRetries,
+        undefined,
+        "collect_results gained a maxRetries override",
+      );
+      assertEqual(
+        tool?.timeoutMs,
+        undefined,
+        "collect_results gained a timeout override",
+      );
+      assertEqual(
+        tool?.totalTimeoutMs,
+        undefined,
+        "collect_results gained a totalTimeoutMs override",
+      );
+    });
+
+    section("Root exports");
+
+    await test("buildMechanicalDigest is a root export", async () => {
+      const root = await import("../dist/index.js");
+      // Read through an untyped view so the check is the runtime export,
+      // not the declaration; the call below is typed by the declaration.
+      const exported: Record<string, unknown> = root;
+      assert(
+        typeof exported.buildMechanicalDigest === "function",
+        "buildMechanicalDigest is not exported from the package root",
+      );
+      const result = root.buildMechanicalDigest([
+        {
+          toolName: "search",
+          params: { q: "a" },
+          resultText: "found it",
+          isError: false,
+          startedAt: 1,
+          durationMs: 1,
+        },
+        {
+          toolName: "search",
+          params: { q: "b" },
+          resultText: "boom",
+          isError: true,
+          startedAt: 2,
+          durationMs: 1,
+        },
+      ]);
+      assertEqual(result.kind, "mechanical-digest");
+      assertEqual(result.toolsRun?.search?.calls, 2);
+      assertEqual(result.toolsRun?.search?.ok, 1);
+      assertEqual(result.toolsRun?.search?.failed, 1);
+      assertEqual(
+        result.excerpts?.length,
+        1,
+        "only the successful call is excerpted",
+      );
+    });
   } finally {
     await server?.close();
   }

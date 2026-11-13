@@ -26,6 +26,10 @@ import type {
   ZodUnknownSchema,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
+import {
+  isRefusalResult,
+  markRefusalResult,
+} from "../../hitl/toolCallConfirmation.js";
 import { getSafeMaxTokens } from "../../utils/tokenLimits.js";
 import {
   TimeoutError,
@@ -313,7 +317,7 @@ export class Utilities {
         logger.warn(`Tool execution failed: ${errorMsg}`);
 
         // Return error as structured data that can be processed by the AI
-        return {
+        const converted = {
           isError: true,
           error: errorMsg,
           content: [
@@ -323,6 +327,10 @@ export class Utilities {
             },
           ],
         };
+        // A refusal stays one, so no result cache keeps it.
+        return isRefusalResult(result)
+          ? markRefusalResult(converted)
+          : converted;
       }
     }
     return result;

@@ -18,6 +18,7 @@ import {
 import { ToolDiscoveryService } from "./toolDiscoveryService.js";
 import { toolRegistry } from "./toolRegistry.js";
 import type {
+  HITLExecutionState,
   HITLManager,
   JsonValue,
   JsonObject,
@@ -36,8 +37,11 @@ import type {
   MCPServerCategory,
   MCPServerReadiness,
   MCPTransportType,
+  PauseDeadline,
 } from "../types/index.js";
-import { HITLUserRejectedError, HITLTimeoutError } from "../hitl/hitlErrors.js";
+import { HITLError } from "../hitl/hitlErrors.js";
+import { resolveToolCallConfirmation } from "../hitl/toolCallConfirmation.js";
+import { isAbortError, throwIfSignalAborted } from "../utils/errorHandling.js";
 import { detectCategory } from "../utils/mcpDefaults.js";
 
 import { isObject, isNonNullObject } from "../utils/typeUtils.js";
@@ -670,6 +674,13 @@ export class ExternalServerManager extends EventEmitter {
   private toolDiscovery: ToolDiscoveryService;
   private enableMainRegistryIntegration: boolean;
   private hitlManager?: HITLManager; // Optional HITL manager for safety mechanisms
+  /**
+   * Where to find a manager when none was set with `setHITLManager`: the
+   * owning instance's tool registry, so an instance with no HITL of its own
+   * on a shared registry (a worker) confirms its external tools with the
+   * registry's manager, as it does its registered tools.
+   */
+  private fallbackHITLManager?: () => HITLManager | undefined;
 
   constructor(
     config: ExternalMCPManagerConfig = {},
@@ -757,10 +768,24 @@ export class ExternalServerManager extends EventEmitter {
   }
 
   /**
-   * Get current HITL manager
+   * Set where to find a HITL manager when none was set with
+   * `setHITLManager`, resolved per call. NeuroLink points it at its tool
+   * registry's manager, so an instance with no HITL of its own on a shared
+   * registry confirms its external tools with that manager.
+   */
+  setFallbackHITLManager(resolve?: () => HITLManager | undefined): void {
+    this.fallbackHITLManager = resolve;
+  }
+
+  /**
+   * Get the HITL manager external tool calls are confirmed with: the one set
+   * with `setHITLManager` when it is enabled, else the fallback's.
    */
   getHITLManager(): HITLManager | undefined {
-    return this.hitlManager;
+    if (this.hitlManager?.isEnabled()) {
+      return this.hitlManager;
+    }
+    return this.fallbackHITLManager?.() ?? this.hitlManager;
   }
 
   /**
@@ -2569,7 +2594,18 @@ export class ExternalServerManager extends EventEmitter {
     serverId: string,
     toolName: string,
     parameters: JsonObject,
-    options?: { timeout?: number },
+    options?: {
+      timeout?: number;
+      /** The call's HITL state; a recorded decision skips the inline check */
+      hitlState?: HITLExecutionState;
+      /**
+       * Aborting it withdraws a pending inline confirmation; once it has
+       * fired, the call is not sent to the server.
+       */
+      signal?: AbortSignal;
+      /** Pauses the caller's deadline while an inline confirmation waits */
+      pauseDeadline?: PauseDeadline;
+    },
   ): Promise<unknown> {
     const instance = this.servers.get(serverId);
     if (!instance) {
@@ -2595,82 +2631,24 @@ export class ExternalServerManager extends EventEmitter {
       );
     }
 
+    // A call its caller already cancelled raises no card and is never sent.
+    throwIfSignalAborted(options?.signal);
+
     const startTime = Date.now();
 
     try {
-      // HITL Safety Check: Request confirmation if required
-      let finalParameters = parameters;
-      if (this.hitlManager && this.hitlManager.isEnabled()) {
-        const requiresConfirmation = this.hitlManager.requiresConfirmation(
-          toolName,
-          parameters,
-        );
-
-        if (requiresConfirmation) {
-          mcpLogger.info(
-            `[ExternalServerManager] External tool '${toolName}' on server '${serverId}' requires HITL confirmation`,
-          );
-
-          try {
-            const confirmationResult =
-              await this.hitlManager.requestConfirmation(toolName, parameters, {
-                serverId: serverId,
-                sessionId: `external-${serverId}-${Date.now()}`,
-                userId: undefined, // External tools don't have user context by default
-              });
-
-            if (!confirmationResult.approved) {
-              // User rejected the tool execution
-              throw new HITLUserRejectedError(
-                `External tool execution rejected by user: ${confirmationResult.reason || "No reason provided"}`,
-                toolName,
-                confirmationResult.reason,
-              );
-            }
-
-            // User approved - use modified arguments if provided
-            if (confirmationResult.modifiedArguments !== undefined) {
-              finalParameters =
-                confirmationResult.modifiedArguments as JsonObject;
-              mcpLogger.info(
-                `[ExternalServerManager] External tool '${toolName}' arguments modified by user`,
-              );
-            }
-
-            mcpLogger.info(
-              `[ExternalServerManager] External tool '${toolName}' approved for execution (response time: ${confirmationResult.responseTime}ms)`,
-            );
-          } catch (error) {
-            if (error instanceof HITLTimeoutError) {
-              // Timeout occurred - user didn't respond in time
-              mcpLogger.warn(
-                `[ExternalServerManager] External tool '${toolName}' execution timed out waiting for user confirmation`,
-              );
-              throw error;
-            } else if (error instanceof HITLUserRejectedError) {
-              // User explicitly rejected
-              mcpLogger.info(
-                `[ExternalServerManager] External tool '${toolName}' execution rejected by user`,
-              );
-              throw error;
-            } else {
-              // Other HITL error (configuration, system error, etc.)
-              mcpLogger.error(
-                `[ExternalServerManager] HITL confirmation failed for external tool '${toolName}':`,
-                error,
-              );
-              throw new Error(
-                `HITL confirmation failed: ${error instanceof Error ? error.message : String(error)}`,
-                { cause: error },
-              );
-            }
-          }
-        } else {
-          mcpLogger.debug(
-            `[ExternalServerManager] External tool '${toolName}' does not require HITL confirmation`,
-          );
-        }
-      }
+      // HITL Safety Check. A call that NeuroLink.executeTool already gated
+      // carries its decision (and the approved parameters) and is not asked
+      // again; a direct caller without one is asked here, before the
+      // discovery service starts its timer.
+      const finalParameters = await this.confirmExternalToolCall(
+        serverId,
+        toolName,
+        parameters,
+        options,
+      );
+      // Cancelled while the decision was being made: nothing is sent.
+      throwIfSignalAborted(options?.signal);
 
       // Execute tool through discovery service (with potentially modified parameters)
       this.trackToolCall(serverId, 1);
@@ -2730,13 +2708,24 @@ export class ExternalServerManager extends EventEmitter {
         throw new Error(result.error || "Tool execution failed");
       }
     } catch (error) {
-      instance.metrics.totalErrors++;
-      recordMCPToolCall(toolName, Date.now() - startTime, false);
-
-      mcpLogger.error(
-        `[ExternalServerManager] Tool execution failed: ${toolName} on ${serverId}`,
-        error,
-      );
+      if (
+        error instanceof HITLError ||
+        (options?.signal?.aborted === true && isAbortError(error))
+      ) {
+        // A human's "no" (a withdrawn card) or the caller's own cancellation
+        // is an outcome, not a fault, and the server never received the
+        // call: no server error is counted.
+        mcpLogger.info(
+          `[ExternalServerManager] External tool '${toolName}' on ${serverId} refused or cancelled before it ran: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      } else {
+        instance.metrics.totalErrors++;
+        recordMCPToolCall(toolName, Date.now() - startTime, false);
+        mcpLogger.error(
+          `[ExternalServerManager] Tool execution failed: ${toolName} on ${serverId}`,
+          error,
+        );
+      }
 
       // The SDK rejects with its connection-closed error when the server is
       // gone. Without this transition the instance stayed "connected" and
@@ -2750,6 +2739,45 @@ export class ExternalServerManager extends EventEmitter {
       }
       throw error;
     }
+  }
+
+  /**
+   * The external manager's inline HITL check, for a caller that arrives
+   * without a recorded decision (`executeExternalMCPTool` and the AI-SDK
+   * conversion path). Throws when the call must not run; otherwise returns
+   * the parameters to run with.
+   */
+  private async confirmExternalToolCall(
+    serverId: string,
+    toolName: string,
+    parameters: JsonObject,
+    options?: {
+      hitlState?: HITLExecutionState;
+      signal?: AbortSignal;
+      pauseDeadline?: PauseDeadline;
+    },
+  ): Promise<JsonObject> {
+    const action = await resolveToolCallConfirmation(
+      this.getHITLManager(),
+      toolName,
+      parameters,
+      options?.hitlState,
+      {
+        serverId,
+        sessionId: `external-${serverId}-${Date.now()}`,
+        userId: undefined, // External tools don't have user context by default
+        signal: options?.signal,
+      },
+      {
+        log: (message) => mcpLogger.info(`[ExternalServerManager] ${message}`),
+        subject: "External tool",
+        pauseDeadline: options?.pauseDeadline,
+      },
+    );
+    if (!action.run) {
+      throw action.error;
+    }
+    return action.args as JsonObject;
   }
 
   /**

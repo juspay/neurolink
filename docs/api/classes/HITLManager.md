@@ -69,7 +69,10 @@ Check if a tool requires confirmation based on configuration
 
 > **requestConfirmation**(`toolName`, `arguments_`, `context?`): `Promise`\<[`ConfirmationResult`](../type-aliases/ConfirmationResult.md)\>
 
-Request confirmation for a tool execution
+Request confirmation for a tool execution.
+
+Aborting `context.signal` withdraws the request (see `cancelConfirmation`);
+a signal that is already aborted raises no card at all.
 
 #### Parameters
 
@@ -83,17 +86,7 @@ Request confirmation for a tool execution
 
 ##### context?
 
-###### serverId?
-
-`string`
-
-###### sessionId?
-
-`string`
-
-###### userId?
-
-`string`
+[`HITLConfirmationContext`](../type-aliases/HITLConfirmationContext.md)
 
 #### Returns
 
@@ -138,6 +131,34 @@ Process user response to confirmation request
 #### Returns
 
 `void`
+
+---
+
+### cancelConfirmation()
+
+> **cancelConfirmation**(`confirmationId`, `reason?`): `boolean`
+
+Withdraw a pending confirmation because the call that asked was aborted.
+
+Clears the timer, forgets the entry (so a later answer for this ID runs
+nothing), rejects the waiting call with `HITLCancelledError` and emits
+`hitl:cancelled` so the approval UI can retire the card.
+
+#### Parameters
+
+##### confirmationId
+
+`string`
+
+##### reason?
+
+`string` = `"Confirmation cancelled"`
+
+#### Returns
+
+`boolean`
+
+false when nothing was pending under this ID
 
 ---
 

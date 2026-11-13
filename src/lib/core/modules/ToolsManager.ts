@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createToolEventPayload } from "../toolEvents.js";
 import type {
   AIProviderName,
+  ProviderToolExecutorOptions,
   StandardRecord,
   ToolUtilities,
   ToolArgs,
@@ -26,8 +27,9 @@ import {
   convertJsonSchemaToZod,
   stripUnsafeRegexPatterns,
 } from "../../utils/schemaConversion.js";
-import { HITLUserRejectedError } from "../../hitl/hitlErrors.js";
-import type { HITLManager } from "../../types/index.js";
+import { abortSignalOf, pauseDeadlineOf } from "../../utils/async/index.js";
+import { isAbortError } from "../../utils/errorHandling.js";
+import { markRefusalResult } from "../../hitl/toolCallConfirmation.js";
 import {
   generateToolOutputPreview,
   DEFAULT_MAX_PREVIEW_BYTES,
@@ -63,21 +65,6 @@ function makeToolAbortError(): Error {
   e.name = "AbortError";
   return e;
 }
-
-/**
- * Built-in tools that change the machine. While HITL is enabled they require
- * confirmation on every call, whatever `dangerousActions` lists, unless the
- * host sets `hitl.confirmBuiltinTools: false`. The other built-ins (clock,
- * arithmetic, reads, directory listings, CSV analysis, web search) are gated
- * by `dangerousActions` keywords and `customRules` like every other tool.
- */
-const HITL_ALWAYS_CONFIRM_DIRECT_TOOLS: ReadonlySet<string> = new Set([
-  "writeFile",
-  "executeBashCommand",
-]);
-
-/** serverId the registry uses for the built-in tools; reused in HITL requests. */
-const DIRECT_TOOL_SERVER_ID = "direct";
 
 /** Tool names a provider accepts: 1-64 characters from this set. */
 const TOOL_NAME_SAFE_CHARS = /[^A-Za-z0-9_-]/g;
@@ -316,7 +303,7 @@ export class ToolsManager {
   protected toolExecutor?: (
     toolName: string,
     params: unknown,
-    options?: Record<string, unknown>,
+    options?: ProviderToolExecutorOptions,
   ) => Promise<unknown>;
 
   // Session context
@@ -358,99 +345,16 @@ export class ToolsManager {
       const signal = (execOptions as { abortSignal?: AbortSignal } | undefined)
         ?.abortSignal;
       const inner = originalExecute(params, execOptions);
-      // Inner executes that ignore the signal (external MCP / custom tools —
-      // the signal isn't plumbed to their transports yet) still return
-      // promptly on abort via the race; the loop's isAbortError handling
-      // treats the rejection as a cancellation, not a tool failure.
+      // Inner executes that do not stop on the signal (a tool that ignores
+      // it; an external MCP call already sent, since the signal is not
+      // plumbed to the transport yet) still return promptly on abort via the
+      // race; the loop's isAbortError handling treats the rejection as a
+      // cancellation, not a tool failure.
       const result =
         signal && typeof signal.addEventListener === "function"
           ? await raceWithAbortSignal(inner, signal)
           : await inner;
       return this.truncateToolResult(toolName, result);
-    };
-  }
-
-  /**
-   * The HITL manager of the owning NeuroLink instance, when one is configured.
-   * It lives on the tool registry (`setHITLManager`), which is also where the
-   * registered-tool execution path reads it, so the two paths cannot disagree.
-   */
-  private resolveHITLManager(): HITLManager | undefined {
-    const registry = this.neurolink?.getToolRegistry?.();
-    const manager =
-      registry && typeof registry.getHITLManager === "function"
-        ? registry.getHITLManager()
-        : undefined;
-    return manager && manager.isEnabled() ? manager : undefined;
-  }
-
-  /**
-   * Whether a built-in tool call must be confirmed by a human first.
-   *
-   * Same rule as `MCPToolRegistry.executeTool` applies to registered tools —
-   * `dangerousActions` keywords and `customRules` — plus the built-in tools
-   * that change the machine (`HITL_ALWAYS_CONFIRM_DIRECT_TOOLS`), which are
-   * confirmed on every call unless `hitl.confirmBuiltinTools` is `false`.
-   */
-  private directToolNeedsConfirmation(
-    manager: HITLManager,
-    toolName: string,
-    params: unknown,
-  ): boolean {
-    if (manager.requiresConfirmation(toolName, params)) {
-      return true;
-    }
-    if (!HITL_ALWAYS_CONFIRM_DIRECT_TOOLS.has(toolName)) {
-      return false;
-    }
-    const confirmBuiltins = manager.getConfig().confirmBuiltinTools;
-    return confirmBuiltins !== false;
-  }
-
-  /**
-   * Gate a built-in (direct) tool's execute behind the instance's HITL
-   * manager, with the semantics of the registry path: a denial throws
-   * `HITLUserRejectedError` (the loop reports it to the model as a failed
-   * call), a timeout propagates the manager's `HITLTimeoutError` (or the
-   * auto-approval it is configured for), and user-modified arguments replace
-   * the model's. Without HITL the execute runs untouched.
-   *
-   * Direct tools reach the model through `getAllTools()` and are executed by
-   * the provider loops directly, never through `MCPToolRegistry.executeTool`
-   * — so before this wrapper the registry's HITL check never saw them, and
-   * `writeFile` / `executeBashCommand` ran unconfirmed while the bash tool's
-   * own description promised otherwise.
-   */
-  private wrapExecuteWithHITL(
-    toolName: string,
-    execute: (params: unknown, execOptions?: unknown) => Promise<unknown>,
-  ): (params: unknown, execOptions?: unknown) => Promise<unknown> {
-    return async (params: unknown, execOptions?: unknown): Promise<unknown> => {
-      const manager = this.resolveHITLManager();
-      if (
-        !manager ||
-        !this.directToolNeedsConfirmation(manager, toolName, params)
-      ) {
-        return execute(params, execOptions);
-      }
-      logger.info(`Built-in tool '${toolName}' requires HITL confirmation`);
-      const confirmation = await manager.requestConfirmation(toolName, params, {
-        serverId: DIRECT_TOOL_SERVER_ID,
-        sessionId: this.sessionId,
-        userId: this.userId,
-      });
-      if (!confirmation.approved) {
-        throw new HITLUserRejectedError(
-          `Tool execution rejected by user: ${confirmation.reason || "No reason provided"}`,
-          toolName,
-          confirmation.reason,
-        );
-      }
-      const finalParams =
-        confirmation.modifiedArguments !== undefined
-          ? confirmation.modifiedArguments
-          : params;
-      return execute(finalParams, execOptions);
     };
   }
 
@@ -923,7 +827,11 @@ export class ToolsManager {
   setupToolExecutor(
     sdk: {
       customTools: Map<string, unknown>;
-      executeTool: (toolName: string, params: unknown) => Promise<unknown>;
+      executeTool: (
+        toolName: string,
+        params: unknown,
+        options?: ProviderToolExecutorOptions,
+      ) => Promise<unknown>;
     },
     functionTag: string,
   ): void {
@@ -1071,6 +979,38 @@ export class ToolsManager {
   }
 
   /**
+   * A built-in tool the loop runs directly is confirmed before its body runs,
+   * by the same step `executeTool` uses for a registered tool (see
+   * `NeuroLink.confirmBuiltInToolCall`). Approval runs the body once with the
+   * approved arguments; a refusal returns the refusal and runs nothing. With
+   * HITL off the body runs unchanged.
+   */
+  private wrapExecuteWithConfirmation(
+    toolName: string,
+    execute: (params: unknown, execOptions?: unknown) => Promise<unknown>,
+  ): (params: unknown, execOptions?: unknown) => Promise<unknown> {
+    const neurolink = this.neurolink;
+    if (typeof neurolink?.confirmBuiltInToolCall !== "function") {
+      return execute;
+    }
+    return async (params: unknown, execOptions?: unknown) => {
+      const abortSignal = abortSignalOf(execOptions);
+      const pauseDeadline = pauseDeadlineOf(execOptions);
+      const action = await neurolink.confirmBuiltInToolCall(toolName, params, {
+        ...(abortSignal && { abortSignal }),
+        ...(pauseDeadline && { pauseDeadline }),
+      });
+      if (!action.run) {
+        return markRefusalResult({
+          success: false,
+          error: action.error.message,
+        });
+      }
+      return execute(action.args, execOptions);
+    };
+  }
+
+  /**
    * Process direct tools with event emission wrapping
    */
   private async processDirectTools(tools: Record<string, Tool>): Promise<void> {
@@ -1103,7 +1043,7 @@ export class ToolsManager {
         // raced against the loop's abort signal like any other tool wait.
         const guardedExecute = this.wrapExecuteWithTruncation(
           toolName,
-          this.wrapExecuteWithHITL(toolName, originalExecute),
+          this.wrapExecuteWithConfirmation(toolName, originalExecute),
         );
         tools[toolName] = markEventWrapped({
           ...(directTool as Tool),
@@ -1303,7 +1243,7 @@ export class ToolsManager {
         createAISDKTool<unknown, unknown>({
           description: toolInfo.description || `Tool ${toolName}`,
           inputSchema: finalSchema, // AI SDK v6 uses inputSchema (not parameters)
-          execute: async (params: unknown) => {
+          execute: async (params: unknown, execOptions?: unknown) => {
             const customToolSpan = tracers.sdk.startSpan(
               "tools.execute_custom",
               {
@@ -1330,22 +1270,22 @@ export class ToolsManager {
                 // but we also forward them to toolExecutor for MCP-level handling.
                 const toolTimeoutMs = toolInfo.timeoutMs;
                 const toolMaxRetries = toolInfo.maxRetries;
-                const hasRegistrationOptions =
-                  toolTimeoutMs !== undefined || toolMaxRetries !== undefined;
-                const result = await this.toolExecutor(
-                  toolName,
-                  params,
-                  hasRegistrationOptions
-                    ? {
-                        ...(toolTimeoutMs !== undefined && {
-                          timeout: toolTimeoutMs,
-                        }),
-                        ...(toolMaxRetries !== undefined && {
-                          maxRetries: toolMaxRetries,
-                        }),
-                      }
-                    : undefined,
-                );
+                // The loop's signal for this call (its turn abort or per-tool
+                // deadline) goes down with it, so the call's confirmation,
+                // its attempts and the tool itself see the cancellation; so
+                // does the pause the confirmation puts on that deadline.
+                const abortSignal = abortSignalOf(execOptions);
+                const pauseDeadline = pauseDeadlineOf(execOptions);
+                const result = await this.toolExecutor(toolName, params, {
+                  ...(toolTimeoutMs !== undefined && {
+                    timeout: toolTimeoutMs,
+                  }),
+                  ...(toolMaxRetries !== undefined && {
+                    maxRetries: toolMaxRetries,
+                  }),
+                  ...(abortSignal && { abortSignal }),
+                  ...(pauseDeadline && { pauseDeadline }),
+                });
 
                 const convertedResult = this.utilities?.convertToolResult
                   ? await this.utilities.convertToolResult(result)
@@ -1581,15 +1521,29 @@ export class ToolsManager {
       }
 
       // BZ-666/BZ-664: Wrap the raw MCP execute with guards before event wrapping
-      const rawExecute = async (params: unknown): Promise<unknown> => {
+      const rawExecute = async (
+        params: unknown,
+        execOptions?: unknown,
+      ): Promise<unknown> => {
         if (
           this.neurolink &&
           typeof this.neurolink.executeExternalMCPTool === "function"
         ) {
+          // The loop's signal withdraws the call's pending confirmation, and
+          // a call it already cancelled is never sent to the server; the
+          // loop's deadline pauses while that confirmation waits.
+          const abortSignal = abortSignalOf(execOptions);
+          const pauseDeadline = pauseDeadlineOf(execOptions);
           return this.neurolink.executeExternalMCPTool(
             tool.serverId || "unknown",
             tool.name,
             params as JsonObject,
+            abortSignal || pauseDeadline
+              ? {
+                  ...(abortSignal && { abortSignal }),
+                  ...(pauseDeadline && { pauseDeadline }),
+                }
+              : undefined,
           );
         }
         throw new Error(
@@ -1605,6 +1559,11 @@ export class ToolsManager {
         try {
           return await guardedExecute(params, execOptions);
         } catch (mcpError) {
+          if (isAbortError(mcpError)) {
+            // The loop cancelled the call: an outcome, not a fault.
+            logger.info(`External MCP tool call cancelled: ${tool.name}`);
+            throw mcpError;
+          }
           logger.error(`External MCP tool failed: ${tool.name}`, {
             serverId: tool.serverId,
             error:

@@ -33,3 +33,19 @@ Tool execution context
 ### metadata?
 
 > `optional` **metadata?**: [`ToolExecutionMetadata`](ToolExecutionMetadata.md)
+
+---
+
+### abortSignal?
+
+> `optional` **abortSignal?**: `AbortSignal`
+
+The loop's signal for this call (its turn abort or per-tool deadline)
+
+---
+
+### pauseDeadline?
+
+> `optional` **pauseDeadline?**: [`PauseDeadline`](PauseDeadline.md)
+
+Pauses the loop's deadlines for this call while it waits for a human

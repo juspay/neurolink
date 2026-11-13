@@ -1,0 +1,858 @@
+{
+  "$comment": "Every provider build, and every generate()/stream() on a built provider, in src/lib, with the reason its tools are confirmed or absent. Checked by test/continuous-test-suite-provider-tool-sites.ts, which explains the reasons and how to add an entry.",
+  "sites": [
+    {
+      "file": "src/lib/agent/agent.ts",
+      "symbol": "execute",
+      "kind": "generate",
+      "match": "this.neurolink.generate(generateOptions)",
+      "reason": "passes-instance",
+      "note": "Agent.execute calls the NeuroLink instance the caller built the Agent with; that instance's rule confirms its registered, external and built-in tools."
+    },
+    {
+      "file": "src/lib/agent/agent.ts",
+      "symbol": "stream",
+      "kind": "stream",
+      "match": "this.neurolink.stream(streamOptions)",
+      "reason": "passes-instance",
+      "note": "Agent.stream calls the caller's NeuroLink instance; that instance's rule confirms its tools."
+    },
+    {
+      "file": "src/lib/agent/agentNetwork.ts",
+      "symbol": "execute",
+      "kind": "generate",
+      "match": "this.neurolink.generate({input:{text: message},systemPrompt,",
+      "reason": "passes-instance",
+      "note": "AgentNetwork's router call on the caller's NeuroLink instance. Its routing tools are passed per call (options.tools), which the HITL rule does not cover, by design; the instance's own tools are confirmed."
+    },
+    {
+      "file": "src/lib/agent/agentNetwork.ts",
+      "symbol": "stream",
+      "kind": "stream",
+      "match": "this.neurolink.stream({input:{text: message},systemPrompt,pr",
+      "reason": "passes-instance",
+      "note": "AgentNetwork's router stream on the caller's NeuroLink instance. Its routing tools are passed per call (options.tools); the instance's own tools are confirmed."
+    },
+    {
+      "file": "src/lib/context/fileSummarizationService.ts",
+      "symbol": "summarizeFiles",
+      "kind": "build",
+      "match": "new NeuroLink()",
+      "reason": "disableTools",
+      "note": "An internal NeuroLink instance with no HITL: its only model call, the summary below, passes disableTools: true."
+    },
+    {
+      "file": "src/lib/context/fileSummarizationService.ts",
+      "symbol": "summarizeFiles",
+      "kind": "generate",
+      "match": "summarizer.generate({input:{text: prompt},provider: this.pro",
+      "reason": "disableTools",
+      "note": "A file summary is text: passes disableTools: true."
+    },
+    {
+      "file": "src/lib/core/evaluation.ts",
+      "symbol": "generateEvaluation",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(evaluationProvider,evaluati",
+      "reason": "disableTools",
+      "note": "Built for the evaluation call below, which passes disableTools: true."
+    },
+    {
+      "file": "src/lib/core/evaluation.ts",
+      "symbol": "generateEvaluation",
+      "kind": "generate",
+      "match": "provider.generate({input:{text: prompt},disableTools: true,/",
+      "reason": "disableTools",
+      "note": "A text-only model call: passes disableTools: true."
+    },
+    {
+      "file": "src/lib/core/factory.ts",
+      "symbol": "createBestProvider",
+      "kind": "build",
+      "match": "this.createProvider(bestProvider,modelName,enableMCP,sdk)",
+      "reason": "caller-built",
+      "note": "AIProviderFactory.createBestProvider: a pass-through of the caller's optional sdk; the caller's own build is listed."
+    },
+    {
+      "file": "src/lib/core/factory.ts",
+      "symbol": "createProviderWithFallback",
+      "kind": "build",
+      "match": "this.createProvider(fallbackProvider,modelName,enableMCP)",
+      "reason": "caller-built",
+      "note": "AIProviderFactory.createProviderWithFallback: public factory; the caller owns the raw providers and their tools."
+    },
+    {
+      "file": "src/lib/core/factory.ts",
+      "symbol": "createProviderWithFallback",
+      "kind": "build",
+      "match": "this.createProvider(primaryProvider,modelName,enableMCP)",
+      "reason": "caller-built",
+      "note": "AIProviderFactory.createProviderWithFallback: public factory; the caller owns the raw providers and their tools."
+    },
+    {
+      "file": "src/lib/core/factory.ts",
+      "symbol": "createProviderWithModel",
+      "kind": "build",
+      "match": "this.createProvider(provider,model)",
+      "reason": "caller-built",
+      "note": "AIProviderFactory.createProviderWithModel: a public factory that hands the caller a raw provider."
+    },
+    {
+      "file": "src/lib/core/factory.ts",
+      "symbol": "createResolvedProvider",
+      "kind": "build",
+      "match": "ProviderFactory.createProvider(normalizedName,finalModelName",
+      "reason": "caller-built",
+      "note": "A pass-through of the caller's optional sdk (the funnel under AIProviderFactory.createProvider): the provider is built with an instance only when the caller passes one; each caller's own build is listed."
+    },
+    {
+      "file": "src/lib/core/redisConversationMemoryManager.ts",
+      "symbol": "generateConversationTitle",
+      "kind": "build",
+      "match": "new NeuroLink({conversationMemory:{enabled: false}})",
+      "reason": "disableTools",
+      "note": "An internal NeuroLink instance with no HITL: its only model call, the title below, passes disableTools: true."
+    },
+    {
+      "file": "src/lib/core/redisConversationMemoryManager.ts",
+      "symbol": "generateConversationTitle",
+      "kind": "generate",
+      "match": "titleGenerator.generate({input:{text: titlePrompt},provider:",
+      "reason": "disableTools",
+      "note": "A conversation title is text: passes disableTools: true."
+    },
+    {
+      "file": "src/lib/evaluation/ragasEvaluator.ts",
+      "symbol": "evaluate",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(this.providerName,this.eval",
+      "reason": "disableTools",
+      "note": "Built for the evaluator's generate call, which passes disableTools: true."
+    },
+    {
+      "file": "src/lib/evaluation/ragasEvaluator.ts",
+      "symbol": "evaluate",
+      "kind": "generate",
+      "match": "provider.generate({input:{text: prompt},// The evaluator sco",
+      "reason": "disableTools",
+      "note": "A text-only model call: passes disableTools: true."
+    },
+    {
+      "file": "src/lib/evaluation/scorers/llm/baseLLMScorer.ts",
+      "symbol": "_doInitializeProvider",
+      "kind": "build",
+      "match": "ProviderFactory.createProvider(providerName,modelName)",
+      "reason": "disableTools",
+      "note": "Built for callLLM, whose generate call passes disableTools: true."
+    },
+    {
+      "file": "src/lib/evaluation/scorers/llm/baseLLMScorer.ts",
+      "symbol": "callLLM",
+      "kind": "generate",
+      "match": "provider.generate({prompt,temperature: this._llmConfig.tempe",
+      "reason": "disableTools",
+      "note": "A text-only model call: passes disableTools: true."
+    },
+    {
+      "file": "src/lib/factories/providerFactory.ts",
+      "symbol": "createAIProvider",
+      "kind": "build",
+      "match": "ProviderFactory.createProvider(providerName,modelName,undefi",
+      "reason": "unreachable",
+      "note": "ProviderFactory.createAIProvider has no importer and is not exported (the root's createAIProvider is index.ts)."
+    },
+    {
+      "file": "src/lib/factories/providerFactory.ts",
+      "symbol": "createBestProvider",
+      "kind": "build",
+      "match": "ProviderFactory.createProvider(providerName,modelName,sdk,un",
+      "reason": "caller-built",
+      "note": "ProviderFactory.createBestProvider: a pass-through of the caller's optional sdk; the caller's own build is listed."
+    },
+    {
+      "file": "src/lib/features/ppt/slideGenerator.ts",
+      "symbol": "generateImage",
+      "kind": "generate",
+      "match": "this.neurolink.generate({input:{text: enhancedPrompt},provid",
+      "reason": "passes-instance",
+      "note": "PPT image generation on the NeuroLink instance the PPT flow was given; that instance's rule confirms any tool."
+    },
+    {
+      "file": "src/lib/features/ppt/utils.ts",
+      "symbol": "getEffectivePPTProvider",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(provider as AIProviderName,",
+      "reason": "passes-instance",
+      "note": "Built with the NeuroLink instance, so its built-in and external tools are confirmed by the instance's HITL rule."
+    },
+    {
+      "file": "src/lib/image-gen/ImageGenService.ts",
+      "symbol": "getNeuroLink",
+      "kind": "build",
+      "match": "new NeuroLink({conversationMemory:{enabled: false},enableOrc",
+      "reason": "disableTools",
+      "note": "ImageGenService's internal NeuroLink instance: its only model call passes disableTools: true (generateParams)."
+    },
+    {
+      "file": "src/lib/index.ts",
+      "symbol": "createAIProvider",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(providerName || \"bedrock\",m",
+      "reason": "caller-built",
+      "note": "Public createAIProvider: hands the caller a raw provider with no NeuroLink instance."
+    },
+    {
+      "file": "src/lib/index.ts",
+      "symbol": "createAIProviderWithFallback",
+      "kind": "build",
+      "match": "AIProviderFactory.createProviderWithFallback(primaryProvider",
+      "reason": "caller-built",
+      "note": "Public createAIProviderWithFallback: hands the caller raw providers."
+    },
+    {
+      "file": "src/lib/index.ts",
+      "symbol": "createBestAIProvider",
+      "kind": "build",
+      "match": "AIProviderFactory.createBestProvider(requestedProvider,model",
+      "reason": "caller-built",
+      "note": "Public createBestAIProvider: hands the caller a raw provider."
+    },
+    {
+      "file": "src/lib/index.ts",
+      "symbol": "generateText",
+      "kind": "build",
+      "match": "new NeuroLink()",
+      "reason": "caller-built",
+      "note": "The public generateText convenience: a fresh NeuroLink with no HITL configured, for the caller's own call."
+    },
+    {
+      "file": "src/lib/mcp/servers/aiProviders/aiAnalysisTools.ts",
+      "symbol": "execute",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(await getBestProvider())",
+      "reason": "unreachable",
+      "note": "The aiProviders MCP servers are registered nowhere: nothing outside the directory imports them, and no package export reaches them."
+    },
+    {
+      "file": "src/lib/mcp/servers/aiProviders/aiAnalysisTools.ts",
+      "symbol": "execute",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(providerName)",
+      "occurrence": 1,
+      "reason": "unreachable",
+      "note": "The aiProviders MCP servers are registered nowhere: nothing outside the directory imports them, and no package export reaches them."
+    },
+    {
+      "file": "src/lib/mcp/servers/aiProviders/aiAnalysisTools.ts",
+      "symbol": "execute",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(providerName)",
+      "occurrence": 2,
+      "reason": "unreachable",
+      "note": "The aiProviders MCP servers are registered nowhere: nothing outside the directory imports them, and no package export reaches them."
+    },
+    {
+      "file": "src/lib/mcp/servers/aiProviders/aiAnalysisTools.ts",
+      "symbol": "execute",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(providerName)",
+      "occurrence": 3,
+      "reason": "unreachable",
+      "note": "The aiProviders MCP servers are registered nowhere: nothing outside the directory imports them, and no package export reaches them."
+    },
+    {
+      "file": "src/lib/mcp/servers/aiProviders/aiAnalysisTools.ts",
+      "symbol": "execute",
+      "kind": "generate",
+      "match": "analysisProvider.generate({prompt: analysisPrompt,maxTokens:",
+      "reason": "unreachable",
+      "note": "The aiProviders MCP servers are registered nowhere: nothing outside the directory imports them, and no package export reaches them."
+    },
+    {
+      "file": "src/lib/mcp/servers/aiProviders/aiAnalysisTools.ts",
+      "symbol": "execute",
+      "kind": "generate",
+      "match": "provider.generate({prompt: analysisPrompt,maxTokens: 800,tem",
+      "reason": "unreachable",
+      "note": "The aiProviders MCP servers are registered nowhere: nothing outside the directory imports them, and no package export reaches them."
+    },
+    {
+      "file": "src/lib/mcp/servers/aiProviders/aiAnalysisTools.ts",
+      "symbol": "execute",
+      "kind": "generate",
+      "match": "provider.generate({prompt: prompt,maxTokens: typedParams.max",
+      "reason": "unreachable",
+      "note": "The aiProviders MCP servers are registered nowhere: nothing outside the directory imports them, and no package export reaches them."
+    },
+    {
+      "file": "src/lib/mcp/servers/aiProviders/aiAnalysisTools.ts",
+      "symbol": "execute",
+      "kind": "generate",
+      "match": "provider.generate({prompt: typedParams.prompt,temperature: t",
+      "reason": "unreachable",
+      "note": "The aiProviders MCP servers are registered nowhere: nothing outside the directory imports them, and no package export reaches them."
+    },
+    {
+      "file": "src/lib/mcp/servers/aiProviders/aiWorkflowTools.ts",
+      "symbol": "execute",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(providerName)",
+      "occurrence": 1,
+      "reason": "unreachable",
+      "note": "The aiProviders MCP servers are registered nowhere: nothing outside the directory imports them, and no package export reaches them."
+    },
+    {
+      "file": "src/lib/mcp/servers/aiProviders/aiWorkflowTools.ts",
+      "symbol": "execute",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(providerName)",
+      "occurrence": 2,
+      "reason": "unreachable",
+      "note": "The aiProviders MCP servers are registered nowhere: nothing outside the directory imports them, and no package export reaches them."
+    },
+    {
+      "file": "src/lib/mcp/servers/aiProviders/aiWorkflowTools.ts",
+      "symbol": "execute",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(providerName)",
+      "occurrence": 3,
+      "reason": "unreachable",
+      "note": "The aiProviders MCP servers are registered nowhere: nothing outside the directory imports them, and no package export reaches them."
+    },
+    {
+      "file": "src/lib/mcp/servers/aiProviders/aiWorkflowTools.ts",
+      "symbol": "execute",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(providerName)",
+      "occurrence": 4,
+      "reason": "unreachable",
+      "note": "The aiProviders MCP servers are registered nowhere: nothing outside the directory imports them, and no package export reaches them."
+    },
+    {
+      "file": "src/lib/mcp/servers/aiProviders/aiWorkflowTools.ts",
+      "symbol": "execute",
+      "kind": "generate",
+      "match": "provider.generate({prompt: prompt,maxTokens: 10000,// High l",
+      "occurrence": 1,
+      "reason": "unreachable",
+      "note": "The aiProviders MCP servers are registered nowhere: nothing outside the directory imports them, and no package export reaches them."
+    },
+    {
+      "file": "src/lib/mcp/servers/aiProviders/aiWorkflowTools.ts",
+      "symbol": "execute",
+      "kind": "generate",
+      "match": "provider.generate({prompt: prompt,maxTokens: DEFAULT_MAX_TOK",
+      "occurrence": 1,
+      "reason": "unreachable",
+      "note": "The aiProviders MCP servers are registered nowhere: nothing outside the directory imports them, and no package export reaches them."
+    },
+    {
+      "file": "src/lib/mcp/servers/aiProviders/aiWorkflowTools.ts",
+      "symbol": "execute",
+      "kind": "generate",
+      "match": "provider.generate({prompt: prompt,maxTokens: 10000,// High l",
+      "occurrence": 2,
+      "reason": "unreachable",
+      "note": "The aiProviders MCP servers are registered nowhere: nothing outside the directory imports them, and no package export reaches them."
+    },
+    {
+      "file": "src/lib/mcp/servers/aiProviders/aiWorkflowTools.ts",
+      "symbol": "execute",
+      "kind": "generate",
+      "match": "provider.generate({prompt: prompt,maxTokens: DEFAULT_MAX_TOK",
+      "occurrence": 2,
+      "reason": "unreachable",
+      "note": "The aiProviders MCP servers are registered nowhere: nothing outside the directory imports them, and no package export reaches them."
+    },
+    {
+      "file": "src/lib/middleware/builtin/guardrails.ts",
+      "symbol": "resolveFilterModel",
+      "kind": "build",
+      "match": "ProviderFactory.createProvider(hasProvider ? maybeProvider :",
+      "reason": "no-tool-loop",
+      "note": "The model filter takes the provider's model handle (getModel) and calls generateOnceNative(model, { prompt }) with no tool set."
+    },
+    {
+      "file": "src/lib/middleware/utils/guardrailsUtils.ts",
+      "symbol": "performPrecallEvaluation",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(config.provider || \"google-",
+      "reason": "disableTools",
+      "note": "Built for the pre-call evaluation, whose generate call passes disableTools: true."
+    },
+    {
+      "file": "src/lib/middleware/utils/guardrailsUtils.ts",
+      "symbol": "performPrecallEvaluation",
+      "kind": "generate",
+      "match": "provider.generate({input:{text: prompt},// The evaluator onl",
+      "reason": "disableTools",
+      "note": "A text-only model call: passes disableTools: true."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "<module>",
+      "kind": "build",
+      "match": "new NeuroLink()",
+      "reason": "caller-built",
+      "note": "The exported default `neurolink` instance: no HITL configured; the caller's own instance."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "buildToolRoutingEmbedFn",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(embProviderName,embeddingCf",
+      "reason": "passes-instance",
+      "note": "Built with the NeuroLink instance, so its built-in and external tools are confirmed by the instance's HITL rule."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "createMCPStream",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(providerName,options.model,",
+      "reason": "passes-instance",
+      "note": "Built with the NeuroLink instance, so its built-in and external tools are confirmed by the instance's HITL rule."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "createMCPStream",
+      "kind": "stream",
+      "match": "provider.stream({...this.deferProviderStreamTTS(options),sys",
+      "reason": "tools-off-by-config",
+      "note": "The primary stream: spreads the caller's options; the provider is built with the instance."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "createWorkerInstance",
+      "kind": "build",
+      "match": "new NeuroLink(workerTools ?{...workerConfig,tools: workerToo",
+      "reason": "passes-instance",
+      "note": "A worker shares the host's tool registry (toolRegistry: this.toolRegistry in its config), so the host's manager confirms its tools."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "directProviderGeneration",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(providerName as AIProviderN",
+      "reason": "passes-instance",
+      "note": "Built with the NeuroLink instance, so its built-in and external tools are confirmed by the instance's HITL rule."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "directProviderGeneration",
+      "kind": "generate",
+      "match": "provider.generate({...options,conversationMessages,// Inject",
+      "reason": "tools-off-by-config",
+      "note": "The direct generate: spreads the caller's options; the provider is built with the instance."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "generate",
+      "kind": "generate",
+      "match": "condenser.generate({...options,disableTools: true})",
+      "reason": "disableTools",
+      "note": "The memory condenser handle: forces disableTools: true over its caller's options."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "generateViaModelPool",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(poolProviderName as AIProvi",
+      "reason": "passes-instance",
+      "note": "Built with the NeuroLink instance, so its built-in and external tools are confirmed by the instance's HITL rule."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "generateViaModelPool",
+      "kind": "generate",
+      "match": "poolProvider.generate({...options,conversationMessages: pool",
+      "reason": "tools-off-by-config",
+      "note": "A pool member's generate: spreads the caller's options; the provider is built with the instance."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "generateWithMCPProvider",
+      "kind": "generate",
+      "match": "provider.generate({...options,systemPrompt: enhancedSystemPr",
+      "reason": "tools-off-by-config",
+      "note": "The primary generate: spreads the caller's options, so the call's disableTools and tool filters reach it; the provider is built with the instance."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "generateWithPPT",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(requestedProvider,options.m",
+      "reason": "passes-instance",
+      "note": "Built with the NeuroLink instance, so its built-in and external tools are confirmed by the instance's HITL rule."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "getMemoryCondenser",
+      "kind": "build",
+      "match": "new NeuroLink({...(credentials ?{credentials}:{}),conversati",
+      "reason": "disableTools",
+      "note": "The memory condenser's NeuroLink instance: reached only through the condenser handle, which forces disableTools: true."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "handleStreamError",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(providerName,options.model,",
+      "reason": "passes-instance",
+      "note": "Built with the NeuroLink instance, so its built-in and external tools are confirmed by the instance's HITL rule."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "handleStreamError",
+      "kind": "stream",
+      "match": "provider.stream({input:{text: options.input.text},model: opt",
+      "reason": "tools-off-by-config",
+      "note": "The error fallback: forwards the call's disableTools, tool filters, signal and cache choice; the provider is built with the instance."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "handleStreamFallback",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(fallbackRoute.provider,fall",
+      "reason": "passes-instance",
+      "note": "Built with the NeuroLink instance, so its built-in and external tools are confirmed by the instance's HITL rule."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "handleStreamFallback",
+      "kind": "stream",
+      "match": "fallbackProvider.stream({...this.deferProviderStreamTTS(enha",
+      "reason": "tools-off-by-config",
+      "note": "The empty-output fallback: spreads the caller's options; the provider is built with the instance."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "runDecide",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(providerName,options.model,",
+      "reason": "passes-instance",
+      "note": "Built with the NeuroLink instance, so its built-in and external tools are confirmed by the instance's HITL rule."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "streamViaModelPool",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(poolStreamProviderName as A",
+      "reason": "passes-instance",
+      "note": "Built with the NeuroLink instance, so its built-in and external tools are confirmed by the instance's HITL rule."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "streamViaModelPool",
+      "kind": "stream",
+      "match": "poolStreamProvider.stream({...this.deferProviderStreamTTS(op",
+      "reason": "tools-off-by-config",
+      "note": "A pool member's stream: spreads the caller's options; the provider is built with the instance."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "testProviderConnection",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(providerName as AIProviderN",
+      "reason": "disableTools",
+      "note": "testProviderConnection: built for the probe below, which passes disableTools: true."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "testProviderConnection",
+      "kind": "generate",
+      "match": "provider.generate({prompt: \"test\",maxTokens: 1,disableTools:",
+      "reason": "disableTools",
+      "note": "A text-only model call: passes disableTools: true."
+    },
+    {
+      "file": "src/lib/neurolink.ts",
+      "symbol": "tryMCPGeneration",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(generationContext.providerN",
+      "reason": "passes-instance",
+      "note": "Built with the NeuroLink instance, so its built-in and external tools are confirmed by the instance's HITL rule."
+    },
+    {
+      "file": "src/lib/rag/chunking/semanticChunker.ts",
+      "symbol": "getEmbeddings",
+      "kind": "build",
+      "match": "ProviderFactory.createProvider(provider,modelName)",
+      "reason": "embedding-only",
+      "note": "Used for embed() only."
+    },
+    {
+      "file": "src/lib/rag/document/MDocument.ts",
+      "symbol": "embed",
+      "kind": "build",
+      "match": "ProviderFactory.createProvider(provider,modelName)",
+      "reason": "embedding-only",
+      "note": "Used for embed() only."
+    },
+    {
+      "file": "src/lib/rag/metadata/metadataExtractor.ts",
+      "symbol": "callLLM",
+      "kind": "build",
+      "match": "ProviderFactory.createProvider(config.provider || this.provi",
+      "reason": "disableTools",
+      "note": "Built for callLLM, whose generate call passes disableTools: true."
+    },
+    {
+      "file": "src/lib/rag/metadata/metadataExtractor.ts",
+      "symbol": "callLLM",
+      "kind": "generate",
+      "match": "provider.generate({prompt,maxTokens: config.maxTokens || 500",
+      "reason": "disableTools",
+      "note": "A text-only model call: passes disableTools: true."
+    },
+    {
+      "file": "src/lib/rag/pipeline/RAGPipeline.ts",
+      "symbol": "generateAnswer",
+      "kind": "generate",
+      "match": "this.generationProvider.generate({prompt,systemPrompt,temper",
+      "reason": "disableTools",
+      "note": "A text-only model call: passes disableTools: true."
+    },
+    {
+      "file": "src/lib/rag/pipeline/RAGPipeline.ts",
+      "symbol": "generateImageCaption",
+      "kind": "generate",
+      "match": "provider.generate({prompt: \"Describe this image in one sente",
+      "reason": "disableTools",
+      "note": "A text-only model call: passes disableTools: true."
+    },
+    {
+      "file": "src/lib/rag/pipeline/RAGPipeline.ts",
+      "symbol": "generateMultiModalEmbedding",
+      "kind": "build",
+      "match": "ProviderFactory.createProvider(provider,modelName)",
+      "reason": "embedding-only",
+      "note": "Multimodal embedding provider: embed() only."
+    },
+    {
+      "file": "src/lib/rag/pipeline/RAGPipeline.ts",
+      "symbol": "initialize",
+      "kind": "build",
+      "match": "ProviderFactory.createProvider(this.config.embeddingModel.pr",
+      "reason": "embedding-only",
+      "note": "The pipeline's embedding provider: embed() only."
+    },
+    {
+      "file": "src/lib/rag/pipeline/RAGPipeline.ts",
+      "symbol": "initialize",
+      "kind": "build",
+      "match": "ProviderFactory.createProvider(this.config.generationModel.p",
+      "reason": "disableTools",
+      "note": "The generation provider: its answer and caption calls pass disableTools: true."
+    },
+    {
+      "file": "src/lib/rag/pipeline/RAGPipeline.ts",
+      "symbol": "initialize",
+      "kind": "build",
+      "match": "ProviderFactory.createProvider(this.multiModalConfig?.captio",
+      "reason": "disableTools",
+      "note": "The caption provider: its caption call passes disableTools: true."
+    },
+    {
+      "file": "src/lib/rag/pipeline/RAGPipeline.ts",
+      "symbol": "query",
+      "kind": "build",
+      "match": "ProviderFactory.createProvider(this.config.rerankingModel.pr",
+      "reason": "disableTools",
+      "note": "The reranking model, passed to rerank(), whose generate calls pass disableTools: true."
+    },
+    {
+      "file": "src/lib/rag/ragIntegration.ts",
+      "symbol": "_prepareRAGToolInner",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(embedProviderName,embedMode",
+      "reason": "embedding-only",
+      "note": "The RAG tool's embedder: embed() only."
+    },
+    {
+      "file": "src/lib/rag/retrieval/hybridSearch.ts",
+      "symbol": "createHybridSearch",
+      "kind": "build",
+      "match": "ProviderFactory.createProvider(embeddingModel?.provider,embe",
+      "reason": "embedding-only",
+      "note": "Used for embed() only."
+    },
+    {
+      "file": "src/lib/rag/retrieval/hybridSearch.ts",
+      "symbol": "createHybridSearch",
+      "kind": "build",
+      "match": "ProviderFactory.createProvider(typeof rerankerConfig.model =",
+      "reason": "disableTools",
+      "note": "The reranking model, passed to rerank(), whose generate calls pass disableTools: true."
+    },
+    {
+      "file": "src/lib/rag/retrieval/vectorQueryTool.ts",
+      "symbol": "execute",
+      "kind": "build",
+      "match": "ProviderFactory.createProvider(embeddingModel.provider,embed",
+      "reason": "embedding-only",
+      "note": "Used for embed() only."
+    },
+    {
+      "file": "src/lib/rag/retrieval/vectorQueryTool.ts",
+      "symbol": "execute",
+      "kind": "build",
+      "match": "ProviderFactory.createProvider(typeof rerankerConfig.model =",
+      "reason": "disableTools",
+      "note": "The reranking model, passed to rerank(), whose generate calls pass disableTools: true."
+    },
+    {
+      "file": "src/lib/server/routes/agentRoutes.ts",
+      "symbol": "handler",
+      "kind": "build",
+      "match": "ProviderFactory.createProvider(providerName,request.model)",
+      "occurrence": 1,
+      "reason": "embedding-only",
+      "note": "The /agent/embed route: embed() only."
+    },
+    {
+      "file": "src/lib/server/routes/agentRoutes.ts",
+      "symbol": "handler",
+      "kind": "build",
+      "match": "ProviderFactory.createProvider(providerName,request.model)",
+      "occurrence": 2,
+      "reason": "embedding-only",
+      "note": "The /agent/embed-many route: embedMany() only."
+    },
+    {
+      "file": "src/lib/server/voice/voiceServerApp.ts",
+      "symbol": "warmup",
+      "kind": "build",
+      "match": "new NeuroLink()",
+      "reason": "disableTools",
+      "note": "The voice server's warmup instance: its only model call passes disableTools: true."
+    },
+    {
+      "file": "src/lib/server/voice/voiceServerApp.ts",
+      "symbol": "warmup",
+      "kind": "stream",
+      "match": "neurolink.stream({provider,model,input:{text: \"hi\"},maxToken",
+      "reason": "disableTools",
+      "note": "A three-token warmup stream: passes disableTools: true."
+    },
+    {
+      "file": "src/lib/server/voice/voiceWebSocketHandler.ts",
+      "symbol": "setupWebSocket",
+      "kind": "build",
+      "match": "new NeuroLink()",
+      "reason": "disableTools",
+      "note": "The voice server's NeuroLink instance: its model call (streamAnswer) passes disableTools: true."
+    },
+    {
+      "file": "src/lib/server/voice/voiceWebSocketHandler.ts",
+      "symbol": "streamAnswer",
+      "kind": "stream",
+      "match": "neurolink.stream({provider,model,// Current user message as ",
+      "reason": "disableTools",
+      "note": "A spoken answer: passes disableTools: true."
+    },
+    {
+      "file": "src/lib/session/globalSessionState.ts",
+      "symbol": "getOrCreateNeuroLink",
+      "kind": "build",
+      "match": "new NeuroLink(Object.keys(options).length ? options : undefi",
+      "reason": "caller-built",
+      "note": "The CLI's NeuroLink instance, built from the caller's own options (the CLI configures no HITL)."
+    },
+    {
+      "file": "src/lib/session/globalSessionState.ts",
+      "symbol": "setLoopSession",
+      "kind": "build",
+      "match": "new NeuroLink(neurolinkOptions)",
+      "reason": "caller-built",
+      "note": "The CLI's loop-session NeuroLink instance, built from the caller's own options (the CLI configures no HITL)."
+    },
+    {
+      "file": "src/lib/utils/conversationMemory.ts",
+      "symbol": "generateSummary",
+      "kind": "build",
+      "match": "new NeuroLinkClass({conversationMemory:{enabled: false}})",
+      "reason": "disableTools",
+      "note": "The conversation summarizer's internal NeuroLink instance (bound from a dynamic import): its only model call passes disableTools: true."
+    },
+    {
+      "file": "src/lib/utils/conversationMemory.ts",
+      "symbol": "generateSummary",
+      "kind": "generate",
+      "match": "cachedSummarizer.generate({input:{text: summarizationPrompt}",
+      "reason": "disableTools",
+      "note": "A conversation summary is text: passes disableTools: true."
+    },
+    {
+      "file": "src/lib/utils/providerUtils.ts",
+      "symbol": "isProviderAvailable",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(providerName)",
+      "reason": "disableTools",
+      "note": "Availability probe: its one-token generate call passes disableTools: true."
+    },
+    {
+      "file": "src/lib/utils/providerUtils.ts",
+      "symbol": "isProviderAvailable",
+      "kind": "generate",
+      "match": "provider.generate({prompt: \"test\",maxTokens: 1,disableTools:",
+      "reason": "disableTools",
+      "note": "A text-only model call: passes disableTools: true."
+    },
+    {
+      "file": "src/lib/workflow/core/ensembleExecutor.ts",
+      "symbol": "createProvider",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(model.provider,model.model)",
+      "reason": "disableTools",
+      "note": "The ensemble's createProvider helper: its only caller, executeModel, passes disableTools: true."
+    },
+    {
+      "file": "src/lib/workflow/core/ensembleExecutor.ts",
+      "symbol": "executeModel",
+      "kind": "build",
+      "match": "createProvider(model)",
+      "reason": "disableTools",
+      "note": "An ensemble member: its generate call passes disableTools: true."
+    },
+    {
+      "file": "src/lib/workflow/core/ensembleExecutor.ts",
+      "symbol": "executeModel",
+      "kind": "generate",
+      "match": "provider.generate({prompt,systemPrompt: resolvedSystemPrompt",
+      "reason": "disableTools",
+      "note": "A text-only model call: passes disableTools: true."
+    },
+    {
+      "file": "src/lib/workflow/core/judgeScorer.ts",
+      "symbol": "executeSingleJudge",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(judge.provider,judge.model)",
+      "reason": "disableTools",
+      "note": "A workflow judge: its generate call passes disableTools: true."
+    },
+    {
+      "file": "src/lib/workflow/core/judgeScorer.ts",
+      "symbol": "executeSingleJudge",
+      "kind": "generate",
+      "match": "provider.generate({prompt: judgePrompt,systemPrompt: systemP",
+      "reason": "disableTools",
+      "note": "A text-only model call: passes disableTools: true."
+    },
+    {
+      "file": "src/lib/workflow/core/responseConditioner.ts",
+      "symbol": "synthesizeImprovedResponse",
+      "kind": "build",
+      "match": "AIProviderFactory.createProvider(synthesisProvider,synthesis",
+      "reason": "disableTools",
+      "note": "Workflow synthesis: its generate call passes disableTools: true."
+    },
+    {
+      "file": "src/lib/workflow/core/responseConditioner.ts",
+      "symbol": "synthesizeImprovedResponse",
+      "kind": "generate",
+      "match": "provider.generate({prompt: synthesisPrompt,temperature: conf",
+      "reason": "disableTools",
+      "note": "A text-only model call: passes disableTools: true."
+    }
+  ]
+}

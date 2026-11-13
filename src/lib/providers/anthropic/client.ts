@@ -138,7 +138,7 @@ import {
   mergeAbortSignals,
   TimeoutError,
 } from "../../utils/timeout.js";
-import { raceWithAbort } from "../../utils/async/index.js";
+import { pauseDeadlineOf, raceWithAbort } from "../../utils/async/index.js";
 import {
   normalizeResolvedToolChoice,
   resolveToolChoice,
@@ -2990,9 +2990,13 @@ export class AnthropicProvider extends BaseProvider {
               toolCallId?: string;
               abortSignal?: AbortSignal;
             };
+            // The engine's pause for its per-tool deadline goes down too, so
+            // a confirmation the call waits on does not spend that bound.
+            const pauseDeadline = pauseDeadlineOf(opts);
             return execute(args, {
               toolCallId: ctx.toolCallId ?? "",
               ...(ctx.abortSignal ? { abortSignal: ctx.abortSignal } : {}),
+              ...(pauseDeadline ? { pauseDeadline } : {}),
               messages: [],
             } as Parameters<typeof execute>[1]);
           },

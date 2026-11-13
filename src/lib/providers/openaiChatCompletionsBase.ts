@@ -2829,6 +2829,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             toolExecutionSummaries,
             options,
             stepIndex: step,
+            abortSignal,
           }),
         );
         const executed = toolExecutionSummaries.slice(
@@ -3113,6 +3114,11 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
      * it a Redis session replayed two sequential calls as one parallel step.
      */
     stepIndex: number;
+    /**
+     * The turn's signal. Each tool gets it in its execute options, so the
+     * turn's abort reaches the call's confirmation, its attempts and the tool.
+     */
+    abortSignal: AbortSignal | undefined;
   }): Promise<void> {
     const {
       stepResult,
@@ -3123,6 +3129,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       toolExecutionSummaries,
       options,
       stepIndex,
+      abortSignal,
     } = args;
 
     const toolCallsForMessage: OpenAICompatToolCallWire[] = [];
@@ -3142,7 +3149,17 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         : {}),
     });
 
+    let executedCount = 0;
     for (const [, t] of stepResult.toolCalls) {
+      // Honour an abort BETWEEN tool executions, as the loop engine does: a
+      // tool that ignores its signal would otherwise still be started after
+      // the turn was cancelled. The batch stops here so the results of the
+      // tools that did run are still stored; the abort check after the
+      // storage ends the turn the way the next step's request would have.
+      if (abortSignal?.aborted) {
+        break;
+      }
+      executedCount += 1;
       const startedAt = new Date();
       const parsed = parseToolInput(t.argsBuffered);
       let output: unknown;
@@ -3177,7 +3194,11 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         this.emitRejectedToolCall(registryName, errorMsg, t.id);
       } else {
         try {
-          output = await toolDef.execute(input as never, {} as never);
+          output = await toolDef.execute(input as never, {
+            toolCallId: t.id,
+            messages: [],
+            ...(abortSignal ? { abortSignal } : {}),
+          });
         } catch (err) {
           errorMsg = err instanceof Error ? err.message : String(err);
           output = { error: errorMsg };
@@ -3202,9 +3223,8 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       });
     }
 
-    const justExecuted = toolExecutionSummaries.slice(
-      -stepResult.toolCalls.size,
-    );
+    const justExecuted =
+      executedCount > 0 ? toolExecutionSummaries.slice(-executedCount) : [];
     // No `tool:end` here: the executor already emitted start/end with the
     // real duration, and a second emission per result doubled every
     // consumer's count.
@@ -3242,6 +3262,9 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         },
       );
     }
+    // An abort during the batch's last tool: the turn ends with it even when
+    // no step follows to make a request that would throw it.
+    abortSignal?.throwIfAborted();
   }
 
   /**

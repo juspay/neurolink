@@ -89,6 +89,8 @@ export class RAGASEvaluator {
 
           const result = await provider.generate({
             input: { text: prompt },
+            // The evaluator scores text; it is given no tools.
+            disableTools: true,
           });
 
           if (!result) {
