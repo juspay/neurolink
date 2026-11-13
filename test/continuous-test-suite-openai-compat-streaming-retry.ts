@@ -2,7 +2,7 @@
 import "dotenv/config";
 
 /**
- * Continuous Test Suite — OpenAI-compat streamOneStep 429/5xx retry parity
+ * Continuous Test Suite — OpenAI-compat streamOneStep retry and timeout behavior
  * (Plan 07, Task 8).
  *
  * ALL-DIST module graph (rule 15): every provider call below is driven
@@ -649,6 +649,150 @@ void runSuite(async () => {
         "metadata.rawFinishReason did not keep the vendor's own spelling",
       );
     } finally {
+      server.close();
+      restoreEnv(envSnapshot);
+    }
+  });
+
+  section("streaming idle and lifetime deadlines");
+
+  await test("heartbeat frames keep an OpenAI-wire stream alive past its timeout", async () => {
+    const envSnapshot = snapshotEnv();
+    const server = createServer((_req, res) => {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write(": heartbeat\n\n");
+      let ticks = 0;
+      const interval = setInterval(() => {
+        if (++ticks < 9) {
+          res.write(": heartbeat\n\n");
+        } else {
+          clearInterval(interval);
+          res.write(sseChunk("finished"));
+          res.end("data: [DONE]\n\n");
+        }
+      }, 300);
+      res.on("close", () => clearInterval(interval));
+    });
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    try {
+      process.env.OPENAI_COMPATIBLE_BASE_URL = `http://127.0.0.1:${port}`;
+      process.env.OPENAI_COMPATIBLE_API_KEY = "test-key";
+      const started = Date.now();
+      const result = await nl().stream({
+        provider: "openai-compatible",
+        model: "gpt-4.1",
+        input: { text: "hi" },
+        maxSteps: 1,
+        maxTokens: 32,
+        timeout: 2_000,
+        disableInternalFallback: true,
+      });
+      let text = "";
+      for await (const chunk of result.stream) {
+        text += ("content" in chunk ? chunk.content : undefined) ?? "";
+      }
+      assert(text.includes("finished"), "the live stream was cut off");
+      assert(
+        Date.now() - started > 2_000,
+        "the fixture did not cross the old deadline",
+      );
+    } finally {
+      server.closeAllConnections();
+      server.close();
+      restoreEnv(envSnapshot);
+    }
+  });
+
+  await test("an explicit turn deadline stops a stream even while frames arrive", async () => {
+    const envSnapshot = snapshotEnv();
+    let frames = 0;
+    const server = createServer((_req, res) => {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write(": heartbeat\n\n");
+      const interval = setInterval(() => {
+        frames++;
+        res.write(": heartbeat\n\n");
+      }, 300);
+      res.on("close", () => clearInterval(interval));
+    });
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    try {
+      process.env.OPENAI_COMPATIBLE_BASE_URL = `http://127.0.0.1:${port}`;
+      process.env.OPENAI_COMPATIBLE_API_KEY = "test-key";
+      const started = Date.now();
+      try {
+        const result = await nl().stream({
+          provider: "openai-compatible",
+          model: "gpt-4.1",
+          input: { text: "hi" },
+          maxSteps: 1,
+          maxTokens: 32,
+          timeout: 2_000,
+          turnTimeoutMs: 3_000,
+          disableInternalFallback: true,
+        });
+        for await (const _chunk of result.stream) {
+          // The server emits only heartbeats; the turn deadline must end it.
+        }
+      } catch {
+        // The stream may surface the timeout as an error or an aborted result.
+      }
+      const elapsed = Date.now() - started;
+      assert(frames >= 5, "the upstream did not send enough live frames");
+      assert(
+        elapsed >= 2_500 && elapsed < 6_000,
+        "the turn deadline did not bound the stream",
+      );
+    } finally {
+      server.closeAllConnections();
+      server.close();
+      restoreEnv(envSnapshot);
+    }
+  });
+
+  await test("a silent upstream still hits the idle deadline", async () => {
+    const envSnapshot = snapshotEnv();
+    let received = false;
+    const server = createServer((_req, res) => {
+      received = true;
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write(": heartbeat\n\n");
+    });
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    try {
+      process.env.OPENAI_COMPATIBLE_BASE_URL = `http://127.0.0.1:${port}`;
+      process.env.OPENAI_COMPATIBLE_API_KEY = "test-key";
+      const started = Date.now();
+      try {
+        const result = await nl().stream({
+          provider: "openai-compatible",
+          model: "gpt-4.1",
+          input: { text: "hi" },
+          maxSteps: 1,
+          maxTokens: 32,
+          timeout: 2_000,
+          disableInternalFallback: true,
+        });
+        for await (const _chunk of result.stream) {
+          // No content follows the initial heartbeat.
+        }
+      } catch {
+        // A timeout may be surfaced as an exception or an aborted stream.
+      }
+      const elapsed = Date.now() - started;
+      assert(received, "the request never reached the upstream");
+      assert(
+        elapsed >= 1_700 && elapsed < 5_000,
+        "the idle deadline did not bound silence",
+      );
+    } finally {
+      server.closeAllConnections();
       server.close();
       restoreEnv(envSnapshot);
     }
