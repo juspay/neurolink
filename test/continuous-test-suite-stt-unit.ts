@@ -72,6 +72,7 @@ import {
   STTProcessor,
   STTError,
   STT_ERROR_CODES,
+  WhistleSTT,
 } from "../dist/index.js";
 import type {
   ElevenLabsSTTOptions,
@@ -1297,6 +1298,53 @@ await test("the `diarization` alias reaches the handler as speakerDiarization", 
       "handler saw speakerDiarization=true from the alias",
     );
   });
+});
+
+await test("a credentials slice builds a handler for the call and disposes it; the shared registered handler is never disposed", async () => {
+  // No model files and no auto-download: the engine reports unconfigured, so
+  // nothing is downloaded and no worker starts, yet the call still builds one
+  // handler per slice and must release it on the way out.
+  const slice = {
+    whistle: { modelDir: "/nonexistent/whistle", autoDownload: false },
+  };
+  const original = WhistleSTT.prototype.dispose;
+  let disposed = 0;
+  WhistleSTT.prototype.dispose = async function (this: unknown) {
+    disposed += 1;
+    return original.call(this);
+  };
+  try {
+    for (let i = 0; i < 3; i++) {
+      let code: string | undefined;
+      try {
+        await STTProcessor.transcribe(AUDIO, "whistle", {}, slice);
+      } catch (error) {
+        code = (error as STTError).code;
+      }
+      assertEqual(
+        code,
+        STT_ERROR_CODES.PROVIDER_NOT_CONFIGURED,
+        "the unconfigured engine is reported",
+      );
+    }
+    assertEqual(disposed, 3, "every per-call handler was disposed");
+
+    // The registry's own handler is shared: calls that use it must not dispose it.
+    const shared = new WhistleSTT({
+      modelDir: "/nonexistent/whistle",
+      autoDownload: false,
+    });
+    STTProcessor.registerHandler("whistle", shared);
+    disposed = 0;
+    try {
+      await STTProcessor.transcribe(AUDIO, "whistle", {});
+    } catch {
+      // unconfigured, as above
+    }
+    assertEqual(disposed, 0, "the registered handler is left alone");
+  } finally {
+    WhistleSTT.prototype.dispose = original;
+  }
 });
 
 // test() records a failure rather than throwing, so every test above has run

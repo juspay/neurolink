@@ -119,3 +119,17 @@ before deciding which engine transcribes.
 #### Returns
 
 `string` \| `undefined`
+
+---
+
+### dispose()?
+
+> `optional` **dispose**(): `void` \| `Promise`\<`void`\>
+
+Releases what the handler holds (a worker thread, a loaded model). The
+SDK calls it on handlers it builds for a single call; handlers registered
+with `STTProcessor.registerHandler` are shared and never disposed by it.
+
+#### Returns
+
+`void` \| `Promise`\<`void`\>

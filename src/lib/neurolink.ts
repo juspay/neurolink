@@ -413,6 +413,7 @@ import { isNestedOperation, tracers } from "./telemetry/tracers.js";
 // Voice integration imports
 import type {
   STTCredentials,
+  STTHandler,
   STTCorrectionDeps,
   STTResult,
   TranscribeDeps,
@@ -20009,7 +20010,11 @@ Current user's request: ${currentInput}`;
       this.buildTranscribeDeps(options.credentials?.stt),
       import("./voice/transcribe.js"),
     ]);
-    return runTranscribe(options, deps);
+    try {
+      return await runTranscribe(options, deps);
+    } finally {
+      await deps.release?.();
+    }
   }
 
   /**
@@ -20034,7 +20039,11 @@ Current user's request: ${currentInput}`;
       this.buildTranscribeDeps(options.credentials?.stt),
       import("./voice/transcribeStream.js"),
     ]);
-    yield* runTranscribeStream(options, deps);
+    try {
+      yield* runTranscribeStream(options, deps);
+    } finally {
+      await deps.release?.();
+    }
   }
 
   /**
@@ -20115,21 +20124,44 @@ Current user's request: ${currentInput}`;
     // Same precedence as STTProcessor.resolveHandler, synchronously: a
     // credentials slice for the provider builds a handler from it; else the
     // registered handler; else, for a shipped provider, one from the env.
+    // Handlers built here are not the registry's: they are collected and
+    // disposed by `release()` once the request is done.
+    const created: STTHandler[] = [];
+    const build = (...args: Parameters<typeof createSTTHandler>) => {
+      const handler = createSTTHandler(...args);
+      created.push(handler);
+      return handler;
+    };
     const getHandler = (name: string) => {
       if (resolveCallSTTEndpoints(credentials)[name.trim().toLowerCase()]) {
-        return createSTTHandler(name, credentials);
+        return build(name, credentials);
       }
       const descriptor = getSTTProviderDescriptor(name);
       if (!descriptor) {
         return STTProcessor.getHandler(name);
       }
       if (credentials?.[descriptor.credentialsKey] !== undefined) {
-        return createSTTHandler(descriptor.name, credentials);
+        return build(descriptor.name, credentials);
       }
-      return (
-        STTProcessor.getHandler(descriptor.name) ??
-        createSTTHandler(descriptor.name)
+      return STTProcessor.getHandler(descriptor.name) ?? build(descriptor.name);
+    };
+    const release = async () => {
+      const results = await Promise.allSettled(
+        created.splice(0).map(async (handler) => handler.dispose?.()),
       );
+      // One failed disposal must not stop the others, but it stays visible.
+      // Only the error message is logged: the handlers hold the credentials.
+      for (const result of results) {
+        if (result.status === "rejected") {
+          logger.warn(
+            `[NeuroLink] Failed to dispose an STT handler: ${
+              result.reason instanceof Error
+                ? result.reason.message
+                : String(result.reason)
+            }`,
+          );
+        }
+      }
     };
 
     return {
@@ -20139,6 +20171,7 @@ Current user's request: ${currentInput}`;
       resolveProvider,
       getHandler,
       attachmentPolicy: this.attachmentPolicy,
+      release,
     };
   }
 
