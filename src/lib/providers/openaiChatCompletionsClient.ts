@@ -916,10 +916,13 @@ export const parseSSEStream = async (
     if (chunk.error) {
       streamErr ??= streamFailure(
         "OPENAI_COMPAT_STREAM_ERROR_FRAME",
-        `Upstream sent an error frame mid-stream: ${
-          chunk.error.message ?? JSON.stringify(chunk.error)
-        }`,
-        { upstreamError: chunk.error, partialTextLength: result.text.length },
+        `Upstream sent an error frame mid-stream: ${String(
+          chunk.error.message ?? JSON.stringify(chunk.error),
+        ).slice(0, 500)}`,
+        {
+          upstreamError: JSON.stringify(chunk.error).slice(0, 500),
+          partialTextLength: result.text.length,
+        },
       );
       return;
     }
