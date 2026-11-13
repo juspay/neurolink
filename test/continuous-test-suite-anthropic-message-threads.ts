@@ -25,7 +25,11 @@
  */
 
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer as createNetServer } from "node:net";
+import { tmpdir } from "node:os";
+import tls from "node:tls";
+import { join } from "node:path";
 import { createServer, type IncomingHttpHeaders, type Server } from "node:http";
 import { z } from "zod";
 import { jsonSchema } from "../dist/index.js";
@@ -933,33 +937,97 @@ const freePort = (): Promise<number> =>
 
 // NeuroLink falls back to in-process memory when Redis cannot be reached, which
 // would let a "Redis" case pass without Redis. Count the keys the server holds.
-const redisKeyCount = (port: number, password?: string): number => {
+const redisKeyCount = (
+  port: number,
+  password?: string,
+  cert?: string,
+): number => {
   const out = spawnSync(
     "redis-cli",
     [
       "-p",
       String(port),
+      ...(cert ? ["--tls", "--cacert", cert] : []),
       ...(password ? ["-a", password, "--no-auth-warning"] : []),
       "dbsize",
     ],
     { encoding: "utf8" },
   );
-  return Number.parseInt(out.stdout?.trim() ?? "0", 10) || 0;
+  // A failed redis-cli must not read as "the server holds no keys".
+  const text = out.stdout?.trim() ?? "";
+  if (out.error || out.status !== 0 || !/^\d+$/.test(text)) {
+    throw new Error(`redis-cli dbsize failed (status ${out.status})`);
+  }
+  return Number(text);
 };
 
-async function startRedis(password?: string): Promise<{
+// With `tls`, the server listens on TLS only, behind a self-signed certificate
+// for 127.0.0.1 that this call generates. Null when redis-server is missing,
+// or has no TLS support, or openssl is missing.
+async function startRedis(
+  password?: string,
+  tls = false,
+): Promise<{
   port: number;
+  cert: string | undefined;
   stop: () => void;
 } | null> {
   if (spawnSync("redis-server", ["--version"]).status !== 0) {
     return null;
   }
+  let certDir: string | undefined;
+  let cert: string | undefined;
+  let key: string | undefined;
+  if (tls) {
+    certDir = mkdtempSync(join(tmpdir(), "threads-redis-tls-"));
+    cert = join(certDir, "cert.pem");
+    key = join(certDir, "key.pem");
+    const made = spawnSync(
+      "openssl",
+      [
+        "req",
+        "-x509",
+        "-newkey",
+        "rsa:2048",
+        "-nodes",
+        "-keyout",
+        key,
+        "-out",
+        cert,
+        "-days",
+        "2",
+        "-subj",
+        "/CN=localhost",
+        "-addext",
+        "subjectAltName=DNS:localhost,IP:127.0.0.1",
+      ],
+      { stdio: "ignore" },
+    );
+    if (made.status !== 0) {
+      rmSync(certDir, { recursive: true, force: true });
+      return null;
+    }
+  }
   const port = await freePort();
   const child: ChildProcess = spawn(
     "redis-server",
     [
-      "--port",
-      String(port),
+      ...(tls && cert && key
+        ? [
+            "--port",
+            "0",
+            "--tls-port",
+            String(port),
+            "--tls-cert-file",
+            cert,
+            "--tls-key-file",
+            key,
+            "--tls-ca-cert-file",
+            cert,
+            "--tls-auth-clients",
+            "no",
+          ]
+        : ["--port", String(port)]),
       "--bind",
       "127.0.0.1",
       "--save",
@@ -977,6 +1045,7 @@ async function startRedis(password?: string): Promise<{
       [
         "-p",
         String(port),
+        ...(cert ? ["--tls", "--cacert", cert] : []),
         ...(password ? ["-a", password, "--no-auth-warning"] : []),
         "ping",
       ],
@@ -987,11 +1056,27 @@ async function startRedis(password?: string): Promise<{
     }
     if (Date.now() > until) {
       child.kill();
+      if (certDir) {
+        rmSync(certDir, { recursive: true, force: true });
+      }
+      if (tls) {
+        // A build without TLS refuses the flags; that is a missing capability.
+        return null;
+      }
       throw new Error("redis-server did not start");
     }
     await new Promise((r) => setTimeout(r, 100));
   }
-  return { port, stop: () => void child.kill() };
+  return {
+    port,
+    cert,
+    stop: () => {
+      child.kill();
+      if (certDir) {
+        rmSync(certDir, { recursive: true, force: true });
+      }
+    },
+  };
 }
 
 await test("redis memory: a session continues the thread across calls from the history Redis rebuilt", async () => {
@@ -1106,6 +1191,120 @@ await test("redis memory with a password: a session continues the thread from th
       "call 2 sends only its new message",
     );
   } finally {
+    restore();
+    await server.close();
+    await nl.dispose().catch(() => undefined);
+    redis.stop();
+  }
+});
+
+// A `rediss://` URL is how a caller reaches a TLS Redis. The server here uses a
+// self-signed certificate, so the positive case adds that one certificate to
+// the process's default trust (verification stays on, hostname included) for
+// its own duration and the negative case leaves it out. Without that control a
+// key count above zero could not tell "TLS worked" from "nothing was checked".
+// There is no cluster case: the Redis client NeuroLink ships is single-node.
+const withTlsTrust = (cert: string | undefined): (() => void) => {
+  if (cert === undefined) {
+    return () => undefined;
+  }
+  const original = tls.getCACertificates("default");
+  tls.setDefaultCACertificates([...original, readFileSync(cert, "utf8")]);
+  return () => tls.setDefaultCACertificates(original);
+};
+
+await test("redis memory over TLS: a session continues the thread from the history a rediss:// Redis rebuilt", async () => {
+  const redis = await startRedis(undefined, true);
+  if (redis === null) {
+    throw new Skip("no TLS-capable redis-server (or openssl) on PATH");
+  }
+  const server = await startStandIn((i, body) =>
+    body.stream === true
+      ? { frames: textTurn(`answer ${i}`, `msg_${i}`) }
+      : jsonText("A Title", `title_${i}`),
+  );
+  const turns = () => server.calls.filter((c) => c.body.stream === true);
+  const restore = withAnthropicEnv(server.port, "redis");
+  const restoreTls = withTlsTrust(redis.cert);
+  const nl = new NeuroLink({
+    conversationMemory: {
+      enabled: true,
+      summarizationProvider: "anthropic",
+      summarizationModel: MODEL,
+      redisConfig: {
+        url: `rediss://127.0.0.1:${redis.port}`,
+        keyPrefix: `threads-tls-${process.pid}:`,
+      },
+    },
+  });
+  const client: SessionClient = { nl, restore: () => undefined };
+  try {
+    await sessionTurn(client, "first question");
+    await sessionTurn(client, "second question");
+    assert(
+      redisKeyCount(redis.port, undefined, redis.cert) > 0,
+      "the history never reached the TLS Redis (silent in-memory fallback)",
+    );
+    assertEqual(threadOf(turns()[0]), '{"type":"create"}', "call 1");
+    assertEqual(
+      threadOf(turns()[1]),
+      '{"type":"continue","previous_message_id":"msg_0"}',
+      "call 2 continues from the history the TLS Redis rebuilt",
+    );
+    assertEqual(
+      messagesOf(turns()[1]).length,
+      1,
+      "call 2 sends only its new message",
+    );
+  } finally {
+    restoreTls();
+    restore();
+    await server.close();
+    await nl.dispose().catch(() => undefined);
+    redis.stop();
+  }
+});
+
+await test("redis memory over TLS, certificate not trusted: nothing reaches Redis, and the session still threads in memory", async () => {
+  const redis = await startRedis(undefined, true);
+  if (redis === null) {
+    throw new Skip("no TLS-capable redis-server (or openssl) on PATH");
+  }
+  const server = await startStandIn((i, body) =>
+    body.stream === true
+      ? { frames: textTurn(`answer ${i}`, `msg_${i}`) }
+      : jsonText("A Title", `title_${i}`),
+  );
+  const turns = () => server.calls.filter((c) => c.body.stream === true);
+  const restore = withAnthropicEnv(server.port, "redis");
+  const restoreTls = withTlsTrust(undefined);
+  const nl = new NeuroLink({
+    conversationMemory: {
+      enabled: true,
+      summarizationProvider: "anthropic",
+      summarizationModel: MODEL,
+      redisConfig: {
+        url: `rediss://127.0.0.1:${redis.port}`,
+        keyPrefix: `threads-tls-neg-${process.pid}:`,
+      },
+    },
+  });
+  const client: SessionClient = { nl, restore: () => undefined };
+  try {
+    await sessionTurn(client, "first question");
+    await sessionTurn(client, "second question");
+    assertEqual(
+      redisKeyCount(redis.port, undefined, redis.cert),
+      0,
+      "a self-signed certificate must be rejected by default, so no key lands",
+    );
+    assertEqual(
+      threadOf(turns()[1]),
+      '{"type":"continue","previous_message_id":"msg_0"}',
+      "the thread still continues from the in-memory fallback",
+    );
+  } finally {
+    restoreTls();
     restore();
     await server.close();
     await nl.dispose().catch(() => undefined);
