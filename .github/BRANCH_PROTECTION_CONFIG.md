@@ -127,8 +127,11 @@ The single-commit policy is enforced by `🔒 Single Commit Policy Validation`
 ## Verification after applying
 
 1. `branch-protection-audit.yml` goes green on its next hourly run (or
-   `gh workflow run branch-protection-audit.yml`) and its log carries no
-   `::warning::` about the `pull_request` rule.
+   `gh workflow run branch-protection-audit.yml`) and the run shows no warning
+   annotation about the `pull_request` rule. Check the run's annotations, not a
+   text search of the log: the step echoes its own script, so `echo
+"::warning::release has no pull_request rule..."` lines appear in the log
+   even on a green run and are script text, not annotations.
 2. A direct push to `release` is refused with `GH013` naming the
    `pull_request` rule, not only the status checks.
 3. A pull request with five green checks and no approval shows "Review

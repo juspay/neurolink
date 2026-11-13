@@ -315,6 +315,44 @@ for await (const chunk of result.stream) {
 - **Size bounds.** Word and Excel files are bounded at 100 MB each, and a presentation's extracted content at 100 MB in total (the limits live in `src/lib/processors/config/sizeLimits.ts`). Files over the 200 MB general ceiling are refused when loaded.
 - **Prompt size.** The extracted text counts against the model's context window. A big workbook or a long document can fill it; use `sheetName`, a leaner `formatStyle`, or a model with a larger window.
 
+## Dependency advisories for Excel support
+
+Excel parsing uses `exceljs` 4.4.0, which is an optional dependency of `@juspay/neurolink` and is loaded only when a spreadsheet is processed. `exceljs` depends on `archiver-utils` and `readdir-glob`, which pull in older `glob` 7 and `minimatch` 3 and 5 releases. Those `minimatch` versions are affected by high-severity ReDoS advisories (GHSA-7r86-cg39-jmmj, GHSA-23c5-xmqv-rm74, GHSA-3ppc-4f35-3m26); the overrides below move both packages to patched releases. 4.4.0 is the latest `exceljs` release, so there is no upstream fix to upgrade to.
+
+This repository mitigates the advisories with `pnpm.overrides` in its own `package.json`. Overrides in a published package are not applied when someone installs `@juspay/neurolink` as a dependency, so if you install the optional `exceljs` you get the vulnerable transitive versions unless you add overrides in your project. Exposure is low: NeuroLink only calls `exceljs` to read spreadsheets you pass in, and the advisories concern glob-pattern matching, not spreadsheet parsing.
+
+```json
+{
+  "pnpm": {
+    "overrides": {
+      "archiver-utils>glob": "14.0.2",
+      "readdir-glob>minimatch": "11.0.2"
+    }
+  }
+}
+```
+
+On pnpm 11 and later, `package.json#pnpm` is not read. Put the same overrides in `pnpm-workspace.yaml`:
+
+```yaml
+overrides:
+  "archiver-utils>glob": "14.0.2"
+  "readdir-glob>minimatch": "11.0.2"
+```
+
+With npm, use the equivalent nested form:
+
+```json
+{
+  "overrides": {
+    "archiver-utils": { "glob": "14.0.2" },
+    "readdir-glob": { "minimatch": "11.0.2" }
+  }
+}
+```
+
+Those are the versions this repository pins. Its other `glob` and `minimatch` overrides cover unrelated dependency trees, so these two are all `exceljs` needs; check the current `package.json` overrides before copying them.
+
 ## Troubleshooting
 
 ### The model says it cannot read the document
