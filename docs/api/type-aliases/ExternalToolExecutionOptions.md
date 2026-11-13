@@ -42,3 +42,12 @@ Whether to validate input parameters
 > `optional` **validateOutput?**: `boolean`
 
 Whether to validate output
+
+---
+
+### signal?
+
+> `optional` **signal?**: `AbortSignal`
+
+Aborting it cancels the in-flight MCP request: the SDK rejects the call
+and sends `notifications/cancelled` to the server.

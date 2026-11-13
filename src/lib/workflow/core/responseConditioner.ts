@@ -237,6 +237,8 @@ Output ONLY the synthesized response, nothing else.`;
     temperature: config?.synthesisModel?.temperature || 0.3,
     maxTokens: 2000,
     timeout: 30000,
+    // Synthesis rewrites text; it is given no tools.
+    disableTools: true,
   });
 
   if (!result || !result.content) {

@@ -228,6 +228,8 @@ async function executeSingleJudge(
     temperature: judge.temperature || 0.1,
     maxTokens: judge.maxTokens || 2000,
     timeout: timeout || judge.timeout || 10000,
+    // A judge scores text; it is given no tools.
+    disableTools: true,
   });
 
   // Parse judge response

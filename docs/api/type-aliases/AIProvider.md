@@ -156,7 +156,7 @@ must treat absence as "this provider cannot decide".
 
 ###### executeTool
 
-(`toolName`, `params`) => `Promise`\<`unknown`\>
+(`toolName`, `params`, `options?`) => `Promise`\<`unknown`\>
 
 ##### functionTag
 

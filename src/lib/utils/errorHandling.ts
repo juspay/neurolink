@@ -7,7 +7,7 @@ import { MAX_TIMER_MS } from "../constants/timeouts.js";
 import type { StructuredError } from "../types/index.js";
 import { logger } from "./logger.js";
 import { CircuitBreakerOpenError } from "../types/index.js";
-import { HITLTimeoutError } from "../hitl/hitlErrors.js";
+import { HITLError } from "../hitl/hitlErrors.js";
 
 // Error codes for different scenarios
 export const ERROR_CODES = {
@@ -197,7 +197,9 @@ export class ErrorFactory {
       message: `Tool '${toolName}' execution failed: ${originalError.message}`,
       category: ErrorCategory.EXECUTION,
       severity: ErrorSeverity.HIGH,
-      retriable: true,
+      // A human's answer (or a withdrawn card) is final: retrying would raise
+      // a second card for a call that was already decided.
+      retriable: !(originalError instanceof HITLError),
       originalError,
       toolName,
       serverId,
@@ -1371,29 +1373,55 @@ export class CircuitBreaker {
     this.name = name;
   }
 
-  async execute<T>(operation: () => Promise<T>): Promise<T> {
+  /**
+   * Run `operation` through the breaker. An outcome `options.isCancellation`
+   * accepts stays out of the count: a failure is rethrown without being
+   * counted, and a result is returned without resetting the count. The
+   * predicate gets the error on failure and nothing on success. A call its
+   * caller cancelled says nothing about the dependency's health.
+   */
+  async execute<T>(
+    operation: () => Promise<T>,
+    options?: { isCancellation?: (error?: unknown) => boolean },
+  ): Promise<T> {
     if (this.state === "open") {
-      const retryAfterMs =
-        this.resetTimeoutMs - (Date.now() - this.lastFailureTime);
-      if (retryAfterMs > 0) {
-        throw new CircuitBreakerOpenError({
-          breakerName: this.name,
-          retryAfter: new Date(this.lastFailureTime + this.resetTimeoutMs),
-          retryAfterMs,
-          breakerState: "open",
-          failureCount: this.failures,
-        });
-      }
+      this.assertAvailable();
       this.state = "half-open";
     }
 
     try {
       const result = await operation();
-      this.onSuccess();
+      if (!options?.isCancellation?.()) {
+        this.onSuccess();
+      }
       return result;
     } catch (error) {
-      this.onFailure();
+      if (!options?.isCancellation?.(error)) {
+        this.onFailure();
+      }
       throw error;
+    }
+  }
+
+  /**
+   * Throw `CircuitBreakerOpenError` while the breaker is open and its reset
+   * timeout has not elapsed. Unlike `execute`, it never moves an elapsed
+   * breaker to half-open, so a caller can ask first without taking the probe.
+   */
+  assertAvailable(): void {
+    if (this.state !== "open") {
+      return;
+    }
+    const retryAfterMs =
+      this.resetTimeoutMs - (Date.now() - this.lastFailureTime);
+    if (retryAfterMs > 0) {
+      throw new CircuitBreakerOpenError({
+        breakerName: this.name,
+        retryAfter: new Date(this.lastFailureTime + this.resetTimeoutMs),
+        retryAfterMs,
+        breakerState: "open",
+        failureCount: this.failures,
+      });
     }
   }
 
@@ -1459,15 +1487,47 @@ export function isAbortError(error: unknown): boolean {
 }
 
 /**
+ * Throw a typed, non-retriable abort error once `signal` has fired, so a call
+ * cancelled before it starts never runs. The signal's reason is kept when it
+ * is an Error (a loop's per-tool deadline names itself that way).
+ */
+export function throwIfSignalAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) {
+    throw ErrorFactory.aborted(
+      signal.reason instanceof Error ? signal.reason : undefined,
+    );
+  }
+}
+
+/**
+ * Whether `signal` fired because a caller cancelled the call (its own signal,
+ * or the turn's abort), not because a deadline expired. A per-tool deadline
+ * (the loop engine's, the guard's, an attempt's) aborts with a reason named
+ * "TimeoutError", as `AbortSignal.timeout()`'s is too, and is evidence about
+ * the tool. Any other reason, including none, is a cancellation and is not:
+ * so a turn clock that aborts with no reason (the Vertex and AI Studio turn
+ * limits) counts as a cancellation.
+ */
+export function isCancelledByCaller(signal: AbortSignal | undefined): boolean {
+  if (!signal?.aborted) {
+    return false;
+  }
+  const reason: unknown = signal.reason;
+  return !(reason instanceof Error && reason.name === "TimeoutError");
+}
+
+/**
  * Error handler that decides whether to retry based on error type
  */
 export function isRetriableError(error: Error): boolean {
-  if (error instanceof NeuroLinkError) {
-    return error.retriable;
+  // Denied, timed-out and cancelled confirmations are decisions, not faults:
+  // a retry would ask again, or act without the approval that was withheld.
+  if (error instanceof HITLError) {
+    return false;
   }
 
-  if (error instanceof HITLTimeoutError) {
-    return false;
+  if (error instanceof NeuroLinkError) {
+    return error.retriable;
   }
 
   // Check for common retriable error patterns

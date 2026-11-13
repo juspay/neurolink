@@ -328,14 +328,20 @@ export function registerAgentTool(
         required: ["task"],
       };
 
-  host.registerTool(name, {
+  // Never retried: a retry would start a second worker run for the same
+  // call, as for delegate_task.
+  host.registerTool(
     name,
-    description: `Delegate to agent: ${definition.name} — ${definition.description}`,
-    inputSchema: inputSchema as Record<string, unknown>,
-    execute: async (params: unknown, context?: unknown) => {
-      return executeDelegation(host, registration, params, context);
+    {
+      name,
+      description: `Delegate to agent: ${definition.name} — ${definition.description}`,
+      inputSchema: inputSchema as Record<string, unknown>,
+      execute: async (params: unknown, context?: unknown) => {
+        return executeDelegation(host, registration, params, context);
+      },
     },
-  });
+    { maxRetries: 0 },
+  );
 
   logger.debug("[AgentToolRegistrar] Registered agent tool", {
     name,

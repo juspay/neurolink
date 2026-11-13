@@ -208,6 +208,25 @@ export type ConfirmationTimeoutEvent = {
 };
 
 /**
+ * Event payload for a withdrawn confirmation
+ * Emitted when the call that asked was aborted before anyone answered, so the
+ * approval UI can retire the card: a later answer to it runs nothing.
+ */
+export type ConfirmationCancelledEvent = {
+  type: "hitl:cancelled";
+  payload: {
+    /** Confirmation ID that was withdrawn */
+    confirmationId: string;
+
+    /** Tool name whose confirmation was withdrawn */
+    toolName: string;
+
+    /** Why it was withdrawn: the abort reason, when the caller gave one */
+    reason: string;
+  };
+};
+
+/**
  * HITL audit log entry
  * Used for compliance and debugging purposes
  */
@@ -221,7 +240,8 @@ export type HITLAuditLog = {
     | "confirmation-approved"
     | "confirmation-rejected"
     | "confirmation-timeout"
-    | "confirmation-auto-approved";
+    | "confirmation-auto-approved"
+    | "confirmation-cancelled";
 
   /** Tool that was involved */
   toolName: string;
@@ -284,16 +304,24 @@ export type HITLManager = {
   /** Check if a tool requires confirmation based on configuration */
   requiresConfirmation(toolName: string, args?: unknown): boolean;
 
-  /** Request confirmation for a tool execution */
+  /**
+   * Request confirmation for a tool execution; aborting `context.signal`
+   * withdraws it. The call that asked stops waiting on that abort even when
+   * an implementation ignores the signal: its card then stays until it is
+   * answered, and the answer runs nothing.
+   */
   requestConfirmation(
     toolName: string,
     arguments_: unknown,
-    context?: {
-      serverId?: string;
-      sessionId?: string;
-      userId?: string;
-    },
+    context?: HITLConfirmationContext,
   ): Promise<ConfirmationResult>;
+
+  /**
+   * Withdraw a pending confirmation; false when nothing was pending under this
+   * ID. Optional so existing implementations of this type still compile; the
+   * shipped HITLManager has it.
+   */
+  cancelConfirmation?(confirmationId: string, reason?: string): boolean;
 
   /** Process user response to confirmation request */
   processUserResponse(
@@ -330,6 +358,93 @@ export type HITLManager = {
   emit(event: string, ...args: unknown[]): boolean;
 };
 
+/**
+ * What the human-in-the-loop step decided for one tool call. Only `approved`
+ * and `not-required` let the tool run.
+ */
+export type HITLDecision =
+  | "approved"
+  | "denied"
+  | "timeout"
+  | "cancelled"
+  | "not-required";
+
+/**
+ * Per-call HITL state, shared by every attempt of one `executeTool` call.
+ *
+ * The confirmation step writes `decision` once it has decided (after the
+ * human answered, or the wait ended), never before; an attempt that arrives
+ * with the decision for its arguments is not asked again. A state whose `decision` is still undefined has not been
+ * confirmed. An approval (or a `not-required` decision) covers the arguments
+ * it was made for. A state you pass yourself is compared with a copy of
+ * those arguments taken when the decision was made: reused with other
+ * arguments, or with the same object changed in place since, it is decided
+ * again and `decision` is overwritten; arguments that cannot be copied (a
+ * function value, for example) are always decided again. A `decision` you
+ * write yourself, rather than the confirmation step, is used as it is. The
+ * state `executeTool` makes for its own call is bound to the arguments
+ * object itself, so one approval covers every attempt of that call.
+ */
 export type HITLExecutionState = {
-  triggered: boolean;
+  /** Recorded after the confirmation step; undefined until then */
+  decision?: HITLDecision;
+
+  /**
+   * Read-only alias of `decision === "approved"`, kept for callers that read
+   * it. Never true before the human approved. A plain object passed by a
+   * caller does not carry it; read `decision` instead.
+   */
+  readonly triggered?: boolean;
 };
+
+/** Where, and for whom, a confirmation is requested */
+export type HITLConfirmationContext = {
+  /** MCP server ID (if this is an external tool) */
+  serverId?: string;
+
+  /** User session identifier */
+  sessionId?: string;
+
+  /** User identifier */
+  userId?: string;
+
+  /** Aborting it withdraws the pending confirmation (`hitl:cancelled`) */
+  signal?: AbortSignal;
+};
+
+/**
+ * Result of the shared confirmation step: the arguments to run with, or why
+ * the call must not run.
+ */
+export type HITLConfirmationOutcome =
+  | {
+      decision: "approved" | "not-required";
+      /** The approver's modified arguments, else the requested ones */
+      args: unknown;
+    }
+  | {
+      decision: "denied";
+      /** The approver's reason, if one was given */
+      reason?: string;
+    }
+  | {
+      decision: "timeout" | "cancelled";
+      /** HITLTimeoutError, HITLCancelledError, or whatever ended the wait */
+      error: Error;
+    };
+
+/**
+ * What the confirmation step means for one tool call, the same on every
+ * execution path: run with these arguments, or refuse with this error.
+ */
+export type HITLOutcomeAction =
+  | {
+      run: true;
+      /** The approver's modified arguments, else the requested ones */
+      args: unknown;
+    }
+  | {
+      run: false;
+      /** Why the call must not run; its message is the refusal text */
+      error: Error;
+    };

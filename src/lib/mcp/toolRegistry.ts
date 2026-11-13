@@ -30,11 +30,20 @@ import {
 import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
 import { detectCategory, createMCPServerInfo } from "../utils/mcpDefaults.js";
 import { FlexibleToolValidator } from "./flexibleToolValidator.js";
-import { ErrorFactory } from "../utils/errorHandling.js";
+import {
+  ErrorFactory,
+  isAbortError,
+  throwIfSignalAborted,
+} from "../utils/errorHandling.js";
 
-import { HITLUserRejectedError, HITLTimeoutError } from "../hitl/hitlErrors.js";
+import { HITLError } from "../hitl/hitlErrors.js";
+import {
+  isRefusalResult,
+  markRefusalResult,
+  resolveToolCallConfirmation,
+} from "../hitl/toolCallConfirmation.js";
 import { withSpan, tracers, ATTR } from "../telemetry/index.js";
-import { SpanStatusCode } from "@opentelemetry/api";
+import { SpanStatusCode, type Span } from "@opentelemetry/api";
 import { getAuthContext } from "../auth/authContext.js";
 
 export class MCPToolRegistry extends MCPRegistry {
@@ -46,6 +55,12 @@ export class MCPToolRegistry extends MCPRegistry {
   > = new Map();
   private builtInServerInfos: MCPServerInfo[] = []; // DIRECT storage for MCPServerInfo
   private hitlManager?: HITLManager; // Optional HITL manager for safety mechanisms
+  /**
+   * Tools that must never go through a request batcher (agent tools). Kept
+   * on the registry, beside the tools themselves, so every NeuroLink
+   * instance that shares this registry sees the same mark.
+   */
+  private unbatchableTools = new Set<string>();
   // The owning NeuroLink's file-tool roots, for callers (HTTP tool routes, CLI)
   // that execute built-in tools on this registry without a bound policy.
   private fileToolRootResolver: () => FileToolRootPolicy = () =>
@@ -76,6 +91,23 @@ export class MCPToolRegistry extends MCPRegistry {
    */
   getHITLManager(): HITLManager | undefined {
     return this.hitlManager;
+  }
+
+  /**
+   * Mark a tool as never batched, or clear the mark. Agent tools are marked
+   * when they are registered.
+   */
+  setToolUnbatchable(toolName: string, unbatchable: boolean): void {
+    if (unbatchable) {
+      this.unbatchableTools.add(toolName);
+    } else {
+      this.unbatchableTools.delete(toolName);
+    }
+  }
+
+  /** Whether a tool must never go through a request batcher. */
+  isToolUnbatchable(toolName: string): boolean {
+    return this.unbatchableTools.has(toolName);
   }
 
   /**
@@ -454,90 +486,19 @@ export class MCPToolRegistry extends MCPRegistry {
           span.setAttribute("tool.arguments_present", args !== undefined);
           span.setAttribute("tool.arguments_size", argsStr.length);
 
-          // HITL Safety Check: Request confirmation if required
-          let finalArgs = args;
-          const HITLState = context?.hitlState;
-          if (
-            !HITLState?.triggered &&
-            this.hitlManager &&
-            this.hitlManager.isEnabled()
-          ) {
-            const requiresConfirmation = this.hitlManager.requiresConfirmation(
-              toolName,
-              args,
-            );
+          // HITL Safety Check. A call that NeuroLink.executeTool already gated
+          // arrives with its decision recorded and is never asked again; a
+          // direct caller without one is asked here.
+          const finalArgs = await this.confirmToolCall(
+            toolName,
+            args,
+            tool.serverId,
+            execContext,
+            span,
+          );
 
-            if (requiresConfirmation) {
-              registryLogger.info(
-                `Tool '${toolName}' requires HITL confirmation`,
-              );
-              span.addEvent("tool.hitl_requested");
-
-              try {
-                if (HITLState) {
-                  HITLState.triggered = true;
-                }
-                const confirmationResult =
-                  await this.hitlManager.requestConfirmation(toolName, args, {
-                    serverId: tool.serverId,
-                    sessionId: execContext.sessionId,
-                    userId: execContext.userId,
-                  });
-
-                if (!confirmationResult.approved) {
-                  // User rejected the tool execution
-                  span.addEvent("tool.hitl_rejected");
-                  throw new HITLUserRejectedError(
-                    `Tool execution rejected by user: ${confirmationResult.reason || "No reason provided"}`,
-                    toolName,
-                    confirmationResult.reason,
-                  );
-                }
-
-                span.addEvent("tool.hitl_approved");
-
-                // User approved - use modified arguments if provided
-                if (confirmationResult.modifiedArguments !== undefined) {
-                  finalArgs = confirmationResult.modifiedArguments;
-                  registryLogger.info(
-                    `Tool '${toolName}' arguments modified by user`,
-                  );
-                }
-
-                registryLogger.info(
-                  `Tool '${toolName}' approved for execution (response time: ${confirmationResult.responseTime}ms)`,
-                );
-              } catch (error) {
-                if (error instanceof HITLTimeoutError) {
-                  // Timeout occurred - user didn't respond in time
-                  registryLogger.warn(
-                    `Tool '${toolName}' execution timed out waiting for user confirmation`,
-                  );
-                  throw error;
-                } else if (error instanceof HITLUserRejectedError) {
-                  // User explicitly rejected
-                  registryLogger.info(
-                    `Tool '${toolName}' execution rejected by user`,
-                  );
-                  throw error;
-                } else {
-                  // Other HITL error (configuration, system error, etc.)
-                  registryLogger.error(
-                    `HITL confirmation failed for tool '${toolName}':`,
-                    error,
-                  );
-                  throw new Error(
-                    `HITL confirmation failed: ${error instanceof Error ? error.message : String(error)}`,
-                    { cause: error },
-                  );
-                }
-              }
-            } else {
-              registryLogger.debug(
-                `Tool '${toolName}' does not require HITL confirmation`,
-              );
-            }
-          }
+          // A call cancelled during its confirmation must not start.
+          throwIfSignalAborted(execContext.abortSignal);
 
           // Execute the actual tool (with potentially modified arguments)
           registryLogger.debug(
@@ -572,6 +533,10 @@ export class MCPToolRegistry extends MCPRegistry {
                 executionTime: Date.now() - startTime,
               },
             };
+            // A tool that returns another call's refusal returns a refusal.
+            if (isRefusalResult(toolResult)) {
+              markRefusalResult(result);
+            }
           } else {
             // Result is a raw value, wrap it in ToolResult format
             result = {
@@ -608,7 +573,17 @@ export class MCPToolRegistry extends MCPRegistry {
           );
           return result as T;
         } catch (error) {
-          registryLogger.error(`Tool execution failed: ${toolName}`, error);
+          if (error instanceof HITLError) {
+            // A human's "no" (or a withdrawn card) is an outcome, not a fault.
+            registryLogger.info(
+              `Tool '${toolName}' refused by its HITL confirmation: ${error.message}`,
+            );
+          } else if (isAbortError(error)) {
+            // So is a call its caller cancelled.
+            registryLogger.info(`Tool '${toolName}' stopped by its signal`);
+          } else {
+            registryLogger.error(`Tool execution failed: ${toolName}`, error);
+          }
 
           // Record failure on span
           span.setAttribute("tool.success", false);
@@ -644,9 +619,13 @@ export class MCPToolRegistry extends MCPRegistry {
               toolName,
               sessionId: context?.sessionId,
             },
-          } as T;
+          };
 
-          return errorResult;
+          return (
+            error instanceof HITLError
+              ? markRefusalResult(errorResult)
+              : errorResult
+          ) as T;
         }
       },
     );
@@ -790,6 +769,38 @@ export class MCPToolRegistry extends MCPRegistry {
       sessionId: context?.sessionId ?? randomUUID(),
       userId: context?.userId ?? authUserId,
     };
+  }
+
+  /**
+   * The registry's inline HITL check, for a caller that arrives without a
+   * recorded decision (a direct `executeTool` caller). Throws when the call
+   * must not run, which `executeTool` reports as `{ success: false }`;
+   * otherwise returns the arguments to run with.
+   */
+  private async confirmToolCall(
+    toolName: string,
+    args: unknown,
+    serverId: string | undefined,
+    execContext: ExecutionContext,
+    span: Span,
+  ): Promise<unknown> {
+    const action = await resolveToolCallConfirmation(
+      this.hitlManager,
+      toolName,
+      args,
+      execContext.hitlState,
+      {
+        serverId,
+        sessionId: execContext.sessionId,
+        userId: execContext.userId,
+        signal: execContext.abortSignal,
+      },
+      { log: (message) => registryLogger.info(message), span },
+    );
+    if (!action.run) {
+      throw action.error;
+    }
+    return action.args;
   }
 
   /**
@@ -1060,6 +1071,7 @@ export class MCPToolRegistry extends MCPRegistry {
         this.tools.delete(toolId);
         this.toolImplementations.delete(toolId); // Fix memory leak
         this.toolExecutionStats.delete(toolId); // Fix memory leak
+        this.unbatchableTools.delete(toolId);
         removedTools.push(toolId);
       }
     }

@@ -57,6 +57,7 @@ import {
 import { canDeliverVideoNatively } from "../../adapters/videoFormatSupport.js";
 import { logger } from "../../utils/logger.js";
 import { guardToolExecutor } from "../../core/toolExecutionGuards.js";
+import { isRefusalResult } from "../../hitl/toolCallConfirmation.js";
 import { resolveSamplingParams } from "../../models/modelRegistry.js";
 import {
   convertZodToJsonSchema,
@@ -124,7 +125,10 @@ export class DedupExecuteMap extends Map<string, Tool["execute"]> {
         return resultCache.get(key);
       }
       const result = await execute(args, options);
-      resultCache.set(key, result);
+      // A HITL refusal is never reused: the identical call asks again.
+      if (!isRefusalResult(result)) {
+        resultCache.set(key, result);
+      }
       return result;
     };
     return wrapped as Tool["execute"];

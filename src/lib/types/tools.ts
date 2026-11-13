@@ -89,6 +89,8 @@ export type ExecutionContext<T = StandardRecord> = {
   maxRetries?: number;
   startTime?: number;
   hitlState?: HITLExecutionState;
+  /** The caller's cancellation signal (`executeTool`'s `abortSignal` option) */
+  abortSignal?: AbortSignal;
 };
 
 /**
@@ -202,26 +204,30 @@ export type ToolExecutionOptions = {
  * Options for tool registration via registerTool()
  *
  * These options configure per-tool execution behavior. When not provided,
- * the SDK's global defaults are used (30s timeout, 2 retries), preserving
- * backward compatibility with existing production systems.
+ * `executeTool` uses the SDK's defaults: a 120 s timeout per attempt and 3
+ * retries (up to 4 attempts), 1 s apart. A per-call `executeTool` option
+ * overrides the registered value.
  *
  * @example
  * // Register with custom timeout and no retries
  * sdk.registerTool("myTool", tool, { timeout: 5000, maxRetries: 0 });
  *
- * // Register with defaults (same as before — no behavior change)
+ * // Register with the defaults
  * sdk.registerTool("myTool", tool);
  */
 export type ToolRegistrationOptions = {
-  /** Per-tool execution timeout in milliseconds. Only applied when explicitly set.
-   *  When omitted, the SDK's global default (30s) is used. */
+  /** Timeout for one attempt, in milliseconds. Only applied when explicitly
+   *  set. When omitted, the SDK's default (120 s) is used. */
   timeout?: number;
-  /** Maximum retry attempts on failure. Only applied when explicitly set.
-   *  When omitted, the SDK's global default (2 retries) is used.
-   *  Set to 0 to disable retries for this tool. */
+  /** Maximum retries after a failed attempt. Only applied when explicitly set.
+   *  When omitted, the SDK's default (3 retries, so up to 4 attempts) is used.
+   *  Set to 0 to disable retries for this tool, as you should for a tool
+   *  whose effect must not happen twice. */
   maxRetries?: number;
   /** Ceiling on the whole execution across every attempt and the delays
-   *  between them. When omitted, `timeout * (maxRetries + 1)` is used. */
+   *  between them. When omitted,
+   *  `timeout * (maxRetries + 1) + retryDelayMs * maxRetries` is used, the
+   *  retry delay being 1 s unless the call sets `retryDelayMs`. */
   totalTimeoutMs?: number;
   /**
    * Whether this tool's result may be served from the tool-result cache
@@ -275,6 +281,23 @@ export type ToolExecutionMetadata = {
 };
 
 /**
+ * Pauses the deadlines a model loop put around one tool call, for as long as
+ * the call waits for something outside the tool (a human confirmation).
+ * Returns the function that resumes them with the time that was left.
+ */
+export type PauseDeadline = () => () => void;
+
+/**
+ * A deadline that can be paused (`pause()` returns the resume function) and
+ * ended for good (`clear()`: a later resume re-arms nothing and the deadline
+ * never fires).
+ */
+export type PausableDeadline = {
+  pause: PauseDeadline;
+  clear: () => void;
+};
+
+/**
  * Tool execution context
  */
 export type ToolContext = {
@@ -282,6 +305,10 @@ export type ToolContext = {
   userId?: string;
   aiProvider?: string;
   metadata?: ToolExecutionMetadata;
+  /** The loop's signal for this call (its turn abort or per-tool deadline) */
+  abortSignal?: AbortSignal;
+  /** Pauses the loop's deadlines for this call while it waits for a human */
+  pauseDeadline?: PauseDeadline;
 };
 
 /**

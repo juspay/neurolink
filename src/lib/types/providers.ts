@@ -46,7 +46,7 @@ import type {
   SubscriptionInfo,
   OAuthToken,
 } from "./subscription.js";
-import type { Tool } from "./tools.js";
+import type { PauseDeadline, Tool } from "./tools.js";
 
 // Language-model handles, embedding/image models, and generation-result shapes.
 // These are declared locally in types/aiCompat.ts; consumers should import via
@@ -1057,6 +1057,28 @@ export type OpenAICompatConfigInput = Pick<
 // ============================================================================
 
 /**
+ * What a provider's tool loop passes to the `executeTool` handed to
+ * `setupToolExecutor`, for one model tool call.
+ */
+export type ProviderToolExecutorOptions = {
+  /** Attempt timeout set when the tool was registered */
+  timeout?: number;
+  /** Retries set when the tool was registered */
+  maxRetries?: number;
+  /**
+   * The loop's signal for this call: the turn's abort, or the loop's
+   * per-tool deadline. `NeuroLink.executeTool` takes it to the call's
+   * confirmation, its attempts and the tool's execution context.
+   */
+  abortSignal?: AbortSignal;
+  /**
+   * Pauses the loop's deadlines for this call. `NeuroLink.executeTool`'s
+   * confirmation gate calls it around the wait for a human.
+   */
+  pauseDeadline?: PauseDeadline;
+};
+
+/**
  * AI Provider type with flexible parameter support
  */
 export type AIProvider = {
@@ -1103,7 +1125,11 @@ export type AIProvider = {
   setupToolExecutor(
     sdk: {
       customTools: Map<string, unknown>;
-      executeTool: (toolName: string, params: unknown) => Promise<unknown>;
+      executeTool: (
+        toolName: string,
+        params: unknown,
+        options?: ProviderToolExecutorOptions,
+      ) => Promise<unknown>;
     },
     functionTag: string,
   ): void;

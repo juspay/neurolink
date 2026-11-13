@@ -932,7 +932,7 @@ bounded by evicting the least-recently-used session past 1000 sessions.
 
 #### checkCredentials()
 
-> **checkCredentials**(`input`): `Promise`\<\{ `provider`: `string`; `status`: `"network"` \| `"unknown"` \| `"ok"` \| `"expired"` \| `"missing"` \| `"denied"`; `detail`: `string`; \}\>
+> **checkCredentials**(`input`): `Promise`\<\{ `provider`: `string`; `status`: `"network"` \| `"unknown"` \| `"ok"` \| `"expired"` \| `"denied"` \| `"missing"`; `detail`: `string`; \}\>
 
 Curator P1-1: synchronous credential health check for a single provider.
 
@@ -958,7 +958,7 @@ the provider to check
 
 ##### Returns
 
-`Promise`\<\{ `provider`: `string`; `status`: `"network"` \| `"unknown"` \| `"ok"` \| `"expired"` \| `"missing"` \| `"denied"`; `detail`: `string`; \}\>
+`Promise`\<\{ `provider`: `string`; `status`: `"network"` \| `"unknown"` \| `"ok"` \| `"expired"` \| `"denied"` \| `"missing"`; `detail`: `string`; \}\>
 
 `{ provider, status, detail }`. Possible status values:
 
@@ -1512,6 +1512,32 @@ Disable tool result caching for this call
 
 Bypass the request batcher for this call
 
+###### abortSignal?
+
+`AbortSignal`
+
+The caller's cancellation signal. Aborting it while the call waits
+for a human confirmation withdraws the card (`hitl:cancelled`) and
+runs nothing. Once it has fired, no attempt starts: a call cancelled
+before it starts rejects with an abort error, gated or not (a gated
+one raises no card), and an abort between attempts stops the
+retries. A
+registered tool also receives it as `abortSignal` in its execution
+context, in place of any signal set with `setToolContext()`; one
+passed in `authContext` still wins, and is used for all of the above
+when this option is absent. A result produced after it fired is
+never cached, and a call that passes it is never batched.
+
+###### pauseDeadline?
+
+[`PauseDeadline`](../type-aliases/PauseDeadline.md)
+
+Pauses the caller's own deadline for this call (a model loop's
+per-tool bound) while the call waits for a human confirmation, and
+returns the function that resumes it. The gate calls it around the
+wait only, and every outcome resumes it, with the time that was left.
+Provider tool loops pass it; a direct caller rarely needs it.
+
 ###### authContext?
 
 \{\[`key`: `string`\]: `unknown`; `userId?`: `string`; `sessionId?`: `string`; `user?`: `Record`\<`string`, `unknown`\>; \}
@@ -1533,6 +1559,50 @@ Bypass the request batcher for this call
 `Promise`\<`T`\>
 
 Tool execution result
+
+---
+
+#### confirmBuiltInToolCall()
+
+> **confirmBuiltInToolCall**(`toolName`, `args`, `options?`): `Promise`\<[`HITLOutcomeAction`](../type-aliases/HITLOutcomeAction.md)\>
+
+Confirm one call to a built-in tool that a model loop runs directly (the
+file, time and math tools a provider hands the model, which never pass
+through `executeTool`). It is the same confirmation step `executeTool`
+runs for a registered tool, before the tool's body: the same manager, the
+same rule (`requiresConfirmation` on the tool's name and arguments), the
+same outcomes, and the call's signal and the loop's deadline pause. The
+built-ins that change the machine (`writeFile`, `executeBashCommand`) are
+also asked when the rule does not match, unless the host set
+`hitl.confirmBuiltinTools: false`.
+
+Returns `{ run: true, args }` (the approved, possibly modified,
+arguments) or `{ run: false, error }` for a refusal. A tool that needs no
+confirmation, or HITL off, runs unchanged and nothing is asked.
+
+##### Parameters
+
+###### toolName
+
+`string`
+
+###### args
+
+`unknown`
+
+###### options?
+
+###### abortSignal?
+
+`AbortSignal`
+
+###### pauseDeadline?
+
+[`PauseDeadline`](../type-aliases/PauseDeadline.md)
+
+##### Returns
+
+`Promise`\<[`HITLOutcomeAction`](../type-aliases/HITLOutcomeAction.md)\>
 
 ---
 
@@ -2475,11 +2545,24 @@ Tool parameters
 
 ###### options?
 
-Execution options
+Execution options. Aborting `abortSignal` withdraws the
+call's pending confirmation; a call whose signal has already fired is
+never sent to the server and rejects with an abort error, except that
+a result already in the tool-result cache for this call is returned
+first. `pauseDeadline` pauses the caller's deadline while that
+confirmation waits.
 
 ###### timeout?
 
 `number`
+
+###### abortSignal?
+
+`AbortSignal`
+
+###### pauseDeadline?
+
+[`PauseDeadline`](../type-aliases/PauseDeadline.md)
 
 ##### Returns
 

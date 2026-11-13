@@ -137,6 +137,35 @@ export async function raceWithAbort<T>(
 }
 
 /**
+ * The `abortSignal` in a tool's execute options (the AI SDK's second
+ * argument, which every model loop fills), or undefined when there is none.
+ */
+export function abortSignalOf(execOptions: unknown): AbortSignal | undefined {
+  if (
+    typeof execOptions !== "object" ||
+    execOptions === null ||
+    !("abortSignal" in execOptions)
+  ) {
+    return undefined;
+  }
+  const { abortSignal } = execOptions;
+  return isAbortSignalLike(abortSignal) ? abortSignal : undefined;
+}
+
+/**
+ * Recognised by shape, as ToolsManager's abort race recognises one: a signal
+ * from another realm or a polyfill is not an `instanceof AbortSignal`.
+ */
+function isAbortSignalLike(value: unknown): value is AbortSignal {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "addEventListener" in value &&
+    typeof value.addEventListener === "function"
+  );
+}
+
+/**
  * Execute a function with timeout protection.
  *
  * Alternative signature that accepts a function instead of a promise,

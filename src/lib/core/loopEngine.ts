@@ -14,6 +14,7 @@ import type {
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { withProviderRetry } from "../utils/providerRetry.js";
+import { TimeoutError, createPausableDeadline } from "../utils/async/index.js";
 import { resolveToolTimeoutMs } from "./constants.js";
 
 /**
@@ -107,15 +108,23 @@ async function executeToolCall(params: {
   // thing that will ever end a wedged one, so it must be able to hold the
   // event loop open long enough to fire. `finally` clears it the instant the
   // call settles, so it never outlives its tool.
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  //
+  // The call can pause it (`pauseDeadline`) while it waits for a human
+  // confirmation: that wait says nothing about the tool, and resuming keeps
+  // the time that was left. It aborts with a TimeoutError, as the guard's
+  // deadline does, which is how the circuit breaker tells a deadline from a
+  // caller's cancel (isCancelledByCaller).
+  let rejectDeadline: (error: Error) => void = () => undefined;
   const deadline = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => {
-      const error = new Error(
-        `Tool "${name}" execution timed out after ${toolTimeoutMs}ms`,
-      );
-      toolAbort.abort(error);
-      reject(error);
-    }, toolTimeoutMs);
+    rejectDeadline = reject;
+  });
+  const clock = createPausableDeadline(toolTimeoutMs, () => {
+    const error = new TimeoutError(
+      `Tool "${name}" execution timed out after ${toolTimeoutMs}ms`,
+      toolTimeoutMs,
+    );
+    toolAbort.abort(error);
+    rejectDeadline(error);
   });
 
   try {
@@ -124,12 +133,16 @@ async function executeToolCall(params: {
     // unhandled rejection and kill the consumer's process.
     return await Promise.race([
       Promise.resolve(
-        execute(args, { toolCallId, abortSignal: toolAbort.signal }),
+        execute(args, {
+          toolCallId,
+          abortSignal: toolAbort.signal,
+          pauseDeadline: clock.pause,
+        }),
       ),
       deadline,
     ]);
   } finally {
-    clearTimeout(timer);
+    clock.clear();
     turnSignal.removeEventListener("abort", onTurnAbort);
   }
 }
