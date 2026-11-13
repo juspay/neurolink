@@ -178,6 +178,37 @@ const NOT_SENT = (threw: boolean) => ({
   NOT_SENT: threw ? "generate threw" : "no probe tool in request",
 });
 
+/**
+ * The fixture text for a capture, refusing one that holds a NOT_SENT marker:
+ * pinning it would make every later run compare the marker with itself and pass.
+ */
+function fixtureText(captured: Record<string, Record<string, string>>): string {
+  const unsent = Object.entries(captured).flatMap(([route, shapes]) =>
+    Object.entries(shapes)
+      .filter(([, value]) => {
+        const parsed: unknown = JSON.parse(value);
+        return (
+          typeof parsed === "object" && parsed !== null && "NOT_SENT" in parsed
+        );
+      })
+      .map(([name, value]) => `${route}/${name} (${value})`),
+  );
+  if (unsent.length > 0) {
+    throw new Error(
+      `refusing to write ${FIXTURE}: no schema was captured for ${unsent.join(", ")}`,
+    );
+  }
+  const pinnedOut = Object.fromEntries(
+    Object.entries(captured).map(([route, shapes]) => [
+      route,
+      Object.fromEntries(
+        Object.entries(shapes).map(([k, v]) => [k, JSON.parse(v)]),
+      ),
+    ]),
+  );
+  return `${JSON.stringify(pinnedOut, null, 2)}\n`;
+}
+
 function probeTool(schema: z.ZodType) {
   return {
     probe: tool({
@@ -331,19 +362,31 @@ for (const [route, capture] of Object.entries(ROUTES)) {
 }
 
 if (updating) {
-  const pinnedOut = Object.fromEntries(
-    Object.entries(wire).map(([route, shapes]) => [
-      route,
-      Object.fromEntries(
-        Object.entries(shapes).map(([k, v]) => [k, JSON.parse(v)]),
-      ),
-    ]),
-  );
-  writeFileSync(FIXTURE, `${JSON.stringify(pinnedOut, null, 2)}\n`);
+  writeFileSync(FIXTURE, fixtureText(wire));
   console.log(
     `wrote ${Object.keys(SHAPES).length} pinned shapes for ${Object.keys(ROUTES).length} routes to ${FIXTURE}`,
   );
 }
+
+await test("fixture update refuses a capture that holds a NOT_SENT marker", async () => {
+  const sent = JSON.stringify({ type: "object" });
+  assert(
+    fixtureText({ route: { a: sent } }).includes('"type": "object"'),
+    "a fully captured route must still be written",
+  );
+  for (const threw of [true, false]) {
+    let message = "";
+    try {
+      fixtureText({ route: { a: sent, b: JSON.stringify(NOT_SENT(threw)) } });
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    assert(
+      message.includes("route/b"),
+      `a NOT_SENT capture (threw=${threw}) at route/b was not refused`,
+    );
+  }
+});
 
 const pinned: Record<string, Record<string, unknown>> = existsSync(FIXTURE)
   ? JSON.parse(readFileSync(FIXTURE, "utf8"))

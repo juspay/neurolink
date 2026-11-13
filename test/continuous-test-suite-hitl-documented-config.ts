@@ -695,10 +695,53 @@ await test("type-check control: a response with metadata satisfies ConfirmationR
   assertEqual(diagnostics.join("\n"), "");
 });
 
-const RESPONSE_EMIT = /\.emit\(\s*["']hitl:confirmation-response["']/;
+// `as const`, `satisfies`, parentheses and `!` leave the event name unchanged
+const unwrapped = (node: ts.Expression): ts.Expression =>
+  ts.isAsExpression(node) ||
+  ts.isSatisfiesExpression(node) ||
+  ts.isParenthesizedExpression(node) ||
+  ts.isNonNullExpression(node)
+    ? unwrapped(node.expression)
+    : node;
+
+// Offsets of the `(` that opens the arguments of every real
+// `.emit("hitl:confirmation-response", …)` call. Parsed rather than scanned,
+// so an emit inside a comment, string, template text or regular expression is
+// not a call, and `"hitl:confirmation-response" + ":debug"` is another event.
+const responseEmitOffsets = (code: string): number[] => {
+  const source = ts.createSourceFile(
+    "snippet.ts",
+    code,
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const offsets: number[] = [];
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      node.expression.name.text === "emit" &&
+      node.arguments.length > 0
+    ) {
+      const event = unwrapped(node.arguments[0]);
+      if (
+        ts.isStringLiteralLike(event) &&
+        event.text === "hitl:confirmation-response"
+      ) {
+        // The argument list starts right after its `(`, whatever precedes it
+        offsets.push(node.arguments.pos - 1);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return offsets;
+};
 
 await test("every documented handler checks its reply against ConfirmationResponseEvent", async () => {
-  const emitting = hitlSnippets.filter(({ code }) => RESPONSE_EMIT.test(code));
+  const emitting = hitlSnippets.filter(
+    ({ code }) => responseEmitOffsets(code).length > 0,
+  );
   assert(
     emitting.length >= 7,
     `only ${emitting.length} snippets emit a reply, so the check measured too little`,
@@ -850,8 +893,6 @@ await test("no doc example enables HITL without dangerousActions", async () => {
 // Every documented reply carries the metadata the type requires
 // ---------------------------------------------------------------------------
 
-const RESPONSE_EMITS = new RegExp(RESPONSE_EMIT.source, "g");
-
 // The text from the `(` or `{` at `open` to its matching close. Strings,
 // template literals and comments are skipped, so a `)` in "Press ) to close" or
 // an apostrophe in a `//` comment does not end the scan early.
@@ -898,8 +939,8 @@ const emittedPayload = (code: string, from: number): string => {
 
 // Text-level, so it also covers the pages whose fences are not compiled
 const replyProblems = (code: string): string[] => {
-  const payloads = [...code.matchAll(RESPONSE_EMITS)].map((match) =>
-    emittedPayload(code, match.index),
+  const payloads = responseEmitOffsets(code).map((offset) =>
+    emittedPayload(code, offset),
   );
   if (payloads.length === 0) {
     return [];
@@ -923,6 +964,94 @@ const replyProblems = (code: string): string[] => {
   }
   return problems;
 };
+
+await test("reply control: an emit inside a comment, string or template text is not a reply", async () => {
+  const bare =
+    'emitter.emit("hitl:confirmation-response", { type: "hitl:confirmation-response", payload: { confirmationId, approved } });';
+  const good =
+    'emitter.emit("hitl:confirmation-response", { type: "hitl:confirmation-response", payload: { confirmationId, approved, metadata: { timestamp: new Date().toISOString(), responseTime: Date.now() - receivedAt } } });';
+  assertEqual(replyProblems(`// ${bare}\n${good}`).join(", "), "");
+  assertEqual(replyProblems(`/* ${bare} */\n${good}`).join(", "), "");
+  assertEqual(
+    replyProblems(`const note = '${bare.replaceAll("'", "")}';\n${good}`).join(
+      ", ",
+    ),
+    "",
+  );
+  assertEqual(
+    replyProblems("const note = `see " + bare + "`;\n" + good).join(", "),
+    "",
+  );
+  // A real emit inside a template substitution still counts
+  assertEqual(
+    replyProblems("const x = `${" + bare + "}`;").join(", "),
+    "no metadata, no metadata.timestamp, no metadata.responseTime",
+  );
+  assertEqual(
+    responseEmitOffsets(`// ${bare}`).length + responseEmitOffsets(bare).length,
+    1,
+  );
+  // Tokens either side of a substitution boundary must not join into a call
+  assertEqual(
+    responseEmitOffsets(
+      'const note = `${emitter.emit} text ${("hitl:confirmation-response")}`;',
+    ).length,
+    0,
+  );
+  // A `}` inside a regular expression is not the end of the substitution
+  assertEqual(
+    responseEmitOffsets("const note = `${/[}]/.test(value) && " + bare + "}`;")
+      .length,
+    1,
+  );
+  // A `/` after an `if (…)` head opens a regular expression, so its `}` does
+  // not close the substitution; after a call's `)` it divides
+  assertEqual(
+    responseEmitOffsets(
+      "const note = `${(() => { if (x) /[}]/.test(y); })() && " + bare + "}`;",
+    ).length,
+    1,
+  );
+  assertEqual(responseEmitOffsets("const n = f(a) / 2; " + bare).length, 1);
+  // A `/` after a bigint literal divides
+  assertEqual(
+    responseEmitOffsets(
+      'const n = 1000n / 10n; emitter.emit("hitl:confirmation-response", {});',
+    ).length,
+    1,
+  );
+  // A type assertion on the event name does not change which event it is
+  assertEqual(
+    responseEmitOffsets(
+      'emitter.emit("hitl:confirmation-response" as const, {});',
+    ).length,
+    1,
+  );
+  // A concatenated event name is a different event
+  assertEqual(
+    responseEmitOffsets(
+      'emitter.emit("hitl:confirmation-response" + ":debug", {});',
+    ).length,
+    0,
+  );
+  // A `/` after a non-null assertion divides, so the emit after it is scanned
+  assertEqual(
+    responseEmitOffsets(
+      'const seconds = receivedAt! / 1000; emitter.emit("hitl:confirmation-response", {});',
+    ).length,
+    1,
+  );
+  // A prefix `!` still opens a regular expression
+  assertEqual(
+    responseEmitOffsets("const note = `${!/[}]/.test(value) && " + bare + "}`;")
+      .length,
+    1,
+  );
+  // The offset is the real argument list, not a `(` inside a comment
+  const commented =
+    'emitter.emit /* () */ ("hitl:confirmation-response", { type: "hitl:confirmation-response", payload: { confirmationId, approved, metadata: { timestamp: 1, responseTime: 2 } } });';
+  assertEqual(replyProblems(commented).join(", "), "");
+});
 
 await test("reply control: a reply with no metadata, a zero or an epoch responseTime is flagged", async () => {
   const emit = (payload: string): string =>

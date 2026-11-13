@@ -577,7 +577,7 @@ await test("session scope: another session, a changed model or tool set never co
     await sessionTurn(
       client,
       "same session, new tools",
-      { tools: lookupTool() },
+      { model: "claude-3-5-haiku-20241022", tools: lookupTool() },
       "alpha",
     );
     assertEqual(
@@ -701,6 +701,15 @@ await test("store: entries expire without another call, and forget() empties it"
   store.sweep(1_000 + 10 * 60 * 1000);
   assertEqual(store.size, 0, "an expired entry survived the sweep");
   assertEqual(store.take("k"), undefined, "an expired entry was handed out");
+  // take() must also refuse an expired entry that no sweep has removed.
+  store.put("unswept", "s1", carryOf(), store.epochOf("s1"), 1_000);
+  assertEqual(store.size, 1, "the entry should be held until taken");
+  assertEqual(
+    store.take("unswept", 1_000 + 10 * 60 * 1000),
+    undefined,
+    "an expired, unswept entry was handed out",
+  );
+  assertEqual(store.size, 0, "taking an expired entry should drop it");
   store.put("k", "s1", carryOf(), store.epochOf("s1"));
   store.forget();
   assertEqual(store.size, 0, "forget() should empty the store");
