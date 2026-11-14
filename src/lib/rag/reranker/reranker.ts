@@ -172,6 +172,8 @@ Score:`;
       prompt,
       maxTokens: 10,
       temperature: 0,
+      // A relevance score is text; the reranker is given no tools.
+      disableTools: true,
     });
 
     const scoreText = result?.content?.trim() || "0";
@@ -261,6 +263,8 @@ Respond with only the scores, one per line, in order:`;
           prompt,
           maxTokens: 50,
           temperature: 0,
+          // Relevance scores are text; the reranker is given no tools.
+          disableTools: true,
         });
 
         // Parse scores from response

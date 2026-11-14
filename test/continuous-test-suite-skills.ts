@@ -603,6 +603,55 @@ async function testCustomStore(): Promise<void> {
   );
 }
 
+async function testSkillToolNoRetry(): Promise<void> {
+  await runTest(
+    "14b. A skill tool that outlives its attempt timeout runs once (no retries)",
+    async () => {
+      let indexCalls = 0;
+      const nl = new NeuroLink({
+        skills: {
+          enabled: true,
+          storage: {
+            type: "custom",
+            store: {
+              async get() {
+                return null;
+              },
+              async put() {},
+              async delete() {},
+              // Answers long after the 50 ms attempt timeout below; each
+              // attempt of list_skills calls it once.
+              index() {
+                indexCalls++;
+                return new Promise((resolve) =>
+                  setTimeout(() => resolve([]), 1000),
+                );
+              },
+            },
+          },
+        },
+      });
+      await nl
+        .executeTool(
+          "list_skills",
+          {},
+          { timeout: 50, retryDelayMs: 10, bypassBatcher: true },
+        )
+        .catch(() => undefined);
+      // Longer than every retry the default budget would have started.
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      assert(
+        indexCalls === 1,
+        `one list_skills call ran the tool ${indexCalls} times`,
+      );
+      assert(
+        nl.getToolRegistry().getToolInfo("list_skills")?.tool.maxRetries === 0,
+        "list_skills is not registered with maxRetries: 0",
+      );
+    },
+  );
+}
+
 // ============================================================
 // TESTS — prompt index
 // ============================================================
@@ -2069,6 +2118,7 @@ async function main(): Promise<void> {
   await testSearch();
   await testFilesystemStore();
   await testCustomStore();
+  await testSkillToolNoRetry();
   await testDiscovery();
   await testActivation();
   await testMutations();

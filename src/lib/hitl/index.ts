@@ -12,5 +12,6 @@ export {
   HITLError,
   HITLUserRejectedError,
   HITLTimeoutError,
+  HITLCancelledError,
   HITLConfigurationError,
 } from "./hitlErrors.js";

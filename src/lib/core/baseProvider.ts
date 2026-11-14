@@ -41,6 +41,7 @@ import type {
   DecisionResult,
   MemoryToolCallRecord,
   MemoryToolResultRecord,
+  ProviderToolExecutorOptions,
   ToolExecutionSummaryInternal,
   ToolReplayMode,
 } from "../types/index.js";
@@ -3819,7 +3820,11 @@ export abstract class BaseProvider implements AIProvider {
   setupToolExecutor(
     sdk: {
       customTools: Map<string, unknown>;
-      executeTool: (toolName: string, params: unknown) => Promise<unknown>;
+      executeTool: (
+        toolName: string,
+        params: unknown,
+        options?: ProviderToolExecutorOptions,
+      ) => Promise<unknown>;
     },
     functionTag: string,
   ): void {

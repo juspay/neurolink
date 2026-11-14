@@ -12,8 +12,19 @@
  * object and returns a wrapped executor.
  */
 
-import { raceWithAbort, withTimeout } from "../utils/async/index.js";
-import type { Tool, ToolExecutionGuards } from "../types/index.js";
+import {
+  TimeoutError,
+  abortSignalOf,
+  createPausableDeadline,
+  pauseDeadlineOf,
+  raceWithAbort,
+} from "../utils/async/index.js";
+import { isNonNullObject } from "../utils/typeUtils.js";
+import type {
+  PauseDeadline,
+  Tool,
+  ToolExecutionGuards,
+} from "../types/index.js";
 
 /**
  * Everything a native provider loop wraps around a tool call that the shared
@@ -36,25 +47,28 @@ export function guardToolExecutor(
   guards: ToolExecutionGuards,
 ): (args: Record<string, unknown>, opts: unknown) => Promise<unknown> {
   return async (args: Record<string, unknown>, opts: unknown) => {
-    const call = () =>
-      Promise.resolve(execute(args, opts as Parameters<typeof execute>[1]));
     guards.onProgress?.();
     try {
-      const raced = guards.abortSignal
-        ? raceWithAbort(call(), guards.abortSignal)
-        : call();
       // `== null` catches both an omitted bound and an explicit `null` — a
       // caller that asked for unbounded tool execution. Testing only for
-      // `undefined` would send `null` into `withTimeout`, where it parses as
-      // no delay and fires the deadline immediately.
-      return await (guards.toolTimeoutMs === undefined ||
-      guards.toolTimeoutMs === null
-        ? raced
-        : withTimeout(
-            raced,
-            guards.toolTimeoutMs,
-            `Tool "${name}" execution timed out after ${guards.toolTimeoutMs}ms`,
-          ));
+      // `undefined` would arm a timer with no delay, which fires the deadline
+      // immediately.
+      if (guards.toolTimeoutMs === undefined || guards.toolTimeoutMs === null) {
+        const call = Promise.resolve(
+          execute(args, opts as Parameters<typeof execute>[1]),
+        );
+        return await (guards.abortSignal
+          ? raceWithAbort(call, guards.abortSignal)
+          : call);
+      }
+      return await runUnderDeadline(
+        name,
+        execute,
+        args,
+        opts,
+        guards,
+        guards.toolTimeoutMs,
+      );
     } finally {
       // In `finally`, not after a successful await: a tool that times out or
       // throws has still consumed real time, and skipping the mark there would
@@ -62,4 +76,89 @@ export function guardToolExecutor(
       guards.onProgress?.();
     }
   };
+}
+
+/**
+ * One guarded call under the per-tool deadline. The call runs with a signal of
+ * its own, chained to the loop's (`opts.abortSignal`, `guards.abortSignal`),
+ * and the deadline aborts it at the moment it rejects: one timer does both, so
+ * the tool, its confirmation and `executeTool`'s attempts stop when the model
+ * is told the call timed out, and nothing runs after that. This is what the
+ * loop engine's `executeToolCall` already does with its own deadline.
+ *
+ * The call can pause the deadline (`pauseDeadline`) while it waits for a
+ * human confirmation, and resuming keeps the time that was left. The pause
+ * chains to the loop's own (`opts.pauseDeadline`): where a guard sits inside
+ * the loop engine, as on the Vertex and AI Studio Gemini paths, both bounds
+ * stop for the wait.
+ */
+async function runUnderDeadline(
+  name: string,
+  execute: NonNullable<Tool["execute"]>,
+  args: Record<string, unknown>,
+  opts: unknown,
+  guards: ToolExecutionGuards,
+  timeoutMs: number,
+): Promise<unknown> {
+  const toolAbort = new AbortController();
+  const upstream = new Set(
+    [abortSignalOf(opts), guards.abortSignal].filter(
+      (signal): signal is AbortSignal => signal !== undefined,
+    ),
+  );
+  const detach: Array<() => void> = [];
+  for (const signal of upstream) {
+    if (signal.aborted) {
+      toolAbort.abort(signal.reason);
+      continue;
+    }
+    const onAbort = (): void => toolAbort.abort(signal.reason);
+    signal.addEventListener("abort", onAbort, { once: true });
+    detach.push(() => signal.removeEventListener("abort", onAbort));
+  }
+  // Armed before the call starts, so its pause is in the options the call
+  // receives.
+  let rejectDeadline: (error: Error) => void = () => undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    rejectDeadline = reject;
+  });
+  const clock = createPausableDeadline(timeoutMs, () => {
+    const error = new TimeoutError(
+      `Tool "${name}" execution timed out after ${timeoutMs}ms`,
+      timeoutMs,
+    );
+    toolAbort.abort(error);
+    rejectDeadline(error);
+  });
+  const outerPause = pauseDeadlineOf(opts);
+  const pauseDeadline: PauseDeadline = () => {
+    const resumeOwn = clock.pause();
+    const resumeOuter = outerPause?.();
+    return () => {
+      resumeOuter?.();
+      resumeOwn();
+    };
+  };
+
+  const callOpts: unknown = {
+    ...(isNonNullObject(opts) ? opts : {}),
+    abortSignal: toolAbort.signal,
+    pauseDeadline,
+  };
+  try {
+    const call = Promise.resolve(
+      execute(args, callOpts as Parameters<typeof execute>[1]),
+    );
+    const raced = guards.abortSignal
+      ? raceWithAbort(call, guards.abortSignal)
+      : call;
+    // `Promise.race` subscribes to both, so a call that rejects after the
+    // deadline already won cannot surface as an unhandled rejection.
+    return await Promise.race([raced, deadline]);
+  } finally {
+    clock.clear();
+    for (const off of detach) {
+      off();
+    }
+  }
 }

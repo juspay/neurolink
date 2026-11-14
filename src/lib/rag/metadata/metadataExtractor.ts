@@ -368,6 +368,8 @@ Return the extracted data as JSON.`;
       prompt,
       maxTokens: config.maxTokens || 500,
       temperature: config.temperature || 0.3,
+      // Extracted metadata is text; the extractor is given no tools.
+      disableTools: true,
     });
 
     return result?.content || "";

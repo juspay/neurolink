@@ -43,6 +43,10 @@ import { jsonSchema } from "../dist/index.js";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 
+// The repo's .mcp-config.json would start a filesystem MCP server through
+// npx on a turn's first tool load, and wait out its client timeout offline.
+process.env.NEUROLINK_SKIP_MCP = "true";
+
 assertDistFresh();
 
 const { test, section, runSuite } = defineSuite(
