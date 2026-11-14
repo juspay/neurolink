@@ -26,6 +26,7 @@
  */
 import { defineSuite, assert, assertEqual } from "./helpers/harness.js";
 import { installMockFetch } from "./utils/mockFetch.js";
+import "./helpers/requireFreshDist.js";
 import { NeuroLink } from "../dist/index.js";
 import type { GenerateOptions } from "../src/lib/types/index.js";
 

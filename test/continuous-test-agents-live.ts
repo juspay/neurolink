@@ -8,6 +8,7 @@
  */
 
 import { execFileSync } from "child_process";
+import "./helpers/requireFreshDistCli.js";
 import { NeuroLink } from "../dist/index.js";
 
 /**

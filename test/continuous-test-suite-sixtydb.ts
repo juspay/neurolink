@@ -3,6 +3,7 @@
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { strict as assert } from "node:assert";
+import "./helpers/requireFreshDist.js";
 import {
   NeuroLink,
   SixtyDBTTS,

@@ -28,6 +28,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { defineSuite, log } from "./helpers/harness.js";
+import "./helpers/requireFreshDistCli.js";
 import type { LocalUsageScanResult } from "../src/lib/types/index.js";
 
 const { test, runSuite } = defineSuite("Local Usage", {

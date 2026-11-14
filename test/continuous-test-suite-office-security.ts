@@ -117,6 +117,7 @@ import {
   startMockChatServer,
   mockOpenAICredentials,
 } from "./helpers/mockChatServer.js";
+import "./helpers/requireFreshDist.js";
 import { NeuroLink, logger } from "../dist/index.js";
 
 /** Rejects if `promise` has not settled within `ms`, as a defensive backstop. */

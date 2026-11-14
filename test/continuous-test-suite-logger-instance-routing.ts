@@ -37,6 +37,7 @@
  * Run: npx tsx test/continuous-test-suite-logger-instance-routing.ts
  */
 import { defineSuite, assert } from "./helpers/harness.js";
+import "./helpers/requireFreshDist.js";
 import { NeuroLink, logger } from "../dist/index.js";
 
 const { test, runSuite } = defineSuite("Per-instance logger routing (#1236)", {

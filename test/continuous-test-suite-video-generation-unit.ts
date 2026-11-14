@@ -82,6 +82,7 @@ import {
   assertEqual,
   assertIncludes,
 } from "./helpers/harness.js";
+import "./helpers/requireFreshDist.js";
 import { NeuroLink, VideoProcessor } from "../dist/index.js";
 import type { VideoGenerationResult, VideoHandler } from "../dist/index.js";
 

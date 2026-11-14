@@ -60,6 +60,7 @@ import { fileURLToPath } from "node:url";
  * (Runs against dist/ — `pnpm run build` first.)
  */
 
+import "./helpers/requireFreshDist.js";
 import {
   NeuroLink,
   AuthenticationError,

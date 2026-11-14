@@ -29,6 +29,7 @@ import {
   SimpleSpanProcessor,
 } from "@opentelemetry/sdk-trace-base";
 import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+import "./helpers/requireFreshDist.js";
 
 const spanExporter = new InMemorySpanExporter();
 const traceProvider = new NodeTracerProvider({

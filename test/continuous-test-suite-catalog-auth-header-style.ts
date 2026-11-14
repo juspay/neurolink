@@ -33,6 +33,7 @@ import "dotenv/config";
 
 import { createServer, type IncomingMessage } from "node:http";
 import { defineSuite, assert } from "./helpers/harness.js";
+import "./helpers/requireFreshDist.js";
 
 const { test, runSuite, section } = defineSuite(
   "catalog authHeaderStyle quirk (Reka X-Api-Key)",

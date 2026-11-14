@@ -53,6 +53,7 @@ import {
   runCLI,
   Skip,
 } from "./helpers/harness.js";
+import "./helpers/requireFreshDist.js";
 import {
   canDeliverVideoNatively,
   estimateVideoTokens,

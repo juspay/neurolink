@@ -132,6 +132,7 @@ import {
   startMockChatServer,
   mockOpenAICredentials,
 } from "./helpers/mockChatServer.js";
+import "./helpers/requireFreshDist.js";
 import { NeuroLink } from "../dist/index.js";
 // Type-only, so it is erased and asserts nothing about which copy runs — the
 // `e2e-tests-only` rule ignores these for exactly that reason.
