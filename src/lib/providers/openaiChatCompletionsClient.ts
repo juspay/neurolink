@@ -1043,6 +1043,10 @@ export const parseSSEStream = async (
         break;
       }
       parser.feed(decoder.decode(value, { stream: true }));
+      if (streamErr) {
+        await reader.cancel();
+        break;
+      }
     }
     parser.feed(decoder.decode());
   } finally {
