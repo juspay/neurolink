@@ -31,6 +31,7 @@ import { defineSuite, assert, assertEqual } from "./helpers/harness.js";
 // `AIProviderFactory.createProvider` stub below effective; split the two and
 // the stub silently patches a different copy and the tests start making real
 // network calls.
+import "./helpers/requireFreshDist.js";
 import {
   ModelPool,
   classifyProviderError,

@@ -66,6 +66,7 @@ import {
   makeTokenFixture,
   type FixtureModality,
 } from "./helpers/formatFixtures.js";
+import "./helpers/requireFreshDist.js";
 import { NeuroLink } from "../dist/index.js";
 /**
  * Mirror of `REALISTIC_FIXTURE_FLOOR_BYTES`. Restated here rather than imported

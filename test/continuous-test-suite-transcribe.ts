@@ -48,6 +48,7 @@ import {
   Skip,
   tempDir,
 } from "./helpers/harness.js";
+import "./helpers/requireFreshDistCli.js";
 import {
   NeuroLink,
   STTError,

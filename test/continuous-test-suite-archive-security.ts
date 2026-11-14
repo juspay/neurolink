@@ -100,6 +100,7 @@ import {
   startMockChatServer,
   mockOpenAICredentials,
 } from "./helpers/mockChatServer.js";
+import "./helpers/requireFreshDist.js";
 import { NeuroLink } from "../dist/index.js";
 
 const { test, runSuite } = defineSuite("Archive delivery");

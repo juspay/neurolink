@@ -45,6 +45,7 @@
 import { readFileSync } from "node:fs";
 import { defineSuite, assert, assertEqual } from "./helpers/harness.js";
 import { installMockFetch } from "./utils/mockFetch.js";
+import "./helpers/requireFreshDist.js";
 import { NeuroLink } from "../dist/index.js";
 
 const { test, runSuite } = defineSuite("PDF image streaming (#302)", {
