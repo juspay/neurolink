@@ -898,6 +898,9 @@ export const parseSSEStream = async (
   const toolCallKeysById = new Map<string, number>();
 
   const handleEvent = (msg: EventSourceMessage) => {
+    if (streamErr) {
+      return;
+    }
     const data = msg.data;
     if (data === "[DONE]") {
       sawTerminal = true;
