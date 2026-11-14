@@ -51,6 +51,7 @@ import {
   makeVideoFile,
 } from "./helpers/mediaFixtures.js";
 import { hasPackage, makeDocx, makeXlsx } from "./helpers/officeFixtures.js";
+import "./helpers/requireFreshDist.js";
 import { NeuroLink } from "../dist/index.js";
 import type { GenerateOptions } from "../src/lib/types/index.js";
 /**

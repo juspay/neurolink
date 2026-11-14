@@ -50,6 +50,7 @@ import {
   assertIncludes,
   assertNotNull,
 } from "./helpers/harness.js";
+import "./helpers/requireFreshDist.js";
 import {
   AIProviderFactory,
   ElevenLabsTTS,

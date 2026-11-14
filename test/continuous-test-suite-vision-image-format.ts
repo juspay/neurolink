@@ -44,6 +44,7 @@ import {
   mockOpenAICredentials,
   type MockChatServer,
 } from "./helpers/mockChatServer.js";
+import "./helpers/requireFreshDist.js";
 import { NeuroLink } from "../dist/index.js";
 
 // Offline: every request goes to a loopback mock chat server, never a provider.

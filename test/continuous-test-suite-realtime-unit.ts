@@ -44,6 +44,7 @@ import {
   assertEqual,
   assertIncludes,
 } from "./helpers/harness.js";
+import "./helpers/requireFreshDist.js";
 import {
   RealtimeProcessor,
   RealtimeError,

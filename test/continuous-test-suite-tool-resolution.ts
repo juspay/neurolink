@@ -28,6 +28,7 @@ import "dotenv/config";
  */
 
 import { z } from "zod";
+import "./helpers/requireFreshDist.js";
 import { tool } from "../dist/index.js";
 import { MCPToolRegistry, NeuroLink } from "../dist/index.js";
 import type {
