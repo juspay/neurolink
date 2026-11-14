@@ -359,6 +359,10 @@ export default [
             // transform or a catch on demand. Its header states the exception
             // in full.
             "test/continuous-test-suite-zod4-tool-schema-shape.ts",
+            // A rejecting ReadableStream.cancel() is deterministic only when
+            // parseSSEStream is driven directly; a live request cannot induce
+            // that cleanup failure. The suite header documents this exception.
+            "test/continuous-test-suite-openai-compat-stream-truncation.ts",
             // The span content helpers are exported from no package entry
             // point, and a live call cannot produce what is asserted: output
             // byte-identical to the previous serializer across a thousand

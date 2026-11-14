@@ -1047,7 +1047,11 @@ export const parseSSEStream = async (
       }
       parser.feed(decoder.decode(value, { stream: true }));
       if (streamErr) {
-        await reader.cancel();
+        try {
+          await reader.cancel();
+        } catch {
+          // Keep the original upstream error when reader cleanup fails.
+        }
         break;
       }
     }
