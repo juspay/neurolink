@@ -34,6 +34,7 @@
  */
 
 import "dotenv/config";
+import "./helpers/requireFreshDist.js";
 import { NeuroLink } from "../dist/index.js";
 import type { ModelPoolMember } from "../src/lib/types/index.js";
 import { assert, defineSuite, Skip } from "./helpers/harness.js";

@@ -37,6 +37,7 @@
 import { rmSync } from "node:fs";
 
 // Source imports — tsx resolves TypeScript directly
+import "./helpers/requireFreshDist.js";
 import { NeuroLink } from "../dist/index.js";
 import type { Task, TaskDefinition } from "../src/lib/types/index.js";
 

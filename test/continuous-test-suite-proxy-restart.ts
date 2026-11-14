@@ -29,6 +29,7 @@ import {
   runCLI,
   delay,
 } from "./helpers/harness.js";
+import "./helpers/requireFreshDistProxy.js";
 import { startRollingProxyServer } from "../dist/proxy/rollingProxyServer.js";
 import { spawnProxySocketWorker } from "../dist/proxy/rollingWorkerProcess.js";
 import {

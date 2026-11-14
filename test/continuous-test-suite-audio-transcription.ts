@@ -68,6 +68,7 @@ import {
   makeWavFile,
 } from "./helpers/mediaFixtures.js";
 import { installMockFetch } from "./utils/mockFetch.js";
+import "./helpers/requireFreshDist.js";
 import { logger, NeuroLink } from "../dist/index.js";
 // The shipped `@juspay/neurolink/processors` entry. dist is emitted per module,
 // so this resolves to the same AudioProcessor module dist/index.js loads — one

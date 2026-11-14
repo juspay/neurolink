@@ -19,6 +19,7 @@
  */
 
 import { defineSuite, assert, assertEqual } from "./helpers/harness.js";
+import "./helpers/requireFreshDist.js";
 import { PineconeVectorStore } from "../dist/index.js";
 // See the note in continuous-test-suite-vector-chroma.ts — `translatePineconeFilter`
 // is internal and kept under the determinism exception to CLAUDE.md rule 15.

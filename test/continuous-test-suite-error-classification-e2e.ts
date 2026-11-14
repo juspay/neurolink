@@ -4,6 +4,7 @@ import http from "node:http";
 import http2 from "node:http2";
 import type { AddressInfo } from "node:net";
 import { z } from "zod";
+import "./helpers/requireFreshDist.js";
 import { tool } from "../dist/index.js";
 
 /**

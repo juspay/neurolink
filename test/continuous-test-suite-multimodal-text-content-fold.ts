@@ -32,6 +32,7 @@ import "dotenv/config";
 
 import { createServer, type IncomingMessage } from "node:http";
 import { defineSuite, assert } from "./helpers/harness.js";
+import "./helpers/requireFreshDist.js";
 
 const { test, runSuite, section } = defineSuite(
   "multimodal text-content-fold (input.content TextContent items on the text-only path)",

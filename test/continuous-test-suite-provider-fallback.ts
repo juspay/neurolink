@@ -26,6 +26,7 @@
  * Run: npx tsx test/continuous-test-suite-provider-fallback.ts
  */
 import { defineSuite, assert, assertEqual } from "./helpers/harness.js";
+import "./helpers/requireFreshDist.js";
 import { NeuroLink } from "../dist/index.js";
 
 const { test, runSuite } = defineSuite(

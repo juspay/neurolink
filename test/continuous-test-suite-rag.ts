@@ -61,6 +61,7 @@ import type {
   VectorQueryResult,
 } from "../src/lib/types/index.js";
 import type { z } from "zod";
+import "./helpers/requireFreshDistCli.js";
 import { NeuroLink } from "../dist/index.js";
 // RAG components.
 //

@@ -23,6 +23,7 @@ import {
   assertIncludes,
 } from "./helpers/harness.js";
 import { installMockFetch } from "./utils/mockFetch.js";
+import "./helpers/requireFreshDist.js";
 import {
   AIProviderFactory,
   NeuroLink,

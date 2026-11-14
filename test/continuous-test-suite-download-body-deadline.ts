@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import dnsPromises from "node:dns/promises";
 import { syncBuiltinESMExports } from "node:module";
 import { randomUUID } from "node:crypto";
+import "./helpers/requireFreshDist.js";
 import { NeuroLink } from "../dist/index.js";
 import {
   IDEOGRAM_FIXTURE_HOST,

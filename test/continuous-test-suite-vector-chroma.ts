@@ -26,6 +26,7 @@
  */
 import "dotenv/config";
 
+import "./helpers/requireFreshDist.js";
 import { ChromaVectorStore } from "../dist/index.js";
 // `translateMetadataFilter` is not exported from the package. It is imported
 // here under the determinism exception to CLAUDE.md rule 15: filter-dialect

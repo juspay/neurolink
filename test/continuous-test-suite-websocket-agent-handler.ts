@@ -30,6 +30,7 @@ import "dotenv/config";
 
 import { createServer } from "node:http";
 import { defineSuite, assert } from "./helpers/harness.js";
+import "./helpers/requireFreshDist.js";
 
 const { test, runSuite, section } = defineSuite("WebSocket Agent Handler", {
   offline: true,

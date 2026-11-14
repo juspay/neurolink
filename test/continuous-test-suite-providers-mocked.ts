@@ -1,5 +1,6 @@
 #!/usr/bin/env tsx
 import "dotenv/config";
+import "./helpers/requireFreshDist.js";
 import { jsonSchema } from "../dist/index.js";
 import type {
   DecisionOptions,
