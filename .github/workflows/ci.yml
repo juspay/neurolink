@@ -697,6 +697,11 @@ jobs:
       # made that visible. Offline against a local replay endpoint: every
       # assertion passes with the environment stripped, none skip, ~2s.
       #
+      # test:image-exif fetches its URL fixtures from a loopback server and
+      # opts that one instance into the attachment policy. It sat in test:unit
+      # but in no workflow, so the 2026-10 policy hardening broke three of its
+      # cases unnoticed. Offline; all 14 assertions pass with the environment
+      # stripped, none skip.
       # test:realtime-voice drives the Gemini Live and xAI realtime backends
       # against loopback WebSocket and HTTP stand-ins, with no key. It opens
       # local servers and spawns child node processes, so it ran first in the
@@ -775,6 +780,7 @@ jobs:
           pnpm run test:catalog-output-ceiling
           pnpm run test:package-declarations
           pnpm run test:realtime-voice
+          pnpm run test:image-exif
 
   # There is deliberately no action smoke-test job here. The one that used to
   # sit in this file (commented out) ran the action against a live provider key

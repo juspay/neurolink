@@ -256,7 +256,11 @@ async function captureOutboundImage(
   const server = await startMockChatServer();
   try {
     await withTimeoutMs(
-      new NeuroLink().generate({
+      // The URL fixtures are served from a loopback http server, which the
+      // default attachment policy refuses; opt this instance in, not the process
+      new NeuroLink({
+        attachments: { allowInsecureUrls: true, allowPrivateNetwork: true },
+      }).generate({
         input: { text: "Describe this photo.", images },
         provider: "openai",
         credentials: mockOpenAICredentials(server),
