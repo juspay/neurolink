@@ -256,7 +256,11 @@ async function testNetworkExecute(): Promise<boolean | null> {
       ...(TEST_CONFIG.model && { model: TEST_CONFIG.model }),
     },
   });
-  const result = await network.execute({ message: "Say PONG" });
+  // The router answers a bare "Say PONG" itself (0 steps), so the prompt has to
+  // ask for the agent for the trace assertion below to measure routing
+  const result = await network.execute({
+    message: "Ask the Responder agent to say PONG",
+  });
   if (!result?.content || typeof result.content !== "string") {
     throw new Error(
       `Invalid network result: ${JSON.stringify(result).slice(0, 200)}`,
