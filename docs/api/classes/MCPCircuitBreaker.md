@@ -41,7 +41,7 @@ Implements circuit breaker pattern for fault tolerance
 
 ### execute()
 
-> **execute**\<`T`\>(`operation`): `Promise`\<`T`\>
+> **execute**\<`T`\>(`operation`, `options?`): `Promise`\<`T`\>
 
 Execute an operation with circuit breaker protection.
 
@@ -58,6 +58,11 @@ the call is still counted as a normal, non-throwing success from the
 `Promise.race` below, so this callback is what tells `execute()`
 otherwise. Callers that never call it see no behavior change.
 
+`options.isCancelled` is consulted when `operation` throws: if it returns
+true the caller withdrew the request (e.g. an aborted signal), which says
+nothing about the downstream's health, so the error is rethrown without
+being recorded as a failure.
+
 #### Type Parameters
 
 ##### T
@@ -69,6 +74,12 @@ otherwise. Callers that never call it see no behavior change.
 ##### operation
 
 (`recordResolvedFailure`) => `Promise`\<`T`\>
+
+##### options?
+
+###### isCancelled?
+
+() => `boolean`
 
 #### Returns
 

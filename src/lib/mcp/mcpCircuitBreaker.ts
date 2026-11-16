@@ -87,9 +87,15 @@ export class MCPCircuitBreaker extends EventEmitter {
    * the call is still counted as a normal, non-throwing success from the
    * `Promise.race` below, so this callback is what tells `execute()`
    * otherwise. Callers that never call it see no behavior change.
+   *
+   * `options.isCancelled` is consulted when `operation` throws: if it returns
+   * true the caller withdrew the request (e.g. an aborted signal), which says
+   * nothing about the downstream's health, so the error is rethrown without
+   * being recorded as a failure.
    */
   async execute<T>(
     operation: (recordResolvedFailure: (reason?: string) => void) => Promise<T>,
+    options?: { isCancelled?: () => boolean },
   ): Promise<T> {
     const startTime = Date.now();
 
@@ -191,6 +197,10 @@ export class MCPCircuitBreaker extends EventEmitter {
 
       return result;
     } catch (error) {
+      if (options?.isCancelled?.()) {
+        throw error;
+      }
+
       // Record failed call
       const duration = Date.now() - startTime;
       const errorMessage =

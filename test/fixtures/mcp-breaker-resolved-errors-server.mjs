@@ -40,4 +40,13 @@ server.registerTool(
   },
 );
 
+server.registerTool(
+  "hang",
+  { description: "Never answers within the test's lifetime", inputSchema: {} },
+  async () => {
+    await new Promise((resolve) => setTimeout(resolve, 60_000));
+    return { content: [{ type: "text", text: "late" }] };
+  },
+);
+
 await server.connect(new StdioServerTransport());

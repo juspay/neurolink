@@ -743,6 +743,8 @@ export class ToolDiscoveryService extends EventEmitter {
             },
           );
         },
+        // A caller-cancelled call says nothing about the tool's health.
+        { isCancelled: () => options.signal?.aborted === true },
       );
 
       const duration = Date.now() - startTime;

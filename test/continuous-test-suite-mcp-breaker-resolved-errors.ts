@@ -255,4 +255,48 @@ await test("a resolved isError call is reflected in getStatistics()'s totalError
   }
 });
 
+await test("caller-cancelled calls (aborted signal) are not counted as breaker failures", async () => {
+  const h = await createHarness();
+  const hangBreaker = `tool-execution-${h.serverId}-hang`;
+  try {
+    for (let i = 1; i <= 4; i++) {
+      const controller = new AbortController();
+      const pending = h.manager
+        .executeTool(h.serverId, "hang", {}, { signal: controller.signal })
+        .then(
+          () => undefined,
+          (err: unknown) => ({
+            err,
+            abortedWhenRejected: controller.signal.aborted,
+          }),
+        );
+      setTimeout(() => controller.abort(), 150);
+      const outcome = await pending;
+      assert(
+        outcome !== undefined &&
+          typeof outcome === "object" &&
+          "abortedWhenRejected" in outcome &&
+          outcome.abortedWhenRejected === true,
+        `call ${i}: expected the call to reject only after the signal aborted ` +
+          "(rejecting earlier means it never reached the hang tool)",
+      );
+    }
+    assert(
+      globalCircuitBreakerManager.getBreakerNames().includes(hangBreaker),
+      "the hang tool's breaker must already exist, i.e. the calls reached " +
+        "breaker execution, before its stats are read",
+    );
+    const breaker = globalCircuitBreakerManager.getBreaker(hangBreaker);
+    assertEqual(
+      breaker.getStats().failedCalls,
+      0,
+      "aborted calls must not be recorded as breaker failures",
+    );
+    assertEqual(breaker.getStats().state, "closed", "breaker must stay closed");
+  } finally {
+    globalCircuitBreakerManager.removeBreaker(hangBreaker);
+    await h.cleanup();
+  }
+});
+
 await runSuite();
