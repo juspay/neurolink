@@ -288,10 +288,10 @@ importers:
         version: 4.13.1
       '@sveltejs/adapter-auto':
         specifier: 8.0.0
-        version: 8.0.0(@sveltejs/kit@3.0.0(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.0.0(svelte@5.57.3(@typescript-eslint/types@8.72.1))(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0)))(svelte@5.57.3(@typescript-eslint/types@8.72.1))(typescript@6.0.3)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0)))
+        version: 8.0.0(@sveltejs/kit@3.1.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.0.0(svelte@5.57.3(@typescript-eslint/types@8.72.1))(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0)))(svelte@5.57.3(@typescript-eslint/types@8.72.1))(typescript@6.0.3)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0)))
       '@sveltejs/kit':
-        specifier: 3.0.0
-        version: 3.0.0(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.0.0(svelte@5.57.3(@typescript-eslint/types@8.72.1))(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0)))(svelte@5.57.3(@typescript-eslint/types@8.72.1))(typescript@6.0.3)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0))
+        specifier: 3.1.1
+        version: 3.1.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.0.0(svelte@5.57.3(@typescript-eslint/types@8.72.1))(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0)))(svelte@5.57.3(@typescript-eslint/types@8.72.1))(typescript@6.0.3)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0))
       '@sveltejs/package':
         specifier: 3.0.2
         version: 3.0.2(svelte@5.57.3(@typescript-eslint/types@8.72.1))(typescript@6.0.3)
@@ -2244,8 +2244,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@rolldown/pluginutils@1.0.1':
-    resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
+  '@rolldown/pluginutils@1.1.1':
+    resolution: {integrity: sha512-glFIJDvLNDtJhT9qrMFWLPbvS+skxgt4L0K8Ei2YtnhPysAJnsI7nyxSJxKj4ADeKX0OLjC4ntRkwpLOoS3rwA==}
 
   '@sec-ant/readable-stream@0.4.1':
     resolution: {integrity: sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg==}
@@ -2430,6 +2430,9 @@ packages:
   '@smithy/smithy-client@4.12.9':
     resolution: {integrity: sha512-ovaLEcTU5olSeHcRXcxV6viaKtpkHZumn6Ps0yn7dRf2rRSfy794vpjOtrWDO0d1auDSvAqxO+lyhERSXQ03EQ==}
     engines: {node: '>=18.0.0'}
+    deprecated: |-
+      Deprecated due to a bug in custom logger data redaction. Upgrade to the latest version. If you used a custom logger with
+        this version, review your logs and rotate any credentials or other secrets. See https://github.com/aws/aws-sdk-js-v3/issues/8393.
 
   '@smithy/types@4.13.1':
     resolution: {integrity: sha512-787F3yzE2UiJIQ+wYW1CVg2odHjmaWLGksnKQHUrK/lYZSEcy1msuLVvxaR/sI2/aDe9U+TBuLsXnr3vod1g0g==}
@@ -2531,8 +2534,8 @@ packages:
     peerDependencies:
       '@sveltejs/kit': ^3.0.0-next.0
 
-  '@sveltejs/kit@3.0.0':
-    resolution: {integrity: sha512-dmP6gjz41DAT7erONGW8FdTWjmsmOJ/SaWVEsuEc1MXDcpH6YV+Pt98biZFPuinH4LldJPmScxDqiHwCDLRCrg==}
+  '@sveltejs/kit@3.1.1':
+    resolution: {integrity: sha512-BiEMvekYXE9Gu/YhWJ/yJ0WDLH1PX/dmjuAeFp5rrtdmgdzkjt7DvimlSP+/U4tgposl7pkE20luHpcnc6BgRw==}
     engines: {node: '>=22.17'}
     hasBin: true
     peerDependencies:
@@ -4809,6 +4812,7 @@ packages:
 
   node-abort-controller@3.1.1:
     resolution: {integrity: sha512-AGK2yQKIjRuqnc6VkX2Xj5d+QW8xZ87pa1UK6yA6ouUyuxfHuMP6umE5QK7UmTeOAymo+Zx1Fxiuw9rVx8taHQ==}
+    deprecated: This package is no longer needed on supported Node.js versions. Node.js 16+ includes AbortController and AbortSignal as built-in globals. All Node.js versions requiring this polyfill are end-of-life. Use the built-in globals instead.
 
   node-domexception@1.0.0:
     resolution: {integrity: sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==}
@@ -8520,7 +8524,7 @@ snapshots:
   '@rolldown/binding-win32-x64-msvc@1.2.15':
     optional: true
 
-  '@rolldown/pluginutils@1.0.1': {}
+  '@rolldown/pluginutils@1.1.1': {}
 
   '@sec-ant/readable-stream@0.4.1': {}
 
@@ -9005,13 +9009,13 @@ snapshots:
     dependencies:
       acorn: 8.19.0
 
-  '@sveltejs/adapter-auto@8.0.0(@sveltejs/kit@3.0.0(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.0.0(svelte@5.57.3(@typescript-eslint/types@8.72.1))(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0)))(svelte@5.57.3(@typescript-eslint/types@8.72.1))(typescript@6.0.3)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0)))':
+  '@sveltejs/adapter-auto@8.0.0(@sveltejs/kit@3.1.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.0.0(svelte@5.57.3(@typescript-eslint/types@8.72.1))(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0)))(svelte@5.57.3(@typescript-eslint/types@8.72.1))(typescript@6.0.3)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0)))':
     dependencies:
-      '@sveltejs/kit': 3.0.0(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.0.0(svelte@5.57.3(@typescript-eslint/types@8.72.1))(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0)))(svelte@5.57.3(@typescript-eslint/types@8.72.1))(typescript@6.0.3)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0))
+      '@sveltejs/kit': 3.1.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.0.0(svelte@5.57.3(@typescript-eslint/types@8.72.1))(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0)))(svelte@5.57.3(@typescript-eslint/types@8.72.1))(typescript@6.0.3)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0))
 
-  '@sveltejs/kit@3.0.0(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.0.0(svelte@5.57.3(@typescript-eslint/types@8.72.1))(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0)))(svelte@5.57.3(@typescript-eslint/types@8.72.1))(typescript@6.0.3)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0))':
+  '@sveltejs/kit@3.1.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.0.0(svelte@5.57.3(@typescript-eslint/types@8.72.1))(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0)))(svelte@5.57.3(@typescript-eslint/types@8.72.1))(typescript@6.0.3)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0))':
     dependencies:
-      '@rolldown/pluginutils': 1.0.1
+      '@rolldown/pluginutils': 1.1.1
       '@standard-schema/spec': 1.1.0
       '@sveltejs/vite-plugin-svelte': 7.0.0(svelte@5.57.3(@typescript-eslint/types@8.72.1))(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0))
       cookie: 2.0.2
@@ -12271,7 +12275,7 @@ snapshots:
   rolldown@1.2.15:
     dependencies:
       '@oxc-project/types': 0.155.0
-      '@rolldown/pluginutils': 1.0.1
+      '@rolldown/pluginutils': 1.1.1
     optionalDependencies:
       '@rolldown/binding-android-arm-eabi': 1.2.15
       '@rolldown/binding-android-arm64': 1.2.15
