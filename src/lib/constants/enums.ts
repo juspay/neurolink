@@ -2139,6 +2139,8 @@ export enum TinfoilModels {
 }
 
 export enum TogetherAIModels {
+  GPT_OSS_120B = "openai/gpt-oss-120b",
+  QWEN_3_5_9B = "Qwen/Qwen3.5-9B",
   LLAMA_3_3_70B_INSTRUCT_TURBO = "meta-llama/Llama-3.3-70B-Instruct-Turbo",
   LLAMA_3_1_405B_INSTRUCT_TURBO = "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
   LLAMA_3_1_70B_INSTRUCT_TURBO = "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
