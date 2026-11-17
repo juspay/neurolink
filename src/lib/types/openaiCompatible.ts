@@ -174,6 +174,9 @@ export type OpenAICompatStreamChunkChoice = {
     | "tool_calls"
     | "function_call"
     | "content_filter"
+    // Some gateways end a failed stream with this value. It is never a
+    // successful completion; parseSSEStream turns it into an error.
+    | "error"
     | null;
 };
 
@@ -183,6 +186,14 @@ export type OpenAICompatChatStreamChunk = {
   created?: number;
   model?: string;
   choices: OpenAICompatStreamChunkChoice[];
+  // Mid-stream error frame (`data: {"error": ...}`), sent instead of a
+  // normal chunk when the upstream fails after the response has begun.
+  error?: {
+    message?: string;
+    type?: string;
+    code?: string | number;
+  };
+
   usage?: OpenAICompatUsage;
 };
 

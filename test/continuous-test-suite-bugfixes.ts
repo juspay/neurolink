@@ -6189,19 +6189,20 @@ exit 127
           init?: RequestInit,
         ) => {
           captured = JSON.parse(String(init?.body)) as Record<string, unknown>;
+          // doGenerate reads the reply as an SSE stream, so the stand-in
+          // answers in that wire format and ends it the way a server does.
           return new Response(
-            JSON.stringify({
-              id: "x",
-              choices: [
-                {
-                  index: 0,
-                  message: { role: "assistant", content: "ok" },
-                  finish_reason: "stop",
-                },
-              ],
-              usage: { prompt_tokens: 1, completion_tokens: 1 },
-            }),
-            { status: 200, headers: { "content-type": "application/json" } },
+            [
+              `data: ${JSON.stringify({
+                id: "x",
+                choices: [
+                  { index: 0, delta: { content: "ok" }, finish_reason: "stop" },
+                ],
+              })}`,
+              "data: [DONE]",
+              "",
+            ].join("\n\n"),
+            { status: 200, headers: { "content-type": "text/event-stream" } },
           );
         }) as typeof fetch;
         const provider = new LiteLLMProvider(
@@ -6246,19 +6247,20 @@ exit 127
           init?: RequestInit,
         ) => {
           captured = JSON.parse(String(init?.body)) as Record<string, unknown>;
+          // doGenerate reads the reply as an SSE stream, so the stand-in
+          // answers in that wire format and ends it the way a server does.
           return new Response(
-            JSON.stringify({
-              id: "x",
-              choices: [
-                {
-                  index: 0,
-                  message: { role: "assistant", content: "ok" },
-                  finish_reason: "stop",
-                },
-              ],
-              usage: { prompt_tokens: 1, completion_tokens: 1 },
-            }),
-            { status: 200, headers: { "content-type": "application/json" } },
+            [
+              `data: ${JSON.stringify({
+                id: "x",
+                choices: [
+                  { index: 0, delta: { content: "ok" }, finish_reason: "stop" },
+                ],
+              })}`,
+              "data: [DONE]",
+              "",
+            ].join("\n\n"),
+            { status: 200, headers: { "content-type": "text/event-stream" } },
           );
         }) as typeof fetch;
         const provider = new LiteLLMProvider(

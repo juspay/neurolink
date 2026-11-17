@@ -209,8 +209,9 @@ const resolveAgainstSchema = (
  * The one place a finish reason becomes the unified spelling. Accepts the wire's
  * `finish_reason` (`tool_calls`, `content_filter`) and the unified spelling a
  * middleware's own finish part already carries (`tool-calls`, `content-filter`),
- * since both reach the stream path. Anything else, including `stop`, `error` and
- * an absent value, reads as `stop`.
+ * since both reach the stream path. Anything else, including `stop` and an
+ * absent value, reads as `stop`. A wire `error` finish never gets here: the SSE
+ * parser throws on it, and on a stream that ended with no terminal marker.
  */
 const toUnifiedFinishReason = (
   reason: string | null | undefined,
