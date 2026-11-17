@@ -40,6 +40,24 @@
 
 ---
 
+### error?
+
+> `optional` **error?**: `object`
+
+#### message?
+
+> `optional` **message?**: `string`
+
+#### type?
+
+> `optional` **type?**: `string`
+
+#### code?
+
+> `optional` **code?**: `string` \| `number`
+
+---
+
 ### usage?
 
 > `optional` **usage?**: [`OpenAICompatUsage`](OpenAICompatUsage.md)

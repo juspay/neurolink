@@ -185,6 +185,60 @@ const replyBody = (reply: ScriptedReply): Record<string, unknown> =>
     ? (reply as { body: Record<string, unknown> }).body
     : (reply as Record<string, unknown>);
 
+/**
+ * A scripted chat-completion body re-framed as the SSE stream a real server
+ * sends for `stream: true`: one delta carrying the content and tool calls, one
+ * carrying the finish reason, then `[DONE]`. Without this a streaming request
+ * is answered with plain JSON, which the stream reader rightly rejects as a
+ * stream that never reached a terminal marker. Returns undefined for a body
+ * that is not a chat completion, so it is passed through verbatim.
+ */
+function completionAsSse(body: Record<string, unknown>): string | undefined {
+  const choices = body.choices;
+  if (!Array.isArray(choices) || choices.length === 0) {
+    return undefined;
+  }
+  const choice = choices[0] as {
+    message?: { content?: unknown; tool_calls?: unknown };
+    finish_reason?: unknown;
+  };
+  const message = choice.message ?? {};
+  const toolCalls = Array.isArray(message.tool_calls)
+    ? message.tool_calls.map((call, index) => ({ index, ...call }))
+    : undefined;
+  const base = {
+    id: body.id ?? "scripted-stream",
+    object: "chat.completion.chunk",
+    created: body.created ?? 1,
+    model: body.model ?? "scripted-model",
+  };
+  const delta: Record<string, unknown> = { role: "assistant" };
+  if (typeof message.content === "string") {
+    delta.content = message.content;
+  }
+  if (toolCalls) {
+    delta.tool_calls = toolCalls;
+  }
+  return [
+    sseChunk({
+      ...base,
+      choices: [{ index: 0, delta, finish_reason: null }],
+    }),
+    sseChunk({
+      ...base,
+      choices: [
+        {
+          index: 0,
+          delta: {},
+          finish_reason: choice.finish_reason ?? "stop",
+        },
+      ],
+      ...(body.usage ? { usage: body.usage } : {}),
+    }),
+    "data: [DONE]\n\n",
+  ].join("");
+}
+
 export function startScriptedChatServer(
   script: ReadonlyArray<ScriptedReply>,
 ): Promise<ScriptedChatServer> {
@@ -198,6 +252,24 @@ export function startScriptedChatServer(
       .then((bodyStr) => {
         bodies.push(bodyStr);
         const reply = script[Math.min(bodies.length - 1, script.length - 1)];
+        let streaming = false;
+        try {
+          streaming = JSON.parse(bodyStr)?.stream === true;
+        } catch {
+          // A malformed body is still captured; answer it as plain JSON.
+        }
+        const streamed =
+          streaming && replyStatus(reply) === 200
+            ? completionAsSse(replyBody(reply))
+            : undefined;
+        if (streamed !== undefined) {
+          res.writeHead(200, {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+          });
+          res.end(streamed);
+          return;
+        }
         res.writeHead(replyStatus(reply), {
           "Content-Type": "application/json",
         });

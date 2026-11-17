@@ -24,4 +24,4 @@
 
 ### finish_reason
 
-> **finish_reason**: `"stop"` \| `"length"` \| `"tool_calls"` \| `"function_call"` \| `"content_filter"` \| `null`
+> **finish_reason**: `"stop"` \| `"length"` \| `"tool_calls"` \| `"function_call"` \| `"content_filter"` \| `"error"` \| `null`
