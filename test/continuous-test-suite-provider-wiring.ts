@@ -41,6 +41,7 @@ import {
 } from "./helpers/harness.js";
 import { startDescriptorRuntimeFixtures } from "./helpers/descriptorRuntimeFixtures.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import { TOGETHER_AI_DEFAULT_MODEL } from "./helpers/togetherAiCatalog.js";
 import { installMockFetch } from "./utils/mockFetch.js";
 import type {
   NeurolinkCredentials,
@@ -1221,6 +1222,30 @@ await runSuite(async () => {
           `AIProviderName missing catalog id: ${id}`,
         );
       }
+    });
+
+    await test("Together AI's default is present in the built catalog and provider descriptor", async () => {
+      const { CATALOG_JSON_ENTRIES } =
+        await import("../dist/providers/catalog/index.generated.js");
+      const { PROVIDER_DESCRIPTORS_BY_NAME } =
+        await import("../dist/factories/providerDescriptors.js");
+      const { AIProviderName } = await import("../dist/constants/enums.js");
+      const entry = CATALOG_JSON_ENTRIES.find(
+        (catalogEntry) => catalogEntry.id === "together-ai",
+      );
+      if (entry === undefined) {
+        throw new Error("Together AI catalog entry is missing");
+      }
+      assert(
+        entry.models.catalog[TOGETHER_AI_DEFAULT_MODEL]?.status ===
+          "production",
+        "Together AI default must be a production catalog model",
+      );
+      assert(
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.TOGETHER_AI)
+          ?.defaultModel === TOGETHER_AI_DEFAULT_MODEL,
+        "Together AI descriptor must use the catalog default",
+      );
     });
 
     await test("Bedrock carries the caller's text on the wire across all four public surfaces", async () => {

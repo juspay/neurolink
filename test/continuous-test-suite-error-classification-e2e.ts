@@ -6,6 +6,7 @@ import type { AddressInfo } from "node:net";
 import { z } from "zod";
 import "./helpers/requireFreshDist.js";
 import { tool } from "../dist/index.js";
+import { TOGETHER_AI_DEFAULT_MODEL } from "./helpers/togetherAiCatalog.js";
 
 /**
  * Continuous Test Suite — end-to-end provider error classification.
@@ -696,7 +697,7 @@ async function main(): Promise<void> {
       },
       {
         name: "together-ai",
-        model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        model: TOGETHER_AI_DEFAULT_MODEL,
         apiKeyEnv: "TOGETHER_API_KEY",
         apiKeyValue: "test-fake-together-ai-credential",
         baseUrlEnv: "TOGETHER_BASE_URL",

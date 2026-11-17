@@ -21,7 +21,7 @@ translation cost.
 
 - **Protocol**: OpenAI-compatible (`/v1/chat/completions`)
 - **Default base URL**: `https://api.together.xyz/v1`
-- **Default model**: `meta-llama/Llama-3.3-70B-Instruct-Turbo`
+- **Default model**: `openai/gpt-oss-120b`
 - **Vision**: Yes — Llama 3.2 Vision variants
 - **Streaming**: Supported
 - **Tool calling**: Supported on Llama 3.1+ and DeepSeek
@@ -38,7 +38,7 @@ translation cost.
 
 ```bash
 TOGETHER_API_KEY=tgp_your-key
-TOGETHER_MODEL=meta-llama/Llama-3.3-70B-Instruct-Turbo
+TOGETHER_MODEL=openai/gpt-oss-120b
 ```
 
 ### 3. Generate
@@ -59,7 +59,7 @@ console.log(result.content);
 
 | Model ID                                        | Notes                       |
 | ----------------------------------------------- | --------------------------- |
-| `meta-llama/Llama-3.3-70B-Instruct-Turbo`       | Default; production quality |
+| `openai/gpt-oss-120b`                           | Default; production quality |
 | `meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo` | Flagship size               |
 | `meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo`  | Mid-tier                    |
 | `deepseek-ai/DeepSeek-R1`                       | Reasoning model             |
@@ -89,11 +89,11 @@ pnpm run cli generate "..." --provider together --model deepseek-ai/DeepSeek-R1
 
 ## Configuration Reference
 
-| Environment Variable | Required | Default                                   |
-| -------------------- | -------- | ----------------------------------------- |
-| `TOGETHER_API_KEY`   | Yes      | —                                         |
-| `TOGETHER_MODEL`     | No       | `meta-llama/Llama-3.3-70B-Instruct-Turbo` |
-| `TOGETHER_BASE_URL`  | No       | `https://api.together.xyz/v1`             |
+| Environment Variable | Required | Default                       |
+| -------------------- | -------- | ----------------------------- |
+| `TOGETHER_API_KEY`   | Yes      | —                             |
+| `TOGETHER_MODEL`     | No       | `openai/gpt-oss-120b`         |
+| `TOGETHER_BASE_URL`  | No       | `https://api.together.xyz/v1` |
 
 ---
 
