@@ -2,6 +2,7 @@
 import "dotenv/config";
 
 import { withCaseTimeout } from "./helpers/harness.js";
+import { TOGETHER_AI_DEFAULT_MODEL as TG_MODEL } from "./helpers/togetherAiCatalog.js";
 import { execFileSync } from "node:child_process";
 import {
   cpSync,
@@ -530,11 +531,42 @@ async function testResolveConfigComputedBaseURL(): Promise<void> {
 // ───────────────────────────────────────────────────────────────────────
 
 const TG_URL = "api.together.xyz/v1/chat/completions";
-const TG_MODEL = "meta-llama/Llama-3.3-70B-Instruct-Turbo";
 
 async function testConfiguredProviderHookDelegation(): Promise<void> {
   const section = "ConfiguredOpenAICompatProvider (together-ai)";
   setEnv("TOGETHER_API_KEY", undefined);
+  setEnv("TOGETHER_MODEL", undefined);
+
+  await runCase(
+    `${section}: an omitted model sends the catalog default`,
+    async () => {
+      await withMocks(
+        [{ method: "POST", url: TG_URL, respond: okResp(TG_MODEL) }],
+        async ({ calls }) => {
+          await newNL().generate({
+            provider: "together-ai",
+            input: { text: "ping" },
+            disableTools: true,
+            credentials: { together: { apiKey: "test-key" } },
+          });
+          const chatRequests = calls.filter(
+            (call) =>
+              call.url.includes(TG_URL) &&
+              typeof (call.bodyJson as { model?: unknown } | undefined)
+                ?.model === "string",
+          );
+          expect(chatRequests.length > 0, "Together AI chat request captured");
+          for (const request of chatRequests) {
+            expectEq(
+              (request.bodyJson as { model: string }).model,
+              TG_MODEL,
+              "wire model is the catalog default",
+            );
+          }
+        },
+      );
+    },
+  );
 
   await runCase(
     `${section}: 401 maps to AuthenticationError, unwrapped`,
@@ -1813,12 +1845,15 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 /** Run `codegen:catalog --check` with its cwd pointed at a fixture tree. */
 function runCodegenCheck(cwd: string): { code: number; output: string } {
   try {
-    // `.bin/tsx` is a shell wrapper, not a JS entry — it has to be executed,
-    // not handed to node. Both paths are absolute, so the child's cwd only
-    // selects which catalog directory the tool reads.
+    // Run tsx's JS entry with this Node runtime; .bin/tsx is a platform-specific
+    // shell wrapper. Absolute paths let cwd select only the fixture catalog.
     const stdout = execFileSync(
-      join(REPO_ROOT, "node_modules/.bin/tsx"),
-      [join(REPO_ROOT, "tools/codegen-catalog.ts"), "--check"],
+      process.execPath,
+      [
+        join(REPO_ROOT, "node_modules/tsx/dist/cli.mjs"),
+        join(REPO_ROOT, "tools/codegen-catalog.ts"),
+        "--check",
+      ],
       {
         cwd,
         encoding: "utf8",
