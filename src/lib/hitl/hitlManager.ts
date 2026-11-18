@@ -32,6 +32,22 @@ const DEFAULT_TIMEOUT = 30000; // 30 seconds
 // Shared with NeuroLink's HITL init logs so they report the policy applied here
 export const DEFAULT_ALLOW_MODIFICATION = false;
 
+// Record<keyof HITLConfig, true> makes adding a HITLConfig key without listing it here a compile error
+const KNOWN_CONFIG_KEYS: ReadonlySet<string> = new Set(
+  Object.keys({
+    enabled: true,
+    dangerousActions: true,
+    timeout: true,
+    confirmationMethod: true,
+    allowArgumentModification: true,
+    autoApproveOnTimeout: true,
+    autoApproveExclusions: true,
+    auditLogging: true,
+    customRules: true,
+    confirmBuiltinTools: true,
+  } satisfies Record<keyof HITLConfig, true>),
+);
+
 /** The abort reason as text for `hitl:cancelled`, whatever the caller passed. */
 export function describeAbortReason(signal: AbortSignal): string {
   const reason: unknown = signal.reason;
@@ -78,7 +94,20 @@ export class HITLManager extends EventEmitter {
   /**
    * Validate HITL configuration and apply defaults
    */
+  private readonly warnedUnknownKeys = new Set<string>();
+
   private validateConfig(config: HITLConfig): HITLConfig {
+    // Warn only: throwing here would break callers that pass planned-but-unsupported keys today.
+    // alwaysStderr, not logger.warn: warn is hidden unless NEUROLINK_DEBUG is set, and a typo'd key silently disables approval gates.
+    for (const key of Object.keys(config)) {
+      if (!KNOWN_CONFIG_KEYS.has(key) && !this.warnedUnknownKeys.has(key)) {
+        this.warnedUnknownKeys.add(key);
+        logger.alwaysStderr(
+          `[HITL] Unknown config key "${key}" is ignored and has no effect. Supported keys: ${[...KNOWN_CONFIG_KEYS].join(", ")}. See docs/features/enterprise-hitl.md`,
+        );
+      }
+    }
+
     // Apply defaults for optional fields
     const configWithDefaults: HITLConfig = {
       enabled: config.enabled,
