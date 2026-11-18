@@ -94,6 +94,7 @@ export class HITLManager extends EventEmitter {
       auditLogging: config.auditLogging ?? false, // Default: false
       customRules: config.customRules ?? [], // Default: empty array
       confirmBuiltinTools: config.confirmBuiltinTools ?? true, // Default: true (built-in write/bash tools prompt)
+      confirmDirectToolCalls: config.confirmDirectToolCalls ?? false, // Default: false (direct executeTool calls keep their existing behaviour)
     };
 
     if (!configWithDefaults.enabled) {

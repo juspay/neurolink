@@ -46,6 +46,15 @@ export type HITLConfig = {
    * only, as every other tool is.
    */
   confirmBuiltinTools?: boolean;
+
+  /**
+   * Whether `confirmBuiltinTools` also applies to a direct
+   * `neurolink.executeTool("writeFile", ...)` call, which the host's own code
+   * makes rather than a model (default: false, so existing callers are not
+   * prompted). Applies only while `enabled` and `confirmBuiltinTools` are
+   * `true`; `dangerousActions` and `customRules` match direct calls either way.
+   */
+  confirmDirectToolCalls?: boolean;
 };
 
 /**

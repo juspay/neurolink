@@ -79,6 +79,9 @@ const isRefused = (result: unknown): boolean =>
   "success" in result &&
   result.success === false;
 
+const isSucceeded = (result: unknown): boolean =>
+  readRecord(result).success === true;
+
 const textOf = (result: unknown): string => {
   const content = readRecord(result).content;
   return Array.isArray(content) ? String(readRecord(content[0]).text) : "";
@@ -2490,8 +2493,15 @@ type BuiltInFixture = HitlObserver & {
  */
 const createBuiltInFixture = async (
   toolName: string,
-  hitl: { dangerousActions: string[]; timeout: number } | undefined,
-  options: { worker?: boolean } = {},
+  hitl:
+    | {
+        dangerousActions: string[];
+        timeout: number;
+        confirmBuiltinTools?: boolean;
+        confirmDirectToolCalls?: boolean;
+      }
+    | undefined,
+  options: { worker?: boolean; batcher?: boolean } = {},
 ): Promise<BuiltInFixture> => {
   const root = mkdtempSync(join(tmpdir(), "hitl-builtin-"));
   const target = join(root, "confirm-once.txt");
@@ -2503,6 +2513,9 @@ const createBuiltInFixture = async (
   const neurolink = new NeuroLink({
     tools: { fileRoots: [root] },
     ...(hitl ? { hitl: { enabled: true, ...hitl } } : {}),
+    ...(options.batcher
+      ? { mcp: { batcher: { enabled: true, maxWaitMs: 10 } } }
+      : {}),
   });
   const runner = options.worker ? neurolink.createWorkerInstance() : neurolink;
   return {
@@ -2716,12 +2729,331 @@ await test("executeTool on a built-in write tool is confirmed once before it run
       ),
     );
     assert(outcome.error === undefined, "the approved call threw");
+    assert(isSucceeded(outcome.result), "the write did not report success");
     assertCount(fixture.cards.length, 1, "the call was not confirmed once");
     assertEqual(
       fixture.writtenContent(),
       "written once",
       "the approved write did not happen exactly once",
     );
+  } finally {
+    await fixture.close();
+  }
+});
+
+// A direct executeTool() call to a built-in tool that changes the machine is
+// held to confirmBuiltinTools like the model's call, though dangerousActions
+// does not list it (#2191).
+const REFUSAL_REASON = "direct-write-refused-by-reviewer-7f3a";
+const NO_KEYWORD_HITL = {
+  dangerousActions: ["delete"],
+  timeout: 5000,
+  confirmDirectToolCalls: true,
+};
+
+for (const name of ["writeFile", "direct.writeFile"]) {
+  await test(`direct executeTool("${name}") with confirmBuiltinTools is confirmed once and runs once on approval`, async () => {
+    const fixture = await createBuiltInFixture("writeFile", NO_KEYWORD_HITL);
+    try {
+      const call = settle(
+        fixture.neurolink.executeTool(
+          name,
+          { path: fixture.target, content: "written once", mode: "append" },
+          { bypassBatcher: true },
+        ),
+      );
+      assert(
+        await waitFor(() => fixture.cards.length === 1, 2000),
+        "no confirmation card was raised",
+      );
+      assert(!fixture.written(), "the file was written before approval");
+      fixture.answer(fixture.cards[0], true);
+      const outcome = await call;
+      assert(outcome.error === undefined, "the approved call threw");
+      assert(isSucceeded(outcome.result), "the write did not report success");
+      assertCount(fixture.cards.length, 1, "the call was not confirmed once");
+      assertEqual(
+        fixture.writtenContent(),
+        "written once",
+        "the approved write did not happen exactly once",
+      );
+    } finally {
+      await fixture.close();
+    }
+  });
+}
+
+await test("direct executeTool of a built-in write refused by the human writes nothing", async () => {
+  const fixture = await createBuiltInFixture("writeFile", NO_KEYWORD_HITL);
+  try {
+    fixture.onCard((id) =>
+      setTimeout(
+        () => fixture.answer(id, false, { reason: REFUSAL_REASON }),
+        100,
+      ),
+    );
+    const denied = await settle(
+      fixture.neurolink.executeTool(
+        "writeFile",
+        {
+          path: fixture.target,
+          content: "must not be written",
+          mode: "append",
+        },
+        { bypassBatcher: true },
+      ),
+    );
+    assertCount(fixture.cards.length, 1, "the call was not confirmed once");
+    assert(
+      denied.error === undefined,
+      "the refused call threw instead of resolving",
+    );
+    assert(
+      isRefused(denied.result),
+      "the refused call did not resolve with a refusal",
+    );
+    assert(
+      JSON.stringify(denied.result).includes(REFUSAL_REASON),
+      "the refusal did not carry the human's reason",
+    );
+    assert(!fixture.written(), "a refused direct write ran");
+  } finally {
+    await fixture.close();
+  }
+});
+
+// With the batcher on (maxWaitMs 10), a call that needs confirmation is kept
+// out of the batch: its card stays open well past the batch window and the
+// call settles only when the human answers.
+await test("direct executeTool through the batcher path is confirmed too, outside the batch timer", async () => {
+  const previousTimeout = process.env.MCP_TOOL_TIMEOUT;
+  process.env.MCP_TOOL_TIMEOUT = "5000";
+  let created: BuiltInFixture | undefined;
+  try {
+    const fixture = await createBuiltInFixture(
+      "writeFile",
+      { ...NO_KEYWORD_HITL, timeout: 30000 },
+      { batcher: true },
+    );
+    created = fixture;
+    let settled = false;
+    const call = settle(
+      fixture.neurolink.executeTool("writeFile", {
+        path: fixture.target,
+        content: "written once",
+        mode: "append",
+      }),
+    ).then((outcome) => {
+      settled = true;
+      return outcome;
+    });
+    assert(
+      await waitFor(() => fixture.cards.length === 1, 2000),
+      "no confirmation card was raised",
+    );
+    // Past the batch's own timeout (5s at the least): batched, the caller
+    // would have been told the call timed out while its card was still open.
+    await delay(6000);
+    assert(!settled, "the call settled while its card was still open");
+    assert(!fixture.written(), "the file was written before approval");
+    fixture.answer(fixture.cards[0], true);
+    const outcome = await call;
+    assert(outcome.error === undefined, "the approved call threw");
+    assert(isSucceeded(outcome.result), "the write did not report success");
+    assert(!isRefused(outcome.result), "the approved call was refused");
+    assertCount(fixture.cards.length, 1, "the call was not confirmed once");
+    assertEqual(
+      fixture.writtenContent(),
+      "written once",
+      "the approved write did not happen exactly once",
+    );
+  } finally {
+    if (previousTimeout === undefined) {
+      delete process.env.MCP_TOOL_TIMEOUT;
+    } else {
+      process.env.MCP_TOOL_TIMEOUT = previousTimeout;
+    }
+    await created?.close();
+  }
+});
+
+// A call batched while no confirmation applied, with confirmBuiltinTools
+// turned on before the batch runs, must not leave a card behind once the
+// batch has timed out for the caller.
+await test("a batched call whose confirmation became required before the batch ran leaves no live card after the batch times out", async () => {
+  const previousTimeout = process.env.MCP_TOOL_TIMEOUT;
+  process.env.MCP_TOOL_TIMEOUT = "5000";
+  let created: BuiltInFixture | undefined;
+  try {
+    const fixture = await createBuiltInFixture(
+      "writeFile",
+      { ...NO_KEYWORD_HITL, timeout: 30000, confirmBuiltinTools: false },
+      { batcher: true },
+    );
+    created = fixture;
+    const call = settle(
+      fixture.neurolink.executeTool("writeFile", {
+        path: fixture.target,
+        content: "must not be written",
+        mode: "append",
+      }),
+    );
+    fixture.neurolink
+      .getToolRegistry()
+      .getHITLManager()
+      ?.updateConfig({ confirmBuiltinTools: true });
+    assert(
+      await waitFor(() => fixture.cards.length === 1, 2000),
+      "the batched call raised no confirmation card",
+    );
+    assertCount(fixture.cards.length, 1, "the call was not confirmed once");
+    // The batch's own 5s timeout is what must end the call: a call still
+    // pending at 8s means the timeout never fired, which is a failure.
+    const early = await Promise.race([call, delay(8000).then(() => null)]);
+    if (early === null) {
+      throw new Error(
+        "the call was still pending past the batch timeout deadline",
+      );
+    }
+    assert(
+      early.error !== undefined || isRefused(early.result),
+      "the call did not end with an error after the batch timeout",
+    );
+    assert(
+      /timed out|timeout/i.test(
+        String(
+          early.error instanceof Error
+            ? early.error.message
+            : (early.error ?? JSON.stringify(early.result)),
+        ),
+      ),
+      "the call did not end with the batch timeout error",
+    );
+    // The caller was told the call ended: no card may outlive that.
+    fixture.answer(fixture.cards[0], true);
+    await delay(500);
+    assert(
+      !fixture.written(),
+      "an approval after the caller's timeout ran the write",
+    );
+  } finally {
+    if (previousTimeout === undefined) {
+      delete process.env.MCP_TOOL_TIMEOUT;
+    } else {
+      process.env.MCP_TOOL_TIMEOUT = previousTimeout;
+    }
+    await created?.close();
+  }
+});
+
+// Opt-in: a host that does not set confirmDirectToolCalls keeps the behaviour
+// direct callers always had, whatever confirmBuiltinTools says.
+const UNOPTED_HITL: [
+  string,
+  {
+    dangerousActions: string[];
+    timeout: number;
+    confirmDirectToolCalls?: boolean;
+  },
+][] = [
+  ["unset", { dangerousActions: ["delete"], timeout: 5000 }],
+  [
+    "false",
+    {
+      dangerousActions: ["delete"],
+      timeout: 5000,
+      confirmDirectToolCalls: false,
+    },
+  ],
+];
+
+for (const [label, hitl] of UNOPTED_HITL) {
+  await test(`direct executeTool of a built-in write is not asked while confirmDirectToolCalls is ${label}`, async () => {
+    const fixture = await createBuiltInFixture("writeFile", hitl);
+    try {
+      const outcome = await settle(
+        fixture.neurolink.executeTool(
+          "writeFile",
+          { path: fixture.target, content: "not asked", mode: "append" },
+          { bypassBatcher: true },
+        ),
+      );
+      assert(outcome.error === undefined, "the call threw");
+      assert(isSucceeded(outcome.result), "the write did not report success");
+      assertCount(fixture.cards.length, 0, "a card was raised without opt-in");
+      assertEqual(
+        fixture.writtenContent(),
+        "not asked",
+        "the write did not run",
+      );
+    } finally {
+      await fixture.close();
+    }
+  });
+}
+
+await test("direct executeTool of a built-in write with confirmBuiltinTools:false is not asked", async () => {
+  const fixture = await createBuiltInFixture("writeFile", {
+    ...NO_KEYWORD_HITL,
+    confirmBuiltinTools: false,
+  });
+  try {
+    const outcome = await settle(
+      fixture.neurolink.executeTool(
+        "writeFile",
+        { path: fixture.target, content: "no card", mode: "append" },
+        { bypassBatcher: true },
+      ),
+    );
+    assert(outcome.error === undefined, "the opted-out call threw");
+    assert(isSucceeded(outcome.result), "the write did not report success");
+    assertCount(fixture.cards.length, 0, "the opt-out still raised a card");
+    assertEqual(fixture.writtenContent(), "no card", "the write did not run");
+  } finally {
+    await fixture.close();
+  }
+});
+
+await test("direct executeTool of a built-in write with HITL disabled is not asked", async () => {
+  const fixture = await createBuiltInFixture("writeFile", undefined);
+  try {
+    const outcome = await settle(
+      fixture.neurolink.executeTool(
+        "writeFile",
+        { path: fixture.target, content: "hitl off", mode: "append" },
+        { bypassBatcher: true },
+      ),
+    );
+    assert(outcome.error === undefined, "the call threw");
+    assert(isSucceeded(outcome.result), "the write did not report success");
+    assertCount(fixture.cards.length, 0, "a card was raised with HITL off");
+    assertEqual(fixture.writtenContent(), "hitl off", "the write did not run");
+  } finally {
+    await fixture.close();
+  }
+});
+
+await test("direct executeTool of a non-mutating built-in is not newly gated", async () => {
+  const fixture = await createBuiltInFixture("writeFile", NO_KEYWORD_HITL);
+  try {
+    const outcome = await settle(
+      fixture.neurolink.executeTool(
+        "getCurrentTime",
+        {},
+        { bypassBatcher: true },
+      ),
+    );
+    assert(outcome.error === undefined, "the call threw");
+    const result = outcome.result as
+      | { success?: unknown; data?: { time?: unknown } }
+      | undefined;
+    assert(
+      result?.success === true &&
+        typeof result.data?.time === "string" &&
+        result.data.time.length > 0,
+      "the read-only built-in did not return a successful result with a time",
+    );
+    assertCount(fixture.cards.length, 0, "a read-only built-in raised a card");
   } finally {
     await fixture.close();
   }

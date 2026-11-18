@@ -2503,6 +2503,8 @@ export type BatchResult<T> = {
 
 export type BatchExecutor<T> = (
   requests: Array<{ tool: string; args: unknown; serverId?: string }>,
+  /** Aborted when the batch times out, so a call still waiting can be withdrawn. */
+  signal?: AbortSignal,
 ) => Promise<Array<{ success: boolean; result?: T; error?: Error }>>;
 
 /**

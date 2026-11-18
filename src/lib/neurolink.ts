@@ -292,6 +292,7 @@ import {
   hitlStateRefused,
   isRefusalResult,
   markRefusalResult,
+  registeredToolAlwaysConfirmed,
   resolveToolCallConfirmation,
 } from "./hitl/toolCallConfirmation.js";
 import { HITLError } from "./hitl/hitlErrors.js";
@@ -2524,7 +2525,15 @@ export class NeuroLink {
       });
       // Wire batcher to execute tools via the internal execution path (bypass batcher itself)
       this.mcpToolBatcher.setToolExecutor(
-        async (tool: string, args: unknown) => {
+        async (
+          tool: string,
+          args: unknown,
+          _serverId?: string,
+          batchSignal?: AbortSignal,
+        ) => {
+          // The batch's timeout aborts the call, so a confirmation card that
+          // opened inside the batch (the setting changed after the call was
+          // enqueued) is withdrawn and a late approval cannot run the call.
           // A state of its own per call, so the safe-tool retry inside
           // executeToolInternal reuses the first answer instead of asking again.
           // A tool registered with no retries gets no safe-tool retry either.
@@ -2537,6 +2546,7 @@ export class NeuroLink {
                 this.toolRegistry.getToolInfo(tool)?.tool?.maxRetries ??
                 RETRY_ATTEMPTS.DEFAULT,
               retryDelayMs: RETRY_DELAYS.BASE_MS,
+              ...(batchSignal ? { abortSignal: batchSignal } : {}),
             },
             createHITLExecutionState(),
           );
@@ -16197,7 +16207,12 @@ Current user's request: ${currentInput}`;
         userId,
         signal: options.abortSignal,
       },
-      { span: ctx.span, pauseDeadline: options.pauseDeadline },
+      {
+        span: ctx.span,
+        pauseDeadline: options.pauseDeadline,
+        alwaysConfirm:
+          !ctx.external && this.isRegisteredBuiltInGated(hitl, toolName),
+      },
     );
     if (action.run) {
       return { params: action.args };
@@ -16305,8 +16320,9 @@ Current user's request: ${currentInput}`;
    * the external manager usually share the host's.
    */
   private callNeedsConfirmation(toolName: string, params: unknown): boolean {
+    const registryManager = this.confirmationManagerFor(false);
     const managers = new Set([
-      this.confirmationManagerFor(false),
+      registryManager,
       this.confirmationManagerFor(true),
     ]);
     for (const manager of managers) {
@@ -16314,7 +16330,27 @@ Current user's request: ${currentInput}`;
         return true;
       }
     }
-    return false;
+    return (
+      registryManager?.isEnabled() === true &&
+      this.isRegisteredBuiltInGated(registryManager, toolName)
+    );
+  }
+
+  /**
+   * Whether a direct `executeTool` call to `toolName` resolves to a built-in
+   * the host asked to have confirmed on every call (`confirmBuiltinTools`),
+   * the same rule a model's call to it is held to. Opt-in through
+   * `confirmDirectToolCalls`, so existing direct callers are not prompted.
+   */
+  private isRegisteredBuiltInGated(
+    hitl: HITLConfirmationManager,
+    toolName: string,
+  ): boolean {
+    const tool = this.toolRegistry.getToolInfo(toolName)?.tool;
+    return (
+      tool !== undefined &&
+      registeredToolAlwaysConfirmed(hitl, tool.name, tool.serverId)
+    );
   }
 
   /**

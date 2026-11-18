@@ -33,7 +33,7 @@ Tracking: [#752](https://github.com/juspay/neurolink/issues/752).
 
 ## Currently available
 
-`HITLConfig` has exactly these ten keys (see `src/lib/types/hitl.ts`).
+`HITLConfig` has exactly these eleven keys (see `src/lib/types/hitl.ts`).
 Anything else on this page is not implemented.
 
 ```typescript
@@ -55,6 +55,7 @@ const neurolink = new NeuroLink({
     auditLogging: true, // Log each request and decision
     customRules: [], // { name, condition(toolName, args), requiresConfirmation, customMessage? }
     confirmBuiltinTools: true, // Default true. See the note below the example
+    confirmDirectToolCalls: false, // Default false. true applies confirmBuiltinTools to direct executeTool() calls
   },
 });
 ```
@@ -68,8 +69,9 @@ the full tool arguments, so redact secrets and personal data at the logger sink.
 `hitl:confirmation-response` that carries `modifiedArguments` is applied
 either way, so forward only the arguments you accept. The
 `hitl:audit` event is emitted on the internal `HITLManager`, and `NeuroLink`
-forwards only `hitl:confirmation-request` and `hitl:timeout` to
-`getEventEmitter()`.
+forwards only `hitl:confirmation-request`, `hitl:timeout` and
+`hitl:cancelled` to `getEventEmitter()`; listen for `hitl:cancelled` to retire
+a card that was withdrawn.
 
 `confirmBuiltinTools` (default `true`) applies only while `enabled` is `true`.
 With it on, the built-in `writeFile` and `executeBashCommand` tools need
@@ -78,9 +80,13 @@ whether or not `dangerousActions` matches them. Setting it to `false` removes
 only that built-in rule: those tools are then gated like any other tool, so a
 `dangerousActions` keyword or a `customRules` match still requires approval.
 A direct `neurolink.executeTool("writeFile", ...)` call is checked against
-`dangerousActions` and `customRules` only, not against this rule, so list the
-tool names in `dangerousActions` if those calls must be confirmed too. With
-HITL disabled, no tool asks for confirmation.
+`dangerousActions` and `customRules` only, not against this rule, unless the
+host opts in with `confirmDirectToolCalls: true` (default `false`). With it on,
+a direct call to `writeFile` or `executeBashCommand` (also as
+`direct.writeFile`) needs confirmation like a model's call, and
+`confirmBuiltinTools: false` removes that rule for direct calls too. A custom
+or external tool that reuses a built-in's name is never swept in. With HITL
+disabled, no tool asks for confirmation.
 
 Approval is **event-based**, through the SDK emitter — there is no
 `reviewCallback`. The emitter is reached with `getEventEmitter()`; `NeuroLink`
