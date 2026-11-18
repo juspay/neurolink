@@ -486,6 +486,8 @@ export type SpanOptions = {
   attributes?: Record<string, string | number | boolean | undefined>;
   /** Marks a thrown error as an expected skip whose Langfuse level the span set itself, so `withSpan` keeps it instead of raising ERROR. */
   expectedFailure?: (error: unknown) => boolean;
+  /** For a failure whose message is text from another system: returns the text to record on the span (status message, level message and exception) in its place. The thrown error is untouched. Return undefined to record the error as it is. */
+  failureSummary?: (error: unknown) => string | undefined;
   /** Keeps the span out of the active context, so spans started inside `fn` parent to the nearest ancestor that is exported. */
   detached?: boolean;
   /**

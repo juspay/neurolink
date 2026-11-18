@@ -910,6 +910,27 @@ function startTurn(
   }
 }
 
+// A decision provider's failure message can carry the vendor's error body,
+// which is text the vendor controls. Telemetry records the error class, kind
+// and HTTP status instead; the caller still gets the full message.
+function decisionFailureSummary(error: unknown): string | undefined {
+  const cause = error instanceof Error ? error.cause : undefined;
+  if (
+    !(error instanceof Error) ||
+    typeof cause !== "object" ||
+    cause === null ||
+    !("kind" in cause) ||
+    typeof cause.kind !== "string"
+  ) {
+    return undefined;
+  }
+  const status =
+    "status" in cause && typeof cause.status === "number"
+      ? ` (HTTP ${cause.status})`
+      : "";
+  return `${error.name}: ${cause.kind}${status}`;
+}
+
 function failTurnSpan(span: Span, error: Error): void {
   const message = error.message;
   if (isAbortError(error)) {
@@ -20501,6 +20522,7 @@ Current user's request: ${currentInput}`;
         name: "decide",
         tracer: tracers.decision,
         expectedFailure: () => !providerName,
+        failureSummary: decisionFailureSummary,
         attributes: {
           "gen_ai.system": providerName,
           "gen_ai.operation.name": "decide",
@@ -20654,7 +20676,8 @@ Current user's request: ${currentInput}`;
           const ended = SpanSerializer.endSpan(
             span,
             SpanStatus.ERROR,
-            error instanceof Error ? error.message : String(error),
+            decisionFailureSummary(error) ??
+              (error instanceof Error ? error.message : String(error)),
           );
           this.metricsAggregator.recordSpan(ended);
           getMetricsAggregator().recordSpan(ended);

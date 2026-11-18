@@ -42,16 +42,23 @@ export function markFailure(
   span: Span,
   error: unknown,
   expected = false,
+  summarize?: (error: unknown) => string | undefined,
 ): void {
   try {
-    recordFailure(span, error, expected);
+    recordFailure(span, error, expected, summarize);
   } catch {
     // The span keeps whatever was recorded before the value could not be read.
   }
 }
 
-function recordFailure(span: Span, error: unknown, expected: boolean): void {
-  const message = failureText(error);
+function recordFailure(
+  span: Span,
+  error: unknown,
+  expected: boolean,
+  summarize?: (error: unknown) => string | undefined,
+): void {
+  const summary = summarize?.(error);
+  const message = summary ?? failureText(error);
   if (readsAsAbort(error)) {
     span.setAttributes({
       [LangfuseOtelSpanAttributes.OBSERVATION_LEVEL]: "WARNING",
@@ -66,7 +73,13 @@ function recordFailure(span: Span, error: unknown, expected: boolean): void {
       [LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]: message,
     });
   }
-  if (error instanceof Error) {
+  if (summary !== undefined) {
+    // The thrown error's own message and stack are what the summary replaces.
+    span.recordException({
+      name: error instanceof Error ? error.name : "Error",
+      message,
+    });
+  } else if (error instanceof Error) {
     span.recordException(error);
   }
 }
@@ -139,7 +152,12 @@ export async function withSpan<T>(
       span.setStatus({ code: SpanStatusCode.OK });
       return result;
     } catch (error) {
-      markFailure(span, error, options.expectedFailure?.(error));
+      markFailure(
+        span,
+        error,
+        options.expectedFailure?.(error),
+        options.failureSummary,
+      );
       throw error;
     } finally {
       span.end();
