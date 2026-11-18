@@ -551,4 +551,194 @@ void runSuite(async () => {
       }
     });
   }
+
+  await test("a tool that throws still completes the turn and leaves no stream timer behind", async () => {
+    const sse = (event: string, payload: Record<string, unknown>): string =>
+      `event: ${event}\ndata: ${JSON.stringify({ type: event, ...payload })}\n\n`;
+    let requests = 0;
+    const server = createServer((req, res) => {
+      requests++;
+      req.resume();
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write(
+        sse("message_start", {
+          message: { id: `msg_${requests}`, usage: { input_tokens: 5 } },
+        }),
+      );
+      if (requests === 1) {
+        res.write(
+          sse("content_block_start", {
+            index: 0,
+            content_block: {
+              type: "tool_use",
+              id: "tu_1",
+              name: "boom",
+              input: {},
+            },
+          }),
+        );
+        res.write(
+          sse("content_block_delta", {
+            index: 0,
+            delta: { type: "input_json_delta", partial_json: "{}" },
+          }),
+        );
+        res.write(sse("content_block_stop", { index: 0 }));
+        res.write(
+          sse("message_delta", {
+            delta: { stop_reason: "tool_use" },
+            usage: { output_tokens: 6 },
+          }),
+        );
+      } else {
+        res.write(
+          sse("content_block_start", {
+            index: 0,
+            content_block: { type: "text", text: "" },
+          }),
+        );
+        res.write(
+          sse("content_block_delta", {
+            index: 0,
+            delta: { type: "text_delta", text: "after the failing tool" },
+          }),
+        );
+        res.write(sse("content_block_stop", { index: 0 }));
+        res.write(
+          sse("message_delta", {
+            delta: { stop_reason: "end_turn" },
+            usage: { output_tokens: 4 },
+          }),
+        );
+      }
+      res.end(sse("message_stop", {}));
+    });
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+
+    // Runs in its own process so a leaked timer shows up as a live interval in
+    // the report, and a leaked ref'd one as a process that will not exit.
+    // Timers are tracked from before the package loads.
+    const childSource = `
+const liveIntervals = new Map();
+const origSetInterval = globalThis.setInterval;
+const origClearInterval = globalThis.clearInterval;
+globalThis.setInterval = (...args) => {
+  const handle = origSetInterval(...args);
+  liveIntervals.set(handle, args[1]);
+  return handle;
+};
+globalThis.clearInterval = (handle) => {
+  liveIntervals.delete(handle);
+  return origClearInterval(handle);
+};
+const { NeuroLink, jsonSchema } = await import(process.env.NL_DIST);
+const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+const result = await nl.stream({
+  provider: "anthropic",
+  model: "claude-3-5-sonnet-20241022",
+  input: { text: "use the failing tool" },
+  maxSteps: 3,
+  maxTokens: 32,
+  timeout: 500,
+  disableInternalFallback: true,
+  tools: {
+    boom: {
+      description: "always throws",
+      inputSchema: jsonSchema({ type: "object", properties: {}, additionalProperties: true }),
+      execute: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        throw new Error("tool exploded");
+      },
+    },
+  },
+});
+let text = "";
+for await (const chunk of result.stream) {
+  text += ("content" in chunk ? chunk.content : undefined) ?? "";
+}
+await new Promise((resolve) => setTimeout(resolve, 500));
+process.stdout.write("REPORT:" + JSON.stringify({ text, liveIntervals: [...liveIntervals.values()] }) + "\\n");
+`;
+    try {
+      const { spawn } = await import("node:child_process");
+      const { pathToFileURL } = await import("node:url");
+      const { fileURLToPath } = await import("node:url");
+      const distEntry = pathToFileURL(
+        fileURLToPath(new URL("../dist/index.js", import.meta.url)),
+      ).href;
+      const outcome = await new Promise<{
+        code: number | null;
+        stdout: string;
+        stderr: string;
+        timedOut: boolean;
+      }>((resolve) => {
+        const child = spawn(
+          process.execPath,
+          ["--input-type=module", "-e", childSource],
+          {
+            env: {
+              ...process.env,
+              NL_DIST: distEntry,
+              ANTHROPIC_API_KEY: "test-key",
+              ANTHROPIC_BASE_URL: `http://127.0.0.1:${port}`,
+              ANTHROPIC_AUTH_METHOD: "api_key",
+              ANTHROPIC_OAUTH_TOKEN: "",
+              CLAUDE_OAUTH_TOKEN: "",
+            },
+            stdio: ["ignore", "pipe", "pipe"],
+          },
+        );
+        let stdout = "";
+        let stderr = "";
+        let timedOut = false;
+        child.stdout.on("data", (data: Buffer) => {
+          stdout += data.toString();
+        });
+        child.stderr.on("data", (data: Buffer) => {
+          stderr += data.toString();
+        });
+        // The stream is finished within about 2s; a longer wait means the
+        // process was held open after the report.
+        const killer = setTimeout(() => {
+          timedOut = true;
+          child.kill("SIGKILL");
+        }, 15_000);
+        child.on("close", (code) => {
+          clearTimeout(killer);
+          resolve({ code, stdout, stderr, timedOut });
+        });
+      });
+      const line = outcome.stdout
+        .split("\n")
+        .find((entry) => entry.startsWith("REPORT:"));
+      assert(
+        line !== undefined,
+        `the child never finished the stream: ${outcome.stderr.slice(-300)}`,
+      );
+      const report = JSON.parse((line ?? "REPORT:{}").slice(7)) as {
+        text?: string;
+        liveIntervals?: number[];
+      };
+      assert(
+        report.text?.includes("after the failing tool") === true,
+        "the turn did not complete after the tool threw",
+      );
+      assert(requests === 2, `expected two model requests, saw ${requests}`);
+      // The tool keep-alive ticks every min(250, idle/2) = 250ms here; the
+      // package's other intervals (60s, 1s) are not the tool's to clear.
+      assert(
+        (report.liveIntervals ?? []).filter((ms) => ms === 250).length === 0,
+        `the tool keep-alive interval outlived the tool; live interval delays: ${String(report.liveIntervals)}`,
+      );
+      assert(
+        !outcome.timedOut && outcome.code === 0,
+        "the process did not exit on its own after the stream",
+      );
+    } finally {
+      server.closeAllConnections();
+      server.close();
+    }
+  });
 });

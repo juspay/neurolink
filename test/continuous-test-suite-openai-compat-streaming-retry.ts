@@ -876,4 +876,109 @@ void runSuite(async () => {
       restoreEnv(envSnapshot);
     }
   });
+
+  section("stream timeout defaults and the structured-output re-ask deadline");
+
+  await test("a stream resolves the longer of its provider default and the 2m streaming default", async () => {
+    const { AIProviderFactory } = await import("../dist/index.js");
+    const keys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "LITELLM_API_KEY"];
+    const priorKeys = keys.map((key) => process.env[key]);
+    try {
+      for (const key of keys) {
+        process.env[key] = "test-key";
+      }
+      const expected: Array<[string, string, number]> = [
+        ["ollama", "llama3", 300_000],
+        ["litellm", "gpt-4", 300_000],
+        ["openai", "gpt-4o", 120_000],
+        ["anthropic", "claude-3-5-sonnet-20241022", 120_000],
+      ];
+      for (const [name, model, streamMs] of expected) {
+        const provider = await AIProviderFactory.createProvider(name, model);
+        assert(
+          "getTimeout" in provider && typeof provider.getTimeout === "function",
+          `${name} exposes no getTimeout`,
+        );
+        const resolved = Number(
+          "getTimeout" in provider && typeof provider.getTimeout === "function"
+            ? provider.getTimeout({ input: { text: "hi" } }, "stream")
+            : undefined,
+        );
+        assert(
+          resolved === streamMs,
+          `${name} resolved the wrong stream timeout: ${resolved}`,
+        );
+      }
+    } finally {
+      keys.forEach((key, i) => {
+        const prior = priorKeys[i];
+        if (prior === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = prior;
+        }
+      });
+    }
+  });
+
+  await test("a structured-output re-ask that never answers ends at turnTimeoutMs without structuredData", async () => {
+    const envSnapshot = snapshotEnv();
+    const { z } = await import("zod");
+    let requests = 0;
+    const server = createServer((req, res) => {
+      requests++;
+      req.resume();
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      if (requests === 1) {
+        // A complete stream, but prose rather than the schema's object.
+        res.write(sseChunk("plain prose, not JSON"));
+        res.write(sseFinalChunk("stop"));
+        res.end("data: [DONE]\n\n");
+        return;
+      }
+      // The re-ask: a heartbeat, then silence. Only the explicit turn
+      // deadline can end it.
+      res.write(": heartbeat\n\n");
+    });
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    try {
+      process.env.OPENAI_COMPATIBLE_BASE_URL = `http://127.0.0.1:${port}`;
+      process.env.OPENAI_COMPATIBLE_API_KEY = "test-key";
+      const started = Date.now();
+      const result = await nl().stream({
+        provider: "openai-compatible",
+        model: "gpt-4.1",
+        input: { text: "hi" },
+        maxSteps: 1,
+        maxTokens: 32,
+        schema: z.object({ answer: z.string() }),
+        turnTimeoutMs: 4_000,
+        disableInternalFallback: true,
+      });
+      let text = "";
+      for await (const chunk of result.stream) {
+        text += ("content" in chunk ? chunk.content : undefined) ?? "";
+      }
+      const elapsed = Date.now() - started;
+      assert(
+        text.includes("plain prose"),
+        "the first stream was not delivered",
+      );
+      assert(
+        elapsed >= 3_500 && elapsed < 7_000,
+        `the re-ask was not bounded by turnTimeoutMs: ${elapsed}ms`,
+      );
+      assert(requests === 2, `expected one re-ask, saw ${requests} requests`);
+      assert(
+        result.metadata?.structuredData === undefined,
+        "structuredData must stay unset when the re-ask is cut off",
+      );
+    } finally {
+      server.closeAllConnections();
+      server.close();
+      restoreEnv(envSnapshot);
+    }
+  });
 });
