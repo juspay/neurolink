@@ -64,7 +64,7 @@ Set the tool executor function
 
 ##### executor
 
-(`tool`, `args`, `serverId?`) => `Promise`\<`unknown`\>
+(`tool`, `args`, `serverId?`, `signal?`) => `Promise`\<`unknown`\>
 
 #### Returns
 

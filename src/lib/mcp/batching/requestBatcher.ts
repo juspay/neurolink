@@ -295,12 +295,14 @@ export class RequestBatcher<T = unknown> extends EventEmitter {
           }
 
           // Execute the batch with a timeout to prevent indefinite hangs
+          const batchAbort = new AbortController();
           const executorPromise = this.executor(
             batchRequests.map((r) => ({
               tool: r.tool,
               args: r.args,
               serverId: r.serverId,
             })),
+            batchAbort.signal,
           );
           const timeoutMs = Math.max(
             5000,
@@ -308,11 +310,10 @@ export class RequestBatcher<T = unknown> extends EventEmitter {
           );
           let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
           const timeoutPromise = new Promise<never>((_, reject) => {
-            timeoutHandle = setTimeout(
-              () =>
-                reject(ErrorFactory.toolTimeout("batchExecution", timeoutMs)),
-              timeoutMs,
-            );
+            timeoutHandle = setTimeout(() => {
+              batchAbort.abort();
+              reject(ErrorFactory.toolTimeout("batchExecution", timeoutMs));
+            }, timeoutMs);
           });
           // Suppress unhandled rejection if executorPromise rejects after timeout wins
           void executorPromise.catch((_e: unknown) => {
@@ -489,6 +490,7 @@ export class ToolCallBatcher {
     tool: string,
     args: unknown,
     serverId?: string,
+    signal?: AbortSignal,
   ) => Promise<unknown>;
 
   constructor(config?: Partial<BatchConfig>) {
@@ -498,7 +500,7 @@ export class ToolCallBatcher {
     });
 
     // Set up internal executor that calls individual tool executions
-    this.batcher.setExecutor(async (requests) => {
+    this.batcher.setExecutor(async (requests, signal) => {
       if (!this.toolExecutor) {
         throw ErrorFactory.missingConfiguration("toolExecutor", {
           hint: "Call setToolExecutor() before executing tool calls",
@@ -509,7 +511,12 @@ export class ToolCallBatcher {
       const results = await Promise.all(
         requests.map(async (req) => {
           try {
-            const result = await executor(req.tool, req.args, req.serverId);
+            const result = await executor(
+              req.tool,
+              req.args,
+              req.serverId,
+              signal,
+            );
             return { success: true, result };
           } catch (error) {
             return {
@@ -538,6 +545,7 @@ export class ToolCallBatcher {
       tool: string,
       args: unknown,
       serverId?: string,
+      signal?: AbortSignal,
     ) => Promise<unknown>,
   ): void {
     this.toolExecutor = executor;

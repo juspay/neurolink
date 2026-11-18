@@ -6,7 +6,7 @@
 
 # Type Alias: BatchExecutor\<T\>
 
-> **BatchExecutor**\<`T`\> = (`requests`) => `Promise`\<`object`[]\>
+> **BatchExecutor**\<`T`\> = (`requests`, `signal?`) => `Promise`\<`object`[]\>
 
 Batch executor function type
 
@@ -21,6 +21,10 @@ Batch executor function type
 ### requests
 
 `object`[]
+
+### signal?
+
+`AbortSignal`
 
 ## Returns
 

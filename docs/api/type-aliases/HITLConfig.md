@@ -94,3 +94,15 @@ opt-in `executeBashCommand` — always require confirmation while HITL is
 enabled, whatever `dangerousActions` says (default: true). Set to `false`
 to gate built-in tools by `dangerousActions` keywords and `customRules`
 only, as every other tool is.
+
+---
+
+### confirmDirectToolCalls?
+
+> `optional` **confirmDirectToolCalls?**: `boolean`
+
+Whether `confirmBuiltinTools` also applies to a direct
+`neurolink.executeTool("writeFile", ...)` call, which the host's own code
+makes rather than a model (default: false, so existing callers are not
+prompted). Applies only while `enabled` and `confirmBuiltinTools` are
+`true`; `dangerousActions` and `customRules` match direct calls either way.

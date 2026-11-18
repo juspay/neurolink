@@ -124,6 +124,25 @@ export function builtInToolAlwaysConfirmed(
 }
 
 /**
+ * `builtInToolAlwaysConfirmed` for a direct call to a tool resolved from the
+ * registry. It is opt-in (`hitl.confirmDirectToolCalls: true`) because direct
+ * callers were never prompted for these tools. Only a tool registered by
+ * NeuroLink itself (server `direct`) is a built-in, so a custom or external
+ * tool that reuses the name `writeFile` is not swept in.
+ */
+export function registeredToolAlwaysConfirmed(
+  hitl: HITLManager,
+  toolName: string,
+  serverId: string | undefined,
+): boolean {
+  return (
+    hitl.getConfig().confirmDirectToolCalls === true &&
+    serverId === "direct" &&
+    builtInToolAlwaysConfirmed(hitl, toolName)
+  );
+}
+
+/**
  * Tool results that carry a HITL refusal. A cache of tool results must not
  * keep one, the per-turn one of the Gemini loops (`DedupExecuteMap`)
  * included: the identical call has to raise a fresh card.

@@ -292,7 +292,7 @@ The rule applies to the tools of the instance and of its worker instances
 built-in tools, matched by name (for example `readFile` by
 `dangerousActions: ["read"]`; `writeFile` and `executeBashCommand` are
 confirmed on every call a model loop makes unless `confirmBuiltinTools` is
-`false`, see [Built-in tools](#built-in-tools)). Registered and built-in tools
+`false`, and on a direct `executeTool()` call only with `confirmDirectToolCalls: true`, see [Built-in tools](#built-in-tools)). Registered and built-in tools
 are confirmed by the HITL manager the tool registry holds: the instance's own,
 unless another manager was installed there
 (`getToolRegistry().setHITLManager()`, or a worker with HITL of its own, see
