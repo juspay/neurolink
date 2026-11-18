@@ -125,6 +125,45 @@ export type NeurolinkTraceContext = {
   metadata?: Record<string, SpanContent | undefined>;
   /** Name of the root observation of this `generate` or `stream` call; not propagated to child observations and not the trace name. */
   observationName?: string | null;
+  /** Langfuse prompt the call ran with, such as a `getLangfusePrompt` result; recorded as a `prompt:` trace tag and `promptName`, `promptVersion` and `promptLabel` metadata, replacing an enclosing prompt's tag and metadata. */
+  prompt?: LangfusePromptRef;
+};
+
+/**
+ * @description A Langfuse prompt version a trace was produced with. Generations are linked to it when it has a `version` and is not a fallback.
+ */
+export type LangfusePromptRef = {
+  /** Prompt name in Langfuse. */
+  name: string;
+  /** Prompt version; generations are linked only when it is set. */
+  version?: number;
+  /** Deployment label the version was fetched by. */
+  label?: string;
+  /** Whether the prompt text is a local fallback rather than a Langfuse version. */
+  isFallback?: boolean;
+};
+
+/**
+ * @description Options for `getLangfusePrompt`.
+ */
+export type LangfusePromptOptions = {
+  /** Deployment label to fetch; Langfuse serves `production` when omitted. */
+  label?: string;
+  /** Text returned when the prompt cannot be fetched as a text prompt. */
+  fallback: string;
+  /** Milliseconds before a cached prompt is refreshed in the background; defaults to 60000. The call that fetches an entry sets it for every caller of that name and label. */
+  cacheTtlMs?: number;
+  /** Milliseconds a fetch, body included, waits for Langfuse; defaults to 2000. */
+  timeoutMs?: number;
+};
+
+/**
+ * @description A text prompt resolved by `getLangfusePrompt`. `isFallback` is `true` when `text` is the caller's fallback, which carries no `version`.
+ */
+export type LangfusePrompt = LangfusePromptRef & {
+  /** Prompt text to send to the model. */
+  text: string;
+  isFallback: boolean;
 };
 
 // =============================================================================

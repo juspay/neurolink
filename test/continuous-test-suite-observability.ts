@@ -38,11 +38,12 @@ import {
   assert,
   assertEqual,
   defineSuite,
+  delay,
   runCommand,
   tempDir,
 } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
-import type { GenerateOptions } from "../dist/index.js";
+import type { GenerateOptions, LangfusePromptRef } from "../dist/index.js";
 
 assertDistFresh();
 
@@ -83,6 +84,7 @@ const {
   AIProviderFactory,
   NeuroLink,
   getLangfuseHealthStatus,
+  getLangfusePrompt,
   jsonSchema,
   setLangfuseContext,
 } = await import("../dist/index.js");
@@ -529,6 +531,18 @@ async function startLangfuse(mode: OtlpMode = "ok"): Promise<{
     }
     if (mode === "flaky" && hits.length === 0) {
       answer(500, { message: "boom" });
+      return;
+    }
+    if (req.url?.startsWith("/api/public/v2/prompts/")) {
+      answer(200, {
+        name: "owned-prompt",
+        version: 3,
+        type: "text",
+        prompt: "owned text",
+        labels: ["production"],
+        tags: [],
+        config: {},
+      });
       return;
     }
     spans.forEach((span) =>
@@ -1650,6 +1664,524 @@ await test("shutting down another instance keeps this one exporting", async () =
   assertEqual(named(await exported(), "generate").length, 1);
 });
 
+section("langfuse prompts");
+
+const startPrompts = async (): Promise<{
+  baseUrl: string;
+  hits: Map<string, number>;
+  authorizations: Set<string>;
+  releaseFailures: () => void;
+  close: () => Promise<void>;
+}> => {
+  const hits = new Map<string, number>();
+  const authorizations = new Set<string>();
+  const held = new Set<ServerResponse>();
+  const failures: ServerResponse[] = [];
+  const send = (res: ServerResponse, status: number, body: JsonBody): void => {
+    res.writeHead(status, { "content-type": "application/json" });
+    res.end(JSON.stringify(body));
+  };
+  const notFound = { message: "Prompt not found" };
+  const server = createServer((req, res) => {
+    const url = new URL(req.url ?? "", "http://127.0.0.1");
+    const name = decodeURIComponent(url.pathname.split("/").pop() ?? "");
+    const count = (hits.get(name) ?? 0) + 1;
+    hits.set(name, count);
+    authorizations.add(req.headers.authorization ?? "");
+    const label = url.searchParams.get("label") ?? "production";
+    const serve = (type: string, body: Json): void =>
+      send(res, 200, {
+        name,
+        version: 6 + count,
+        labels: [label],
+        tags: [],
+        config: {},
+        type,
+        prompt: body,
+      });
+    const hold = (): void => {
+      held.add(res);
+      res.on("close", () => held.delete(res));
+    };
+    switch (name.split("-")[0]) {
+      case "hold":
+        hold();
+        return;
+      case "stall":
+        res.writeHead(200, { "content-type": "application/json" });
+        res.write("{");
+        hold();
+        return;
+      case "malformed":
+        serve("text", ["x"]);
+        return;
+      case "flaky":
+        if (count === 1) {
+          serve("text", "kept");
+          return;
+        }
+        failures.push(res);
+        return;
+      case "reflect":
+        send(res, 401, {
+          message: "Unauthorized",
+          authorization: req.headers.authorization,
+        });
+        return;
+      case "missing":
+        send(res, 404, notFound);
+        return;
+      case "chat":
+        serve("chat", [{ role: "system", content: "chat text" }]);
+        return;
+      default:
+        serve("text", `text for ${label}`);
+    }
+  });
+  const port = await listen(server);
+  return {
+    baseUrl: `http://127.0.0.1:${port}`,
+    hits,
+    authorizations,
+    releaseFailures: () =>
+      failures.splice(0).forEach((res) => send(res, 404, notFound)),
+    close: () => closeServer(server, held),
+  };
+};
+
+const fallback = "fallback text";
+
+const assertFallback = async (
+  name: string,
+  options: { timeoutMs?: number } = {},
+): Promise<void> => {
+  const prompt = await getLangfusePrompt(name, { fallback, ...options });
+  assertEqual(prompt.name, name, "fallback name");
+  assertEqual(prompt.text, fallback, "fallback text");
+  assert(!("version" in prompt), "a fallback carries a version");
+  assertEqual(prompt.isFallback, true, "not marked as a fallback");
+};
+
+const prompts = await startPrompts();
+process.env.LANGFUSE_BASE_URL = prompts.baseUrl;
+
+await test("getLangfusePrompt fetches a text prompt by label with the environment keys", async () => {
+  const prompt = await getLangfusePrompt("text-fetch", {
+    label: "staging",
+    fallback,
+  });
+  assertEqual(prompt.text, "text for staging", "prompt text");
+  assertEqual(prompt.version, 7, "prompt version");
+  assertEqual(prompt.label, "staging", "prompt label");
+  assertEqual(prompt.isFallback, false, "fetched prompt marked as fallback");
+  assert(
+    prompts.authorizations.has(
+      `Basic ${Buffer.from("pk-test:sk-test").toString("base64")}`,
+    ),
+    "the request did not authenticate with the environment keys",
+  );
+});
+
+await test("a second call within the TTL makes no request", async () => {
+  const prompt = await getLangfusePrompt("text-fetch", {
+    label: "staging",
+    fallback,
+  });
+  assertEqual(prompt.version, 7, "cached version");
+  assertEqual(prompts.hits.get("text-fetch"), 1, "the cache was bypassed");
+});
+
+await test("concurrent first calls share one request", async () => {
+  const [first, second] = await Promise.all([
+    getLangfusePrompt("text-shared", { fallback }),
+    getLangfusePrompt("text-shared", { fallback }),
+  ]);
+  assertEqual(first.version, 7, "first caller version");
+  assertEqual(second.version, 7, "second caller version");
+  assertEqual(prompts.hits.get("text-shared"), 1, "callers did not share");
+});
+
+await test("an expired prompt returns at once and refreshes once in the background", async () => {
+  const options = { fallback, cacheTtlMs: 50 };
+  await getLangfusePrompt("text-stale", options);
+  await delay(80);
+  const stale = await getLangfusePrompt("text-stale", options);
+  assertEqual(stale.version, 7, "the stale prompt was not returned at once");
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const refreshed = await getLangfusePrompt("text-stale", options);
+    if (refreshed.version === 8) {
+      break;
+    }
+    await delay(10);
+  }
+  assertEqual(prompts.hits.get("text-stale"), 2, "refresh request count");
+  assertEqual(
+    (await getLangfusePrompt("text-stale", options)).version,
+    8,
+    "the refreshed prompt was not served",
+  );
+});
+
+await test("a missing prompt returns the fallback and is not retried within the TTL", async () => {
+  await assertFallback("missing-prompt");
+  await assertFallback("missing-prompt");
+  assertEqual(prompts.hits.get("missing-prompt"), 1, "the failure was retried");
+});
+
+await test("a chat prompt returns the fallback", async () => {
+  await assertFallback("chat-prompt");
+});
+
+await test("a Langfuse that never answers returns the fallback within the timeout", async () => {
+  const started = Date.now();
+  await assertFallback("hold-prompt", { timeoutMs: 200 });
+  assert(Date.now() - started < 1_500, "the timeout was not honoured");
+  assertEqual(prompts.hits.get("hold-prompt"), 1, "the request was retried");
+});
+
+await test("a Langfuse that stalls the body returns the fallback within the timeout", async () => {
+  const started = Date.now();
+  await assertFallback("stall-prompt", { timeoutMs: 200 });
+  assert(Date.now() - started < 1_500, "the timeout stopped at the headers");
+  assertEqual(
+    prompts.hits.get("stall-prompt"),
+    1,
+    "the fixture was not reached",
+  );
+});
+
+await test("a timed-out fetch does not hold the process open", async () => {
+  const started = Date.now();
+  const result = await runCommand(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `import { getLangfusePrompt } from ${JSON.stringify(
+        pathToFileURL(join(process.cwd(), "dist/index.js")).href,
+      )};
+await getLangfusePrompt("hold-exit", { fallback: "f", timeoutMs: 200 });`,
+    ],
+    {
+      cwd: process.cwd(),
+      timeoutMs: 45_000,
+      env: {
+        PATH: process.env.PATH,
+        HOME: process.env.HOME,
+        DOTENV_CONFIG_PATH: "/dev/null",
+        LANGFUSE_PUBLIC_KEY: "pk-test",
+        LANGFUSE_SECRET_KEY: "sk-test",
+        LANGFUSE_BASE_URL: prompts.baseUrl,
+      },
+    },
+  );
+  assertEqual(result.exitCode, 0, "child process failed");
+  assert(
+    Date.now() - started < 15_000,
+    "the process stayed open after the timeout",
+  );
+});
+
+await test("a text prompt with a malformed body returns the fallback", async () => {
+  await assertFallback("malformed-prompt");
+});
+
+await test("a caller changing its options mid-fetch does not move the cache entry", async () => {
+  const options = { label: "first", fallback };
+  const pending = getLangfusePrompt("text-label", options);
+  options.label = "second";
+  const prompt = await pending;
+  assertEqual(prompt.label, "first", "returned label");
+  assertEqual(prompt.text, "text for first", "returned text");
+  const cached = await getLangfusePrompt("text-label", {
+    label: "first",
+    fallback,
+  });
+  assertEqual(cached.text, "text for first", "cached text");
+  assertEqual(prompts.hits.get("text-label"), 1, "the cache missed");
+});
+
+await test("changing a returned prompt does not change the cache", async () => {
+  const first = await getLangfusePrompt("text-copy", { fallback });
+  first.text = "rendered";
+  const second = await getLangfusePrompt("text-copy", { fallback });
+  assertEqual(second.text, "text for production", "the cache was mutated");
+});
+
+await test("the cache drops the least recently fetched prompt beyond its bound", async () => {
+  for (let index = 0; index <= 500; index++) {
+    await getLangfusePrompt(`text-bound-${index}`, { fallback });
+  }
+  await getLangfusePrompt("text-bound-0", { fallback });
+  assertEqual(prompts.hits.get("text-bound-0"), 2, "the oldest entry stayed");
+  await getLangfusePrompt("text-bound-500", { fallback });
+  assertEqual(prompts.hits.get("text-bound-500"), 1, "a recent entry left");
+});
+
+await test("a failed refresh keeps the last prompt even when it was evicted meanwhile", async () => {
+  const options = { fallback, cacheTtlMs: 1 };
+  await getLangfusePrompt("flaky-evict", options);
+  await delay(5);
+  await getLangfusePrompt("flaky-evict", options);
+  await Promise.all(
+    Array.from({ length: 500 }, (_, index) =>
+      getLangfusePrompt(`text-evict-${index}`, { fallback }),
+    ),
+  );
+  prompts.releaseFailures();
+  await delay(100);
+  const prompt = await getLangfusePrompt("flaky-evict", { fallback });
+  assertEqual(prompt.text, "kept", "the last prompt was lost");
+});
+
+const fallbackWarning = async (name: string): Promise<string> => {
+  const warnings: string[] = [];
+  const warn = console.warn;
+  const debug = process.env.NEUROLINK_DEBUG;
+  console.warn = (...args: string[]) => {
+    warnings.push(args.join(" "));
+  };
+  process.env.NEUROLINK_DEBUG = "true";
+  try {
+    await assertFallback(name);
+  } finally {
+    console.warn = warn;
+    if (debug === undefined) {
+      delete process.env.NEUROLINK_DEBUG;
+    } else {
+      process.env.NEUROLINK_DEBUG = debug;
+    }
+  }
+  const line = warnings.find((warning) => warning.includes(name)) ?? "";
+  assert(line.length > 0, "no warning for the failed fetch");
+  return line;
+};
+
+await test("a failed fetch logs the status code and never the response body", async () => {
+  const line = await fallbackWarning("reflect-prompt");
+  assert(line.includes("401"), "the warning has no status code");
+  assert(!line.includes("Basic "), "the warning carries the response body");
+});
+
+await test("a refused connection logs why the fetch failed", async () => {
+  const closed = createServer();
+  const port = await listen(closed);
+  await closeServer(closed, new Set());
+  process.env.LANGFUSE_BASE_URL = `http://127.0.0.1:${port}`;
+  try {
+    const line = await fallbackWarning("refused-prompt");
+    assert(line.includes("fetch failed"), "the warning gives no reason");
+  } finally {
+    process.env.LANGFUSE_BASE_URL = prompts.baseUrl;
+  }
+});
+
+await test("without keys the fallback returns and no request is made", async () => {
+  delete process.env.LANGFUSE_PUBLIC_KEY;
+  try {
+    await assertFallback("text-nokeys");
+  } finally {
+    process.env.LANGFUSE_PUBLIC_KEY = "pk-test";
+  }
+  assert(!prompts.hits.has("text-nokeys"), "a request was made");
+});
+
+const tagsOf = (span: ReadableSpan): string[] => {
+  const tags = span.attributes["langfuse.trace.tags"];
+  return Array.isArray(tags) ? tags.map(String) : [];
+};
+
+const generationOf = (spans: ReadableSpan[]): ReadableSpan => {
+  const generations = ofType(spans, "generation");
+  assertEqual(generations.length, 1, "expected exactly one generation");
+  return generations[0];
+};
+
+const perCallGeneration = async (
+  prompt: LangfusePromptRef,
+): Promise<ReadableSpan> => {
+  clear();
+  await nl.generate(
+    request("gpt-4o-mini", { context: { ...context, prompt } }),
+  );
+  return generationOf(await exported());
+};
+
+await test("setLangfuseContext links generations to the prompt version", async () => {
+  const prompt = await getLangfusePrompt("text-link", {
+    label: "production",
+    fallback,
+  });
+  clear();
+  await setLangfuseContext({ prompt }, () =>
+    nl.generate(request("gpt-4o-mini")),
+  );
+  const spans = await exported();
+  const generation = generationOf(spans);
+  assertEqual(
+    generation.attributes["langfuse.observation.prompt.name"],
+    "text-link",
+  );
+  assertEqual(generation.attributes["langfuse.observation.prompt.version"], 7);
+  const tags = tagsOf(generation);
+  assert(tags.includes("prompt:text-link@7"), "no prompt tag");
+  assert(tags.includes(TAG), "the caller's tags were not kept");
+  const root = only(spans, "generate");
+  assertEqual(
+    root.attributes["langfuse.trace.metadata.promptName"],
+    "text-link",
+  );
+  assertEqual(root.attributes["langfuse.trace.metadata.promptVersion"], "7");
+  assertEqual(
+    root.attributes["langfuse.trace.metadata.promptLabel"],
+    "production",
+  );
+});
+
+await test("a per-call context prompt links generations to the prompt version", async () => {
+  const prompt = await getLangfusePrompt("text-link", {
+    label: "production",
+    fallback,
+  });
+  const generation = await perCallGeneration(prompt);
+  assertEqual(generation.attributes["langfuse.observation.prompt.version"], 7);
+  assert(tagsOf(generation).includes("prompt:text-link@7"), "no prompt tag");
+});
+
+await test("a fallback prompt is tagged but never linked", async () => {
+  const prompt = await getLangfusePrompt("missing-link", { fallback });
+  clear();
+  await setLangfuseContext({ prompt }, () =>
+    nl.generate(request("gpt-4o-mini")),
+  );
+  for (const span of await everySpan()) {
+    assert(
+      !("langfuse.observation.prompt.name" in span.attributes),
+      `${span.name} links a fallback prompt`,
+    );
+  }
+  const generation = generationOf(await exported());
+  assert(
+    tagsOf(generation).includes("prompt:missing-link@fallback"),
+    "no fallback prompt tag",
+  );
+});
+
+await test("a per-call prompt fetched without a label still links", async () => {
+  const prompt = await getLangfusePrompt("text-nolabel", { fallback });
+  const generation = await perCallGeneration(prompt);
+  assertEqual(generation.attributes["langfuse.observation.prompt.version"], 7);
+  assert(tagsOf(generation).includes("prompt:text-nolabel@7"), "no prompt tag");
+});
+
+await test("caller prompt metadata survives when no prompt is given", async () => {
+  clear();
+  await setLangfuseContext({ metadata: { promptName: "mine" } }, () =>
+    nl.generate(request("gpt-4o-mini")),
+  );
+  assertEqual(
+    only(await exported(), "generate").attributes[
+      "langfuse.trace.metadata.promptName"
+    ],
+    "mine",
+  );
+});
+
+await test("a per-call prompt with a non-integer version is ignored", async () => {
+  const generation = await perCallGeneration({
+    name: "fractional",
+    version: 1.5,
+  });
+  assert(
+    !tagsOf(generation).includes("prompt:fractional@1.5"),
+    "an invalid version was tagged",
+  );
+});
+
+await test("a prompt scope leaves the span already running untouched", async () => {
+  const prompt = await getLangfusePrompt("text-parent", { fallback });
+  clear();
+  hostProvider.getTracer("prompt-scope").startActiveSpan("running", (span) => {
+    setLangfuseContext({ prompt }, () => 0);
+    span.end();
+  });
+  assert(
+    !(
+      "langfuse.observation.prompt.name" in
+      only(await everySpan(), "running").attributes
+    ),
+    "the running span took the inner prompt link",
+  );
+});
+
+await test("a fallback inside a managed-prompt scope drops the outer link", async () => {
+  const outer = await getLangfusePrompt("text-outer", { fallback });
+  const inner = await getLangfusePrompt("missing-inner", { fallback });
+  clear();
+  await setLangfuseContext({ prompt: outer }, () =>
+    setLangfuseContext({ prompt: inner }, () =>
+      nl.generate(request("gpt-4o-mini")),
+    ),
+  );
+  assert(
+    !(
+      "langfuse.observation.prompt.name" in
+      generationOf(await exported()).attributes
+    ),
+    "the generation kept the outer prompt link",
+  );
+});
+
+await test("a prompt inside another prompt's scope replaces its metadata", async () => {
+  const outer = await getLangfusePrompt("text-outer", {
+    label: "production",
+    fallback,
+  });
+  const inner = await getLangfusePrompt("missing-inner", { fallback });
+  clear();
+  await setLangfuseContext({ prompt: outer }, () =>
+    setLangfuseContext({ prompt: inner }, () =>
+      nl.generate(request("gpt-4o-mini")),
+    ),
+  );
+  const spans = await exported();
+  generationOf(spans);
+  for (const span of spans) {
+    assertEqual(
+      span.attributes["langfuse.trace.metadata.promptName"],
+      "missing-inner",
+      `${span.name} prompt name`,
+    );
+    for (const key of ["promptVersion", "promptLabel"]) {
+      assert(
+        !(`langfuse.trace.metadata.${key}` in span.attributes),
+        `${span.name} kept the outer ${key}`,
+      );
+    }
+  }
+});
+
+await test("a prompt inside another prompt's scope replaces its tag", async () => {
+  const outer = await getLangfusePrompt("text-outer", { fallback });
+  const inner = await getLangfusePrompt("missing-inner", { fallback });
+  clear();
+  await setLangfuseContext({ prompt: outer, tags: ["caller"] }, () =>
+    setLangfuseContext({ prompt: inner }, () =>
+      nl.generate(request("gpt-4o-mini")),
+    ),
+  );
+  const tags = tagsOf(generationOf(await exported()));
+  assert(tags.includes("prompt:missing-inner@fallback"), "no inner tag");
+  assert(tags.includes("caller"), "the caller's tag was dropped");
+  assert(
+    !tags.some((tag) => tag.startsWith("prompt:text-outer")),
+    "the outer prompt tag was kept",
+  );
+});
+
+delete process.env.LANGFUSE_BASE_URL;
+await prompts.close();
+
 section("owned provider");
 
 const CHILD = join(tempDir("neurolink-obs-child-"), "child.mjs");
@@ -1875,7 +2407,7 @@ const SCENARIO = join(tempDir("neurolink-obs-scenario-"), "scenario.mjs");
 writeFileSync(
   SCENARIO,
   `
-import { NeuroLink, AIProviderFactory, flushOpenTelemetry, jsonSchema, setLangfuseContext, shutdownOpenTelemetry } from ${JSON.stringify(
+import { NeuroLink, AIProviderFactory, flushOpenTelemetry, getLangfusePrompt, jsonSchema, setLangfuseContext, shutdownOpenTelemetry } from ${JSON.stringify(
     pathToFileURL(join(process.cwd(), "dist/index.js")).href,
   )};
 const env = process.env;
@@ -1900,6 +2432,10 @@ if (scenario === "outer") {
     const turn = await nl.stream(call("tool-model", { disableTools: false, maxSteps: 3, tools: nesting, context: { ...context, metadata: { winner: "inner", perCall: url } } }));
     await drain(turn.stream);
   });
+} else if (scenario === "prompt") {
+  const prompt = await getLangfusePrompt("owned-prompt", { fallback: "fb" });
+  if (prompt.isFallback || prompt.version !== 3) process.exit(3);
+  await setLangfuseContext({ prompt }, () => nl.generate(call("gpt-4o-mini")));
 } else if (scenario === "named") {
   await nl.generate(call("gpt-4o-mini", { context: { ...context, traceName: "trace-x", observationName: "orchestrator-llm-generation" } }));
   await nl.generate(call("gpt-4o-mini"));
@@ -2411,6 +2947,29 @@ await test("observationName renames the root agent observation only", async () =
     ).length,
     1,
     "the default root is not named generate",
+  );
+});
+
+await test("NeuroLink's own Langfuse exporter keeps the prompt link and fetches with the config keys", async () => {
+  const owned = await runScenario("prompt");
+  assert(
+    owned.spans.some(
+      (span) =>
+        kind(span) === "generation" &&
+        span.attributes["langfuse.observation.prompt.name"] ===
+          "owned-prompt" &&
+        span.attributes["langfuse.observation.prompt.version"] === 3,
+    ),
+    "no generation carries the prompt link",
+  );
+  assert(
+    owned.hits.some(
+      (hit) =>
+        hit.path.startsWith("/api/public/v2/prompts/owned-prompt") &&
+        hit.authorization ===
+          `Basic ${Buffer.from("pk-i:sk-i").toString("base64")}`,
+    ),
+    "the prompt was not fetched from the config host with the config keys",
   );
 });
 
