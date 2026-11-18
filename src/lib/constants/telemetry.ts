@@ -36,6 +36,9 @@ export const TRUNCATION_NOTE_ALLOWANCE_CHARS = 48;
 /** @description Name of the OpenTelemetry context key that carries a trace's full metadata. */
 export const TRACE_METADATA_CONTEXT_KEY = "neurolink.trace.metadata";
 
+/** @description Name of the OpenTelemetry context key that carries the trace tag of the prompt `setLangfuseContext` was last given. */
+export const PROMPT_TAG_CONTEXT_KEY = "neurolink.trace.promptTag";
+
 /** @description Log prefix for NeuroLink's OpenTelemetry setup. */
 export const OTEL_LOG_PREFIX = "[OpenTelemetry]";
 

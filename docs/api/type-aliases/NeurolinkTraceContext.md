@@ -75,3 +75,11 @@ Trace metadata; values up to 200 characters once stringified are on every observ
 > `optional` **observationName?**: `string` \| `null`
 
 Name of the root observation of this `generate` or `stream` call; not propagated to child observations and not the trace name.
+
+---
+
+### prompt?
+
+> `optional` **prompt?**: [`LangfusePromptRef`](LangfusePromptRef.md)
+
+Langfuse prompt the call ran with, such as a `getLangfusePrompt` result; recorded as a `prompt:` trace tag and `promptName`, `promptVersion` and `promptLabel` metadata, replacing an enclosing prompt's tag and metadata.

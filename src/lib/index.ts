@@ -385,6 +385,7 @@ import {
   ensureTelemetry,
   flushOpenTelemetry,
   getLangfuseHealthStatus,
+  getLangfusePrompt,
   isOpenTelemetryInitialized,
   setLangfuseContext,
   shutdownOpenTelemetry,
@@ -395,6 +396,7 @@ export {
   shutdownOpenTelemetry,
   flushOpenTelemetry,
   getLangfuseHealthStatus,
+  getLangfusePrompt,
   setLangfuseContext,
   isOpenTelemetryInitialized,
 };
