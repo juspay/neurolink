@@ -31,6 +31,20 @@ import type {
   ToolRoutingDecisionOutcome,
 } from "../types/index.js";
 
+/**
+ * Thrown by a host-bound `decideFn` when a configured decision provider did
+ * not answer inside `toolRouting.timeoutMs`. It is distinct from `null`
+ * ("no provider", which falls back to the generative router): after a timeout
+ * the router must add no exclusions, or a slow decision model would hand the
+ * turn to a second, unbounded model that can still drop tools.
+ */
+export class ToolRoutingDecisionTimeoutError extends Error {
+  constructor(timeoutMs: number) {
+    super(`Tool routing decision exceeded ${timeoutMs}ms`);
+    this.name = "ToolRoutingDecisionTimeoutError";
+  }
+}
+
 /** Namespace for the per-server questions in the batch. */
 const SERVER_NAMESPACE = "server";
 

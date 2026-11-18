@@ -519,6 +519,20 @@ export type DecisionSiteContext = {
   signal?: AbortSignal;
   sessionId?: string;
   requestId?: string;
+  /**
+   * Called each time the wire call returns, before any host hook runs, so the
+   * caller can tell whether the provider itself met a deadline apart from the
+   * time a host observer then spent.
+   */
+  onProviderReturned?: () => void;
+  /**
+   * A deadline, in whole milliseconds, for the provider call alone. It starts
+   * right before the first wire dispatch (after any host `extendQuestions`
+   * hook) and is shared by every attempt and backoff of this call.
+   */
+  providerTimeoutMs?: number;
+  /** Receives the deadline signal when it starts. */
+  onProviderDeadline?: (signal: AbortSignal) => void;
 };
 
 /** What a site call adds to its decision span beyond the request itself. */

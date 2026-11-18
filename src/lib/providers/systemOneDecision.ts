@@ -115,9 +115,8 @@ function isRedirectRefusal(error: unknown): boolean {
 /**
  * Rejects with the signal's reason when it aborts, so a caller tearing a turn
  * down is not held, nor its process kept alive, for the length of a vendor's
- * Retry-After wait. The half-second backoff after a transport error is waited
- * out without a signal: a rejection there would leave the catch block that is
- * already handling that error.
+ * Retry-After wait. The transport-error backoff passes the request signal
+ * too and turns a rejection into a non-retryable error.
  */
 const sleep = (ms: number, signal?: AbortSignal): Promise<void> =>
   new Promise((resolve, reject) => {
@@ -447,7 +446,16 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
         const upstreamMs =
           Number(response.headers.get("x-envoy-upstream-service-time")) ||
           undefined;
-        const payload: unknown = await response.json().catch(() => null);
+        const payload: unknown = await response
+          .json()
+          .catch((error: unknown) => {
+            // A deadline or abort that cuts the body read short is a timeout,
+            // not a response without answers; the catch below classifies it.
+            if (signal.aborted) {
+              throw error;
+            }
+            return null;
+          });
 
         if (!response.ok) {
           lastError = this.parseDecisionError(
@@ -554,9 +562,14 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
         const aborted = request.signal?.aborted === true;
         const isTimeout =
           error instanceof Error && error.name === "TimeoutError";
+        // The caller's deadline is an AbortSignal.timeout, so its reason is a
+        // TimeoutError; a cancellation is not, and stays a network failure.
+        const reason: unknown = request.signal?.reason;
+        const deadlineHit =
+          aborted && reason instanceof Error && reason.name === "TimeoutError";
         const redirected = isRedirectRefusal(error);
         lastError = {
-          kind: aborted ? "network" : isTimeout ? "timeout" : "network",
+          kind: deadlineHit || (!aborted && isTimeout) ? "timeout" : "network",
           // `fetch` words a refused redirect as "fetch failed", which says
           // nothing about why, and asking again meets the same answer. The
           // address it points at is the server's to choose, so it is not quoted.
@@ -573,7 +586,27 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
         if (!lastError.retryable || attempt === this.maxRetries) {
           throw this.decisionError(lastError);
         }
-        await sleep(2 ** attempt * 250 + Math.random() * 250);
+        try {
+          await sleep(2 ** attempt * 250 + Math.random() * 250, request.signal);
+        } catch (sleepError) {
+          // The caller's deadline or abort landed during the backoff. Record
+          // that, not the earlier network error, so the span matches what the
+          // caller sees; a deadline stays a timeout, a cancellation does not.
+          const deadlineHit =
+            sleepError instanceof Error && sleepError.name === "TimeoutError";
+          throw this.decisionError({
+            kind: deadlineHit ? "timeout" : "network",
+            message: redactCredentials(
+              redactUrlsInText(
+                sleepError instanceof Error
+                  ? sleepError.message
+                  : `${label} request was cancelled.`,
+              ),
+              this.decisionApiKey(),
+            ),
+            retryable: false,
+          });
+        }
       }
     }
 

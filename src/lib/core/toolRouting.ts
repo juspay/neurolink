@@ -39,7 +39,10 @@ import { z } from "zod";
 import { logger } from "../utils/logger.js";
 import { withTimeout } from "../utils/async/index.js";
 import { selectRelevantToolNames } from "./toolRoutingEmbedding.js";
-import { selectServersByDecision } from "./toolRoutingDecision.js";
+import {
+  selectServersByDecision,
+  ToolRoutingDecisionTimeoutError,
+} from "./toolRoutingDecision.js";
 import type {
   DecisionCallerFn,
   ToolRetrievalItem,
@@ -673,8 +676,9 @@ export async function resolveToolRoutingExclusions(
     return excludedToolNames;
   } catch (error) {
     const isTimeout =
-      error instanceof Error &&
-      error.message.includes("Tool routing router call exceeded");
+      error instanceof ToolRoutingDecisionTimeoutError ||
+      (error instanceof Error &&
+        error.message.includes("Tool routing router call exceeded"));
     const outcome: ToolRoutingOutcome = isTimeout
       ? "failed-open-timeout"
       : "failed-open-error";
