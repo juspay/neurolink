@@ -73,14 +73,12 @@ forwards only `hitl:confirmation-request` and `hitl:timeout` to
 
 `confirmBuiltinTools` (default `true`) applies only while `enabled` is `true`.
 With it on, the built-in `writeFile` and `executeBashCommand` tools need
-confirmation on every call the model makes during `generate()` or `stream()`,
-whether or not `dangerousActions` matches them. Setting it to `false` removes
-only that built-in rule: those tools are then gated like any other tool, so a
-`dangerousActions` keyword or a `customRules` match still requires approval.
-A direct `neurolink.executeTool("writeFile", ...)` call is checked against
-`dangerousActions` and `customRules` only, not against this rule, so list the
-tool names in `dangerousActions` if those calls must be confirmed too. With
-HITL disabled, no tool asks for confirmation.
+confirmation on every call through `generate()`, `stream()`, or direct
+`neurolink.executeTool(...)`, whether or not `dangerousActions` matches them.
+Setting it to `false` removes only that built-in rule: those tools are then
+gated like any other tool, so a `dangerousActions` keyword or a `customRules`
+match still requires approval. With HITL disabled, no tool asks for
+confirmation.
 
 Approval is **event-based**, through the SDK emitter — there is no
 `reviewCallback`. The emitter is reached with `getEventEmitter()`; `NeuroLink`

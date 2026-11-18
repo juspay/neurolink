@@ -114,11 +114,13 @@ const HITL_ALWAYS_CONFIRM_BUILT_IN_TOOLS: ReadonlySet<string> = new Set([
  * machine unless the host set `hitl.confirmBuiltinTools: false`.
  */
 export function builtInToolAlwaysConfirmed(
-  hitl: HITLManager,
-  toolName: string,
+  hitl: { getConfig(): { confirmBuiltinTools?: boolean } },
+  canonicalName: string,
+  serverId: string | undefined,
 ): boolean {
   return (
-    HITL_ALWAYS_CONFIRM_BUILT_IN_TOOLS.has(toolName) &&
+    serverId === "direct" &&
+    HITL_ALWAYS_CONFIRM_BUILT_IN_TOOLS.has(canonicalName) &&
     hitl.getConfig().confirmBuiltinTools !== false
   );
 }

@@ -15966,7 +15966,13 @@ Current user's request: ${currentInput}`;
         userId,
         signal: options.abortSignal,
       },
-      { span: ctx.span, pauseDeadline: options.pauseDeadline },
+      {
+        span: ctx.span,
+        pauseDeadline: options.pauseDeadline,
+        alwaysConfirm: ctx.external
+          ? false
+          : this.registryTargetAlwaysConfirmed(hitl, toolName),
+      },
     );
     if (action.run) {
       return { params: action.args };
@@ -16063,9 +16069,24 @@ Current user's request: ${currentInput}`;
         log: (message) => mcpLogger.info(`[NeuroLink] ${message}`),
         subject: "Built-in tool",
         pauseDeadline: options.pauseDeadline,
-        alwaysConfirm: builtInToolAlwaysConfirmed(hitl, toolName),
+        alwaysConfirm: builtInToolAlwaysConfirmed(hitl, toolName, "direct"),
       },
     );
+  }
+
+  private registryTargetAlwaysConfirmed(
+    hitl: { getConfig(): { confirmBuiltinTools?: boolean } },
+    toolName: string,
+  ): boolean {
+    try {
+      const { tool } = this.toolRegistry.resolveToolExecutionTarget(toolName);
+      return (
+        tool !== undefined &&
+        builtInToolAlwaysConfirmed(hitl, tool.name, tool.serverId)
+      );
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -16074,12 +16095,20 @@ Current user's request: ${currentInput}`;
    * the external manager usually share the host's.
    */
   private callNeedsConfirmation(toolName: string, params: unknown): boolean {
+    const externalTarget = this.externalServerManager
+      .getAllTools()
+      .some((tool) => tool.name === toolName && tool.isAvailable);
     const managers = new Set([
       this.confirmationManagerFor(false),
       this.confirmationManagerFor(true),
     ]);
     for (const manager of managers) {
-      if (manager?.requiresConfirmation(toolName, params)) {
+      if (
+        manager?.requiresConfirmation(toolName, params) ||
+        (!externalTarget &&
+          manager !== undefined &&
+          this.registryTargetAlwaysConfirmed(manager, toolName))
+      ) {
         return true;
       }
     }

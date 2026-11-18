@@ -38,6 +38,7 @@ import {
 
 import { HITLError } from "../hitl/hitlErrors.js";
 import {
+  builtInToolAlwaysConfirmed,
   isRefusalResult,
   markRefusalResult,
   resolveToolCallConfirmation,
@@ -495,6 +496,7 @@ export class MCPToolRegistry extends MCPRegistry {
             tool.serverId,
             execContext,
             span,
+            tool.name,
           );
 
           // A call cancelled during its confirmation must not start.
@@ -725,7 +727,7 @@ export class MCPToolRegistry extends MCPRegistry {
     return result;
   }
 
-  private resolveToolExecutionTarget(toolName: string): {
+  resolveToolExecutionTarget(toolName: string): {
     tool: ToolInfo | undefined;
     toolId: string;
   } {
@@ -783,6 +785,7 @@ export class MCPToolRegistry extends MCPRegistry {
     serverId: string | undefined,
     execContext: ExecutionContext,
     span: Span,
+    canonicalName: string = toolName,
   ): Promise<unknown> {
     const action = await resolveToolCallConfirmation(
       this.hitlManager,
@@ -795,7 +798,13 @@ export class MCPToolRegistry extends MCPRegistry {
         userId: execContext.userId,
         signal: execContext.abortSignal,
       },
-      { log: (message) => registryLogger.info(message), span },
+      {
+        log: (message) => registryLogger.info(message),
+        span,
+        alwaysConfirm:
+          this.hitlManager !== undefined &&
+          builtInToolAlwaysConfirmed(this.hitlManager, canonicalName, serverId),
+      },
     );
     if (!action.run) {
       throw action.error;

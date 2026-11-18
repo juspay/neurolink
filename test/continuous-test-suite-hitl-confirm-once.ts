@@ -20,6 +20,7 @@
  * determinism exception.
  */
 import "./helpers/credentialFreeEnv.js";
+import "./helpers/enableBashToolForHitlTest.js";
 import { getEventListeners } from "node:events";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
@@ -2474,6 +2475,7 @@ type BuiltInFixture = HitlObserver & {
   neurolink: NeuroLink;
   /** Where the model's writeFile call lands (inside the tool root). */
   target: string;
+  bashMarker: string;
   written: () => boolean;
   writtenContent: () => string;
   /** One model turn on the Anthropic stand-in. */
@@ -2490,16 +2492,27 @@ type BuiltInFixture = HitlObserver & {
  */
 const createBuiltInFixture = async (
   toolName: string,
-  hitl: { dangerousActions: string[]; timeout: number } | undefined,
+  hitl:
+    | {
+        dangerousActions: string[];
+        timeout: number;
+        confirmBuiltinTools?: boolean;
+      }
+    | undefined,
   options: { worker?: boolean } = {},
 ): Promise<BuiltInFixture> => {
   const root = mkdtempSync(join(tmpdir(), "hitl-builtin-"));
   const target = join(root, "confirm-once.txt");
+  const bashMarker = join(root, "bash-qualified.txt");
   const input =
     toolName === "writeFile"
       ? { path: target, content: "written once", mode: "append" }
       : { path: root };
   const standIn = await startAnthropicToolStandIn(toolName, input);
+  const priorBashTool = process.env.NEUROLINK_ENABLE_BASH_TOOL;
+  if (toolName === "executeBashCommand") {
+    process.env.NEUROLINK_ENABLE_BASH_TOOL = "true";
+  }
   const neurolink = new NeuroLink({
     tools: { fileRoots: [root] },
     ...(hitl ? { hitl: { enabled: true, ...hitl } } : {}),
@@ -2509,9 +2522,16 @@ const createBuiltInFixture = async (
     ...observeHitl(neurolink.getEventEmitter()),
     neurolink,
     target,
-    written: () => existsSync(target),
+    bashMarker,
+    written: () =>
+      existsSync(toolName === "executeBashCommand" ? bashMarker : target),
     writtenContent: () =>
-      existsSync(target) ? readFileSync(target, "utf8") : "",
+      existsSync(toolName === "executeBashCommand" ? bashMarker : target)
+        ? readFileSync(
+            toolName === "executeBashCommand" ? bashMarker : target,
+            "utf8",
+          )
+        : "",
     turn: (abortSignal) =>
       settle(
         (async () => {
@@ -2534,6 +2554,11 @@ const createBuiltInFixture = async (
     close: async () => {
       standIn.restore();
       await standIn.close();
+      if (priorBashTool === undefined) {
+        delete process.env.NEUROLINK_ENABLE_BASH_TOOL;
+      } else {
+        process.env.NEUROLINK_ENABLE_BASH_TOOL = priorBashTool;
+      }
       rmSync(root, { recursive: true, force: true });
     },
   };
@@ -2709,11 +2734,11 @@ await test("executeTool on a built-in write tool is confirmed once before it run
   try {
     fixture.onCard((id) => setTimeout(() => fixture.answer(id, true), 200));
     const outcome = await settle(
-      fixture.neurolink.executeTool(
-        "writeFile",
-        { path: fixture.target, content: "written once", mode: "append" },
-        { bypassBatcher: true },
-      ),
+      fixture.neurolink.executeTool("writeFile", {
+        path: fixture.target,
+        content: "written once",
+        mode: "append",
+      }),
     );
     assert(outcome.error === undefined, "the approved call threw");
     assertCount(fixture.cards.length, 1, "the call was not confirmed once");
@@ -2722,6 +2747,266 @@ await test("executeTool on a built-in write tool is confirmed once before it run
       "written once",
       "the approved write did not happen exactly once",
     );
+  } finally {
+    await fixture.close();
+  }
+});
+
+await test("direct executeTool confirms a built-in write tool even when dangerousActions does not match", async () => {
+  const fixture = await createBuiltInFixture("writeFile", {
+    dangerousActions: ["delete"],
+    timeout: 5000,
+  });
+  try {
+    fixture.onCard((id) => setTimeout(() => fixture.answer(id, true), 200));
+    const outcome = await settle(
+      fixture.neurolink.executeTool(
+        "writeFile",
+        { path: fixture.target, content: "written once", mode: "append" },
+        { bypassBatcher: true },
+      ),
+    );
+    assert(outcome.error === undefined, "the approved direct call threw");
+    assertCount(
+      fixture.cards.length,
+      1,
+      "the direct built-in call was not confirmed once",
+    );
+    assertEqual(
+      fixture.writtenContent(),
+      "written once",
+      "the approved direct write did not run",
+    );
+  } finally {
+    await fixture.close();
+  }
+});
+
+await test("qualified direct executeTool approves a built-in write once", async () => {
+  const fixture = await createBuiltInFixture("writeFile", {
+    dangerousActions: ["delete"],
+    timeout: 5000,
+  });
+  try {
+    fixture.onCard((id) => setTimeout(() => fixture.answer(id, true), 200));
+    const outcome = await settle(
+      fixture.neurolink.executeTool("direct.writeFile", {
+        path: fixture.target,
+        content: "qualified write approved",
+        mode: "append",
+      }),
+    );
+    assert(outcome.error === undefined, "the approved qualified call threw");
+    assertCount(
+      fixture.cards.length,
+      1,
+      "the approved qualified built-in call was not confirmed once",
+    );
+    assertEqual(
+      fixture.writtenContent(),
+      "qualified write approved",
+      "the approved qualified write did not run",
+    );
+  } finally {
+    await fixture.close();
+  }
+});
+
+await test("qualified direct executeTool denies a built-in write once", async () => {
+  const fixture = await createBuiltInFixture("writeFile", {
+    dangerousActions: ["delete"],
+    timeout: 5000,
+  });
+  try {
+    fixture.onCard((id) =>
+      setTimeout(
+        () => fixture.answer(id, false, { reason: "Denied by test" }),
+        200,
+      ),
+    );
+    const outcome = await settle(
+      fixture.neurolink.executeTool("direct.writeFile", {
+        path: fixture.target,
+        content: "must not be written",
+        mode: "append",
+      }),
+    );
+    assert(outcome.error === undefined, "the denied qualified call threw");
+    assertCount(
+      fixture.cards.length,
+      1,
+      "the denied qualified built-in call was not confirmed once",
+    );
+    assert(!fixture.written(), "a denied qualified write ran");
+  } finally {
+    await fixture.close();
+  }
+});
+
+await test("qualified direct executeTool opts out of built-in write confirmation", async () => {
+  const fixture = await createBuiltInFixture("writeFile", {
+    dangerousActions: ["delete"],
+    timeout: 5000,
+    confirmBuiltinTools: false,
+  });
+  try {
+    const outcome = await settle(
+      fixture.neurolink.executeTool("direct.writeFile", {
+        path: fixture.target,
+        content: "qualified write opt-out",
+        mode: "append",
+      }),
+    );
+    assert(outcome.error === undefined, "the opted-out qualified call threw");
+    assertCount(
+      fixture.cards.length,
+      0,
+      "confirmBuiltinTools:false raised a qualified write card",
+    );
+    assertEqual(
+      fixture.writtenContent(),
+      "qualified write opt-out",
+      "the opted-out qualified write did not run",
+    );
+  } finally {
+    await fixture.close();
+  }
+});
+
+await test("qualified direct executeTool approves executeBashCommand once", async () => {
+  const fixture = await createBuiltInFixture("executeBashCommand", {
+    dangerousActions: ["delete"],
+    timeout: 5000,
+  });
+  try {
+    fixture.onCard((id) => setTimeout(() => fixture.answer(id, true), 200));
+    const outcome = await settle(
+      fixture.neurolink.executeTool("direct.executeBashCommand", {
+        command: `node -e "require('node:fs').writeFileSync('bash-qualified.txt','bash ran')"`,
+        cwd: dirname(fixture.bashMarker),
+      }),
+    );
+    assert(outcome.error === undefined, "the approved bash call threw");
+    assertCount(
+      fixture.cards.length,
+      1,
+      "the qualified bash call was not confirmed once",
+    );
+  } finally {
+    await fixture.close();
+  }
+});
+
+await test("qualified direct executeTool denies executeBashCommand once", async () => {
+  const fixture = await createBuiltInFixture("executeBashCommand", {
+    dangerousActions: ["delete"],
+    timeout: 5000,
+  });
+  try {
+    fixture.onCard((id) =>
+      setTimeout(
+        () => fixture.answer(id, false, { reason: "Denied by test" }),
+        200,
+      ),
+    );
+    const outcome = await settle(
+      fixture.neurolink.executeTool("direct.executeBashCommand", {
+        command: `node -e "require('node:fs').writeFileSync('bash-qualified.txt','bash ran')"`,
+        cwd: dirname(fixture.bashMarker),
+      }),
+    );
+    assert(outcome.error === undefined, "the denied bash call threw");
+    assertCount(
+      fixture.cards.length,
+      1,
+      "the denied qualified bash call was not confirmed once",
+    );
+    assert(!fixture.written(), "a denied qualified bash call ran");
+  } finally {
+    await fixture.close();
+  }
+});
+
+await test("qualified direct executeTool opts out of executeBashCommand confirmation", async () => {
+  const fixture = await createBuiltInFixture("executeBashCommand", {
+    dangerousActions: ["delete"],
+    timeout: 5000,
+    confirmBuiltinTools: false,
+  });
+  try {
+    const outcome = await settle(
+      fixture.neurolink.executeTool("direct.executeBashCommand", {
+        command: `node -e "require('node:fs').writeFileSync('bash-qualified.txt','bash ran')"`,
+        cwd: dirname(fixture.bashMarker),
+      }),
+    );
+    assert(outcome.error === undefined, "the opted-out bash call threw");
+    assertCount(
+      fixture.cards.length,
+      0,
+      "confirmBuiltinTools:false raised a bash confirmation",
+    );
+  } finally {
+    await fixture.close();
+  }
+});
+
+await test("direct executeTool follows confirmBuiltinTools:false for built-in write tools", async () => {
+  const fixture = await createBuiltInFixture("writeFile", {
+    dangerousActions: ["delete"],
+    timeout: 5000,
+    confirmBuiltinTools: false,
+  });
+  try {
+    const outcome = await settle(
+      fixture.neurolink.executeTool("writeFile", {
+        path: fixture.target,
+        content: "written without confirmation",
+        mode: "append",
+      }),
+    );
+    assert(outcome.error === undefined, "the opted-out direct call threw");
+    assertCount(
+      fixture.cards.length,
+      0,
+      "confirmBuiltinTools:false still raised a card",
+    );
+    assertEqual(
+      fixture.writtenContent(),
+      "written without confirmation",
+      "the opted-out direct write did not run",
+    );
+  } finally {
+    await fixture.close();
+  }
+});
+
+await test("direct executeTool denial prevents a built-in write even when dangerousActions does not match", async () => {
+  const fixture = await createBuiltInFixture("writeFile", {
+    dangerousActions: ["delete"],
+    timeout: 5000,
+  });
+  try {
+    fixture.onCard((id) =>
+      setTimeout(
+        () => fixture.answer(id, false, { reason: "Denied by test" }),
+        200,
+      ),
+    );
+    const outcome = await settle(
+      fixture.neurolink.executeTool("writeFile", {
+        path: fixture.target,
+        content: "must not be written",
+        mode: "append",
+      }),
+    );
+    assert(outcome.error === undefined, "a refused direct call threw");
+    assertCount(
+      fixture.cards.length,
+      1,
+      "the denied direct built-in call was not confirmed once",
+    );
+    assert(!fixture.written(), "a denied direct built-in write still ran");
   } finally {
     await fixture.close();
   }
