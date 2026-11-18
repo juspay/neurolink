@@ -132,6 +132,7 @@ import type {
   MCPEnhancementsConfig,
   NeuroLinkAuthConfig,
   NeurolinkConstructorConfig,
+  LangfusePromptRef,
   ChatMessage,
   ConversationMemoryConfig,
   ConversationSeedMessage,
@@ -547,7 +548,7 @@ import {
   transformToolsToExpectedFormat,
 } from "./utils/transformationUtils.js";
 import { toToolExecutionRecords } from "./core/toolExecutionRecorder.js";
-import { isNonNullObject } from "./utils/typeUtils.js";
+import { isNonNullObject, isObject } from "./utils/typeUtils.js";
 import { getWorkflow } from "./workflow/core/workflowRegistry.js";
 import { runWorkflow } from "./workflow/core/workflowRunner.js";
 import { ModelPool, classifyProviderError } from "./routing/index.js";
@@ -1436,6 +1437,14 @@ export class NeuroLink {
     const outer = getPropagatedAttributesFromContext(context.active());
     const unset = (key: string, value: JsonValue): string | undefined =>
       typeof value === "string" && !outer[key] ? value : undefined;
+    const isPromptRef = (
+      value: JsonValue,
+    ): value is JsonObject & LangfusePromptRef =>
+      isObject(value) &&
+      typeof value.name === "string" &&
+      Number.isInteger(value.version ?? 0) &&
+      typeof (value.label ?? "") === "string" &&
+      typeof (value.isFallback ?? false) === "boolean";
     return await setLangfuseContext(
       {
         userId: unset(LangfuseOtelSpanAttributes.TRACE_USER_ID, ctx.userId),
@@ -1457,6 +1466,7 @@ export class NeuroLink {
           ctx.metadata && typeof ctx.metadata === "object"
             ? (ctx.metadata as Record<string, JsonValue>)
             : undefined,
+        ...(isPromptRef(ctx.prompt) && { prompt: ctx.prompt }),
       },
       callback,
     );

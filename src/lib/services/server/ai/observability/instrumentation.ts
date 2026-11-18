@@ -1,4 +1,9 @@
 import {
+  LangfuseAPIClient,
+  LangfuseAPIError,
+  LangfuseOtelContextKeys,
+} from "@langfuse/core";
+import {
   propagateAttributes,
   setLangfuseTracerProvider,
 } from "@langfuse/tracing";
@@ -23,9 +28,17 @@ import {
   ATTR_SERVICE_NAME,
   ATTR_SERVICE_VERSION,
 } from "@opentelemetry/semantic-conventions";
-import { DEFAULT_FLUSH_BUDGET_MS } from "../../../../constants/langfuse.js";
+import {
+  DEFAULT_BASE_URL,
+  DEFAULT_FLUSH_BUDGET_MS,
+  DEFAULT_PROMPT_CACHE_TTL_MS,
+  DEFAULT_PROMPT_TIMEOUT_MS,
+  MAX_CACHED_PROMPTS,
+  PROMPT_METADATA_KEYS,
+} from "../../../../constants/langfuse.js";
 import {
   OTEL_LOG_PREFIX,
+  PROMPT_TAG_CONTEXT_KEY,
   TRACE_METADATA_CONTEXT_KEY,
 } from "../../../../constants/telemetry.js";
 import { getExporterRegistry } from "../../../../observability/exporterRegistry.js";
@@ -37,6 +50,9 @@ import {
   registerTelemetryStarter,
 } from "../../../../telemetry/telemetryStarter.js";
 import type {
+  LangfusePrompt,
+  LangfusePromptOptions,
+  LangfusePromptRef,
   NeurolinkTraceContext,
   ObservabilityConfig,
   OtlpConnections,
@@ -59,6 +75,7 @@ import {
 const MAX_PROPAGATED_CHARS = 200;
 const LANGFUSE_EXPORTER_NAME = "langfuse";
 const TRACE_METADATA_KEY = createContextKey(TRACE_METADATA_CONTEXT_KEY);
+const PROMPT_TAG_KEY = createContextKey(PROMPT_TAG_CONTEXT_KEY);
 const CONTEXT_PROBE_KEY = createContextKey("neurolink.context-manager-probe");
 // `false`, `0`, `off` or `no` skips the flush at process exit; the released build had none.
 const EXIT_FLUSH_SWITCH = "NEUROLINK_TELEMETRY_EXIT_FLUSH";
@@ -83,6 +100,11 @@ let terminationLogged = false;
 let unconfiguredLogged = false;
 let missingKeysLogged = false;
 let holders = 0;
+const promptCache = new Map<
+  string,
+  { prompt?: LangfusePrompt; expiresAt: number }
+>();
+const promptRefreshes = new Map<string, Promise<void>>();
 
 function differingConfigFields(
   first: ObservabilityConfig | undefined,
@@ -556,9 +578,59 @@ export function traceMetadataFromContext(
     : {};
 }
 
+const withoutPrompt = (metadata: object): Record<string, SpanContent> =>
+  Object.fromEntries(
+    Object.entries(metadata).filter(([key]) => !PROMPT_METADATA_KEYS.has(key)),
+  );
+
+const promptScope = (active: Context, prompt?: LangfusePromptRef): Context => {
+  if (!prompt) {
+    return active;
+  }
+  const inherited = active.getValue(LangfuseOtelContextKeys.metadata);
+  const tags = active.getValue(LangfuseOtelContextKeys.tags);
+  const outerTag = active.getValue(PROMPT_TAG_KEY);
+  const cleared = active
+    .deleteValue(LangfuseOtelContextKeys.promptName)
+    .deleteValue(LangfuseOtelContextKeys.promptVersion)
+    .setValue(
+      LangfuseOtelContextKeys.metadata,
+      withoutPrompt(
+        inherited && typeof inherited === "object" ? inherited : {},
+      ),
+    )
+    .setValue(
+      TRACE_METADATA_KEY,
+      withoutPrompt(traceMetadataFromContext(active)),
+    )
+    .setValue(
+      LangfuseOtelContextKeys.tags,
+      Array.isArray(tags) ? tags.filter((tag) => tag !== outerTag) : [],
+    )
+    .setValue(PROMPT_TAG_KEY, promptTagOf(prompt));
+  return !prompt.isFallback && Number.isInteger(prompt.version)
+    ? cleared
+        .setValue(LangfuseOtelContextKeys.promptName, prompt.name)
+        .setValue(LangfuseOtelContextKeys.promptVersion, prompt.version)
+    : cleared;
+};
+
+const promptTagOf = ({
+  name,
+  version,
+  isFallback,
+}: LangfusePromptRef): string => {
+  if (isFallback) {
+    return `prompt:${name}@fallback`;
+  }
+  return typeof version === "number"
+    ? `prompt:${name}@${version}`
+    : `prompt:${name}`;
+};
+
 /**
- * @description Runs `fn` with trace attributes propagated to every span it creates. `conversationId` and `requestId` become metadata; empty values are dropped. Metadata values of up to 200 characters once stringified are on every observation; longer values and arrays are recorded in full on the trace only, written by the trace root.
- * @param params {NeurolinkTraceContext} - User, session, trace name, tags and metadata for the trace.
+ * @description Runs `fn` with trace attributes propagated to every span it creates. `conversationId` and `requestId` become metadata; empty values are dropped. `prompt` adds the trace tag `prompt:<name>@<version>` (`@fallback` for a fallback, no suffix without a version) and `promptName`, `promptVersion` and `promptLabel` metadata, and links generations to the prompt version unless it is a fallback; it replaces an enclosing prompt's tag, metadata and link. Metadata values of up to 200 characters once stringified are on every observation; longer values and arrays are recorded in full on the trace only, written by the trace root.
+ * @param params {NeurolinkTraceContext} - User, session, trace name, tags, metadata and prompt for the trace.
  * @param fn {() => T} - Work to run inside the propagated context.
  * @returns {T} Whatever `fn` returns.
  * @example
@@ -568,12 +640,18 @@ export function setLangfuseContext<T>(
   params: NeurolinkTraceContext,
   fn: () => T,
 ): T {
+  const { prompt } = params;
   const full: Record<string, SpanContent> = {};
   const propagated: Record<string, string> = {};
   for (const [key, value] of Object.entries({
     ...params.metadata,
     conversationId: params.conversationId,
     requestId: params.requestId,
+    ...(prompt && {
+      promptName: prompt.name,
+      promptVersion: prompt.version,
+      promptLabel: prompt.label,
+    }),
   })) {
     if (value === undefined || value === null || value === "") {
       continue;
@@ -584,10 +662,13 @@ export function setLangfuseContext<T>(
       propagated[key] = text;
     }
   }
-  const tags = params.tags?.filter((tag) => tag.length > 0);
-  const active = context.active();
-  const withMetadata = active.setValue(TRACE_METADATA_KEY, {
-    ...traceMetadataFromContext(active),
+  const tags = [
+    ...(params.tags ?? []),
+    ...(prompt ? [promptTagOf(prompt)] : []),
+  ].filter((tag) => tag.length > 0);
+  const scoped = promptScope(context.active(), prompt);
+  const withMetadata = scoped.setValue(TRACE_METADATA_KEY, {
+    ...traceMetadataFromContext(scoped),
     ...full,
   });
   return context.with(withMetadata, () =>
@@ -596,10 +677,125 @@ export function setLangfuseContext<T>(
         userId: params.userId || undefined,
         sessionId: params.sessionId || undefined,
         traceName: params.traceName || undefined,
-        ...(tags && tags.length > 0 && { tags }),
+        ...(tags.length > 0 && { tags }),
         ...(Object.keys(propagated).length > 0 && { metadata: propagated }),
       },
       fn,
     ),
   );
 }
+
+const cachePrompt = (
+  key: string,
+  cacheTtlMs: number,
+  prompt?: LangfusePrompt,
+): void => {
+  promptCache.delete(key);
+  promptCache.set(key, { prompt, expiresAt: Date.now() + cacheTtlMs });
+  if (promptCache.size > MAX_CACHED_PROMPTS) {
+    const [oldest] = promptCache.keys();
+    promptCache.delete(oldest);
+  }
+};
+
+const refreshPrompt = async (
+  key: string,
+  client: LangfuseAPIClient,
+  name: string,
+  {
+    label,
+    cacheTtlMs = DEFAULT_PROMPT_CACHE_TTL_MS,
+    timeoutMs = DEFAULT_PROMPT_TIMEOUT_MS,
+  }: LangfusePromptOptions,
+): Promise<void> => {
+  const previous = promptCache.get(key)?.prompt;
+  try {
+    const prompt = await client.prompts.get(
+      name,
+      { label },
+      {
+        abortSignal: AbortSignal.timeout(timeoutMs),
+        timeoutInSeconds: timeoutMs / 1000,
+        maxRetries: 0,
+      },
+    );
+    if (
+      prompt.type === "text" &&
+      typeof prompt.prompt === "string" &&
+      Number.isInteger(prompt.version)
+    ) {
+      cachePrompt(key, cacheTtlMs, {
+        name,
+        text: prompt.prompt,
+        version: prompt.version,
+        label,
+        isFallback: false,
+      });
+      return;
+    }
+    logger.warn(
+      `${OTEL_LOG_PREFIX} Langfuse prompt "${name}" is not a text prompt; using the fallback`,
+    );
+  } catch (error) {
+    logger.warn(
+      `${OTEL_LOG_PREFIX} Could not fetch Langfuse prompt "${name}"; using the fallback`,
+      error instanceof LangfuseAPIError && typeof error.statusCode === "number"
+        ? { status: error.statusCode }
+        : { error: error instanceof Error ? error.message : String(error) },
+    );
+  }
+  cachePrompt(key, cacheTtlMs, previous);
+};
+
+/**
+ * @description Fetches a text prompt from Langfuse with the keys and host NeuroLink's tracing was started with, falling back to `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and `LANGFUSE_BASE_URL`. Prompts are cached per project, host, name and label: within `cacheTtlMs` no request is made, and an expired entry is returned at once while one background request refreshes it. Concurrent callers share one request. Missing keys, an error, a timeout, a missing prompt or a chat prompt return the fallback, after a warning for all but missing keys; a failed request is not repeated within `cacheTtlMs`, and a prompt fetched before stays in use. `text` is returned as stored, with `{{variable}}` placeholders not filled in. The fetch ignores `langfuse: false` and `LANGFUSE_ENABLED`, so a caller with its own switch checks it first.
+ * @param name {string} - Prompt name in Langfuse.
+ * @param options {LangfusePromptOptions} - Label, fallback text, cache TTL and request timeout.
+ * @returns {Promise<LangfusePrompt>} The prompt, or `{ name, text: fallback, label, isFallback: true }`; never rejects.
+ * @example
+ * const prompt = await getLangfusePrompt("support-agent", { fallback: "You are a helpful agent." });
+ * await setLangfuseContext({ prompt }, () => neurolink.generate({ input: { text: "hi" }, systemPrompt: prompt.text }));
+ */
+export const getLangfusePrompt = async (
+  name: string,
+  options: LangfusePromptOptions,
+): Promise<LangfusePrompt> => {
+  const fallback: LangfusePrompt = {
+    name,
+    text: options.fallback,
+    label: options.label,
+    isFallback: true,
+  };
+  const langfuse =
+    typeof startedConfig?.langfuse === "object" ? startedConfig.langfuse : {};
+  const publicKey = langfuse.publicKey ?? process.env.LANGFUSE_PUBLIC_KEY;
+  const secretKey = langfuse.secretKey ?? process.env.LANGFUSE_SECRET_KEY;
+  if (!publicKey || !secretKey) {
+    return fallback;
+  }
+  const host =
+    langfuse.baseUrl || process.env.LANGFUSE_BASE_URL || DEFAULT_BASE_URL;
+  const key = JSON.stringify([publicKey, host, name, options.label]);
+  const cached = promptCache.get(key);
+  if (!cached || cached.expiresAt <= Date.now()) {
+    const refresh =
+      promptRefreshes.get(key) ??
+      refreshPrompt(
+        key,
+        new LangfuseAPIClient({
+          environment: "",
+          baseUrl: host,
+          username: publicKey,
+          password: secretKey,
+        }),
+        name,
+        options,
+      ).finally(() => promptRefreshes.delete(key));
+    promptRefreshes.set(key, refresh);
+    if (!cached) {
+      await refresh;
+    }
+  }
+  const prompt = promptCache.get(key)?.prompt;
+  return prompt ? { ...prompt } : fallback;
+};
