@@ -152,6 +152,14 @@ async function fetchWithRetry(
   baseDelay = 500,
 ): Promise<Response> {
   const hostname = extractHostname(url);
+  // The signal fetch itself observes: an explicit init.signal (null included)
+  // overrides the one carried by a Request.
+  const effectiveSignal =
+    init?.signal !== undefined
+      ? init.signal
+      : url instanceof Request
+        ? url.signal
+        : undefined;
 
   return fetchTracer.startActiveSpan("http.fetchWithRetry", async (span) => {
     span.setAttribute("http.request.max_retries", maxRetries);
@@ -177,7 +185,10 @@ async function fetchWithRetry(
           const isRetryable = isTransientNetworkError(error);
           const err = error as { code?: string; message?: string };
 
-          if (!isRetryable || attempt === maxRetries) {
+          // A caller whose signal has fired is done waiting; retrying (and
+          // backing off) past it would outlive its deadline.
+          const callerGaveUp = effectiveSignal?.aborted === true;
+          if (!isRetryable || attempt === maxRetries || callerGaveUp) {
             // Final failure — record on span and rethrow
             span.setAttribute("http.request.total_attempts", totalAttempts);
             span.setStatus({
@@ -205,7 +216,16 @@ async function fetchWithRetry(
           logger.debug(
             `[fetchWithRetry] Transient error (${err?.code || err?.message}), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`,
           );
-          await new Promise((r) => setTimeout(r, delay));
+          await new Promise<void>((resolve) => {
+            const timer = setTimeout(done, delay);
+            const signal = effectiveSignal ?? undefined;
+            function done(): void {
+              clearTimeout(timer);
+              signal?.removeEventListener("abort", done);
+              resolve();
+            }
+            signal?.addEventListener("abort", done, { once: true });
+          });
         }
       }
       throw new Error("fetchWithRetry exhausted"); // unreachable

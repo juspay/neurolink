@@ -237,6 +237,7 @@ import {
   resolveToolRoutingExclusions,
 } from "./core/toolRouting.js";
 import { ToolRoutingCache } from "./core/toolRoutingCache.js";
+import { ToolRoutingDecisionTimeoutError } from "./core/toolRoutingDecision.js";
 import {
   DEFAULT_RECENT_TURNS,
   KnowledgeGroundingEngine,
@@ -11156,10 +11157,128 @@ Current user's request: ${currentInput}`;
               if (auditEnabled) {
                 auditInput = buildJevRoutingAuditInput(decisionOptions.state);
               }
-              const result = await this.siteDecide(
-                decisionOptions,
-                this.decisionSiteContext(options, sessionId || undefined),
-              );
+              // One deadline for the whole provider call (every retry and
+              // backoff included), enforced by aborting the in-flight request
+              // and by not waiting for a wrapper that ignores the signal.
+              // siteDecide starts it right before provider dispatch, so a slow
+              // host `extendQuestions` hook keeps its own budget. A fraction
+              // is floored to whole ms (AbortSignal.timeout rejects one) so
+              // the ceiling is never extended. Unset, or a value that is not
+              // a usable bound (<= 0, NaN, Infinity), keeps the provider's
+              // own state-scaled default untouched.
+              const configured = routingConfig.timeoutMs;
+              const boundMs =
+                typeof configured === "number" &&
+                Number.isFinite(configured) &&
+                configured > 0
+                  ? // Node's timers treat anything above 2^31-1 ms as 1 ms.
+                    Math.min(2_147_483_647, Math.max(1, Math.floor(configured)))
+                  : undefined;
+              // Whether the provider's own call had already hit the deadline
+              // when it returned; a slow host observer afterwards is not a
+              // provider timeout.
+              let deadlineHitAtReturn: boolean | undefined;
+              let deadline: AbortSignal | undefined;
+              let onDeadlineStarted: (signal: AbortSignal) => void = () => {};
+              const deadlineStarted = new Promise<AbortSignal>((resolve) => {
+                onDeadlineStarted = resolve;
+              });
+              const decision = this.siteDecide(decisionOptions, {
+                ...this.decisionSiteContext(options, sessionId || undefined),
+                providerTimeoutMs: boundMs,
+                onProviderDeadline: (signal) => {
+                  deadline = signal;
+                  onDeadlineStarted(signal);
+                },
+                onProviderReturned: () => {
+                  deadlineHitAtReturn = deadline?.aborted === true;
+                },
+              });
+              const DECISION_DEADLINE = Symbol("decisionDeadline");
+              let result: DecisionResult | null;
+              if (boundMs === undefined) {
+                result = await decision;
+              } else {
+                // A host override of decide() may ignore the signal and never
+                // settle: the deadline itself ends the wait, and whatever the
+                // wrapped call returns later is dropped.
+                decision.catch(() => undefined);
+                const expired = deadlineStarted.then(
+                  (signal) =>
+                    new Promise<typeof DECISION_DEADLINE>((resolve) => {
+                      // Only the provider call is bounded: once it returned,
+                      // a slow host observer is not a provider timeout.
+                      const fire = (): void => {
+                        if (deadlineHitAtReturn === undefined) {
+                          resolve(DECISION_DEADLINE);
+                        }
+                      };
+                      if (signal.aborted) {
+                        fire();
+                        return;
+                      }
+                      signal.addEventListener("abort", fire, { once: true });
+                    }),
+                );
+                // The caller's own cancellation is raced separately, so an
+                // unresponsive decide() cannot hold a cancelled turn until the
+                // deadline. A late answer is dropped, never applied.
+                const callerSignal = options.abortSignal;
+                const CALLER_ABORTED = Symbol("callerAborted");
+                let removeAbortListener: () => void = () => {};
+                const cancelled = new Promise<typeof CALLER_ABORTED>(
+                  (resolve) => {
+                    if (callerSignal === undefined) {
+                      return;
+                    }
+                    if (callerSignal.aborted) {
+                      resolve(CALLER_ABORTED);
+                      return;
+                    }
+                    const onAbort = (): void => resolve(CALLER_ABORTED);
+                    callerSignal.addEventListener("abort", onAbort, {
+                      once: true,
+                    });
+                    removeAbortListener = () =>
+                      callerSignal.removeEventListener("abort", onAbort);
+                  },
+                );
+                let winner:
+                  | Awaited<typeof decision>
+                  | typeof DECISION_DEADLINE
+                  | typeof CALLER_ABORTED;
+                try {
+                  winner = await Promise.race([decision, expired, cancelled]);
+                } finally {
+                  removeAbortListener();
+                }
+                if (winner === CALLER_ABORTED) {
+                  throw new DOMException(
+                    "The operation was aborted",
+                    "AbortError",
+                  );
+                }
+                if (winner === DECISION_DEADLINE) {
+                  if (callerSignal?.aborted) {
+                    throw new DOMException(
+                      "The operation was aborted",
+                      "AbortError",
+                    );
+                  }
+                  throw new ToolRoutingDecisionTimeoutError(boundMs);
+                }
+                result = winner;
+              }
+              // A late or aborted answer is never applied. A missed deadline
+              // means a provider was configured and too slow, unlike the
+              // no-provider null that falls back to the generative router.
+              if (
+                (deadlineHitAtReturn ?? deadline?.aborted) &&
+                boundMs !== undefined &&
+                !options.abortSignal?.aborted
+              ) {
+                throw new ToolRoutingDecisionTimeoutError(boundMs);
+              }
               if (auditInput !== null && result !== null) {
                 try {
                   if (result.provider === JEV_ROUTING_AUDIT_PROVIDER) {
@@ -20247,9 +20366,32 @@ Current user's request: ${currentInput}`;
       sessionId: outer?.sessionId ?? request.sessionId,
       requestId: outer?.requestId ?? request.requestId,
     };
+    let providerDeadline: AbortSignal | undefined;
+    const runWire = async (
+      wireRequest: DecisionCallerOptions,
+    ): Promise<DecisionResult | null> => {
+      // Started here, not at the caller, so host hooks that ran first spend
+      // their own budget; shared by every wire call this siteDecide makes.
+      if (outer?.providerTimeoutMs !== undefined && !providerDeadline) {
+        providerDeadline = AbortSignal.timeout(outer.providerTimeoutMs);
+        outer.onProviderDeadline?.(providerDeadline);
+      }
+      const wireResult = await this.tryRunDecide(
+        providerDeadline
+          ? {
+              ...wireRequest,
+              signal: wireRequest.signal
+                ? AbortSignal.any([wireRequest.signal, providerDeadline])
+                : providerDeadline,
+            }
+          : wireRequest,
+      );
+      outer?.onProviderReturned?.();
+      return wireResult;
+    };
     const site = merged.site;
     if (!site) {
-      return this.tryRunDecide(merged);
+      return runWire(merged);
     }
     // No host hook or event without a decision provider: a hook must not sit
     // on the request path of a tenant that has no decision model to reach, and
@@ -20258,7 +20400,7 @@ Current user's request: ${currentInput}`;
     if (
       !this.resolveDecisionProviderName(merged.provider, merged.credentials)
     ) {
-      return this.tryRunDecide(merged);
+      return runWire(merged);
     }
 
     // Wire id → the host's own id, so answers can be handed back under the
@@ -20395,7 +20537,7 @@ Current user's request: ${currentInput}`;
       }
 
       const startedAt = Date.now();
-      const result = await this.tryRunDecide({ ...merged, questions });
+      const result = await runWire({ ...merged, questions });
       obtained = result;
 
       // Null-prototype maps: a host id such as `__proto__` or `constructor`
@@ -20471,7 +20613,7 @@ Current user's request: ${currentInput}`;
         { error: error instanceof Error ? error.message : String(error) },
       );
       if (obtained === undefined) {
-        return this.tryRunDecide(merged);
+        return runWire(merged);
       }
       return obtained ? stripHostAnswers(obtained, hostIdByWireId) : null;
     }
