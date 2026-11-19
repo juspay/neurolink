@@ -153,6 +153,67 @@ await test("unknown hitl keys are dropped without an error and gate nothing", as
   assertEqual(manager.requiresConfirmation("deleteFile", {}), true);
 });
 
+// What a user sees by default: stderr, with debug logging off. Spying on
+// logger.warn would pass even though the default log level hides it.
+const captureStderr = <T>(build: () => T): { result: T; lines: string[] } => {
+  const lines: string[] = [];
+  const original = console.error;
+  const savedDebug = process.env.NEUROLINK_DEBUG;
+  delete process.env.NEUROLINK_DEBUG;
+  console.error = (...args: unknown[]): void => {
+    lines.push(args.map(String).join(" "));
+  };
+  try {
+    return { result: build(), lines };
+  } finally {
+    console.error = original;
+    if (savedDebug !== undefined) {
+      process.env.NEUROLINK_DEBUG = savedDebug;
+    }
+  }
+};
+
+await test("new NeuroLink prints one default-visible stderr line per unknown hitl key, none for a clean config", async () => {
+  const { lines } = captureStderr(
+    () =>
+      new NeuroLink({
+        hitl: {
+          enabled: true,
+          dangerousActions: ["delete"],
+          // @ts-expect-error -- not HITLConfig keys
+          requireApproval: ["writeFile"],
+          confidenceThreshold: 0.9,
+        },
+      }),
+  );
+  const hitl = lines.filter((w) => w.includes("[HITL]"));
+  assertEqual(hitl.length, 2);
+  assertIncludes(hitl.join("\n"), '"requireApproval"');
+  assertIncludes(hitl.join("\n"), '"confidenceThreshold"');
+  assertIncludes(hitl.join("\n"), "enterprise-hitl.md");
+
+  const clean = captureStderr(
+    () =>
+      new NeuroLink({
+        hitl: { enabled: true, dangerousActions: ["delete"], timeout: 5000 },
+      }),
+  );
+  assertEqual(clean.lines.filter((w) => w.includes("[HITL]")).length, 0);
+});
+
+await test("updateConfig does not re-warn for a key already reported on the same manager", async () => {
+  const manager = new HITLManager({
+    enabled: true,
+    dangerousActions: ["delete"],
+    // @ts-expect-error -- not a HITLConfig key
+    requireApproval: ["x"],
+  });
+  const { lines } = captureStderr(() => {
+    manager.updateConfig({ timeout: 1000 });
+  });
+  assertEqual(lines.filter((w) => w.includes("[HITL]")).length, 0);
+});
+
 await test("dangerousActions is a case-insensitive substring match on the tool name", async () => {
   const manager = new HITLManager({
     enabled: true,
