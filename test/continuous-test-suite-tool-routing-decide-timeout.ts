@@ -187,6 +187,7 @@ type RunResult = {
   mainCount: number;
   hook: { startedAt?: number; finishedAt?: number };
   routerRequests: number;
+  spanWaitedMs: number;
   decisionSpans: {
     status: string;
     statusMessage?: string;
@@ -322,6 +323,19 @@ const run = async (options: {
     const elapsedMs = Date.now() - startedAt;
     // Let a late retry after the deadline, if one exists, show itself.
     await new Promise((resolve) => setTimeout(resolve, 600));
+    // A decision span is recorded only once the abandoned decision settles,
+    // which on a loaded runner can be later than the pause above. Wait for it,
+    // bounded, so a span that never ends still fails the test.
+    const spanWaitStarted = Date.now();
+    while (
+      decide !== undefined &&
+      decide.arrivals.length > 0 &&
+      !nl.getSpans().some((span) => span.name.startsWith("decision.")) &&
+      Date.now() - spanWaitStarted < DECISION_SPAN_WAIT_MS
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    const spanWaitedMs = Date.now() - spanWaitStarted;
     const main = chat.requests.filter((r) => !r.router);
     return {
       ok: Boolean(result.content),
@@ -333,6 +347,7 @@ const run = async (options: {
       mainCount: main.length,
       hook,
       routerRequests: chat.requests.filter((r) => r.router).length,
+      spanWaitedMs,
       decisionSpans: nl
         .getSpans()
         .filter((span) => span.name.startsWith("decision."))
@@ -349,6 +364,8 @@ const run = async (options: {
     await close(chat.server);
   }
 };
+
+const DECISION_SPAN_WAIT_MS = 5000;
 
 const gammaSent = (tools: string[]): boolean =>
   tools.some((name) => name.startsWith("gamma_"));
@@ -537,7 +554,9 @@ await test("a decide body that stalls after 200 headers is recorded as a timeout
     throw new Error("generate() must still succeed");
   }
   if (r.decisionSpans.length === 0) {
-    throw new Error("no decision span was recorded");
+    throw new Error(
+      `no decision span was recorded after waiting ${r.spanWaitedMs} ms`,
+    );
   }
   if (
     !r.decisionSpans.some((span) =>
