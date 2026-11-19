@@ -41,6 +41,7 @@ import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import { TOGETHER_AI_DEFAULT_MODEL } from "./helpers/togetherAiCatalog.js";
 
 type PublicSDK = typeof import("../dist/index.js");
 type BudgetField = "max_tokens" | "max_completion_tokens";
@@ -496,7 +497,7 @@ try {
       [
         "together-ai (catalog default 4096 is a placeholder)",
         ROWS.togetherAi,
-        "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        TOGETHER_AI_DEFAULT_MODEL,
         32_000,
       ],
     ] as const) {

@@ -15,28 +15,35 @@
     }
   },
   "models": {
-    "default": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-    "fallbackModelName": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
-    "fallbacks": [
-      "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-      "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
-      "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
-      "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
-      "mistralai/Mixtral-8x22B-Instruct-v0.1",
-      "Qwen/Qwen2.5-72B-Instruct-Turbo",
-      "deepseek-ai/DeepSeek-R1",
-      "deepseek-ai/DeepSeek-V3"
-    ],
+    "default": "openai/gpt-oss-120b",
+    "fallbackModelName": "Qwen/Qwen3.5-9B",
+    "fallbacks": ["openai/gpt-oss-120b", "Qwen/Qwen3.5-9B"],
     "defaultContextWindow": 128000,
     "defaultMaxOutputTokens": 4096,
     "catalog": {
+      "openai/gpt-oss-120b": {
+        "enumMember": "GPT_OSS_120B",
+        "contextWindow": 131072,
+        "pricingPerMTok": { "input": 0.15, "output": 0.6 },
+        "vision": false,
+        "status": "production",
+        "description": "Serverless GPT-OSS 120B"
+      },
+      "Qwen/Qwen3.5-9B": {
+        "enumMember": "QWEN_3_5_9B",
+        "contextWindow": 262144,
+        "pricingPerMTok": { "input": 0.17, "output": 0.25 },
+        "vision": true,
+        "status": "production",
+        "description": "Serverless Qwen 3.5 9B"
+      },
       "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
         "enumMember": "LLAMA_3_3_70B_INSTRUCT_TURBO",
         "contextWindow": 128000,
         "pricingPerMTok": { "input": 0.88, "output": 0.88 },
         "vision": false,
-        "status": "production",
-        "description": "Recommended - Llama 3.3 70B Turbo"
+        "status": "retired",
+        "description": "No longer available on Together AI serverless"
       },
       "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo": {
         "enumMember": "LLAMA_3_1_405B_INSTRUCT_TURBO",
@@ -124,13 +131,7 @@
         "description": "WizardLM 2 8x22B"
       }
     },
-    "topModels": [
-      "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-      "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
-      "Qwen/Qwen2.5-72B-Instruct-Turbo",
-      "deepseek-ai/DeepSeek-R1",
-      "mistralai/Mixtral-8x22B-Instruct-v0.1"
-    ]
+    "topModels": ["openai/gpt-oss-120b", "Qwen/Qwen3.5-9B"]
   },
   "capabilities": {
     "text": true,
@@ -163,8 +164,8 @@
   },
   "evidence": {
     "rosterVerified": {
-      "date": "2026-08-28",
-      "method": "transcribed from pre-migration TS catalog"
+      "date": "2026-11-17",
+      "method": "Together AI serverless model catalog: https://docs.together.ai/docs/serverless/models; API access not live-verified"
     },
     "liveMatrix": null,
     "addedInPR": "https://github.com/juspay/neurolink/pull/1587"
