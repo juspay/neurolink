@@ -145,6 +145,43 @@ const result = await setLangfuseContext(
 
 `setLangfuseContext(params: NeurolinkTraceContext, fn)` returns whatever `fn` returns. It is a thin wrapper over Langfuse's `propagateAttributes`.
 
+### Langfuse prompts
+
+`getLangfusePrompt(name, options)` fetches a text prompt from Langfuse Prompt Management with the keys and host tracing uses (`observability.langfuse`, then `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL`). Pass the result as `prompt` to `setLangfuseContext` and Langfuse links the generations inside to that prompt version.
+
+```typescript
+import {
+  NeuroLink,
+  ensureTelemetry,
+  getLangfusePrompt,
+  setLangfuseContext,
+} from "@juspay/neurolink";
+
+ensureTelemetry();
+const neurolink = new NeuroLink();
+const prompt = await getLangfusePrompt("support-agent", {
+  label: "production",
+  fallback: "You are a helpful support agent.",
+});
+
+await setLangfuseContext({ prompt }, () =>
+  neurolink.generate({ input: { text: "Hello" }, systemPrompt: prompt.text }),
+);
+```
+
+| Option       | Default      | Effect                                                                                                                                                              |
+| ------------ | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `label`      | `production` | Deployment label to fetch                                                                                                                                           |
+| `fallback`   | required     | Text returned when the prompt cannot be fetched as a text prompt                                                                                                    |
+| `cacheTtlMs` | `60000`      | How long a prompt is served from the cache before it is refreshed in the background; the call that fetches an entry sets it for every caller of that name and label |
+| `timeoutMs`  | `2000`       | How long one fetch waits for Langfuse                                                                                                                               |
+
+It never throws. Prompts are cached per project, host, name and label, up to 500 entries (the least recently fetched is dropped first), and each call gets its own copy; concurrent callers share one request, and an expired entry is returned at once while it refreshes. Without keys, or when the fetch fails, times out, finds no prompt, or finds a chat or malformed prompt, it returns `{ name, text: fallback, label, isFallback: true }` (with a warning unless the keys are missing; a Langfuse error response is logged by status code only) and does not retry until `cacheTtlMs` has passed; a prompt fetched earlier stays in use.
+
+`text` is the prompt exactly as stored: `{{variable}}` placeholders are not filled in, so substitute them before sending the text to a model. The fetch does not depend on whether tracing is on: it uses the keys tracing started with, or the `LANGFUSE_*` variables, even with `langfuse: false` or `LANGFUSE_ENABLED=false`, so an application with its own switch for Langfuse checks it before calling.
+
+With `prompt` set, `setLangfuseContext` also adds the trace tag `prompt:<name>@<version>` (`prompt:<name>@fallback` for a fallback) and the metadata `promptName`, `promptVersion` and `promptLabel`. A fallback is tagged but never linked. A per-call `context: { prompt }` on `generate` or `stream` does the same. A `prompt` replaces the link, the `prompt:` tag and the `prompt*` metadata of an enclosing `setLangfuseContext`, so the spans of a fallback inside a managed-prompt scope link to nothing and carry no outer tag, version or label; spans that ran in the outer scope keep the outer tag on the trace. A span already running when the inner scope opens takes the inner tag and metadata. Context set before tracing starts is dropped, so call `ensureTelemetry()` (or make a traced call) first.
+
 ## What is recorded
 
 ### Naming

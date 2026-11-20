@@ -9,6 +9,22 @@ export const HEALTH_PATH = "/api/public/health";
 /** @description Langfuse Cloud base URL used when none is configured. */
 export const DEFAULT_BASE_URL = "https://cloud.langfuse.com";
 
+/** @description Milliseconds a fetched Langfuse prompt is served from the cache before it is refreshed in the background. */
+export const DEFAULT_PROMPT_CACHE_TTL_MS = 60_000;
+
+/** @description Milliseconds a Langfuse prompt fetch waits before the fallback is used. */
+export const DEFAULT_PROMPT_TIMEOUT_MS = 2_000;
+
+/** @description Prompt cache entries kept per process; the least recently fetched is evicted beyond it. */
+export const MAX_CACHED_PROMPTS = 500;
+
+/** @description Trace metadata keys `setLangfuseContext` writes for a prompt; an inner prompt drops the inherited ones. */
+export const PROMPT_METADATA_KEYS = new Set([
+  "promptName",
+  "promptVersion",
+  "promptLabel",
+]);
+
 /** @description Spans buffered before an automatic flush. */
 export const DEFAULT_FLUSH_AT = 15;
 
