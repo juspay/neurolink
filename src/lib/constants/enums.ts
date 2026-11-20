@@ -40,6 +40,7 @@ export enum AIProviderName {
   BYTEZ = "bytez",
   CEREBRAS = "cerebras",
   CHARM_HYPER = "charm-hyper",
+  CHEAPER_INFERENCE = "cheaper-inference",
   CHUTES = "chutes",
   CLOUDFLARE = "cloudflare",
   CRUSOE = "crusoe",
@@ -1448,6 +1449,15 @@ export enum CharmHyperModels {
   QWEN3_7_FLASH = "qwen3.7-flash",
   GPT_OSS_120B = "gpt-oss-120b",
   GEMMA_4_26B_A4B_IT = "gemma-4-26b-a4b-it",
+}
+
+export enum CheaperInferenceModels {
+  GPT_5_4_MINI = "gpt-5.4-mini",
+  GPT_5_4 = "gpt-5.4",
+  CLAUDE_SONNET_5 = "claude-sonnet-5",
+  DEEPSEEK_V4_FLASH = "deepseek-v4-flash",
+  GEMINI_3_1_PRO_PREVIEW = "gemini-3.1-pro-preview",
+  GLM_5_3 = "glm-5.3",
 }
 
 export enum ChutesModels {
