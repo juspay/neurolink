@@ -24,6 +24,7 @@ import type {
 import { prepareDecisionMedia } from "../utils/decisionMedia.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlsInText } from "../utils/logSanitize.js";
+import { composeAbortSignalsScoped } from "../utils/timeout.js";
 import {
   estimateDecisionStateTokens,
   resolveDecisionLimitsReading,
@@ -422,12 +423,16 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
     let lastError: DecisionError | undefined;
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
       const startedAt = Date.now();
+      const timeout = AbortSignal.timeout(timeoutMs);
+      // Scoped, not AbortSignal.any: a source holds its `any` dependant only
+      // weakly, so once a caller stopped awaiting this call (tool routing's
+      // deadline race) the composed signal could be collected with the
+      // stalled body read; the caller's deadline then never reached fetch and
+      // the call never settled. Plain listeners keep the link strong.
+      const { signal: composed, dispose: disposeSignal } =
+        composeAbortSignalsScoped(request.signal, timeout);
+      const signal = composed ?? timeout;
       try {
-        const timeout = AbortSignal.timeout(timeoutMs);
-        const signal = request.signal
-          ? AbortSignal.any([request.signal, timeout])
-          : timeout;
-
         const response = await this.proxyFetch(
           this.decisionEndpoint(resolvedModel),
           {
@@ -607,6 +612,8 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
             retryable: false,
           });
         }
+      } finally {
+        disposeSignal();
       }
     }
 
