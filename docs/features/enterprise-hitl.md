@@ -18,9 +18,12 @@ Start (5 Minutes)" are covered by that heading's own label.
 None of `requireApproval`, `reviewCallback`, `statusCallback`, `mode`,
 `confidenceThreshold`, `contentPatterns`, `escalationPolicy` or the object form
 of `auditLog` exists in `src/lib/types/hitl.ts` or is handled by
-`src/lib/hitl/hitlManager.ts`. `validateConfig` does not reject unknown keys
-either, so a config copied from this page is **accepted silently** and every one
-of those keys is dropped — approval gates that never fire, with no error.
+`src/lib/hitl/hitlManager.ts`. `validateConfig` does not reject unknown keys:
+a config copied from this page is accepted, every one of those keys is dropped,
+and the approval gates never fire. It writes one line per unknown key to stderr,
+visible by default and without `NEUROLINK_DEBUG`
+(`[HITL] Unknown config key "requireApproval" is ignored ...`), but does not
+throw, so watch stderr when adapting an example.
 
 That includes the compliance sections. The HIPAA / SOC2 / GDPR examples show an
 `auditLog` storage backend and an `escalationPolicy` that do not exist; do not
