@@ -20390,15 +20390,27 @@ Current user's request: ${currentInput}`;
     request: DecisionCallerOptions,
     outer?: DecisionSiteContext,
   ): Promise<DecisionResult | null> {
+    // Either cancellation must win: the outer call's abort and the site's own
+    // deadline are independent limits. Scoped, not AbortSignal.any: a source
+    // holds its `any` dependant only weakly, so a decision its caller stopped
+    // awaiting could lose the link and never see the abort.
+    const linked = composeAbortSignalsScoped(outer?.signal, request.signal);
+    try {
+      return await this.siteDecideLinked(request, outer, linked.signal);
+    } finally {
+      linked.dispose();
+    }
+  }
+
+  private async siteDecideLinked(
+    request: DecisionCallerOptions,
+    outer: DecisionSiteContext | undefined,
+    signal: AbortSignal | undefined,
+  ): Promise<DecisionResult | null> {
     const merged: DecisionCallerOptions = {
       ...request,
       credentials: outer?.credentials ?? request.credentials,
-      // Either cancellation must win: the outer call's abort and the site's
-      // own deadline are independent limits.
-      signal:
-        outer?.signal && request.signal
-          ? AbortSignal.any([outer.signal, request.signal])
-          : (outer?.signal ?? request.signal),
+      signal,
       sessionId: outer?.sessionId ?? request.sessionId,
       requestId: outer?.requestId ?? request.requestId,
     };
@@ -20412,16 +20424,20 @@ Current user's request: ${currentInput}`;
         providerDeadline = AbortSignal.timeout(outer.providerTimeoutMs);
         outer.onProviderDeadline?.(providerDeadline);
       }
-      const wireResult = await this.tryRunDecide(
-        providerDeadline
-          ? {
-              ...wireRequest,
-              signal: wireRequest.signal
-                ? AbortSignal.any([wireRequest.signal, providerDeadline])
-                : providerDeadline,
-            }
-          : wireRequest,
+      const wireSignal = composeAbortSignalsScoped(
+        wireRequest.signal,
+        providerDeadline,
       );
+      let wireResult: DecisionResult | null;
+      try {
+        wireResult = await this.tryRunDecide(
+          providerDeadline
+            ? { ...wireRequest, signal: wireSignal.signal }
+            : wireRequest,
+        );
+      } finally {
+        wireSignal.dispose();
+      }
       outer?.onProviderReturned?.();
       return wireResult;
     };
