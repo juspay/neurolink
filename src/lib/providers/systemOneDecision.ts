@@ -24,7 +24,10 @@ import type {
 import { prepareDecisionMedia } from "../utils/decisionMedia.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlsInText } from "../utils/logSanitize.js";
-import { composeAbortSignalsScoped } from "../utils/timeout.js";
+import {
+  composeAbortSignalsScoped,
+  readJsonWithSignal,
+} from "../utils/timeout.js";
 import {
   estimateDecisionStateTokens,
   resolveDecisionLimitsReading,
@@ -424,11 +427,10 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
       const startedAt = Date.now();
       const timeout = AbortSignal.timeout(timeoutMs);
-      // Scoped, not AbortSignal.any: a source holds its `any` dependant only
-      // weakly, so once a caller stopped awaiting this call (tool routing's
-      // deadline race) the composed signal could be collected with the
-      // stalled body read; the caller's deadline then never reached fetch and
-      // the call never settled. Plain listeners keep the link strong.
+      // Scoped, not AbortSignal.any: plain listeners, removed in `finally`,
+      // so a long-lived caller signal does not collect one registration per
+      // attempt. (The stalled-body hang once blamed on `any` was fetch losing
+      // the abort; see readJsonWithSignal below.)
       const { signal: composed, dispose: disposeSignal } =
         composeAbortSignalsScoped(request.signal, timeout);
       const signal = composed ?? timeout;
@@ -451,16 +453,19 @@ export abstract class SystemOneDecisionProvider extends BaseProvider {
         const upstreamMs =
           Number(response.headers.get("x-envoy-upstream-service-time")) ||
           undefined;
-        const payload: unknown = await response
-          .json()
-          .catch((error: unknown) => {
-            // A deadline or abort that cuts the body read short is a timeout,
-            // not a response without answers; the catch below classifies it.
-            if (signal.aborted) {
-              throw error;
-            }
-            return null;
-          });
+        // Not response.json(): on Node 22 a GC during a stalled body read can
+        // lose fetch's abort, and the call would never settle.
+        const payload: unknown = await readJsonWithSignal(
+          response,
+          signal,
+        ).catch((error: unknown) => {
+          // A deadline or abort that cuts the body read short is a timeout,
+          // not a response without answers; the catch below classifies it.
+          if (signal.aborted) {
+            throw error;
+          }
+          return null;
+        });
 
         if (!response.ok) {
           lastError = this.parseDecisionError(

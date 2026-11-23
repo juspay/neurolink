@@ -625,6 +625,39 @@ export function composeAbortSignalsScoped(
 }
 
 /**
+ * `response.json()` that settles when `signal` aborts, even if `fetch` lost
+ * the abort.
+ *
+ * Node 22's built-in fetch (undici 6) can drop the abort for a body that is
+ * still streaming when the request used `redirect: "error"` and the garbage
+ * collector runs during the read: the signal fires, the read never ends.
+ * Measured on Node 22.23.4 under forced GC, 8 hangs in 8; Node 26 is not
+ * affected. Listening on the signal here and cancelling the body does not
+ * depend on fetch's own link, so the read rejects with the signal's reason,
+ * which is what fetch rejects with when the link holds.
+ */
+export function readJsonWithSignal(
+  response: Response,
+  signal: AbortSignal,
+): Promise<unknown> {
+  return new Promise<unknown>((resolve, reject) => {
+    const onAbort = () => {
+      response.body?.cancel(signal.reason).catch(() => undefined);
+      reject(signal.reason);
+    };
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+    signal.addEventListener("abort", onAbort, { once: true });
+    response
+      .json()
+      .then(resolve, reject)
+      .finally(() => signal.removeEventListener("abort", onAbort));
+  });
+}
+
+/**
  * Merge abort signals (for combining user abort with timeout)
  *
  * Implemented via `AbortSignal.any` with a single once-listener forward, so

@@ -20401,9 +20401,8 @@ Current user's request: ${currentInput}`;
     outer?: DecisionSiteContext,
   ): Promise<DecisionResult | null> {
     // Either cancellation must win: the outer call's abort and the site's own
-    // deadline are independent limits. Scoped, not AbortSignal.any: a source
-    // holds its `any` dependant only weakly, so a decision its caller stopped
-    // awaiting could lose the link and never see the abort.
+    // deadline are independent limits. Scoped, not AbortSignal.any, so the
+    // listeners are removed as soon as the decision settles.
     const linked = composeAbortSignalsScoped(outer?.signal, request.signal);
     try {
       return await this.siteDecideLinked(request, outer, linked.signal);
