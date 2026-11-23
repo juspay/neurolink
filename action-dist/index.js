@@ -32612,6 +32612,7 @@ var AIProviderName;
     AIProviderName["BYTEZ"] = "bytez";
     AIProviderName["CEREBRAS"] = "cerebras";
     AIProviderName["CHARM_HYPER"] = "charm-hyper";
+    AIProviderName["CHEAPER_INFERENCE"] = "cheaper-inference";
     AIProviderName["CHUTES"] = "chutes";
     AIProviderName["CLOUDFLARE"] = "cloudflare";
     AIProviderName["CRUSOE"] = "crusoe";
@@ -33882,6 +33883,15 @@ var CharmHyperModels;
     CharmHyperModels["GPT_OSS_120B"] = "gpt-oss-120b";
     CharmHyperModels["GEMMA_4_26B_A4B_IT"] = "gemma-4-26b-a4b-it";
 })(CharmHyperModels || (CharmHyperModels = {}));
+var CheaperInferenceModels;
+(function (CheaperInferenceModels) {
+    CheaperInferenceModels["GPT_5_4_MINI"] = "gpt-5.4-mini";
+    CheaperInferenceModels["GPT_5_4"] = "gpt-5.4";
+    CheaperInferenceModels["CLAUDE_SONNET_5"] = "claude-sonnet-5";
+    CheaperInferenceModels["DEEPSEEK_V4_FLASH"] = "deepseek-v4-flash";
+    CheaperInferenceModels["GEMINI_3_1_PRO_PREVIEW"] = "gemini-3.1-pro-preview";
+    CheaperInferenceModels["GLM_5_3"] = "glm-5.3";
+})(CheaperInferenceModels || (CheaperInferenceModels = {}));
 var ChutesModels;
 (function (ChutesModels) {
     ChutesModels["MOONSHOTAI_KIMI_K2_6_TEE"] = "moonshotai/Kimi-K2.6-TEE";
