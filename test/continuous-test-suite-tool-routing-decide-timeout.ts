@@ -575,6 +575,75 @@ await test("a decide body that stalls after 200 headers is recorded as a timeout
   assertAllToolsSent(r);
 });
 
+// The test above failed intermittently in CI with no decision span at all: the
+// call never settled. Cause: Node 22's fetch (undici 6) can lose the abort for
+// a stalled body read when the request uses redirect "error" and the garbage
+// collector runs mid-read. Forcing GC in a child process makes that certain
+// instead of rare. On a runtime without the bug this passes either way.
+await test("a stalled decide body still settles when the garbage collector runs mid-read", async () => {
+  const distUrl = new URL("../dist/index.js", import.meta.url).href;
+  const child = `
+    import { createServer } from "node:http";
+    setInterval(() => globalThis.gc(), 20).unref();
+    const { NeuroLink } = await import(${JSON.stringify(distUrl)});
+    const server = createServer((request, response) => {
+      request.resume();
+      response.writeHead(200, { "content-type": "application/json" });
+      response.write("{");
+    });
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const baseURL = "http://127.0.0.1:" + server.address().port;
+    const outcomes = [];
+    for (let i = 0; i < 4; i++) {
+      const nl = new NeuroLink({
+        credentials: { typesafe: { apiKey: "apikey_local_mock", baseURL, transport: "direct" } },
+      });
+      const call = nl
+        .decide({
+          provider: "typesafe",
+          state: "s",
+          questions: { q: { type: "boolean", question: "x?" } },
+          timeoutMs: 400,
+        })
+        .then(() => "answered", (error) => (/timeout/i.test(String(error?.message)) ? "timeout" : "other"));
+      outcomes.push(await Promise.race([call, new Promise((r) => setTimeout(() => r("hung"), 6000))]));
+    }
+    process.stdout.write("OUTCOMES " + JSON.stringify(outcomes) + "\\n");
+    server.closeAllConnections();
+    server.close();
+    process.exit(0);
+  `;
+  const { execFile } = await import("node:child_process");
+  const stdout = await new Promise<string>((resolve, reject) => {
+    execFile(
+      process.execPath,
+      ["--expose-gc", "--input-type=module", "-e", child],
+      {
+        timeout: 60_000,
+        env: {
+          ...process.env,
+          NO_PROXY: "127.0.0.1,localhost",
+          no_proxy: "127.0.0.1,localhost",
+        },
+      },
+      (error, out) =>
+        error ? reject(new Error("child process failed")) : resolve(out),
+    );
+  });
+  const line = stdout.split("\n").find((l) => l.startsWith("OUTCOMES "));
+  if (!line) {
+    throw new Error("child process reported no outcomes");
+  }
+  const outcomes = JSON.parse(line.slice("OUTCOMES ".length)) as string[];
+  const hung = outcomes.filter((o) => o === "hung").length;
+  if (hung > 0) {
+    throw new Error(`${hung} of ${outcomes.length} decide calls never settled`);
+  }
+  if (outcomes.some((o) => o !== "timeout")) {
+    throw new Error("a stalled body was not reported as a timeout");
+  }
+});
+
 await test("a slow onAnswers hook does not turn an on-time answer into a timeout", async () => {
   const r = await run({
     decideDelayMs: 50,
