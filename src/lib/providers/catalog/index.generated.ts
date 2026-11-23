@@ -19,6 +19,7 @@ import byteplusModelarkJson from "./byteplus-modelark.json" with { type: "json" 
 import bytezJson from "./bytez.json" with { type: "json" };
 import cerebrasJson from "./cerebras.json" with { type: "json" };
 import charmHyperJson from "./charm-hyper.json" with { type: "json" };
+import cheaperInferenceJson from "./cheaper-inference.json" with { type: "json" };
 import chutesJson from "./chutes.json" with { type: "json" };
 import cloudflareJson from "./cloudflare.json" with { type: "json" };
 import crusoeJson from "./crusoe.json" with { type: "json" };
@@ -128,6 +129,7 @@ export const CATALOG_JSON_ENTRIES: ProviderCatalogJson[] = [
   bytezJson as ProviderCatalogJson,
   cerebrasJson as ProviderCatalogJson,
   charmHyperJson as ProviderCatalogJson,
+  cheaperInferenceJson as ProviderCatalogJson,
   chutesJson as ProviderCatalogJson,
   cloudflareJson as ProviderCatalogJson,
   crusoeJson as ProviderCatalogJson,
@@ -218,6 +220,7 @@ export const CATALOG_PROVIDER_IDS = [
   "bytez",
   "cerebras",
   "charm-hyper",
+  "cheaper-inference",
   "chutes",
   "cloudflare",
   "crusoe",
