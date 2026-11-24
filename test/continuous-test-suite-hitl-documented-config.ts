@@ -213,6 +213,39 @@ await test("new NeuroLink prints one default-visible stderr line per unknown hit
   assertEqual(clean.lines.filter((w) => w.includes("[HITL]")).length, 0);
 });
 
+await test("an unknown hitl key near a supported one suggests it; a planned key gets no suggestion", async () => {
+  const { lines } = captureStderr(
+    () =>
+      new NeuroLink({
+        hitl: {
+          enabled: true,
+          dangerousActions: ["delete"],
+          // @ts-expect-error -- typos of HITLConfig keys
+          timout: 5000,
+          autoApproveOnTimeOut: false,
+          requireApproval: ["writeFile"],
+        },
+      }),
+  );
+  const lineFor = (key: string): string =>
+    lines.find((w) => w.includes("[HITL]") && w.includes(`"${key}" is`)) ?? "";
+  assertIncludes(
+    lineFor("timout"),
+    'Did you mean "timeout"?',
+    "a one-letter typo did not suggest timeout",
+  );
+  assertIncludes(
+    lineFor("autoApproveOnTimeOut"),
+    'Did you mean "autoApproveOnTimeout"?',
+    "a casing typo did not suggest autoApproveOnTimeout",
+  );
+  assert(
+    lineFor("requireApproval") !== "" &&
+      !lineFor("requireApproval").includes("Did you mean"),
+    "requireApproval was missing or got a suggestion",
+  );
+});
+
 await test("every documented hitl key, including confirmDirectToolCalls, constructs without a warning", async () => {
   const documented = captureStderr(
     () =>

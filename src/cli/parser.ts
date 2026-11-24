@@ -12,6 +12,7 @@ import { hideBin } from "yargs/helpers";
 import packageJson from "../../package.json" with { type: "json" };
 import { globalSession } from "../lib/session/globalSessionState.js";
 import { logger } from "../lib/utils/logger.js";
+import { suggestClosest } from "../lib/utils/stringDistance.js";
 import { handleError } from "./errorHandler.js";
 import { CLICommandFactory } from "./factories/commandFactory.js";
 import { SetupCommandFactory } from "./factories/setupCommandFactory.js";
@@ -46,6 +47,47 @@ import { voiceServerCommand } from "./commands/voiceServer.js";
 import { DocsCommandFactory } from "./commands/docs.js";
 import { UsageCommandFactory } from "./commands/usage.js";
 import { VoicesCommandFactory } from "./commands/voices.js";
+
+// yargs passes `.fail()` its usage object, whose getDescriptions() lists the failing command's visible options
+const hasOptionDescriptions = (
+  value: object,
+): value is { getDescriptions: () => unknown } =>
+  typeof (value as { getDescriptions?: unknown }).getDescriptions ===
+  "function";
+
+function suggestKnownFlags(msg: string, usage: object): string {
+  const unknown = /Unknown arguments?: (.+)/.exec(msg)?.[1].split(", ");
+  if (!unknown || !hasOptionDescriptions(usage)) {
+    return "";
+  }
+  const described = usage.getDescriptions();
+  if (!described || typeof described !== "object") {
+    return "";
+  }
+  const flags = new Map(
+    Object.keys(described).map((key) => [
+      key.replace(/-/g, "").toLowerCase(),
+      key,
+    ]),
+  );
+  // yargs also reports the camelCase twin of an unknown kebab-case flag
+  const seen = new Set<string>();
+  return unknown
+    .map((arg) => {
+      const typed = arg.replace(/-/g, "").toLowerCase();
+      if (seen.has(typed)) {
+        return "";
+      }
+      seen.add(typed);
+      const [closest] = suggestClosest(typed, [...flags.keys()], {
+        limit: 1,
+        maxDistance: Math.min(3, Math.ceil(typed.length / 3)),
+      });
+      const flag = closest ? flags.get(closest) : undefined;
+      return flag ? `Did you mean --${flag} instead of --${arg}?\n` : "";
+    })
+    .join("");
+}
 
 // Enhanced CLI with Professional UX
 export function initializeCliParser() {
@@ -179,7 +221,7 @@ export function initializeCliParser() {
             msg.includes("Unknown argument") ||
             msg.includes("Invalid values")
           ) {
-            processedMsg = `Error: ${msg}\nUse --help to see available options.\n`;
+            processedMsg = `Error: ${msg}\n${suggestKnownFlags(msg, yargsInstance)}Use --help to see available options.\n`;
           }
           process.stderr.write(chalk.red(processedMsg));
         } else {

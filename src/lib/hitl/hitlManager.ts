@@ -26,6 +26,7 @@ import {
   HITLConfigurationError,
 } from "./hitlErrors.js";
 import { logger } from "../utils/logger.js";
+import { suggestClosest } from "../utils/stringDistance.js";
 
 // Default configuration constants
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
@@ -103,8 +104,12 @@ export class HITLManager extends EventEmitter {
     for (const key of Object.keys(config)) {
       if (!KNOWN_CONFIG_KEYS.has(key) && !this.warnedUnknownKeys.has(key)) {
         this.warnedUnknownKeys.add(key);
+        const [closest] = suggestClosest(key, [...KNOWN_CONFIG_KEYS], {
+          limit: 1,
+        });
+        const didYouMean = closest ? ` Did you mean "${closest}"?` : "";
         logger.alwaysStderr(
-          `[HITL] Unknown config key "${key}" is ignored and has no effect. Supported keys: ${[...KNOWN_CONFIG_KEYS].join(", ")}. See docs/features/enterprise-hitl.md`,
+          `[HITL] Unknown config key "${key}" is ignored and has no effect.${didYouMean} Supported keys: ${[...KNOWN_CONFIG_KEYS].join(", ")}. See docs/features/enterprise-hitl.md`,
         );
       }
     }

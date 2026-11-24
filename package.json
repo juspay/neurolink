@@ -390,6 +390,7 @@
     "test:native-failure-events": "pnpm exec tsx test/continuous-test-suite-native-failure-events.ts",
     "test:native-audio-model-aware": "pnpm exec tsx test/continuous-test-suite-native-audio-model-aware.ts",
     "test:cli-json-output": "pnpm exec tsx test/continuous-test-suite-cli-json-output.ts",
+    "test:cli-unknown-option": "pnpm exec tsx test/continuous-test-suite-cli-unknown-option.ts",
     "test:logging-guidelines": "pnpm exec tsx test/continuous-test-suite-logging-guidelines.ts",
     "test:proxy-polyfills": "pnpm exec tsx test/continuous-test-suite-proxy-polyfills.ts",
     "test:mcp:startup-readiness": "pnpm exec tsx test/continuous-test-suite-mcp-startup-readiness.ts",
