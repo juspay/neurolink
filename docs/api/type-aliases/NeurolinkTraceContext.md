@@ -83,3 +83,11 @@ Name of the root observation of this `generate` or `stream` call; not propagated
 > `optional` **prompt?**: [`LangfusePromptRef`](LangfusePromptRef.md)
 
 Langfuse prompt the call ran with, such as a `getLangfusePrompt` result; recorded as a `prompt:` trace tag and `promptName`, `promptVersion` and `promptLabel` metadata, replacing an enclosing prompt's tag and metadata.
+
+---
+
+### redactIO?
+
+> `optional` **redactIO?**: `boolean`
+
+`true` leaves input and output out of what is sent to Langfuse for every observation started in this scope, nested scopes included, as the exporter's `redactIO` does for all traces. `false` cannot undo an enclosing scope's or the exporter's `redactIO`.

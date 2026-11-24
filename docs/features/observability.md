@@ -127,6 +127,7 @@ await neurolink.generate({
 | `requestId`       | Metadata key `requestId`                                                                                                                  |
 | `metadata`        | Metadata; values up to 200 characters are on every observation, longer values and arrays are recorded in full on the trace only           |
 | `observationName` | Name of the root observation of this call; default `generate` or `stream`; not propagated to child observations or used as the trace name |
+| `redactIO`        | `true` leaves this call's input and output out of what is sent to Langfuse; see [Redacting a call or scope](#redacting-a-call-or-scope)   |
 
 ### setLangfuseContext
 
@@ -143,7 +144,7 @@ const result = await setLangfuseContext(
 );
 ```
 
-`setLangfuseContext(params: NeurolinkTraceContext, fn)` returns whatever `fn` returns. It is a thin wrapper over Langfuse's `propagateAttributes`.
+`setLangfuseContext(params: NeurolinkTraceContext, fn)` returns whatever `fn` returns. It is a thin wrapper over Langfuse's `propagateAttributes`. It takes the fields in the table above except `observationName`, plus `prompt`.
 
 ### Langfuse prompts
 
@@ -239,9 +240,28 @@ const neurolink = new NeuroLink({
 
 `mask` and `redactIO` act on what NeuroLink sends to Langfuse, and on nothing else. They cover the trace and observation input and output (`langfuse.observation.input`, `langfuse.observation.output`, `langfuse.trace.input`, `langfuse.trace.output`); `redactIO: true` leaves those out of the request, and `mask` rewrites them instead. `mask` also runs on trace and observation metadata, whether or not the metadata is an object. If it throws, the value is replaced by `<fully masked>`.
 
-Everything else goes to Langfuse as it was recorded: the status message, `exception.message`, `error.message`, a tool's `tool.error.message` and a provider retry's `retry.error`, tool-call attributes, the `proxy.body` attribute of proxy body events, event attributes, and the prompt and completion attributes another library's GenAI instrumentation writes on spans that are exported with NeuroLink's. The policy does not reach any other sink either: an exporter you register with `registerExporter`, the spans NeuroLink sends to `OTEL_EXPORTER_OTLP_ENDPOINT`, and `getSpans()` receive the values as they were recorded. If one of them must not see content, take it out where it is recorded (`NEUROLINK_RECORD_INPUTS=false`) or in that sink's own processing.
+Everything else goes to Langfuse as it was recorded: the status message, `exception.message`, `error.message`, a tool's `tool.error.message` and a provider retry's `retry.error`, tool-call attributes, the `proxy.body` attribute of proxy body events, event attributes, and the prompt and completion attributes another library's GenAI instrumentation writes on spans that are exported with NeuroLink's. The policy does not reach any other sink either: an exporter you register with `registerExporter`, the spans NeuroLink sends to `OTEL_EXPORTER_OTLP_ENDPOINT`, and `getSpans()` receive the values as they were recorded. If one of them must not see content, take it out in that sink's own processing. `NEUROLINK_RECORD_INPUTS=false` keeps the inputs NeuroLink records (prompts, messages, tool arguments) out of the spans Langfuse, `registerExporter` exporters and `OTEL_EXPORTER_OTLP_ENDPOINT` receive. It does not filter the prompt attributes another library's instrumentation writes, or the stream records `getSpans()` returns, which still carry the prompt; output and error text are recorded either way.
 
 NeuroLink adds no credential masking of its own to error text. A failed call's status message, `error.message`, `tool.error.message`, `retry.error` and exception text are recorded as the provider returned them, in every sink, as the released build did, so an error that echoes a key reaches the sinks with the key. Input, output and tool arguments and results keep the credential masking they always had. To keep a credential out of error text, filter it in a custom exporter or keep it out of the provider's error.
+
+### Redacting a call or scope
+
+The exporter's `redactIO` applies to every trace. To leave input and output out of some calls only, such as those that carry end-user content, pass `redactIO: true` in a call's `context`, or wrap the code in `setLangfuseContext`:
+
+```typescript
+await neurolink.generate({
+  input: { text: shopperMessage },
+  context: { redactIO: true },
+});
+
+await setLangfuseContext({ traceName: "storefront-chat", redactIO: true }, () =>
+  neurolink.generate({ input: { text: shopperMessage } }),
+);
+```
+
+Every observation started inside the call or scope, nested scopes included, is sent to Langfuse without input and output. Observations started outside it keep theirs, including spans that were already open when it began, such as a trace root your code created, so a `context.redactIO` on a nested `generate` covers that call only. It covers the same attributes as the exporter's `redactIO`, and `redactIO: false` cannot undo an enclosing scope's or the exporter's `redactIO`. The scope is applied by NeuroLink's span processor, so it works with the exporter pipeline (`createExporterSpanProcessor`) and not with a `LangfuseSpanProcessor` you add yourself.
+
+Spans started inside carry the attribute `neurolink.langfuse.redact_io: true`. The Langfuse request drops it along with the input and output; an exporter registered with `registerExporter` and the spans sent to `OTEL_EXPORTER_OTLP_ENDPOINT` receive it with the content as recorded, so a sink of your own can redact the same spans. The records `getSpans()` returns are built separately and do not carry it.
 
 ## Langfuse exporter behaviour
 

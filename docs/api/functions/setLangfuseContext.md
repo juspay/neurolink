@@ -36,7 +36,7 @@ Whatever `fn` returns.
 
 ## Description
 
-Runs `fn` with trace attributes propagated to every span it creates. `conversationId` and `requestId` become metadata; empty values are dropped. `prompt` adds the trace tag `prompt:<name>@<version>` (`@fallback` for a fallback, no suffix without a version) and `promptName`, `promptVersion` and `promptLabel` metadata, and links generations to the prompt version unless it is a fallback; it replaces an enclosing prompt's tag, metadata and link. Metadata values of up to 200 characters once stringified are on every observation; longer values and arrays are recorded in full on the trace only, written by the trace root.
+Runs `fn` with trace attributes propagated to every span it creates. `conversationId` and `requestId` become metadata; empty values are dropped. `prompt` adds the trace tag `prompt:<name>@<version>` (`@fallback` for a fallback, no suffix without a version) and `promptName`, `promptVersion` and `promptLabel` metadata, and links generations to the prompt version unless it is a fallback; it replaces an enclosing prompt's tag, metadata and link. `redactIO: true` leaves input and output out of the Langfuse export for every observation started inside, nested scopes included; `false` cannot undo it. Metadata values of up to 200 characters once stringified are on every observation; longer values and arrays are recorded in full on the trace only, written by the trace root.
 
 ## Example
 

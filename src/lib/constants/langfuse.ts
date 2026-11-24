@@ -69,6 +69,9 @@ export const CONTENT_KEYS = new Set([
   "langfuse.trace.output",
 ]);
 
+/** @description Span attribute marking a span started inside a `setLangfuseContext({ redactIO: true })` scope; the Langfuse exporter leaves its input and output out and does not send the marker. */
+export const REDACT_IO_ATTRIBUTE = "neurolink.langfuse.redact_io";
+
 /** @description Attribute prefixes whose values are metadata entries. */
 export const METADATA_PREFIXES = [
   "langfuse.observation.metadata.",

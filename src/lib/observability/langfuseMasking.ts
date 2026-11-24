@@ -2,6 +2,7 @@ import {
   CONTENT_KEYS,
   FULLY_MASKED,
   METADATA_PREFIXES,
+  REDACT_IO_ATTRIBUTE,
 } from "../constants/langfuse.js";
 import type {
   JsonValue,
@@ -32,7 +33,7 @@ function maskValue(
 }
 
 /**
- * @description Applies the Langfuse exporter's policy to a span's attributes as they are sent to Langfuse: fills environment and release when the span has none, removes input and output when `redactIO` is set, and masks input, output and metadata when a mask is configured. Nothing else is touched: other attributes, events and the status message go to Langfuse as they are, and no other exporter sees the policy.
+ * @description Applies the Langfuse exporter's policy to a span's attributes as they are sent to Langfuse: fills environment and release when the span has none, removes input and output when `redactIO` is set or the span was started in a `setLangfuseContext({ redactIO: true })` scope, masks input, output and metadata when a mask is configured, and drops the `neurolink.langfuse.redact_io` marker. Nothing else is touched: other attributes, events and the status message go to Langfuse as they are, and no other exporter sees the policy.
  * @param attributes {SpanAttributes} - Attributes of the span being exported.
  * @param policy {LangfuseAttributePolicy} - Environment, release, redaction and mask settings.
  * @returns {SpanAttributes} A new attribute record; the input is not modified.
@@ -46,9 +47,11 @@ export function protectAttributes(
     ...(policy.release && { "langfuse.release": policy.release }),
     ...attributes,
   };
+  const redactIO = policy.redactIO || attributes[REDACT_IO_ATTRIBUTE] === true;
+  delete result[REDACT_IO_ATTRIBUTE];
   for (const key of Object.keys(result)) {
     if (CONTENT_KEYS.has(key)) {
-      if (policy.redactIO) {
+      if (redactIO) {
         delete result[key];
       } else if (policy.mask) {
         result[key] = maskValue(result[key], policy.mask);

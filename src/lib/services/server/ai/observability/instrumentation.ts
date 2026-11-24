@@ -39,6 +39,7 @@ import {
 import {
   OTEL_LOG_PREFIX,
   PROMPT_TAG_CONTEXT_KEY,
+  REDACT_IO_CONTEXT_KEY,
   TRACE_METADATA_CONTEXT_KEY,
 } from "../../../../constants/telemetry.js";
 import { getExporterRegistry } from "../../../../observability/exporterRegistry.js";
@@ -76,6 +77,7 @@ const MAX_PROPAGATED_CHARS = 200;
 const LANGFUSE_EXPORTER_NAME = "langfuse";
 const TRACE_METADATA_KEY = createContextKey(TRACE_METADATA_CONTEXT_KEY);
 const PROMPT_TAG_KEY = createContextKey(PROMPT_TAG_CONTEXT_KEY);
+const REDACT_IO_KEY = createContextKey(REDACT_IO_CONTEXT_KEY);
 const CONTEXT_PROBE_KEY = createContextKey("neurolink.context-manager-probe");
 // `false`, `0`, `off` or `no` skips the flush at process exit; the released build had none.
 const EXIT_FLUSH_SWITCH = "NEUROLINK_TELEMETRY_EXIT_FLUSH";
@@ -629,7 +631,7 @@ const promptTagOf = ({
 };
 
 /**
- * @description Runs `fn` with trace attributes propagated to every span it creates. `conversationId` and `requestId` become metadata; empty values are dropped. `prompt` adds the trace tag `prompt:<name>@<version>` (`@fallback` for a fallback, no suffix without a version) and `promptName`, `promptVersion` and `promptLabel` metadata, and links generations to the prompt version unless it is a fallback; it replaces an enclosing prompt's tag, metadata and link. Metadata values of up to 200 characters once stringified are on every observation; longer values and arrays are recorded in full on the trace only, written by the trace root.
+ * @description Runs `fn` with trace attributes propagated to every span it creates. `conversationId` and `requestId` become metadata; empty values are dropped. `prompt` adds the trace tag `prompt:<name>@<version>` (`@fallback` for a fallback, no suffix without a version) and `promptName`, `promptVersion` and `promptLabel` metadata, and links generations to the prompt version unless it is a fallback; it replaces an enclosing prompt's tag, metadata and link. `redactIO: true` leaves input and output out of the Langfuse export for every observation started inside, nested scopes included; `false` cannot undo it. Metadata values of up to 200 characters once stringified are on every observation; longer values and arrays are recorded in full on the trace only, written by the trace root.
  * @param params {NeurolinkTraceContext} - User, session, trace name, tags, metadata and prompt for the trace.
  * @param fn {() => T} - Work to run inside the propagated context.
  * @returns {T} Whatever `fn` returns.
@@ -671,7 +673,11 @@ export function setLangfuseContext<T>(
     ...traceMetadataFromContext(scoped),
     ...full,
   });
-  return context.with(withMetadata, () =>
+  // Only `true` is stored, so an inner `redactIO: false` never clears an outer scope's redaction
+  const scope = params.redactIO
+    ? withMetadata.setValue(REDACT_IO_KEY, true)
+    : withMetadata;
+  return context.with(scope, () =>
     propagateAttributes(
       {
         userId: params.userId || undefined,
