@@ -70,7 +70,7 @@ Nothing.
 
 #### Description
 
-Copies the propagated Langfuse trace attributes (user, session, trace name, tags, metadata) from the parent context onto the new span and remembers it until it ends.
+Copies the propagated Langfuse trace attributes (user, session, trace name, tags, metadata) from the parent context onto the new span, marks it for input and output redaction when a `setLangfuseContext` scope asked for `redactIO`, and remembers it until it ends.
 
 #### Implementation of
 

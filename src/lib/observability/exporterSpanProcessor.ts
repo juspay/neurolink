@@ -1,14 +1,20 @@
 import { getPropagatedAttributesFromContext } from "@langfuse/core";
-import { type Context, SpanStatusCode } from "@opentelemetry/api";
+import {
+  type Context,
+  createContextKey,
+  SpanStatusCode,
+} from "@opentelemetry/api";
 import type {
   ReadableSpan,
   Span,
   SpanProcessor as OtelSpanProcessor,
 } from "@opentelemetry/sdk-trace-base";
+import { REDACT_IO_ATTRIBUTE } from "../constants/langfuse.js";
 import {
   INTERNAL_SPAN_ATTRIBUTE,
   MAX_REMEMBERED_SPANS,
   PROXY_TRACER_SCOPE,
+  REDACT_IO_CONTEXT_KEY,
 } from "../constants/telemetry.js";
 import type {
   ExporterSpanProcessorOptions,
@@ -24,6 +30,7 @@ import { getExporterRegistry } from "./exporterRegistry.js";
 const LANGFUSE_OBSERVATION_TYPE = "langfuse.observation.type";
 const GEN_AI_OBSERVATION_TYPE = "gen_ai.observation.type";
 const GEN_AI_OPERATION = "gen_ai.operation.name";
+const REDACT_IO_KEY = createContextKey(REDACT_IO_CONTEXT_KEY);
 
 const OBSERVATION_SPAN_TYPES: Record<string, SpanType> = {
   agent: SpanType.AGENT_RUN,
@@ -170,13 +177,16 @@ export class ExporterSpanProcessor implements OtelSpanProcessor {
   ) {}
 
   /**
-   * @description Copies the propagated Langfuse trace attributes (user, session, trace name, tags, metadata) from the parent context onto the new span and remembers it until it ends.
+   * @description Copies the propagated Langfuse trace attributes (user, session, trace name, tags, metadata) from the parent context onto the new span, marks it for input and output redaction when a `setLangfuseContext` scope asked for `redactIO`, and remembers it until it ends.
    * @param span {Span} - Span that just started.
    * @param parentContext {Context} - Context the span was started in.
    * @returns {void} Nothing.
    */
   onStart(span: Span, parentContext: Context): void {
     try {
+      if (parentContext.getValue(REDACT_IO_KEY) === true) {
+        span.setAttribute(REDACT_IO_ATTRIBUTE, true);
+      }
       span.setAttributes(getPropagatedAttributesFromContext(parentContext));
       this.open.set(span.spanContext().spanId, span);
       this.hold(parentIdOf(span));

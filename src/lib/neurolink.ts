@@ -1490,6 +1490,7 @@ export class NeuroLink {
             ? (ctx.metadata as Record<string, JsonValue>)
             : undefined,
         ...(isPromptRef(ctx.prompt) && { prompt: ctx.prompt }),
+        ...(Boolean(ctx.redactIO) && { redactIO: true }),
       },
       callback,
     );

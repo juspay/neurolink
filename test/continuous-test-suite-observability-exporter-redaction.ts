@@ -8,8 +8,9 @@
  *
  *   K11  only observations reach Langfuse, from every tracer scope
  *   K14  parent ids from OpenTelemetry SDK 1.x and 2.x spans
- *   K21  mask and redactIO act on what is sent to Langfuse, as in the
- *        released build, and on no other sink
+ *   K21  mask and redactIO (exporter-wide, or per call or scope through
+ *        context and setLangfuseContext) act on what is sent to Langfuse, as
+ *        in the released build, and on no other sink
  *   K25  resource, links and nanosecond times survive the wire; scope and kind
  *        are the sdk and INTERNAL Langfuse has always received
  *   K26  flush and shutdown have a deadline
@@ -70,7 +71,12 @@ import { LangfuseExporter } from "../src/lib/observability/exporters/langfuseExp
 import {
   ensureTelemetry,
   flushOpenTelemetry,
+  setLangfuseContext,
 } from "../src/lib/services/server/ai/observability/instrumentation.js";
+import {
+  CONTENT_KEYS,
+  REDACT_IO_ATTRIBUTE,
+} from "../src/lib/constants/langfuse.js";
 import {
   redactSpanContent,
   spanContentAttribute,
@@ -99,6 +105,9 @@ import { logger } from "../src/lib/utils/logger.js";
 
 const SELF = fileURLToPath(import.meta.url);
 const MARKER = "PII-MARKER-4821";
+// Input and output only, so their absence from the Langfuse request proves redaction
+const SCOPE_MARKER = "TRACE-REDACT-MARKER-5c2e";
+const NESTED_MARKER = "NESTED-REDACT-MARKER-9b1d";
 const MASKED = "<masked>";
 const CHILD_RESULT = "CHILD_RESULT ";
 
@@ -458,20 +467,43 @@ async function runChild(scenario: string): Promise<void> {
   getExporterRegistry().register(second);
   await second.initialize();
   ensureTelemetry({ langfuse });
-  const span = tracers.sdk.startSpan("scenario.generate");
-  observe(span, "generation", {
-    input: `prompt ${MARKER}`,
-    output: `answer ${MARKER}`,
-    ...(scenario !== "redact" && { metadata: { note: `note ${MARKER}` } }),
-  });
-  span.addEvent("proxy.upstream.response_body", {
-    "proxy.body": `body ${MARKER}`,
-  });
-  span.setAttribute(
-    "gen_ai.response.tool_calls",
-    `[{"name":"lookup","arguments":"${MARKER}"}]`,
-  );
-  span.end();
+  const emit = (name: string, content: string): void => {
+    const span = tracers.sdk.startSpan(name);
+    observe(span, "generation", {
+      input: `prompt ${content}`,
+      output: `answer ${content}`,
+      ...(scenario !== "redact" && { metadata: { note: `note ${MARKER}` } }),
+    });
+    if (scenario === "trace-redact") {
+      observeTrace(span, {
+        input: `trace prompt ${content}`,
+        output: `trace answer ${content}`,
+      });
+    }
+    span.addEvent("proxy.upstream.response_body", {
+      "proxy.body": `body ${MARKER}`,
+    });
+    span.setAttribute(
+      "gen_ai.response.tool_calls",
+      `[{"name":"lookup","arguments":"${MARKER}"}]`,
+    );
+    span.end();
+  };
+  if (scenario === "trace-redact") {
+    setLangfuseContext({ traceName: "redacted-trace", redactIO: true }, () =>
+      emit("scenario.redacted", SCOPE_MARKER),
+    );
+    setLangfuseContext({ redactIO: true }, () =>
+      setLangfuseContext({ redactIO: false }, () =>
+        emit("scenario.nested", NESTED_MARKER),
+      ),
+    );
+    setLangfuseContext({ traceName: "kept-trace" }, () =>
+      emit("scenario.generate", MARKER),
+    );
+  } else {
+    emit("scenario.generate", MARKER);
+  }
   await flushOpenTelemetry();
   await sleep(200);
   process.stdout.write(
@@ -487,6 +519,8 @@ if (process.env.ER_CHILD) {
 type ScenarioResult = {
   /** Attributes of the scenario span, then of its events, as the Langfuse request carries them. */
   langfuseAttrs: Record<string, string>;
+  /** Attributes of every span the Langfuse request carries, by span name. */
+  langfuseByName: Record<string, Record<string, string>>;
   langfuseEventAttrs: Record<string, string>;
   langfuse: string;
   otlp: string;
@@ -536,6 +570,12 @@ async function runScenario(scenario: string): Promise<ScenarioResult> {
       );
     return {
       langfuseAttrs: flatten(scenarioSpan?.attributes),
+      langfuseByName: Object.fromEntries(
+        wireSpans(langfuse).map((entry) => [
+          entry.span.name,
+          flatten(entry.span.attributes),
+        ]),
+      ),
       langfuseEventAttrs: flatten(
         scenarioSpan?.events.flatMap((event) => event.attributes),
       ),
@@ -606,6 +646,37 @@ async function startOpenAI(): Promise<{
     req.on("data", (chunk: Buffer) => chunks.push(chunk));
     req.on("end", () => {
       const text = Buffer.concat(chunks).toString("utf8");
+      if ((JSON.parse(text) as { stream?: boolean }).stream === true) {
+        const common = { id: "chatcmpl-fake", created: 1, model: "tool-model" };
+        res.writeHead(200, { "content-type": "text/event-stream" });
+        for (const frame of [
+          {
+            ...common,
+            object: "chat.completion.chunk",
+            choices: [
+              {
+                index: 0,
+                delta: { role: "assistant", content: "hello there" },
+                finish_reason: null,
+              },
+            ],
+          },
+          {
+            ...common,
+            object: "chat.completion.chunk",
+            choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+            usage: {
+              prompt_tokens: 12,
+              completion_tokens: 5,
+              total_tokens: 17,
+            },
+          },
+        ]) {
+          res.write(`data: ${JSON.stringify(frame)}\n\n`);
+        }
+        res.end("data: [DONE]\n\n");
+        return;
+      }
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify(chatBody(text.includes("tool_call_id"))));
     });
@@ -636,7 +707,9 @@ const hostProvider = new NodeTracerProvider({
 hostProvider.register();
 process.env.NEUROLINK_SKIP_MCP = "true";
 
-async function turn(): Promise<{
+async function turn(
+  options: { context?: Record<string, unknown>; stream?: boolean } = {},
+): Promise<{
   spans: ReadableSpan[];
   recorded: SpanData[];
 }> {
@@ -651,14 +724,24 @@ async function turn(): Promise<{
       inputSchema: z.object({ q: z.string().optional() }),
       execute: async () => ({ found: true }),
     } as never);
-    await nl.generate({
+    const request = {
       input: { text: PROMPT_MARKER },
       provider: "openai",
       model: "tool-model",
       credentials: { openai: { apiKey: "test-key", baseURL: fake.baseURL } },
       disableInternalFallback: true,
       maxSteps: 3,
-    } as never);
+      ...(options.context && { context: options.context }),
+    };
+    if (options.stream) {
+      const result = await nl.stream(request as never);
+      const chunks: unknown[] = [];
+      for await (const chunk of result.stream) {
+        chunks.push(chunk);
+      }
+    } else {
+      await nl.generate(request as never);
+    }
     await hostProvider.forceFlush();
     return {
       spans: hostSpans.getFinishedSpans(),
@@ -667,6 +750,37 @@ async function turn(): Promise<{
   } finally {
     await fake.close();
   }
+}
+
+// Adds a Langfuse exporter to the host pipeline for one run and returns what it sent
+async function sentToLangfuse(run: () => Promise<unknown>): Promise<Wire[]> {
+  const receiver = await startReceiver();
+  const exporter = new LangfuseExporter({
+    enabled: true,
+    publicKey: "pk-host",
+    secretKey: "sk-host",
+    baseUrl: receiver.url,
+    retries: 0,
+    maxBufferSize: 10_000,
+    flushIntervalMs: 60_000,
+  });
+  await exporter.initialize();
+  hostRegistry.register(exporter);
+  try {
+    await run();
+    await hostProvider.forceFlush();
+    return wireSpans(receiver);
+  } finally {
+    hostRegistry.unregister("langfuse");
+    await exporter.shutdown();
+    await receiver.close();
+  }
+}
+
+function carriesContent(wire: Wire[]): boolean {
+  return wire.some((entry) =>
+    entry.span.attributes.some((kv) => CONTENT_KEYS.has(kv.key)),
+  );
 }
 
 function observationsOf(spans: ReadableSpan[], type: string): ReadableSpan[] {
@@ -1093,6 +1207,105 @@ void runSuite(async () => {
         result.otlp.includes(MARKER)
       );
     },
+  );
+  await proof(
+    "K21",
+    "per-trace redactIO: a span started in setLangfuseContext({ redactIO: true }) reaches Langfuse with no observation or trace input or output, while a sibling trace on the same exporter keeps all four",
+    async () => {
+      const result = await scenario("trace-redact");
+      const redacted = result.langfuseByName["scenario.redacted"];
+      const kept = result.langfuseByName["scenario.generate"];
+      return (
+        redacted !== undefined &&
+        kept !== undefined &&
+        !result.langfuse.includes(SCOPE_MARKER) &&
+        [...CONTENT_KEYS].every(
+          (key) =>
+            redacted[key] === undefined && kept[key]?.includes(MARKER) === true,
+        )
+      );
+    },
+  );
+  await proof(
+    "K21",
+    "per-trace redactIO: an inner setLangfuseContext({ redactIO: false }) does not undo an enclosing scope's redactIO",
+    async () => {
+      const result = await scenario("trace-redact");
+      const nested = result.langfuseByName["scenario.nested"];
+      return (
+        nested !== undefined &&
+        nested["langfuse.observation.input"] === undefined &&
+        nested["langfuse.observation.output"] === undefined &&
+        !result.langfuse.includes(NESTED_MARKER)
+      );
+    },
+  );
+  await proof(
+    "K21",
+    "per-trace redactIO: the redaction marker is not sent to Langfuse, while the OTLP processor and a second registry exporter receive it with the redacted input and output",
+    async () => {
+      const result = await scenario("trace-redact");
+      return (
+        !result.langfuse.includes(REDACT_IO_ATTRIBUTE) &&
+        result.otlp.includes(REDACT_IO_ATTRIBUTE) &&
+        result.recorded.includes(REDACT_IO_ATTRIBUTE) &&
+        result.otlp.includes(SCOPE_MARKER) &&
+        result.recorded.includes(SCOPE_MARKER)
+      );
+    },
+  );
+  await proof(
+    "K21",
+    "per-trace redactIO end to end: every span generate() starts inside setLangfuseContext({ redactIO: true }) carries the redaction marker, and no span outside it does",
+    async () => {
+      const marked = (spans: ReadableSpan[]): number =>
+        spans.filter((span) => span.attributes[REDACT_IO_ATTRIBUTE] === true)
+          .length;
+      const inside = await setLangfuseContext({ redactIO: true }, () => turn());
+      const outside = await turn();
+      return (
+        inside.spans.length > 0 &&
+        marked(inside.spans) === inside.spans.length &&
+        outside.spans.length > 0 &&
+        marked(outside.spans) === 0
+      );
+    },
+  );
+  const redactedOnLangfuse = (wire: Wire[]): boolean =>
+    wire.length > 0 &&
+    !carriesContent(wire) &&
+    !JSON.stringify(wire).includes(PROMPT_MARKER);
+  const keptOnLangfuse = (wire: Wire[]): boolean =>
+    carriesContent(wire) && JSON.stringify(wire).includes(PROMPT_MARKER);
+  await proof(
+    "K21",
+    "per-call redactIO: generate({ context: { redactIO: true } }) reaches Langfuse with no input or output on any observation, while the same call without it sends both",
+    async () => {
+      const redacted = await sentToLangfuse(() =>
+        turn({ context: { redactIO: true } }),
+      );
+      const kept = await sentToLangfuse(() => turn());
+      return redactedOnLangfuse(redacted) && keptOnLangfuse(kept);
+    },
+  );
+  await proof(
+    "K21",
+    "per-call redactIO: a fully drained stream({ context: { redactIO: true } }) reaches Langfuse with no input or output on any observation, while the same stream without it sends both",
+    async () => {
+      const redacted = await sentToLangfuse(() =>
+        turn({ context: { redactIO: true }, stream: true }),
+      );
+      const kept = await sentToLangfuse(() => turn({ stream: true }));
+      return redactedOnLangfuse(redacted) && keptOnLangfuse(kept);
+    },
+  );
+  await proof(
+    "K21",
+    'per-call redactIO: a truthy value that is not a boolean, such as "true", redacts as true does',
+    async () =>
+      redactedOnLangfuse(
+        await sentToLangfuse(() => turn({ context: { redactIO: "true" } })),
+      ),
   );
 
   // ----------------------------------------------------------------- K25
