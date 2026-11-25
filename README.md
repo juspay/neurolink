@@ -5,6 +5,7 @@
 [![GitHub Stars](https://img.shields.io/github/stars/juspay/neurolink?style=flat)](https://github.com/juspay/neurolink/stargazers)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/juspay/neurolink/ci.yml?label=CI)](https://github.com/juspay/neurolink/actions/workflows/ci.yml)
+[![Listed on MCP ServerList](https://mcp-serverlist.com/api/badge/neurolink)](https://mcp-serverlist.com/mcp/neurolink)
 
 **The pipe layer for the AI nervous system.**
 
