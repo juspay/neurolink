@@ -1,0 +1,80 @@
+{
+  "schema": "rust-anything/bridge@1",
+  "root": "../..",
+  "unit": "src/lib/rag/retrieval/bm25Core.ts",
+  "language": "ts",
+  "kind": "napi",
+  "crate_name": "bm25-rs",
+  "exports": [],
+  "classes": [
+    {
+      "name": "BM25Core",
+      "file": "src/lib/rag/retrieval/bm25Core.ts",
+      "line": 12,
+      "constructor": [],
+      "methods": [
+        {
+          "name": "add",
+          "file": "src/lib/rag/retrieval/bm25Core.ts",
+          "line": 22,
+          "params": [
+            {
+              "name": "ids",
+              "ts_type": "string[]",
+              "optional": false,
+              "rest": false
+            },
+            {
+              "name": "texts",
+              "ts_type": "string[]",
+              "optional": false,
+              "rest": false
+            }
+          ],
+          "returns": "void",
+          "is_async": false,
+          "is_generator": false,
+          "type_params": [],
+          "uses_instanceof": false
+        },
+        {
+          "name": "search",
+          "file": "src/lib/rag/retrieval/bm25Core.ts",
+          "line": 48,
+          "params": [
+            {
+              "name": "query",
+              "ts_type": "string",
+              "optional": false,
+              "rest": false
+            },
+            {
+              "name": "limit",
+              "ts_type": "number",
+              "optional": false,
+              "rest": false
+            }
+          ],
+          "returns": "{ ids: string[]; scores: number[] }",
+          "is_async": false,
+          "is_generator": false,
+          "type_params": [],
+          "uses_instanceof": false
+        },
+        {
+          "name": "size",
+          "file": "src/lib/rag/retrieval/bm25Core.ts",
+          "line": 99,
+          "params": [],
+          "returns": "number",
+          "is_async": false,
+          "is_generator": false,
+          "type_params": [],
+          "uses_instanceof": false
+        }
+      ],
+      "blocker": null
+    }
+  ],
+  "js_only": []
+}

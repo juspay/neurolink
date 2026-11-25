@@ -931,6 +931,10 @@ export default [
       ".claude/worktrees/**",
       // Vendored Whistle engine (emscripten output) and model, pinned from Hugging Face.
       "models/whistle/**",
+      // Rust crates: Cargo's build output and rust-anything's working files,
+      // both git-ignored by each crate's own .gitignore.
+      "rust/*/target/**",
+      "rust/*/.rust-anything/**",
       "docs/cli-recordings/**",
       "docs/visual-content/**",
       "neurolink-demo/**",

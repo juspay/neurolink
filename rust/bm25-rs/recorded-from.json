@@ -1,0 +1,17 @@
+{
+  "unit": "src/lib/rag/retrieval/bm25Core.ts",
+  "files": 1,
+  "fingerprint": "9a98bcfc8c36863e",
+  "coverage": {
+    "lines": 100,
+    "reached": 100,
+    "files": [
+      {
+        "file": "src/lib/rag/retrieval/bm25Core.ts",
+        "lines": 100,
+        "reached": 100,
+        "missed": ""
+      }
+    ]
+  }
+}
