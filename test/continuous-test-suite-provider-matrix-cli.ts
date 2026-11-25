@@ -33,7 +33,9 @@ import {
   coverageOf,
   isExpectedLive,
   noteQuietSkip,
+  noteRetired,
   recordCell,
+  retiredEntry,
   settleCell,
 } from "./helpers/liveGate.js";
 import { PROVIDERS, hasProviderEnv } from "./helpers/providerMatrix.js";
@@ -185,6 +187,16 @@ function classifyCliFailure(args: string[], result: CliResult): never {
 async function runMatrix(): Promise<void> {
   for (const p of targets) {
     if (!p.text) {
+      continue;
+    }
+
+    // A retired provider's account is known dead; see LIVE_GATE_RETIRED.
+    const retired = retiredEntry(p.name);
+    if (retired) {
+      noteRetired(p.name);
+      await test(`[${p.name}] not run: retired from the nightly on ${retired.retired}`, () => {
+        throw new Skip(retired.reason);
+      });
       continue;
     }
 

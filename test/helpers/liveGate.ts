@@ -34,6 +34,12 @@
  * A provider with neither a secret nor evidence is not run at all (one quiet
  * SKIP line, no SDK call, so no `[NEUROLINK:ERROR] Failed to create provider`).
  *
+ * A provider on LIVE_GATE_RETIRED is not run either, whatever secret or evidence
+ * it has: its account was found dead and the decision was to stop testing it
+ * rather than keep excusing it. It gets one SKIP line naming the reason and is
+ * counted in its own row of the coverage table, so it stays visible every night.
+ * Deleting its entry is how it comes back, once its account works.
+ *
  * The allowlist is code on purpose: a known-broken provider is a decision with a
  * reason and a deadline, reviewed in a pull request, not a silent pattern. Each
  * entry may excuse a provider for at most MAX_ALLOWLIST_DAYS from the day it was
@@ -132,6 +138,48 @@ export const LIVE_GATE_ALLOWLIST: readonly AllowlistEntry[] = [
   },
 ];
 
+export type RetiredEntry = {
+  readonly provider: string;
+  readonly reason: string;
+  /** First day (UTC) the provider is not run, YYYY-MM-DD. */
+  readonly retired: string;
+};
+
+// The allowlist entries above expired on 2026-11-01 and every nightly since
+// failed on the same five accounts (runs 45015094628, 45171682626 and
+// 45403994922 each: 23 cells, all a 401, 402 or 429 from the vendor).
+export const LIVE_GATE_RETIRED: readonly RetiredEntry[] = [
+  {
+    provider: "cerebras",
+    reason: "the account answers HTTP 402 on every cell; it needs credit",
+    retired: "2026-11-25",
+  },
+  {
+    provider: "gmicloud",
+    reason:
+      "the account answers HTTP 402 'Insufficient balance' on every cell; it needs credit",
+    retired: "2026-11-25",
+  },
+  {
+    provider: "io-intelligence",
+    reason:
+      "the account answers HTTP 402: the pinned models need a higher IO Intelligence tier",
+    retired: "2026-11-25",
+  },
+  {
+    provider: "mistral",
+    reason:
+      "the account answers HTTP 429 on every cell, every night; it needs a paid plan or API budget",
+    retired: "2026-11-25",
+  },
+  {
+    provider: "sambanova",
+    reason:
+      "the vendor answers HTTP 401 'Invalid SambaNova API key'; SAMBANOVA_API_KEY needs a new key",
+    retired: "2026-11-25",
+  },
+];
+
 // ---------------------------------------------------------------------------
 // Dates
 // ---------------------------------------------------------------------------
@@ -186,6 +234,28 @@ export const allowlistProblems = (
         `an allowlist entry excuses a provider for ${span} days, more than ${MAX_ALLOWLIST_DAYS}`,
       );
     }
+    return found;
+  });
+};
+
+/** Everything wrong with the retired list, as short sentences; empty when it is sound. */
+export const retiredProblems = (
+  entries: readonly RetiredEntry[],
+): readonly string[] => {
+  const seen = new Set<string>();
+  return entries.flatMap((entry) => {
+    const found: string[] = [];
+    if (!(entry.provider in PROVIDERS)) {
+      found.push("a retired entry names a provider that is not in PROVIDERS");
+    }
+    if (seen.has(entry.provider)) {
+      found.push("a retired entry repeats a provider");
+    }
+    seen.add(entry.provider);
+    if (entry.reason.trim() === "") {
+      found.push("a retired entry has no reason");
+    }
+    parseDay(entry.retired);
     return found;
   });
 };
@@ -423,6 +493,17 @@ export const activeAllowlistEntry = (
     (entry) => entry.provider === providerName && isActive(entry, today),
   );
 
+/** The provider's retired entry once its day has come, else undefined. */
+export const retiredEntry = (
+  providerName: string,
+  today: string = todayUtc(),
+): RetiredEntry | undefined =>
+  LIVE_GATE_RETIRED.find(
+    (entry) =>
+      entry.provider === providerName &&
+      parseDay(today) >= parseDay(entry.retired),
+  );
+
 // ---------------------------------------------------------------------------
 // Cells
 // ---------------------------------------------------------------------------
@@ -432,6 +513,7 @@ type CellCounts = Record<CellOutcome, number>;
 const cellCounts = new Map<string, CellCounts>();
 const announced = new Set<string>();
 const quietlySkipped = new Set<string>();
+const retiredSkipped = new Set<string>();
 
 const countsFor = (providerName: string): CellCounts => {
   const existing = cellCounts.get(providerName);
@@ -460,6 +542,7 @@ export const resetGate = (): void => {
   cellCounts.clear();
   announced.clear();
   quietlySkipped.clear();
+  retiredSkipped.clear();
 };
 
 /**
@@ -519,6 +602,11 @@ export const noteQuietSkip = (providerName: string): void => {
   quietlySkipped.add(providerName);
 };
 
+/** Records a provider the matrix did not run because it is on LIVE_GATE_RETIRED. */
+export const noteRetired = (providerName: string): void => {
+  retiredSkipped.add(providerName);
+};
+
 // ---------------------------------------------------------------------------
 // Coverage
 // ---------------------------------------------------------------------------
@@ -530,12 +618,17 @@ export type Coverage = {
   readonly allowlisted: readonly string[];
   readonly skipped: readonly string[];
   readonly noSecret: readonly string[];
+  /** Providers on LIVE_GATE_RETIRED, which the run did not call. */
+  readonly retired: readonly string[];
   /** Providers with a recorded live run that had no secret in this environment. */
   readonly evidenceWithoutSecret: readonly string[];
 };
 
 export const coverageOf = (targets: readonly string[]): Coverage => {
-  const statusOf = (name: string): CellOutcome | "no-secret" => {
+  const statusOf = (name: string): CellOutcome | "no-secret" | "retired" => {
+    if (retiredSkipped.has(name)) {
+      return "retired";
+    }
     if (quietlySkipped.has(name)) {
       return "no-secret";
     }
@@ -548,7 +641,7 @@ export const coverageOf = (targets: readonly string[]): Coverage => {
     }
     return counts.passed > 0 ? "passed" : "skipped";
   };
-  const byStatus = (wanted: CellOutcome | "no-secret"): string[] =>
+  const byStatus = (wanted: CellOutcome | "no-secret" | "retired"): string[] =>
     targets.filter((name) => statusOf(name) === wanted).sort();
   return {
     withSecret: targets.filter((name) => hasSecret(name)).sort(),
@@ -557,8 +650,9 @@ export const coverageOf = (targets: readonly string[]): Coverage => {
     allowlisted: byStatus("allowlisted"),
     skipped: byStatus("skipped"),
     noSecret: byStatus("no-secret"),
+    retired: byStatus("retired"),
     evidenceWithoutSecret: [...LIVE_MATRIX_EVIDENCE_IDS]
-      .filter((name) => !hasSecret(name))
+      .filter((name) => !hasSecret(name) && !retiredSkipped.has(name))
       .sort(),
   };
 };
@@ -594,6 +688,7 @@ export const coverageLines = (
     `allowlisted (known broken)         ${coverage.allowlisted.length}  ${names(withDeadline)}`,
     `skipped (gap or transient error)   ${coverage.skipped.length}  ${names(coverage.skipped)}`,
     `skipped, no secret (not run)       ${coverage.noSecret.length}  ${names(coverage.noSecret)}`,
+    `retired from the nightly (not run) ${coverage.retired.length}  ${names(coverage.retired)}`,
     `live-verified, no secret here      ${coverage.evidenceWithoutSecret.length}  ${names(coverage.evidenceWithoutSecret)}`,
     `expired allowlist entries          ${expired.length}  ${names(expired)}`,
     floorEnforced()

@@ -35,6 +35,7 @@ import {
 } from "./helpers/harness.js";
 import {
   LIVE_GATE_ALLOWLIST,
+  LIVE_GATE_RETIRED,
   allowlistProblems,
   coverageLines,
   coverageOf,
@@ -42,7 +43,10 @@ import {
   floorProblem,
   isExpectedLive,
   noteQuietSkip,
+  noteRetired,
   recordCell,
+  retiredEntry,
+  retiredProblems,
   settleCell,
 } from "./helpers/liveGate.js";
 import { PROVIDERS, hasProviderEnv } from "./helpers/providerMatrix.js";
@@ -117,7 +121,26 @@ async function runMatrix(): Promise<void> {
     }
   });
 
+  await test("live gate: the retired list is well formed", () => {
+    const problems = retiredProblems(LIVE_GATE_RETIRED);
+    if (problems.length > 0) {
+      throw new HardFail(
+        `the live-gate retired list is invalid: ${problems.join("; ")}`,
+      );
+    }
+  });
+
   for (const p of targets) {
+    // A retired provider's account is known dead; calling it would only fail
+    // the night again. It is named once, with the reason, and never called.
+    const retired = retiredEntry(p.name);
+    if (retired) {
+      noteRetired(p.name);
+      await test(`[${p.name}] not run: retired from the nightly on ${retired.retired}`, () => {
+        throw new Skip(retired.reason);
+      });
+      continue;
+    }
     // A provider with no secret and no recorded live run has nothing to prove.
     // It is named once and never called, so the SDK does not log an ERROR for
     // the credential it was never given.

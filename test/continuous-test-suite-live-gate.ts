@@ -23,6 +23,9 @@
  *   - the same 401 once that allowlist entry has expired FAILS again
  *   - a provider with no secret is skipped in one quiet line, with no SDK call
  *     and no ERROR log
+ *   - a retired provider is not called even with its secret and a server that
+ *     would answer 401, and is counted in its own row; before its retired day
+ *     it is run as usual
  *   - a transient 503 stays a skip, and does not count as passed
  *   - 200 passes, and the coverage table counts it
  *   - the coverage floor fails a run with too few passing providers, passes one
@@ -69,6 +72,8 @@ const FIXTURE_KEY = "live-gate-owned-fixture-key";
 // Allowlist entries expire 2026-11-01; these two days sit either side of it.
 const BEFORE_EXPIRY = "2026-10-20";
 const AFTER_EXPIRY = "2026-11-02";
+// The day the five dead accounts were retired; both days above come before it.
+const RETIRED_DAY = "2026-11-25";
 
 type Mode = "ok" | "401" | "402" | "429" | "503";
 const MODES: ReadonlySet<string> = new Set(["ok", "401", "402", "429", "503"]);
@@ -452,6 +457,54 @@ await runSuite(async () => {
       run,
       after === before,
       "a provider with no secret reached the server",
+    );
+  });
+
+  for (const suite of ["sdk", "cli"] as const) {
+    await test(`a retired provider is not called, even keyed and answering 401 (${suite})`, async () => {
+      const before = chatHits.get("401") ?? 0;
+      const run = await runMatrix({
+        keyed: [{ id: "cerebras", mode: "401" }],
+        today: RETIRED_DAY,
+        suite,
+      });
+      const after = chatHits.get("401") ?? 0;
+      expectThat(run, run.exitCode === 0, "a retired provider failed the run");
+      expectThat(
+        run,
+        hasLine(
+          run.out,
+          /⊘ \[cerebras\] not run: retired from the nightly on 2026-11-25/,
+        ),
+        "the retired provider was not reported as one skip line",
+      );
+      expectThat(
+        run,
+        hasLine(run.out, /retired from the nightly \(not run\)\s+1\s+cerebras/),
+        "the retired provider was not counted in its own row",
+      );
+      expectThat(
+        run,
+        after === before,
+        "a retired provider reached the server",
+      );
+    });
+  }
+
+  await test("before its retired day a retired provider is run, and its 401 fails", async () => {
+    const run = await runMatrix({
+      keyed: [{ id: "cerebras", mode: "401" }],
+      today: AFTER_EXPIRY,
+    });
+    expectThat(
+      run,
+      run.exitCode === 1,
+      "a 401 before the retired day did not fail the run",
+    );
+    expectThat(
+      run,
+      hasLine(run.out, /✗ \[cerebras\] generate basic text/),
+      "the provider was not run before its retired day",
     );
   });
 
