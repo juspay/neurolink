@@ -859,6 +859,20 @@ function isMetadataLine(lines: string[]): boolean {
     return false;
   }
 
+  // The comma heuristics below cannot see a tab, semicolon or pipe table, so a
+  // comma inside its data (`widget;1,50`) made its real header look like a
+  // preamble. Two lines that split into the same number of fields (>1) on any
+  // candidate delimiter are rows of one table.
+  for (const delimiter of CANDIDATE_DELIMITERS) {
+    const firstFields = splitCSVFields(firstLine, delimiter).length;
+    if (
+      firstFields > 1 &&
+      firstFields === splitCSVFields(secondLine, delimiter).length
+    ) {
+      return false;
+    }
+  }
+
   const firstCommaCount = countUnquotedCommas(firstLine);
   const secondCommaCount = countUnquotedCommas(secondLine);
 

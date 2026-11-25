@@ -6934,6 +6934,54 @@ exit 127
       }
     },
   },
+  {
+    name: "CSVProcessor: a comma inside semicolon or tab data does not drop the header as a metadata line",
+    category: "csv-processor",
+    fn: async () => {
+      // Decimal-comma exports (`1,50`) and free text in a TSV put commas in
+      // line 2 but not in the header, which the comma-only preamble check
+      // used to read as "line 1 is a title".
+      const semi = "name;price\nwidget;1,50\ngadget;2,75";
+      const semiJson = (await CSVProcessor.process(Buffer.from(semi), {
+        formatStyle: "json",
+      })) as { metadata: { detectedDelimiter?: string }; content: string };
+      const semiRows = JSON.parse(semiJson.content) as Array<
+        Record<string, string>
+      >;
+      if (
+        semiJson.metadata.detectedDelimiter !== ";" ||
+        semiRows.length !== 2 ||
+        semiRows[0].name !== "widget" ||
+        semiRows[0].price !== "1,50"
+      ) {
+        return false;
+      }
+      const tsv = "name\tnote\nalice\thello, world\nbob\tok";
+      const tsvJson = (await CSVProcessor.process(Buffer.from(tsv), {
+        formatStyle: "json",
+      })) as { content: string };
+      const tsvRows = JSON.parse(tsvJson.content) as Array<
+        Record<string, string>
+      >;
+      if (
+        tsvRows.length !== 2 ||
+        tsvRows[0].name !== "alice" ||
+        tsvRows[0].note !== "hello, world"
+      ) {
+        return false;
+      }
+      // A real title line above a comma header is still stripped.
+      const titled = await CSVProcessor.process(
+        Buffer.from("Quarterly report\nid,qty\n1,5\n2,3"),
+        { formatStyle: "raw" },
+      );
+      return (
+        titled.metadata.columnCount === 2 &&
+        typeof titled.content === "string" &&
+        titled.content.startsWith("id,qty")
+      );
+    },
+  },
   // ---------- #361 follow-up: `sep=` metadata line vs. delimiter detection ----------
   {
     name: "CSVProcessor: explicit sep=; metadata line wins over frequency-based tie-break (Excel semantics)",
