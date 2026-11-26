@@ -655,7 +655,7 @@ export enum GoogleAIModels {
 // are NOT retired just because the direct-API twin is.
 export enum AnthropicModels {
   // Claude 5 Series (mid 2026). MODEL_CONTEXT_WINDOWS.anthropic
-  // (src/lib/constants/contextWindows.ts) already carries the 1M window
+  // (src/lib/providers/rules/limits.json) already carries the 1M window
   // these ids resolve to.
   CLAUDE_OPUS_5 = "claude-opus-5",
   CLAUDE_SONNET_5 = "claude-sonnet-5",
@@ -771,6 +771,7 @@ export enum OllamaModels {
   MISTRAL_LARGE_LATEST = "mistral-large:latest",
 
   // Google Gemma Series - Efficient edge and cloud models
+  GEMMA4_E2B = "gemma4:e2b",
   GEMMA3_LATEST = "gemma3:latest",
   GEMMA2_2B = "gemma2:2b",
   GEMMA2_9B = "gemma2:9b",

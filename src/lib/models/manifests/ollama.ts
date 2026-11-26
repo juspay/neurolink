@@ -3,6 +3,19 @@ import type { ProviderModelManifest } from "../../types/index.js";
 export const ollamaManifest: ProviderModelManifest = {
   defaultContextWindow: 128000,
   models: {
+    "gemma4:e2b": {
+      aliases: ["gemma4", "gemma4-local"],
+      displayName: "Gemma 4 E2B",
+      // ollama.com/library/gemma4: 128K context; tools, vision and thinking.
+      contextWindow: 131072,
+      // Ollama publishes no output cap; this matches its default in tokens.ts.
+      maxOutputTokens: 8192,
+      // pricingPerMTok omitted: hasPricing() reports no verified rate
+      vision: true,
+      functionCalling: true,
+      reasoning: true,
+      jsonMode: true,
+    },
     "llama4:latest": {
       aliases: ["llama4", "llama4-local"],
       displayName: "Llama 4",

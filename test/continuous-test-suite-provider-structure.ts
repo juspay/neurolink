@@ -97,14 +97,9 @@ const PROVIDER_REGISTRATION_EXCLUSIONS = new Set([
   // so a per-file "one dynamic import per module" check has nothing honest to
   // say about it.
   "configuredDecision",
-  // Shared error-rule builder for Ollama/LM Studio/llama.cpp — a plain
-  // function, not a provider class (the neurolink/provider-base-class lint
-  // rule requires each of those three to extend OpenAIChatCompletionsProvider
-  // directly, so this is a helper import, never a dynamic import target).
-  "localRuntimeOpenAICompat",
   // Shared embeddings-response validator for Voyage/Jina — a plain function,
-  // not a provider class, for the same reason as localRuntimeOpenAICompat
-  // above.
+  // not a provider class, so it is a helper import, never a dynamic import
+  // target.
   "embeddingResponseParsing",
 ]);
 

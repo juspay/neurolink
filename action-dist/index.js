@@ -33147,7 +33147,7 @@ var GoogleAIModels;
 var AnthropicModels;
 (function (AnthropicModels) {
     // Claude 5 Series (mid 2026). MODEL_CONTEXT_WINDOWS.anthropic
-    // (src/lib/constants/contextWindows.ts) already carries the 1M window
+    // (src/lib/providers/rules/limits.json) already carries the 1M window
     // these ids resolve to.
     AnthropicModels["CLAUDE_OPUS_5"] = "claude-opus-5";
     AnthropicModels["CLAUDE_SONNET_5"] = "claude-sonnet-5";
@@ -33244,6 +33244,7 @@ var OllamaModels;
     OllamaModels["MISTRAL_NEMO_LATEST"] = "mistral-nemo:latest";
     OllamaModels["MISTRAL_LARGE_LATEST"] = "mistral-large:latest";
     // Google Gemma Series - Efficient edge and cloud models
+    OllamaModels["GEMMA4_E2B"] = "gemma4:e2b";
     OllamaModels["GEMMA3_LATEST"] = "gemma3:latest";
     OllamaModels["GEMMA2_2B"] = "gemma2:2b";
     OllamaModels["GEMMA2_9B"] = "gemma2:9b";

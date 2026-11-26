@@ -3,6 +3,14 @@
  */
 
 import { IMAGE_GENERATION_MODELS } from "../core/constants.js";
+import {
+  firstModelRule,
+  inModelFamily,
+} from "../providers/rules/modelFamilies.js";
+import { getProviderRules } from "../providers/rules/registry.js";
+
+const GEMINI_REASONING = getProviderRules("gemini").reasoning;
+const FAMILY_LABELS = getProviderRules("model-families").modelFamilyLabels;
 
 /**
  * Check if model name is valid for detection functions
@@ -15,83 +23,45 @@ export function isGemini3Model(modelName: string): boolean {
   if (!isValidModelName(modelName)) {
     return false;
   }
-  return /^gemini-3(\.\d+)?(-.*)?$/i.test(modelName);
+  return inModelFamily("gemini3", modelName);
 }
 
 export function isGemini25Model(modelName: string): boolean {
   if (!isValidModelName(modelName)) {
     return false;
   }
-  return /^gemini-2\.5(-.*)?$/i.test(modelName);
+  return inModelFamily("gemini25", modelName);
 }
 
 export function supportsThinkingConfig(modelName: string): boolean {
   if (!isValidModelName(modelName)) {
     return false;
   }
-  const thinkingModels = [
-    /^gemini-3/i,
-    /^gemini-2\.5-pro/i,
-    /^gemini-2\.5-flash/i,
-  ];
-  return thinkingModels.some((pattern) => pattern.test(modelName));
+  return inModelFamily("thinkingConfig", modelName);
 }
 
 export function supportsPromptCaching(modelName: string): boolean {
   if (!isValidModelName(modelName)) {
     return false;
   }
-  const cachingModels = [
-    /^gemini-3/i,
-    /^gemini-2\.5/i,
-    /^gpt-4/i,
-    /^claude-3/i,
-  ];
-  return cachingModels.some((pattern) => pattern.test(modelName));
+  return inModelFamily("promptCaching", modelName);
 }
 
 export function getMaxThinkingBudgetTokens(modelName: string): number {
+  const budgets = GEMINI_REASONING?.maxBudgetTokens;
+  if (!budgets) {
+    throw new Error("gemini.json has no reasoning.maxBudgetTokens");
+  }
   if (!isValidModelName(modelName)) {
-    return 10000;
+    return budgets.default;
   }
-  if (/^gemini-3(\.\d+)?-pro/i.test(modelName)) {
-    return 100000;
-  }
-  if (/^gemini-3(\.\d+)?-flash/i.test(modelName)) {
-    return 50000;
-  }
-  if (/^gemini-2\.5/i.test(modelName)) {
-    return 32000;
-  }
-  return 10000;
+  return firstModelRule(budgets.rules, modelName)?.value ?? budgets.default;
 }
 
 // Per-model `thinkingBudget` bounds for the Gemini 2.5 family, confirmed
-// against live Vertex generateContent responses (not just vendor docs, which
-// have been observed to drift from runtime behavior — see the "known gotcha"
-// on Gemini 2.5 Pro's range in public bug reports). Vertex rejects a budget
-// outside these bounds with INVALID_ARGUMENT "thinking_budget is out of
-// range; supported values are integers from <min> to <max>".
-//
-// Flash's true floor is 1, but budget:1 measured 0 thoughtsTokenCount — i.e.
-// technically accepted but indistinguishable from thinking being off. The
-// floor is bumped to 128 (Pro's real floor) here so a "minimal" mapping
-// still produces observable thinking. Must precede the plain "flash" pattern
-// below — "gemini-2.5-flash-lite" also matches a bare `/^gemini-2\.5-flash/`.
-const GEMINI_25_THINKING_BUDGET_RANGES: ReadonlyArray<{
-  pattern: RegExp;
-  min: number;
-  max: number;
-}> = [
-  { pattern: /^gemini-2\.5-flash-lite/i, min: 512, max: 24576 },
-  { pattern: /^gemini-2\.5-flash/i, min: 128, max: 24576 },
-  { pattern: /^gemini-2\.5-pro/i, min: 128, max: 32768 },
-];
-
-// Bounds safe for any Gemini 2.5 variant not explicitly listed above — the
-// intersection of all three known models' verified ranges, so a model we
-// haven't named still gets a budget every family member accepts.
-const GEMINI_25_FALLBACK_BUDGET_RANGE = { min: 512, max: 24576 };
+// against live Vertex responses (gemini.json `reasoning.budgetRanges`; the
+// reasons are in `reasoningNotes`). Vertex rejects a budget outside them with
+// INVALID_ARGUMENT "thinking_budget is out of range".
 
 /**
  * Resolves the Vertex-accepted `thinkingBudget` bounds for a Gemini 2.5
@@ -105,34 +75,25 @@ export function getGemini25ThinkingBudgetRange(
   if (!isValidModelName(modelName) || !isGemini25Model(modelName)) {
     return undefined;
   }
-  for (const { pattern, min, max } of GEMINI_25_THINKING_BUDGET_RANGES) {
-    if (pattern.test(modelName)) {
-      return { min, max };
-    }
+  const ranges = GEMINI_REASONING?.budgetRanges;
+  if (!ranges) {
+    throw new Error("gemini.json has no reasoning.budgetRanges");
   }
-  return GEMINI_25_FALLBACK_BUDGET_RANGE;
+  const rule = firstModelRule(ranges.rules, modelName);
+  return rule ? { min: rule.min, max: rule.max } : ranges.fallback;
 }
 
 export function getModelFamily(modelName: string): string {
+  if (!FAMILY_LABELS) {
+    throw new Error("model-families.json has no modelFamilyLabels");
+  }
   if (!isValidModelName(modelName)) {
-    return "unknown";
+    return FAMILY_LABELS.default;
   }
-  if (/^gemini-3/i.test(modelName)) {
-    return "gemini-3";
-  }
-  if (/^gemini-2\.5/i.test(modelName)) {
-    return "gemini-2.5";
-  }
-  if (/^gemini-2/i.test(modelName)) {
-    return "gemini-2";
-  }
-  if (/^gpt-4/i.test(modelName)) {
-    return "gpt-4";
-  }
-  if (/^claude-3/i.test(modelName)) {
-    return "claude-3";
-  }
-  return "unknown";
+  return (
+    firstModelRule(FAMILY_LABELS.rules, modelName)?.label ??
+    FAMILY_LABELS.default
+  );
 }
 
 // Compiled once at module load — hasRestrictedOutputLimit() is called per
@@ -152,8 +113,7 @@ export function hasRestrictedOutputLimit(modelName: string): boolean {
     return false;
   }
 
-  // Check for Gemini 3 models (anchored regex for consistency)
-  if (/^gemini-3/i.test(modelName)) {
+  if (inModelFamily("restrictedOutput", modelName)) {
     return true;
   }
 
@@ -167,7 +127,8 @@ export function hasRestrictedOutputLimit(modelName: string): boolean {
 /**
  * Get the max output tokens for a model (32768 for restricted models)
  */
-export const RESTRICTED_OUTPUT_TOKEN_LIMIT = 32768;
+export const RESTRICTED_OUTPUT_TOKEN_LIMIT =
+  GEMINI_REASONING?.restrictedOutputTokenLimit ?? 32768;
 
 /**
  * Normalize an Anthropic-API-style Claude model ID to the Vertex publisher

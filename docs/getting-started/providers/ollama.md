@@ -81,7 +81,7 @@ Add to your `.env` file:
 # Optional: All values below show defaults. Ollama works with zero configuration.
 
 # Override the default model
-OLLAMA_MODEL=llama3.2:latest
+OLLAMA_MODEL=gemma4:e2b
 
 # Override the base URL (default: http://localhost:11434)
 OLLAMA_BASE_URL=http://localhost:11434
@@ -137,7 +137,7 @@ Any model in the [Ollama library](https://ollama.ai/library) can be used by pass
 | `LLAMA4_SCOUT`    | `llama4:scout`    | Llama 4 multimodal with vision and tools |
 | `LLAMA4_MAVERICK` | `llama4:maverick` | Llama 4 multimodal with vision and tools |
 | `LLAMA3_3_70B`    | `llama3.3:70b`    | High-performance 70B                     |
-| `LLAMA3_2_LATEST` | `llama3.2:latest` | Optimized for edge deployment (default)  |
+| `LLAMA3_2_LATEST` | `llama3.2:latest` | Optimized for edge deployment            |
 | `LLAMA3_2_3B`     | `llama3.2:3b`     | Compact 3B edge model                    |
 | `LLAMA3_2_1B`     | `llama3.2:1b`     | Ultra-compact 1B model                   |
 | `LLAMA3_1_8B`     | `llama3.1:8b`     | Open model rivaling proprietary models   |
@@ -201,6 +201,7 @@ Any model in the [Ollama library](https://ollama.ai/library) can be used by pass
 
 | Enum Key                 | Model ID                 | Description                   |
 | ------------------------ | ------------------------ | ----------------------------- |
+| `GEMMA4_E2B`             | `gemma4:e2b`             | Google Gemma 4 edge (default) |
 | `GEMMA3_LATEST`          | `gemma3:latest`          | Google Gemma 3                |
 | `GEMMA2_27B`             | `gemma2:27b`             | Google Gemma 2 large          |
 | `PHI4_LATEST`            | `phi4:latest`            | Microsoft Phi 4               |
@@ -213,7 +214,7 @@ Any model in the [Ollama library](https://ollama.ai/library) can be used by pass
 
 ### Default Model
 
-The default model is `llama3.2:latest` (set via `OllamaModels.LLAMA3_2_LATEST` in the provider registry). The internal `OllamaLanguageModel` uses `llama3.1:8b` as its default with `llama3.2:latest` as a fallback when the primary model fails. Override the default with the `OLLAMA_MODEL` environment variable.
+The default model is `gemma4:e2b`, the model Ollama's own quickstart runs first. It is set by `defaultModel` in `src/lib/providers/rules/ollama.json`, and the same file's `fallbackModel` (also `gemma4:e2b`) is the model suggested when a requested model is not installed. Override the default with the `OLLAMA_MODEL` environment variable.
 
 Model names are matched by prefix, so `llama3.2` will match `llama3.2:latest` on your Ollama instance. This also means `gemma3:27b` matches `gemma3:27b-fp16`.
 
@@ -456,7 +457,7 @@ native PDF support — OpenAI, Anthropic, Google Vertex AI or Google AI Studio.
 | Variable                     | Description                                                      | Default                     | Required |
 | ---------------------------- | ---------------------------------------------------------------- | --------------------------- | -------- |
 | `OLLAMA_BASE_URL`            | Base URL for the Ollama API                                      | `http://localhost:11434`    | No       |
-| `OLLAMA_MODEL`               | Default model to use                                             | `llama3.2:latest`           | No       |
+| `OLLAMA_MODEL`               | Default model to use                                             | `gemma4:e2b`                | No       |
 | `OLLAMA_TIMEOUT`             | Request timeout in milliseconds                                  | `240000` (4 minutes)        | No       |
 | `OLLAMA_OPENAI_COMPATIBLE`   | Set to `true` to use the OpenAI-compatible API endpoint          | `false`                     | No       |
 | `OLLAMA_TOOL_CAPABLE_MODELS` | Comma-separated list of model patterns that support tool calling | (empty, all models assumed) | No       |

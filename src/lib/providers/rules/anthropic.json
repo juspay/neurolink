@@ -1,0 +1,104 @@
+{
+  "$schema": "./provider-rules.schema.json",
+  "id": "anthropic",
+  "errors": {
+    "useDefaults": false,
+    "rules": [
+      {
+        "status": 401,
+        "pattern": "API_KEY_INVALID|Invalid API key",
+        "class": "authentication",
+        "message": "Invalid Anthropic API key. Please check your ANTHROPIC_API_KEY environment variable."
+      },
+      {
+        "status": 429,
+        "messageStatus": 429,
+        "pattern": "rate limit|too_many_requests",
+        "class": "rate-limit",
+        "message": "Anthropic rate limit exceeded. Please try again later."
+      },
+      {
+        "pattern": "ECONNRESET|ENOTFOUND|ECONNREFUSED|network|connection",
+        "class": "network",
+        "message": "Connection error: {message}"
+      },
+      {
+        "statusRange": [500, 599],
+        "pattern": "server error|bad gateway|service unavailable|gateway timeout|\\berror\\b\\D{0,12}\\b5\\d\\d\\b|\\b5\\d\\d\\b\\D{0,12}\\berror\\b|\\bstatus(?:\\s*code)?\\b\\D{0,12}\\b5\\d\\d\\b",
+        "class": "provider",
+        "message": "Server error: {message}"
+      },
+      {
+        "always": true,
+        "class": "provider",
+        "message": "Anthropic error: {message}"
+      }
+    ]
+  },
+  "finishReasons": {
+    "messages": {
+      "map": {
+        "max_tokens": "length",
+        "tool_use": "tool-calls",
+        "refusal": "content-filter"
+      },
+      "default": "stop",
+      "defaultAtToolCap": "tool-calls"
+    }
+  },
+  "toolChoices": {
+    "messages": {
+      "modes": {
+        "auto": null,
+        "none": {
+          "type": "none"
+        },
+        "required": {
+          "type": "any"
+        }
+      },
+      "acceptStrings": true,
+      "acceptModeObjects": false,
+      "tool": {
+        "type": "tool",
+        "name": "{toolName}"
+      },
+      "toolRequiresName": true,
+      "fallback": null
+    }
+  },
+  "thinkingLimits": {
+    "minBudgetTokens": 1024,
+    "answerReserveTokens": 1024
+  },
+  "thinkingLimitNotes": {
+    "minBudgetTokens": "Anthropic rejects a budget_tokens below 1024 with a 400. When no budget of at least this size fits, thinking is omitted rather than coerced.",
+    "answerReserveTokens": "budget_tokens must stay below max_tokens (a 400 otherwise), so the budget is clamped to max_tokens minus this reserve, leaving room for the answer. Used by the direct Anthropic and Vertex Claude paths."
+  },
+  "requestDefaults": {
+    "largeOutputThresholdTokens": 8192,
+    "largeOutputTimeoutFloorMs": 300000,
+    "clientTimeoutMs": 600000
+  },
+  "requestDefaultNotes": {
+    "largeOutputThresholdTokens": "Above 8192 max_tokens a non-streaming call can run for minutes, so the generate timeout is raised (unless the caller forwarded one).",
+    "largeOutputTimeoutFloorMs": "Five minutes: the floor the raised timeout never goes below.",
+    "clientTimeoutMs": "An explicit SDK client timeout. With one set, the SDK skips its 'streaming is required for long requests' pre-flight, which would otherwise reject a large max_tokens on a non-streaming call."
+  },
+  "requestFields": {
+    "maxTokens": "max_tokens",
+    "temperature": "temperature",
+    "topP": "top_p",
+    "stopSequences": "stop_sequences"
+  },
+  "requestFieldNotes": {
+    "scope": "The Anthropic Messages wire, used by direct Anthropic and by Claude on Vertex. toWireParams() writes a request from neutral names; unset values and empty lists are left out."
+  },
+  "toolResults": {
+    "errorTemplate": "Error executing tool {name}: {error}",
+    "errorFlag": "is_error"
+  },
+  "contextTexts": {
+    "elisionNote": "[Earlier tool exchanges were removed to fit the context window.]"
+  }
+}

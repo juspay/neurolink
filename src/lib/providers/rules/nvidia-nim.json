@@ -1,0 +1,43 @@
+{
+  "$schema": "./provider-rules.schema.json",
+  "id": "nvidia-nim",
+  "errors": {
+    "rules": [
+      {
+        "pattern": "Invalid API key|Unauthorized",
+        "caseSensitive": true,
+        "messageStatus": 401,
+        "class": "authentication",
+        "message": "Invalid NVIDIA NIM API key. Get one at https://build.nvidia.com/settings/api-keys"
+      },
+      {
+        "pattern": "rate limit",
+        "caseSensitive": true,
+        "messageStatus": 429,
+        "class": "rate-limit",
+        "message": "NVIDIA NIM rate limit exceeded"
+      },
+      {
+        "pattern": "authori[sz]ation failed",
+        "notPattern": "quota",
+        "class": "authentication",
+        "message": "NVIDIA NIM rejected the credentials (HTTP 403 Authorization failed). Check the API key at https://build.nvidia.com/settings/api-keys; a valid key is also refused when its organization lacks Public API Endpoints access."
+      },
+      {
+        "status": 404,
+        "pattern": "model_not_found",
+        "caseSensitive": true,
+        "messageStatus": 404,
+        "class": "invalid-model",
+        "message": "NVIDIA NIM model '{model}' not available. Browse the catalog at https://build.nvidia.com/models"
+      },
+      {
+        "pattern": "quota",
+        "caseSensitive": true,
+        "messageStatus": 403,
+        "class": "provider",
+        "message": "NVIDIA NIM quota exceeded for your account"
+      }
+    ]
+  }
+}

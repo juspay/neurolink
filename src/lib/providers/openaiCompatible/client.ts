@@ -1,16 +1,6 @@
 import type { AIProviderName } from "../../constants/enums.js";
-import {
-  AuthenticationError,
-  InvalidModelError,
-  NetworkError,
-} from "../../types/index.js";
-import type { ProviderErrorRule } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 import { redactUrlCredentials } from "../../utils/logSanitize.js";
-import {
-  classifyProviderError,
-  DEFAULT_ERROR_RULES,
-} from "../../utils/errorClassifier.js";
 import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
 
 import { FALLBACK_OPENAI_COMPATIBLE_MODEL } from "./constants.js";
@@ -18,6 +8,11 @@ import {
   getDefaultOpenAICompatibleModel,
   getOpenAICompatibleConfig,
 } from "./utils.js";
+import { classifyWithProviderRules } from "../rules/errorRules.js";
+import { getProviderErrorRules } from "../rules/registry.js";
+
+const OPENAI_COMPATIBLE_ERROR_RULES =
+  getProviderErrorRules("openai-compatible");
 
 /**
  * OpenAI Compatible Provider — direct HTTP, no AI SDK.
@@ -78,50 +73,17 @@ export class OpenAICompatibleProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    const rules: ProviderErrorRule[] = [
-      // Duck-typed timeout check (name === "TimeoutError" or a "Timeout"
-      // substring) — broader than classifyProviderError's built-in
-      // `instanceof TimeoutError` handling, so it's preserved as an
-      // explicit rule rather than relying on the default.
-      {
-        match: (ctx) =>
-          ctx.errorName === "TimeoutError" || /Timeout/.test(ctx.message),
-        errorClass: NetworkError,
-        message: (ctx) => `Request timed out: ${ctx.message}`,
-      },
-      {
-        match: (ctx) => /ECONNREFUSED|Failed to fetch/i.test(ctx.message),
-        errorClass: NetworkError,
-        message: () =>
-          `OpenAI Compatible endpoint not available. Please check your OPENAI_COMPATIBLE_BASE_URL: ${redactUrlCredentials(this.config.baseURL)}`,
-      },
-      {
-        match: (ctx) =>
-          ctx.statusCode === 401 ||
-          /API_KEY_INVALID|Invalid API key|Unauthorized/i.test(ctx.message),
-        errorClass: AuthenticationError,
-        message:
-          "Invalid OpenAI Compatible API key. Please check your OPENAI_COMPATIBLE_API_KEY environment variable.",
-      },
-      // "does not exist" isn't covered by DEFAULT_ERROR_RULES's
-      // model_not_found/"model not found" pattern — preserved verbatim.
-      {
-        match: (ctx) =>
-          /model/i.test(ctx.message) &&
-          (/not found/i.test(ctx.message) ||
-            /does not exist/i.test(ctx.message)),
-        errorClass: InvalidModelError,
-        message: (ctx) =>
-          `Model '${ctx.modelName}' not available on OpenAI Compatible endpoint. ` +
-          "Please check available models or use getAvailableModels() to see supported models.",
-      },
-      ...DEFAULT_ERROR_RULES,
-    ];
-    return classifyProviderError(
+    return classifyWithProviderRules(
       error,
-      rules,
+      OPENAI_COMPATIBLE_ERROR_RULES,
       this.providerName,
       this.modelName,
+      {
+        vars: () => ({
+          model: `${this.modelName}`,
+          baseURL: redactUrlCredentials(this.config.baseURL),
+        }),
+      },
     );
   }
 }

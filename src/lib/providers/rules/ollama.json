@@ -1,0 +1,37 @@
+{
+  "$schema": "./provider-rules.schema.json",
+  "id": "ollama",
+  "defaultModel": "gemma4:e2b",
+  "defaultModelNote": "The model used when neither the call nor OLLAMA_MODEL names one. It is the model Ollama's own quickstart runs first (`ollama run gemma4:e2b`, docs.ollama.com/quickstart): 128K context, tools, vision and thinking (ollama.com/library/gemma4). It replaced llama3.2:latest.",
+  "fallbackModel": "gemma4:e2b",
+  "fallbackModelNote": "The model suggested when the requested one is not installed. Same as defaultModel: the model Ollama's own quickstart runs first (`ollama run gemma4:e2b`, docs.ollama.com/quickstart). It replaced two disagreeing copies in code: llama3.1:8b (client.ts) and llama3.2:latest (constants.ts).",
+  "errors": {
+    "timeout": {
+      "class": "network",
+      "message": "Ollama request timed out. The model may be loading or the request is too large."
+    },
+    "rules": [
+      {
+        "errorCode": "ECONNREFUSED",
+        "pattern": "ECONNREFUSED|Failed to fetch|fetch failed",
+        "caseSensitive": true,
+        "class": "network",
+        "message": "Cannot connect to Ollama at {baseURL}. Install Ollama (https://ollama.com), start it with 'ollama serve', then try again."
+      },
+      {
+        "pattern": "model_not_found",
+        "allPatterns": ["model", "not found"],
+        "searchResponseBody": true,
+        "class": "invalid-model",
+        "message": "Ollama model '{model}' is not available locally. Pull it first with 'ollama pull {model}' (or try '{fallbackModel}'); list installed models with 'ollama list'."
+      },
+      {
+        "status": 404,
+        "pattern": "status 404",
+        "searchResponseBody": true,
+        "class": "provider",
+        "message": "Ollama returned HTTP 404 from {baseURL}. Verify the base URL serves the OpenAI-compatible /v1 API and that the model is installed ('ollama list')."
+      }
+    ]
+  }
+}

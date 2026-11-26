@@ -27,6 +27,12 @@ import type {
   TokenUsage,
 } from "../types/index.js";
 import { toStandardBase64 } from "./proxyImageInput.js";
+import {
+  getFinishReasonMap,
+  translateFinishReason,
+} from "../providers/rules/finishReasons.js";
+
+const TO_GEMINI_FINISH = getFinishReasonMap("proxy", "toGemini");
 
 /** Google's role for assistant turns. */
 const MODEL_ROLE = "model";
@@ -227,15 +233,7 @@ export function parseGeminiRequest(
 
 /** Google's finishReason vocabulary. */
 function toGeminiFinishReason(reason: string): string {
-  switch (reason) {
-    case "length":
-    case "max_tokens":
-      return "MAX_TOKENS";
-    case "content_filter":
-      return "SAFETY";
-    default:
-      return "STOP";
-  }
+  return translateFinishReason(TO_GEMINI_FINISH, reason) ?? "STOP";
 }
 
 function usageMetadata(usage: TokenUsage): Record<string, number> {

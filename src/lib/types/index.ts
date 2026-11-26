@@ -137,3 +137,6 @@ export * from "./proxyBudget.js";
 export * from "./decision.js";
 
 export * from "./ollamaDiagnostics.js";
+
+// Provider rules as JSON (src/lib/providers/rules/<id>.json)
+export * from "./providerRules.js";

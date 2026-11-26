@@ -1,0 +1,48 @@
+{
+  "$schema": "./provider-rules.schema.json",
+  "id": "bedrock",
+  "errors": {
+    "useDefaults": false,
+    "rules": [
+      {
+        "pattern": "AccessDeniedException",
+        "class": "authentication",
+        "message": "AWS Bedrock access denied. Check your credentials and permissions."
+      },
+      {
+        "errorName": "ThrottlingException",
+        "errorCode": "ThrottlingException",
+        "class": "rate-limit",
+        "message": "Bedrock rate limit (throttled): {message}"
+      },
+      {
+        "pattern": "ValidationException",
+        "class": "provider",
+        "message": "Validation error: {message}"
+      },
+      {
+        "always": true,
+        "class": "provider",
+        "message": "AWS Bedrock error: {message}"
+      }
+    ]
+  },
+  "finishReasons": {
+    "converse": {
+      "map": {
+        "end_turn": "stop",
+        "stop_sequence": "stop",
+        "max_tokens": "length",
+        "tool_use": "tool-calls"
+      },
+      "default": "stop",
+      "defaultAtToolCap": "tool-calls"
+    }
+  },
+  "requestDefaults": {
+    "temperature": 0.7
+  },
+  "requestDefaultNotes": {
+    "temperature": "Sent on Converse and ConverseStream when the caller gives no temperature."
+  }
+}

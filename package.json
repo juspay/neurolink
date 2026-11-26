@@ -196,6 +196,7 @@
     "test:ollama-diagnostics": "pnpm exec tsx test/continuous-test-suite-ollama-diagnostics.ts",
     "test:decide-engine": "pnpm exec tsx test/continuous-test-suite-decide-engine.ts",
     "test:provider-structure": "pnpm exec tsx test/continuous-test-suite-provider-structure.ts",
+    "test:provider-rules": "pnpm exec tsx test/continuous-test-suite-provider-rules.ts",
     "test:provider-tool-sites": "pnpm exec tsx test/continuous-test-suite-provider-tool-sites.ts",
     "test:model-manifests": "pnpm exec tsx test/continuous-test-suite-model-manifests.ts",
     "test:cli-models-list": "pnpm exec tsx test/continuous-test-suite-cli-models-list.ts",

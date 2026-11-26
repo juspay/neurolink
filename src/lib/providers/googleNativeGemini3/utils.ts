@@ -73,6 +73,16 @@ import type {
   Tool,
   ToolExecutionGuards,
 } from "../../types/index.js";
+import {
+  getFinishReasonMap,
+  translateFinishReason,
+} from "../rules/finishReasons.js";
+import { getWireUsage, readWireUsage } from "../rules/wireUsage.js";
+import { compileToolNameRules, getToolNameRules } from "../rules/toolRules.js";
+import { FINAL_RESULT_TOOL_NAME } from "../rules/finalResultTool.js";
+
+const GEMINI_FINISH_REASONS = getFinishReasonMap("gemini", "generateContent");
+const GEMINI_USAGE = getWireUsage("gemini");
 
 // ── Functions ──
 
@@ -136,69 +146,16 @@ export class DedupExecuteMap extends Map<string, Tool["execute"]> {
 }
 
 /**
- * Google's `function_declarations[].name` validator regex.
- *
- * Empirically (and per the Vertex/AI Studio API error message), the server
- * enforces `[A-Za-z_][A-Za-z0-9_.:-]{0,127}`. Tool names that don't match
- * fail with HTTP 400 "Invalid function name", which surfaces as a misleading
- * tool-calling failure for the whole request.
- *
- * MCP-imported or user-registered tools may legally contain characters
- * outside this set (e.g. `/`, spaces, unicode), so we sanitize defensively
- * before sending to Google. The sanitized name is also used as the
- * `executeMap` key so the round-trip from Google's function-call response
- * back to our executor still works.
+ * Google's `function_declarations[].name` rules (gemini.json `toolNames`).
+ * A name outside them fails with HTTP 400 "Invalid function name", which
+ * surfaces as a misleading tool-calling failure for the whole request.
+ * MCP-imported or user-registered tools may legally contain other characters
+ * (`/`, spaces, unicode), so names are sanitized before sending; the
+ * sanitized name is also the `executeMap` key, so Google's function-call
+ * response still reaches our executor. Colliding names get `_2`, `_3`, …
+ * with room reserved so the result never exceeds the length limit.
  */
-const GOOGLE_FN_NAME_REGEX = /^[A-Za-z_][A-Za-z0-9_.:-]{0,127}$/;
-
-const GOOGLE_FN_NAME_MAX_LENGTH = 128;
-
-function sanitizeForGoogleFunctionName(name: string): string {
-  if (GOOGLE_FN_NAME_REGEX.test(name)) {
-    return name;
-  }
-  let sanitized = name.replace(/[^A-Za-z0-9_.:-]/g, "_");
-  if (!/^[A-Za-z_]/.test(sanitized)) {
-    sanitized = `_${sanitized}`;
-  }
-  if (sanitized.length > GOOGLE_FN_NAME_MAX_LENGTH) {
-    sanitized = sanitized.slice(0, GOOGLE_FN_NAME_MAX_LENGTH);
-  }
-  return sanitized;
-}
-
-/**
- * Resolve a sanitized Gemini tool name to one that is both unique within
- * the current request and at most 128 characters. When the candidate
- * collides with an already-used name we append `_2`, `_3`, … — but
- * reserve room for the suffix by truncating the base first so the
- * resolved name never exceeds Google's `function_declarations[].name`
- * limit.
- *
- * @param base       The already-sanitized candidate name.
- * @param isTaken    Predicate that returns true if `name` is already used.
- */
-function resolveUniqueGoogleFunctionName(
-  base: string,
-  isTaken: (name: string) => boolean,
-): string {
-  if (!isTaken(base)) {
-    return base;
-  }
-  let suffix = 2;
-  while (true) {
-    const suffixStr = `_${suffix}`;
-    const trimmedBase = base.slice(
-      0,
-      GOOGLE_FN_NAME_MAX_LENGTH - suffixStr.length,
-    );
-    const candidate = `${trimmedBase}${suffixStr}`;
-    if (!isTaken(candidate)) {
-      return candidate;
-    }
-    suffix++;
-  }
-}
+const GOOGLE_FN_NAMES = compileToolNameRules(getToolNameRules("gemini"));
 
 /**
  * Sanitize a JSON Schema for Gemini's proto-based API.
@@ -362,7 +319,7 @@ export function buildNativeToolDeclarations(
 
   // Disambiguate distinct originals that collapse onto the same sanitized
   // name (e.g. "my/tool" and "my-tool" both → "my_tool") via
-  // resolveUniqueGoogleFunctionName, which appends `_N` while keeping the
+  // GOOGLE_FN_NAMES.unique, which appends `_N` while keeping the
   // final string within Google's 128-char limit. Track all assigned names
   // regardless of whether the tool has an `execute` function (tools without
   // execute are still pushed to functionDeclarations). The originalNameMap
@@ -376,8 +333,8 @@ export function buildNativeToolDeclarations(
 
   for (const [name, tool] of Object.entries(tools)) {
     try {
-      const candidate = sanitizeForGoogleFunctionName(name);
-      const safeName = resolveUniqueGoogleFunctionName(candidate, (n) =>
+      const candidate = GOOGLE_FN_NAMES.sanitize(name);
+      const safeName = GOOGLE_FN_NAMES.unique(candidate, (n) =>
         usedNames.has(n),
       );
       originalNameMap.set(safeName, name);
@@ -690,6 +647,37 @@ export function computeMaxSteps(rawMaxSteps?: number): number {
 }
 
 /**
+ * Fold one chunk's `usageMetadata` into a step's running counts. Field names
+ * come from gemini.json's `usage` block. The cached count is a subset of the
+ * prompt count; the thinking count comes on top of the output count.
+ */
+function foldGeminiChunkUsage(
+  running: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    reasoningTokens: number;
+  },
+  usageMetadata: unknown,
+): {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  reasoningTokens: number;
+} {
+  if (!usageMetadata) {
+    return running;
+  }
+  const counts = readWireUsage(GEMINI_USAGE, usageMetadata);
+  return {
+    inputTokens: Math.max(running.inputTokens, counts.input || 0),
+    outputTokens: Math.max(running.outputTokens, counts.output || 0),
+    cacheReadTokens: Math.max(running.cacheReadTokens, counts.cacheRead || 0),
+    reasoningTokens: Math.max(running.reasoningTokens, counts.reasoning || 0),
+  };
+}
+
+/**
  * Map a `@google/genai` `Candidate.finishReason` enum value onto NeuroLink's
  * unified finish reason, mirroring anthropic.ts `mapAnthropicStopReason`.
  *
@@ -726,28 +714,12 @@ export function computeMaxSteps(rawMaxSteps?: number): number {
 export function mapGeminiFinishReason(
   raw: string | null | undefined,
 ): "stop" | "length" | "tool-calls" | "content-filter" | "error" {
-  switch (raw) {
-    case "MAX_TOKENS":
-    case "CONTINUATION":
-      return "length";
-    case "TOO_MANY_TOOL_CALLS":
-      return "tool-calls";
-    case "MALFORMED_FUNCTION_CALL":
-    case "UNEXPECTED_TOOL_CALL":
-      return "error";
-    case "SAFETY":
-    case "RECITATION":
-    case "BLOCKLIST":
-    case "PROHIBITED_CONTENT":
-    case "SPII":
-    case "LANGUAGE":
-    case "IMAGE_SAFETY":
-    case "IMAGE_PROHIBITED_CONTENT":
-    case "IMAGE_RECITATION":
-      return "content-filter";
-    default:
-      return "stop";
-  }
+  return translateFinishReason(GEMINI_FINISH_REASONS, raw) as
+    | "stop"
+    | "length"
+    | "tool-calls"
+    | "content-filter"
+    | "error";
 }
 
 /**
@@ -804,31 +776,12 @@ export async function collectStreamChunks(
       stepFunctionCalls.push(...chunk.functionCalls);
     }
 
-    // Accumulate usage metadata from chunks
-    const usage = chunkRecord.usageMetadata as
-      | {
-          promptTokenCount?: number;
-          candidatesTokenCount?: number;
-          cachedContentTokenCount?: number;
-          thoughtsTokenCount?: number;
-        }
-      | undefined;
-    if (usage) {
-      inputTokens = Math.max(inputTokens, usage.promptTokenCount || 0);
-      outputTokens = Math.max(outputTokens, usage.candidatesTokenCount || 0);
-      // cachedContentTokenCount is OVERLAPPING (a subset already inside
-      // promptTokenCount). Surface it so the call site subtracts once.
-      cacheReadTokens = Math.max(
-        cacheReadTokens,
-        usage.cachedContentTokenCount || 0,
-      );
-      // thoughtsTokenCount (thinking tokens, billed at the output rate) is
-      // NOT part of candidatesTokenCount — surface it separately.
-      reasoningTokens = Math.max(
-        reasoningTokens,
-        usage.thoughtsTokenCount || 0,
-      );
-    }
+    // Each chunk reports the step's running totals, so keep the largest.
+    ({ inputTokens, outputTokens, cacheReadTokens, reasoningTokens } =
+      foldGeminiChunkUsage(
+        { inputTokens, outputTokens, cacheReadTokens, reasoningTokens },
+        chunkRecord.usageMetadata,
+      ));
   }
 
   return {
@@ -896,30 +849,12 @@ export async function collectStreamChunksIncremental(
       stepFunctionCalls.push(...chunk.functionCalls);
     }
 
-    const usage = chunkRecord.usageMetadata as
-      | {
-          promptTokenCount?: number;
-          candidatesTokenCount?: number;
-          cachedContentTokenCount?: number;
-          thoughtsTokenCount?: number;
-        }
-      | undefined;
-    if (usage) {
-      inputTokens = Math.max(inputTokens, usage.promptTokenCount || 0);
-      outputTokens = Math.max(outputTokens, usage.candidatesTokenCount || 0);
-      // cachedContentTokenCount is OVERLAPPING (a subset already inside
-      // promptTokenCount). Surface it so the call site subtracts once.
-      cacheReadTokens = Math.max(
-        cacheReadTokens,
-        usage.cachedContentTokenCount || 0,
-      );
-      // thoughtsTokenCount (thinking tokens, billed at the output rate) is
-      // NOT part of candidatesTokenCount — surface it separately.
-      reasoningTokens = Math.max(
-        reasoningTokens,
-        usage.thoughtsTokenCount || 0,
-      );
-    }
+    // Each chunk reports the step's running totals, so keep the largest.
+    ({ inputTokens, outputTokens, cacheReadTokens, reasoningTokens } =
+      foldGeminiChunkUsage(
+        { inputTokens, outputTokens, cacheReadTokens, reasoningTokens },
+        chunkRecord.usageMetadata,
+      ));
   }
 
   return {
@@ -1365,7 +1300,7 @@ export function buildWrapupNudgeText(useFinalResultTool: boolean): string {
   return (
     "NOTE: processing time for this turn is nearly up. Consolidate what you have and " +
     (useFinalResultTool
-      ? "call final_result with your best answer now."
+      ? `call ${FINAL_RESULT_TOOL_NAME} with your best answer now.`
       : "provide your final answer now.")
   );
 }

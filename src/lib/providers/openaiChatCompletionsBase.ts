@@ -143,6 +143,16 @@ import {
   v3ToolsToOpenAI,
 } from "./openaiChatCompletionsClient.js";
 import { createStreamChannel } from "../core/streamChannel.js";
+import {
+  getFinishReasonMap,
+  translateFinishReason,
+} from "./rules/finishReasons.js";
+import {
+  getWireUsage,
+  readWireUsage,
+  splitIncludedCount,
+  splitIncludedPart,
+} from "./rules/wireUsage.js";
 
 /**
  * Safety margin (tokens) when fitting `max_tokens` to a runtime-discovered
@@ -215,23 +225,17 @@ const resolveAgainstSchema = (
  * absent value, reads as `stop`. A wire `error` finish never gets here: the SSE
  * parser throws on it, and on a stream that ended with no terminal marker.
  */
-const toUnifiedFinishReason = (
-  reason: string | null | undefined,
-): "stop" | "length" | "tool-calls" | "content-filter" => {
-  switch (reason) {
-    case "length":
-      return "length";
-    case "tool_calls":
-    case "function_call":
-    case "tool-calls":
-      return "tool-calls";
-    case "content_filter":
-    case "content-filter":
-      return "content-filter";
-    default:
-      return "stop";
-  }
-};
+const CHAT_USAGE = getWireUsage("openai-chat");
+const CHAT_FINISH_REASONS = getFinishReasonMap(
+  "openai-chat",
+  "chatCompletions",
+);
+const toUnifiedFinishReason = (reason: string | null | undefined) =>
+  translateFinishReason(CHAT_FINISH_REASONS, reason) as
+    | "stop"
+    | "length"
+    | "tool-calls"
+    | "content-filter";
 
 // Pull one native chunk at a time and forward cancellation to its iterator.
 const chunksToV3Stream = (
@@ -1094,53 +1098,29 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         }
         const rawFinish = choice?.finish_reason;
         const unified = toUnifiedFinishReason(rawFinish);
+        const counts = readWireUsage(CHAT_USAGE, json.usage);
+        const cachedSplit = splitIncludedPart(counts.input, counts.cacheRead);
+        const reasoningSplit = splitIncludedPart(
+          counts.output,
+          counts.reasoning,
+        );
         return {
           content,
           finishReason: { unified, raw: rawFinish ?? "stop" },
           usage: {
             inputTokens: {
-              total: json.usage?.prompt_tokens,
-              // cached_tokens is OVERLAPPING (a subset of prompt_tokens), so
-              // noCache is the remainder and cacheRead is clamped to the
-              // prompt total — some gateways report inconsistent usage where
-              // cached_tokens exceeds prompt_tokens (mirrors the
-              // reasoning_tokens clamp on the output side below).
-              noCache:
-                json.usage?.prompt_tokens !== undefined &&
-                json.usage?.prompt_tokens_details?.cached_tokens !== undefined
-                  ? Math.max(
-                      0,
-                      json.usage.prompt_tokens -
-                        json.usage.prompt_tokens_details.cached_tokens,
-                    )
-                  : json.usage?.prompt_tokens,
-              cacheRead:
-                json.usage?.prompt_tokens !== undefined &&
-                json.usage?.prompt_tokens_details?.cached_tokens !== undefined
-                  ? Math.min(
-                      json.usage.prompt_tokens_details.cached_tokens,
-                      json.usage.prompt_tokens,
-                    )
-                  : json.usage?.prompt_tokens_details?.cached_tokens,
+              total: counts.input,
+              // cached_tokens is a subset of prompt_tokens: noCache is the
+              // remainder, and cacheRead is clamped to the prompt total.
+              noCache: cachedSplit.rest,
+              cacheRead: cachedSplit.part,
               // OpenAI-style APIs do not report cache writes.
               cacheWrite: undefined,
             },
             outputTokens: {
-              total: json.usage?.completion_tokens,
-              // Clamped at 0 — some gateways report inconsistent usage where
-              // reasoning_tokens exceeds completion_tokens.
-              text:
-                json.usage?.completion_tokens !== undefined &&
-                json.usage?.completion_tokens_details?.reasoning_tokens !==
-                  undefined
-                  ? Math.max(
-                      0,
-                      json.usage.completion_tokens -
-                        json.usage.completion_tokens_details.reasoning_tokens,
-                    )
-                  : json.usage?.completion_tokens,
-              reasoning:
-                json.usage?.completion_tokens_details?.reasoning_tokens,
+              total: counts.output,
+              text: reasoningSplit.rest,
+              reasoning: counts.reasoning,
             },
           },
           warnings: [],
@@ -2356,12 +2336,12 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           // cached tokens at the full input rate instead of the cheaper
           // cacheRead rate. Clamped like the other call sites in this file
           // in case a gateway reports cacheRead > total.
-          const cacheRead = Math.min(
-            part.usage.inputTokens.cacheRead ?? 0,
+          const { rest: uncachedInput, part: cacheRead } = splitIncludedCount(
             input,
+            part.usage.inputTokens.cacheRead ?? 0,
           );
           resolveUsage({
-            promptTokens: input - cacheRead,
+            promptTokens: uncachedInput,
             completionTokens: output,
             totalTokens: input + output,
             ...(cacheRead > 0 ? { cacheReadTokens: cacheRead } : {}),
@@ -2685,26 +2665,21 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     // and calculateCost expect. reasoning_tokens stays a subset of
     // completionTokens (informational).
     const toDeferredUsage = (): DeferredUsage => {
-      const promptTokens = stepUsage?.prompt_tokens ?? 0;
-      const completionTokens = stepUsage?.completion_tokens ?? 0;
-      const cachedTokens = Math.min(
-        stepUsage?.prompt_tokens_details?.cached_tokens ?? 0,
-        promptTokens,
-      );
-      // Clamped like cached_tokens above: reasoning is a SUBSET of
-      // completion_tokens, but some gateways report inconsistent values.
-      const reasoningTokens = Math.min(
-        Math.max(
-          0,
-          stepUsage?.completion_tokens_details?.reasoning_tokens ?? 0,
-        ),
+      const counts = readWireUsage(CHAT_USAGE, stepUsage);
+      const promptTokens = counts.input ?? 0;
+      const completionTokens = counts.output ?? 0;
+      const { rest: uncachedPromptTokens, part: cachedTokens } =
+        splitIncludedCount(promptTokens, counts.cacheRead ?? 0);
+      // Reasoning is a subset of completion_tokens; a negative count reads as 0.
+      const reasoningTokens = splitIncludedCount(
         completionTokens,
-      );
+        Math.max(0, counts.reasoning ?? 0),
+      ).part;
       return {
-        promptTokens: promptTokens - cachedTokens,
+        promptTokens: uncachedPromptTokens,
         completionTokens,
         // Gateways that omit total_tokens must not collapse to 0.
-        totalTokens: stepUsage?.total_tokens || promptTokens + completionTokens,
+        totalTokens: counts.total || promptTokens + completionTokens,
         ...(cachedTokens > 0 ? { cacheReadTokens: cachedTokens } : {}),
         ...(reasoningTokens > 0 ? { reasoningTokens } : {}),
       };
@@ -2852,6 +2827,13 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         const executed = toolExecutionSummaries.slice(
           -stepResult.toolCalls.size,
         );
+        // prompt_tokens includes cached_tokens; report the disjoint figures so
+        // a prepareStep hook sees the same numbers from stream() and generate().
+        const stepCounts = readWireUsage(CHAT_USAGE, stepResult.usage);
+        const stepCachedSplit = splitIncludedCount(
+          stepCounts.input ?? 0,
+          stepCounts.cacheRead ?? 0,
+        );
         stepRecords.push(
           toPrepareStepRecord({
             stepNumber: step,
@@ -2885,20 +2867,10 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             // here, once in cacheReadTokens) and a prepareStep hook that
             // budgets on steps[].usage sees different numbers from
             // stream() and generate() for the same step.
-            inputTokens: Math.max(
-              0,
-              (stepResult.usage?.prompt_tokens ?? 0) -
-                (stepResult.usage?.prompt_tokens_details?.cached_tokens ?? 0),
-            ),
-            outputTokens: stepResult.usage?.completion_tokens ?? 0,
-            ...(stepResult.usage?.prompt_tokens_details?.cached_tokens !==
-            undefined
-              ? {
-                  cacheReadTokens: Math.min(
-                    stepResult.usage.prompt_tokens_details.cached_tokens,
-                    stepResult.usage.prompt_tokens ?? 0,
-                  ),
-                }
+            inputTokens: stepCachedSplit.rest,
+            outputTokens: stepCounts.output ?? 0,
+            ...(stepCounts.cacheRead !== undefined
+              ? { cacheReadTokens: stepCachedSplit.part }
               : {}),
           }),
         );

@@ -1,0 +1,51 @@
+{
+  "$schema": "./provider-rules.schema.json",
+  "id": "usage",
+  "usageFields": {
+    "input": { "paths": ["input", "inputTokens", "promptTokens"] },
+    "output": { "paths": ["output", "outputTokens", "completionTokens"] },
+    "total": { "paths": ["total", "totalTokens"], "positiveOnly": true },
+    "reasoning": {
+      "paths": [
+        "reasoningTokens",
+        "thinkingTokens",
+        "reasoning_tokens",
+        "reasoning"
+      ],
+      "positiveOnly": true
+    },
+    "cacheCreation": {
+      "paths": [
+        "cacheCreationInputTokens",
+        "cacheCreationTokens",
+        "inputTokenDetails.cacheWriteTokens"
+      ],
+      "positiveOnly": true
+    },
+    "cacheRead": {
+      "paths": [
+        "cacheReadInputTokens",
+        "cacheReadTokens",
+        "cachedInputTokens",
+        "inputTokenDetails.cacheReadTokens"
+      ],
+      "positiveOnly": true
+    },
+    "cacheReadIncludedInInput": {
+      "paths": ["prompt_tokens_details.cached_tokens"],
+      "positiveOnly": true
+    }
+  },
+  "usageRebase": {
+    "whenAnyPresent": ["cachedInputTokens", "inputTokenDetails"],
+    "unlessAnyPresent": [
+      "cacheReadInputTokens",
+      "cacheReadTokens",
+      "cacheCreationInputTokens",
+      "cacheCreationTokens",
+      "prompt_tokens_details.cached_tokens"
+    ],
+    "uncachedInput": "inputTokenDetails.noCacheTokens",
+    "cacheWrite": "inputTokenDetails.cacheWriteTokens"
+  }
+}

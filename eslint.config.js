@@ -339,6 +339,12 @@ export default [
         "error",
         {
           allow: [
+            // Validates every provider rules JSON file against its schema and
+            // reads each rule's expected class and message from the shipped
+            // registry. A generate() call shows only the error a rule produced,
+            // not whether the file itself is well-formed; the behaviour checks
+            // in the same suite still go through AIProviderFactory.
+            "test/continuous-test-suite-provider-rules.ts",
             // Which of convertZodToJsonSchema's two branches ran is visible
             // only as a logger warning; the schema both branches return is
             // valid, so a live generate() call cannot tell them apart. The

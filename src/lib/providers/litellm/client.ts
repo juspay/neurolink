@@ -7,23 +7,15 @@ import { createProxyFetch } from "../../proxy/proxyFetch.js";
 import type {
   EmbedInput,
   OpenAICompatBuildBodyArgs,
-  ProviderErrorRule,
   UnknownRecord,
 } from "../../types/index.js";
 import {
-  AuthenticationError,
-  InvalidModelError,
   ModelAccessDeniedError,
   NetworkError,
   ProviderError,
-  RateLimitError,
   isModelAccessDeniedMessage,
   parseAllowedModels,
 } from "../../types/index.js";
-import {
-  classifyProviderError,
-  DEFAULT_ERROR_RULES,
-} from "../../utils/errorClassifier.js";
 import { isAbortError } from "../../utils/errorHandling.js";
 import { logger } from "../../utils/logger.js";
 import { redactUrlCredentials } from "../../utils/logSanitize.js";
@@ -32,6 +24,10 @@ import { getProviderModel } from "../../utils/providerConfig.js";
 import { createTimeoutController } from "../../utils/timeout.js";
 import { stripTrailingSlash } from "../openaiChatCompletionsClient.js";
 import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
+import { classifyWithProviderRules } from "../rules/errorRules.js";
+import { getProviderErrorRules } from "../rules/registry.js";
+
+const LITELLM_ERROR_RULES = getProviderErrorRules("litellm");
 
 const FALLBACK_LITELLM_MODEL = "openai/gpt-5.4-mini";
 
@@ -371,15 +367,6 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
   }
 
   public formatProviderError(error: unknown): Error {
-    // Curator P1-1: detect "team not allowed to access model" responses and
-    // surface as ModelAccessDeniedError with the allowed_models array parsed
-    // from the body. Must run before classification (not just before the
-    // "API key" rule) because ModelAccessDeniedError's constructor takes an
-    // `{ provider, requestedModel, allowedModels }` options object rather
-    // than the `(message, provider?)` shape ProviderErrorRule expects, so it
-    // can't be expressed as a declarative rule. No realistic overlap with the
-    // timeout/ECONNREFUSED checks below (disjoint wording), so running this
-    // first is behaviorally identical to the original nesting order.
     const errorRecord = error as UnknownRecord;
     if (
       typeof errorRecord?.message === "string" &&
@@ -392,54 +379,17 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
       });
     }
 
-    const rules: ProviderErrorRule[] = [
-      // Duck-typed timeout detection (name === "TimeoutError" OR message
-      // contains "timeout") distinct from the `instanceof TimeoutError` check
-      // classifyProviderError already performs first — preserved because
-      // some rejection paths produce a plain object/Error with that shape
-      // rather than a real TimeoutError instance.
-      {
-        match: (ctx) =>
-          ctx.errorName === "TimeoutError" || /timeout/i.test(ctx.message),
-        errorClass: NetworkError,
-        message: (ctx) => `Request timed out: ${ctx.message}`,
-      },
-      {
-        match: (ctx) => /ECONNREFUSED|Failed to fetch/.test(ctx.message),
-        errorClass: NetworkError,
-        // Name the base URL this instance actually dialed — per-request
-        // credentials can override LITELLM_BASE_URL, and an error pointing
-        // at the env value sends the caller debugging the wrong host.
-        message: () =>
-          "LiteLLM proxy server not available. Please start the LiteLLM proxy server at " +
-          redactUrlCredentials(this.config.baseURL),
-      },
-      {
-        match: (ctx) => /API_KEY_INVALID|Invalid API key/.test(ctx.message),
-        errorClass: AuthenticationError,
-        message:
-          "Invalid LiteLLM configuration. Please check your LITELLM_API_KEY environment variable.",
-      },
-      {
-        match: (ctx) => /rate limit/i.test(ctx.message),
-        errorClass: RateLimitError,
-        message: "LiteLLM rate limit exceeded. Please try again later.",
-      },
-      {
-        match: (ctx) =>
-          /model/i.test(ctx.message) && /not found/i.test(ctx.message),
-        errorClass: InvalidModelError,
-        message: () =>
-          `Model '${this.modelName}' not available in LiteLLM proxy. ` +
-          "Please check your LiteLLM configuration and ensure the model is configured.",
-      },
-      ...DEFAULT_ERROR_RULES,
-    ];
-    return classifyProviderError(
+    return classifyWithProviderRules(
       error,
-      rules,
+      LITELLM_ERROR_RULES,
       this.providerName,
       this.modelName,
+      {
+        vars: () => ({
+          model: `${this.modelName}`,
+          baseURL: redactUrlCredentials(this.config.baseURL),
+        }),
+      },
     );
   }
 
