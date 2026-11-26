@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 /**
- * Catalog output ceiling through the public built SDK against a local mock
- * OpenAI-compatible server.
+ * Provider output-budget wire behavior through the public built SDK against a
+ * local mock OpenAI-compatible server.
  *
  * A JSON-catalog provider has no PROVIDER_MAX_TOKENS row, so getSafeMaxTokens
  * used to pass any requested maxTokens straight through, even for a model whose
@@ -116,6 +116,20 @@ const ROWS = {
     urlEnv: "CHARM_HYPER_BASE_URL",
     field: "max_tokens",
   },
+  openaiLegacy: {
+    provider: "openai",
+    route: "openai",
+    keyEnv: "OPENAI_API_KEY",
+    urlEnv: "OPENAI_BASE_URL",
+    field: "max_tokens",
+  },
+  openaiReasoning: {
+    provider: "openai",
+    route: "openai",
+    keyEnv: "OPENAI_API_KEY",
+    urlEnv: "OPENAI_BASE_URL",
+    field: "max_completion_tokens",
+  },
   groq: {
     provider: "groq",
     route: "groq",
@@ -170,7 +184,7 @@ process.env.no_proxy = "127.0.0.1,localhost";
 process.env.NEUROLINK_SKIP_MCP = "true";
 assertDistFresh({ entrypoints: ["dist/index.js"] });
 const sdk = (await import("../dist/index.js")) as PublicSDK;
-const { test, runSuite } = defineSuite("Catalog output ceiling wire controls", {
+const { test, runSuite } = defineSuite("Provider output budget wire controls", {
   offline: true,
 });
 
@@ -415,6 +429,25 @@ try {
           kind,
           model,
           expected,
+        );
+      });
+    }
+
+    for (const [label, row, model] of [
+      [
+        "OpenAI o3-mini uses max_completion_tokens",
+        ROWS.openaiReasoning,
+        "o3-mini",
+      ],
+      ["OpenAI gpt-4o keeps max_tokens", ROWS.openaiLegacy, "gpt-4o"],
+    ] as const) {
+      await test(`${kind}: ${label}`, async () => {
+        assertWire(
+          await drive(kind, row, model, 1_024),
+          row,
+          kind,
+          model,
+          1_024,
         );
       });
     }

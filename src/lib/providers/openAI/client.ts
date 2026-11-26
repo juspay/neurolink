@@ -5,6 +5,7 @@ import type {
   EmbedInput,
   EnhancedGenerateResult,
   NeurolinkCredentials,
+  OpenAICompatChatRequest,
   ProviderErrorRule,
   TextGenerationOptions,
   UnknownRecord,
@@ -29,7 +30,10 @@ import {
 import { safeDownload } from "../../utils/safeFetch.js";
 import { MAX_IMAGE_BYTES } from "../../utils/sizeGuard.js";
 import { createTimeoutController } from "../../utils/timeout.js";
-import { stripTrailingSlash } from "../openaiChatCompletionsClient.js";
+import {
+  requiresMaxCompletionTokens,
+  stripTrailingSlash,
+} from "../openaiChatCompletionsClient.js";
 import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
 import {
   isOpenAIQuotaExhaustedError,
@@ -126,6 +130,29 @@ export class OpenAIProvider extends OpenAIChatCompletionsProvider {
    */
   protected override suppressResponseFormatWithTools(): boolean {
     return false;
+  }
+
+  /**
+   * OpenAI reasoning models reject `max_tokens` and require
+   * `max_completion_tokens`. Keep the legacy field for models that still
+   * accept it.
+   */
+  protected override adjustRequestBody(
+    body: OpenAICompatChatRequest,
+    modelId: string,
+  ): OpenAICompatChatRequest {
+    if (
+      body.max_tokens === undefined ||
+      !requiresMaxCompletionTokens(modelId)
+    ) {
+      return body;
+    }
+
+    return {
+      ...body,
+      max_completion_tokens: body.max_tokens,
+      max_tokens: undefined,
+    };
   }
 
   protected getProviderName(): AIProviderName {
