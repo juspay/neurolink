@@ -1302,6 +1302,7 @@ jobs:
             test:decide-catalog-schema@20
             test:provider-descriptors@17
             test:openai-compat-streaming-retry@16
+            test:litellm-sse-step-cap@10
             test:servers@16
             test:agent-input-guard@17
             test:proxy-image-input@40

@@ -486,6 +486,12 @@ export type GenerateOptions = {
    * `turnTimeoutMs` unset, this value bounds the WHOLE turn there (the
    * pre-existing defensive behavior, kept for backward compatibility).
    *
+   * On the SSE wire that `generate()` uses for LiteLLM, this value is an IDLE
+   * window (every received byte re-arms it, so a slow-but-alive completion
+   * survives proxy idle limits) and each model call additionally has an
+   * absolute wall-clock ceiling of 3x this value, so a stream that keeps
+   * sending keep-alive frames can no longer run until `turnTimeoutMs`.
+   *
    * When set explicitly, a step timeout is surfaced immediately instead of
    * burning internal retries/fallbacks that would re-run the same
    * provider+model with the same doomed budget.

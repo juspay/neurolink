@@ -89,6 +89,7 @@ import {
 import {
   composeAbortSignalsScoped,
   createTimeoutController,
+  getStepHardCapTimeout,
   getStreamLifetimeTimeout,
   mergeAbortSignals,
   monitorStreamActivity,
@@ -910,13 +911,26 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             | { neurolink?: { timeoutMs?: number } }
             | undefined
         )?.neurolink?.timeoutMs;
-        const timeoutController = createTimeoutController(
+        const stepTimeout =
           typeof nlStepTimeoutMs === "number"
             ? nlStepTimeoutMs
-            : getTimeoutForOptions(options),
+            : getTimeoutForOptions(options);
+        const timeoutController = createTimeoutController(
+          stepTimeout,
           providerName,
           "generate",
         );
+        // On the SSE wire the controller above is an IDLE timer (every chunk
+        // re-arms it), so it cannot bound a stream that keeps sending bytes.
+        // This second, never-reset controller is the step's absolute
+        // wall-clock ceiling.
+        const stepCapController = sseWire
+          ? createTimeoutController(
+              getStepHardCapTimeout(stepTimeout),
+              providerName,
+              "generate",
+            )
+          : null;
         // Scoped composition: a plain AbortSignal.any per step accumulates
         // registrations on the long-lived generate-call signal for the whole
         // turn (MaxListenersExceededWarning at 10+ steps); dispose() detaches
@@ -924,7 +938,12 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         const { signal: composedSignal, dispose: disposeComposedSignal } =
           composeAbortSignalsScoped(
             options.abortSignal,
-            timeoutController?.controller.signal,
+            stepCapController
+              ? mergeAbortSignals([
+                  timeoutController?.controller.signal,
+                  stepCapController.controller.signal,
+                ]).signal
+              : timeoutController?.controller.signal,
           );
         let json: OpenAICompatChatResponse;
         // Whether the response we end up consuming is SSE. Starts as the
@@ -1018,7 +1037,8 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             // Idle-timeout semantics: every raw chunk re-arms the timeout,
             // so the configured window bounds silence, not total duration —
             // the whole point of the SSE wire is that a slow-but-alive
-            // completion keeps the connection (and the timer) fed.
+            // completion keeps the connection (and the timer) fed. Total
+            // duration is bounded separately by `stepCapController`.
             const monitored = timeoutController
               ? monitorStreamActivity(res.body, timeoutController.reset)
               : res.body;
@@ -1060,6 +1080,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           }
         } finally {
           timeoutController?.cleanup();
+          stepCapController?.cleanup();
           disposeComposedSignal();
         }
         const choice = json.choices?.[0];

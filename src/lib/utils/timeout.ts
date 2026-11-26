@@ -525,6 +525,29 @@ export function createTimeoutController(
   return { controller, cleanup, reset, timeoutMs };
 }
 
+/**
+ * How many times the per-step idle window a single streamed model call may
+ * last in total. The idle window re-arms on every received byte, so on its
+ * own a stream that keeps delivering keep-alive frames (or a model emitting
+ * one token a minute) is never bounded per call; this multiple is the
+ * absolute wall-clock ceiling that closes that gap.
+ */
+export const STEP_HARD_CAP_MULTIPLIER = 3;
+
+/**
+ * Absolute wall-clock ceiling (ms) for ONE streamed model call, derived from
+ * its idle window: `STEP_HARD_CAP_MULTIPLIER` x the window. A slow-but-alive
+ * completion still gets several idle windows of room, but can never outlive
+ * the cap, so the whole-turn deadline is no longer the only thing that stops
+ * a runaway step.
+ */
+export function getStepHardCapTimeout(
+  idleTimeout: number | string | undefined,
+): number | undefined {
+  const idleMs = parseTimeout(idleTimeout);
+  return idleMs ? idleMs * STEP_HARD_CAP_MULTIPLIER : undefined;
+}
+
 /** Keep a stream's idle deadline alive for every received wire chunk. */
 export function monitorStreamActivity(
   body: ReadableStream<Uint8Array>,
