@@ -859,6 +859,27 @@ function isMetadataLine(lines: string[]): boolean {
     return false;
   }
 
+  // The comma heuristics below cannot see a tab, semicolon or pipe table, so a
+  // comma inside its data (`widget;1,50`) made its real header look like a
+  // preamble. Line 1 is a row of that table when it and the next few rows all
+  // split into the same number of fields (>1) on one candidate delimiter; a
+  // stray semicolon in a title can match the header, but not the rows below.
+  const tableRows = lines
+    .slice(1, 6)
+    .map((line) => line.trim())
+    .filter((line) => !isDelimiterOnlyOrBlankLine(line));
+  for (const delimiter of CANDIDATE_DELIMITERS) {
+    const firstFields = splitCSVFields(firstLine, delimiter).length;
+    if (
+      firstFields > 1 &&
+      tableRows.every(
+        (row) => splitCSVFields(row, delimiter).length === firstFields,
+      )
+    ) {
+      return false;
+    }
+  }
+
   const firstCommaCount = countUnquotedCommas(firstLine);
   const secondCommaCount = countUnquotedCommas(secondLine);
 
