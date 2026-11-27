@@ -6975,10 +6975,24 @@ exit 127
         Buffer.from("Quarterly report\nid,qty\n1,5\n2,3"),
         { formatStyle: "raw" },
       );
+      if (
+        titled.metadata.columnCount !== 2 ||
+        typeof titled.content !== "string" ||
+        !titled.content.startsWith("id,qty")
+      ) {
+        return false;
+      }
+      // A stray semicolon in the title that matches one in the header is not
+      // a semicolon table: the data rows below do not split that way.
+      const strayTitle = await CSVProcessor.process(
+        Buffer.from(
+          "Quarterly report; generated today\nid,description;notes,qty\n1,Widget,5\n2,Gadget,3",
+        ),
+        { formatStyle: "raw" },
+      );
       return (
-        titled.metadata.columnCount === 2 &&
-        typeof titled.content === "string" &&
-        titled.content.startsWith("id,qty")
+        typeof strayTitle.content === "string" &&
+        strayTitle.content.startsWith("id,description;notes,qty")
       );
     },
   },
