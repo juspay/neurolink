@@ -1338,6 +1338,12 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           ...(options.temperature !== undefined
             ? { temperature: options.temperature }
             : {}),
+          ...(options.topP !== undefined && options.topP !== null
+            ? { topP: options.topP }
+            : {}),
+          ...(options.stopSequences && options.stopSequences.length > 0
+            ? { stopSequences: options.stopSequences }
+            : {}),
           ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}),
           ...(options.toolTimeoutMs !== undefined
             ? { toolTimeoutMs: options.toolTimeoutMs }
@@ -2190,6 +2196,9 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         ? { temperature: options.temperature }
         : {}),
       ...(options.topP !== undefined ? { topP: options.topP } : {}),
+      ...(options.stopSequences && options.stopSequences.length > 0
+        ? { stopSequences: options.stopSequences }
+        : {}),
     };
 
     let loopPromise: Promise<unknown> | undefined;

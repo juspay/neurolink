@@ -332,6 +332,12 @@ export class AmazonSageMakerProvider extends BaseProvider {
         ...(options.temperature !== undefined
           ? { temperature: options.temperature }
           : {}),
+        ...(options.topP !== undefined && options.topP !== null
+          ? { topP: options.topP }
+          : {}),
+        ...(options.stopSequences && options.stopSequences.length > 0
+          ? { stopSequences: options.stopSequences }
+          : {}),
         ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}),
         ...(options.toolTimeoutMs !== undefined
           ? { toolTimeoutMs: options.toolTimeoutMs }

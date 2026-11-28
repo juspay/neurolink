@@ -366,6 +366,13 @@ export const providerRulesFileSchema = z.strictObject({
       stopSequences: z.string().min(1),
     })
     .optional(),
+  requestFieldRules: z
+    .strictObject({
+      omitWhileThinking: z
+        .array(z.enum(["maxTokens", "temperature", "topP", "stopSequences"]))
+        .optional(),
+    })
+    .optional(),
   requestFieldNotes: z.record(z.string().min(1), z.string().min(1)).optional(),
   toolResults: z
     .strictObject({

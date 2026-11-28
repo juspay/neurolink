@@ -354,6 +354,14 @@ Wire names of request parameters, by neutral name.
 
 ---
 
+### requestFieldRules?
+
+> `optional` **requestFieldRules?**: [`ProviderRequestFieldRules`](ProviderRequestFieldRules.md)
+
+Conditions under which a request parameter is left out.
+
+---
+
 ### requestFieldNotes?
 
 > `optional` **requestFieldNotes?**: `Record`\<`string`, `string`\>

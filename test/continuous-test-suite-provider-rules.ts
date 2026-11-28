@@ -1170,6 +1170,122 @@ await test("Anthropic Messages request fields, tool-result text and replay rules
   );
 });
 
+/** The first recorded request body that has `messages`, parsed. */
+function firstRequestBody(): Record<string, unknown> {
+  for (const raw of requestBodies) {
+    try {
+      const body = JSON.parse(raw) as Record<string, unknown>;
+      if ("messages" in body) {
+        return body;
+      }
+    } catch {
+      // not JSON; keep looking
+    }
+  }
+  throw new HardFail("the stand-in recorded no request with messages");
+}
+
+for (const call of ["generate", "stream"] as const) {
+  await test(`a caller's topP and stopSequences reach the wire on ${call}() (OpenAI and Anthropic)`, async () => {
+    current = "401-invalid-key";
+    const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+    for (const [provider, model, stopKey] of [
+      ["openai", "gpt-4o-mini", "stop"],
+      ["anthropic", "claude-sonnet-4-20250514", "stop_sequences"],
+    ] as const) {
+      requestBodies.length = 0;
+      const options = {
+        provider,
+        model,
+        input: { text: "hi" },
+        maxTokens: 64,
+        topP: 0.9,
+        stopSequences: ["END"],
+        disableTools: true,
+        disableInternalFallback: true,
+      };
+      if (call === "generate") {
+        await nl.generate(options).catch(() => undefined);
+      } else {
+        await nl
+          .stream(options)
+          .then(async (result) => {
+            for await (const _chunk of result.stream) {
+              // drain
+            }
+          })
+          .catch(() => undefined);
+      }
+      const sent = firstRequestBody();
+      assert(sent.top_p === 0.9, `${provider} ${call}(): top_p was not sent`);
+      assert(
+        JSON.stringify(sent[stopKey]) === JSON.stringify(["END"]),
+        `${provider} ${call}(): stop sequences were not sent`,
+      );
+    }
+  });
+}
+
+await test("Claude models that reject temperature with top_p get only temperature", async () => {
+  current = "401-invalid-key";
+  const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+  const sentFor = async (model: string) => {
+    requestBodies.length = 0;
+    await nl
+      .generate({
+        provider: "anthropic",
+        model,
+        input: { text: "hi" },
+        maxTokens: 64,
+        temperature: 0.3,
+        topP: 0.9,
+        disableTools: true,
+        disableInternalFallback: true,
+      })
+      .catch(() => undefined);
+    return firstRequestBody();
+  };
+  const exclusive = await sentFor("claude-sonnet-4-5");
+  assert(
+    exclusive.temperature === 0.3 && !("top_p" in exclusive),
+    "claude-sonnet-4-5 should get temperature and no top_p",
+  );
+  const both = await sentFor("claude-sonnet-4-20250514");
+  assert(
+    both.temperature === 0.3 && both.top_p === 0.9,
+    "claude-sonnet-4-20250514 accepts both and should get both",
+  );
+});
+
+await test("a Claude-on-Vertex request with thinking on carries no temperature or top_p", async () => {
+  current = "401-invalid-key";
+  const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+  requestBodies.length = 0;
+  await nl
+    .generate({
+      provider: "vertex",
+      model: "claude-sonnet-4-20250514",
+      credentials: { vertex: { apiKey: "k", baseURL: base } },
+      input: { text: "hi" },
+      maxTokens: 4096,
+      temperature: 0.3,
+      topP: 0.9,
+      thinkingConfig: { enabled: true, budgetTokens: 2048 },
+      disableTools: true,
+      disableInternalFallback: true,
+    })
+    .catch(() => undefined);
+  const sent = firstRequestBody();
+  assert(
+    typeof sent.thinking === "object" && sent.thinking !== null,
+    "the Vertex Claude request did not enable thinking, so this measured nothing",
+  );
+  assert(
+    !("temperature" in sent) && !("top_p" in sent),
+    "a Vertex Claude thinking request still carries temperature or top_p",
+  );
+});
+
 h1.close();
 h2.close();
 await runSuite();

@@ -2927,6 +2927,8 @@ export function modelSupports(
  * Model families that reject classic sampling parameters (`temperature` /
  * `topP`) in favour of reasoning-effort controls (model-families.json).
  */
+const SAMPLING_EXCLUSIVE_FAMILIES = getModelFamilyPatterns("samplingExclusive");
+
 const SAMPLING_PARAM_REJECTING_FAMILIES = getModelFamilyPatterns(
   "samplingParamsRejected",
 );
@@ -2975,6 +2977,18 @@ export function resolveSamplingParams(
   site: string,
 ): { temperature?: number; topP?: number } {
   if (modelSupportsSamplingParams(provider, model)) {
+    const normalizedModel = (model ?? "").toLowerCase();
+    if (
+      params.temperature !== undefined &&
+      params.topP !== undefined &&
+      SAMPLING_EXCLUSIVE_FAMILIES.some((family) => family.test(normalizedModel))
+    ) {
+      logger.debug(
+        `[ModelRegistry] Dropping topP for ${provider}/${model} at ${site} — the model rejects temperature and top_p together; temperature is kept`,
+        { provider, model, site },
+      );
+      return { temperature: params.temperature };
+    }
     return params;
   }
   if (params.temperature !== undefined || params.topP !== undefined) {

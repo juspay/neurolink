@@ -92,7 +92,8 @@
     "stopSequences": "stop_sequences"
   },
   "requestFieldNotes": {
-    "scope": "The Anthropic Messages wire, used by direct Anthropic and by Claude on Vertex. toWireParams() writes a request from neutral names; unset values and empty lists are left out."
+    "scope": "The Anthropic Messages wire, used by direct Anthropic and by Claude on Vertex. toWireParams() writes a request from neutral names; unset values and empty lists are left out.",
+    "omitWhileThinking": "Extended thinking fixes sampling: Anthropic rejects any temperature but 1 while thinking is on, and does not honour top_p there, so both are left out of a thinking request."
   },
   "toolResults": {
     "errorTemplate": "Error executing tool {name}: {error}",
@@ -100,5 +101,8 @@
   },
   "contextTexts": {
     "elisionNote": "[Earlier tool exchanges were removed to fit the context window.]"
+  },
+  "requestFieldRules": {
+    "omitWhileThinking": ["temperature", "topP"]
   }
 }

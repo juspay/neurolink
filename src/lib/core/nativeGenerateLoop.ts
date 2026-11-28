@@ -891,6 +891,7 @@ function generateObservedStep(
       modelParameters: {
         temperature: args.temperature,
         maxTokens: args.maxOutputTokens,
+        topP: args.topP,
       },
       input: { messages: args.conversation },
     },
@@ -1034,6 +1035,10 @@ async function runGenerateSteps(
           : {}),
         ...(args.temperature !== undefined
           ? { temperature: args.temperature }
+          : {}),
+        ...(args.topP !== undefined ? { topP: args.topP } : {}),
+        ...(args.stopSequences && args.stopSequences.length > 0
+          ? { stopSequences: args.stopSequences }
           : {}),
         ...(args.abortSignal ? { abortSignal: args.abortSignal } : {}),
       });

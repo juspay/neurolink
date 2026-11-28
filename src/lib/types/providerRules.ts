@@ -168,6 +168,8 @@ export type ProviderRulesFile = {
   requestDefaultNotes?: Record<string, string>;
   /** Wire names of request parameters, by neutral name. */
   requestFields?: ProviderRequestFields;
+  /** Conditions under which a request parameter is left out. */
+  requestFieldRules?: ProviderRequestFieldRules;
   /** Why the request field names read as they do. */
   requestFieldNotes?: Record<string, string>;
   /** How a failed tool call is reported back to the model. */
@@ -186,6 +188,12 @@ export type ProviderRequestFields = {
   temperature: string;
   topP: string;
   stopSequences: string;
+};
+
+/** Conditions under which a request parameter is left out. */
+export type ProviderRequestFieldRules = {
+  /** Neutral names left out while extended thinking is on. */
+  omitWhileThinking?: Array<keyof ProviderWireParamValues>;
 };
 
 /** Neutral request parameter values for `toWireParams`. */

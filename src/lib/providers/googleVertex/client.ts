@@ -4528,12 +4528,16 @@ export class GoogleVertexProvider extends BaseProvider {
       // Sonnet 4.x) instead of the legacy 4096, which silently truncated large
       // structured responses mid-JSON. resolveClaudeMaxTokens also clamps
       // over-large caller values so the native Vertex path never 400s.
-      ...toWireParams("anthropic", {
-        maxTokens: streamMaxTokens,
-        temperature: streamSampling.temperature,
-        topP: streamSampling.topP,
-        stopSequences: options.stopSequences,
-      }),
+      ...toWireParams(
+        "anthropic",
+        {
+          maxTokens: streamMaxTokens,
+          temperature: streamSampling.temperature,
+          topP: streamSampling.topP,
+          stopSequences: options.stopSequences,
+        },
+        { thinkingOn: streamThinking?.type === "enabled" },
+      ),
     } as Parameters<typeof client.messages.stream>[0];
 
     // ── Real-time streaming via stream.on('text', ...) ────────────────────
@@ -6052,12 +6056,16 @@ export class GoogleVertexProvider extends BaseProvider {
       ...(systemPromptWithSchema && { system: systemPromptWithSchema }),
       // max_tokens defaults to the model's real output ceiling (see the
       // stream path note).
-      ...toWireParams("anthropic", {
-        maxTokens: generateMaxTokens,
-        temperature: generateSampling.temperature,
-        topP: generateSampling.topP,
-        stopSequences: options.stopSequences,
-      }),
+      ...toWireParams(
+        "anthropic",
+        {
+          maxTokens: generateMaxTokens,
+          temperature: generateSampling.temperature,
+          topP: generateSampling.topP,
+          stopSequences: options.stopSequences,
+        },
+        { thinkingOn: generateThinking?.type === "enabled" },
+      ),
     } as Parameters<typeof client.messages.create>[0] & { stream?: false };
 
     // Handle tool calling loop with max steps

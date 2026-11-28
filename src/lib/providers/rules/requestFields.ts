@@ -26,19 +26,26 @@ export function getRequestFields(id: string): ProviderRequestFields {
 
 /**
  * Request parameters under the provider's wire names. Unset values and empty
- * lists are left out, as every request builder did by hand.
+ * lists are left out, as every request builder did by hand, and so is any
+ * parameter the rules file omits while extended thinking is on.
  */
 export function toWireParams(
   id: string,
   values: ProviderWireParamValues,
+  context: { thinkingOn?: boolean } = {},
 ): Record<string, unknown> {
   const names = getRequestFields(id);
+  const omitted = new Set(
+    context.thinkingOn
+      ? (getProviderRules(id).requestFieldRules?.omitWhileThinking ?? [])
+      : [],
+  );
   const out: Record<string, unknown> = {};
   for (const key of Object.keys(values) as Array<
     keyof ProviderWireParamValues
   >) {
     const value = values[key];
-    if (value === undefined || value === null) {
+    if (value === undefined || value === null || omitted.has(key)) {
       continue;
     }
     if (Array.isArray(value) && value.length === 0) {

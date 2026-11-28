@@ -24,7 +24,12 @@
     "thinkingConfig": ["^gemini-3", "^gemini-2\\.5-pro", "^gemini-2\\.5-flash"],
     "promptCaching": ["^gemini-3", "^gemini-2\\.5", "^gpt-4", "^claude-3"],
     "restrictedOutput": ["^gemini-3"],
-    "maxCompletionTokens": ["^(o\\d|gpt-5)"]
+    "maxCompletionTokens": ["^(o\\d|gpt-5)"],
+    "samplingExclusive": [
+      "opus[-_.]?4[-_.]?[1-6](?![0-9])",
+      "sonnet[-_.]?4[-_.]?[5-9](?![0-9])",
+      "haiku[-_.]?4[-_.]?[5-9](?![0-9])"
+    ]
   },
   "modelFamilyNotes": {
     "samplingParamsRejected": "Reject temperature/topP in favour of reasoning-effort controls: Claude Sonnet 5, Opus 4.7+ (including Opus 5) and the Fable/Mythos 5 tier, notably as served through Vertex. Patterns, because gateway ids carry arbitrary prefixes and suffixes (vertex_ai/claude-sonnet-5@20260203).",
@@ -34,7 +39,8 @@
     "gemini3": "Gemini 3 and 3.x: thinking takes thinkingLevel.",
     "gemini25": "Gemini 2.5: rejects thinkingLevel with 400 \"thinking_level not supported\"; takes thinkingBudget.",
     "maxCompletionTokens": "Reasoning-class OpenAI models (o-series, gpt-5+) reject max_tokens and take max_completion_tokens. Matched against the id after its last '/'.",
-    "restrictedOutput": "Output capped at gemini.json reasoning.restrictedOutputTokenLimit, as are the imageGeneration models (matched as prefixes)."
+    "restrictedOutput": "Output capped at gemini.json reasoning.restrictedOutputTokenLimit, as are the imageGeneration models (matched as prefixes).",
+    "samplingExclusive": "Accept temperature or top_p but reject both in one request with a 400 (\"temperature and top_p cannot both be specified for this model\"): Claude Opus 4.1 to 4.6, Sonnet 4.5+ and Haiku 4.5+ (docs.claude.com, what's new in Claude Sonnet 4.5). When a caller sets both, temperature is kept. Opus 4.7+ and Sonnet 5 reject sampling entirely (samplingParamsRejected)."
   },
   "modelFamilyLabels": {
     "rules": [

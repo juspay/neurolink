@@ -1882,12 +1882,16 @@ export class AnthropicProvider extends BaseProvider {
           // forwarding it alongside thinking turns a call that used to work
           // into a 400. Drop the sampling knobs for exactly those turns and
           // let Anthropic's thinking defaults stand.
-          ...toWireParams("anthropic", {
-            maxTokens,
-            temperature: thinkingOn ? undefined : samplingParams.temperature,
-            topP: thinkingOn ? undefined : samplingParams.topP,
-            stopSequences: options.stopSequences,
-          }),
+          ...toWireParams(
+            "anthropic",
+            {
+              maxTokens,
+              temperature: samplingParams.temperature,
+              topP: samplingParams.topP,
+              stopSequences: options.stopSequences,
+            },
+            { thinkingOn },
+          ),
           ...(tools ? { tools } : {}),
           ...(toolChoice ? { tool_choice: toolChoice } : {}),
           ...(thinking ? { thinking } : {}),
@@ -2353,6 +2357,12 @@ export class AnthropicProvider extends BaseProvider {
           ...(options.maxTokens ? { maxOutputTokens: options.maxTokens } : {}),
           ...(options.temperature !== undefined
             ? { temperature: options.temperature }
+            : {}),
+          ...(options.topP !== undefined && options.topP !== null
+            ? { topP: options.topP }
+            : {}),
+          ...(options.stopSequences && options.stopSequences.length > 0
+            ? { stopSequences: options.stopSequences }
             : {}),
           ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}),
           ...(options.toolTimeoutMs !== undefined
@@ -2879,9 +2889,15 @@ export class AnthropicProvider extends BaseProvider {
         const streamSamplingParams = resolveSamplingParams(
           "anthropic",
           modelId,
-          options.temperature !== undefined && options.temperature !== null
-            ? { temperature: options.temperature }
-            : {},
+          {
+            ...(options.temperature !== undefined &&
+            options.temperature !== null
+              ? { temperature: options.temperature }
+              : {}),
+            ...(options.topP !== undefined && options.topP !== null
+              ? { topP: options.topP }
+              : {}),
+          },
           "anthropic.executeStream",
         );
         const maxTokens = resolveClaudeMaxTokens(modelId, options.maxTokens);
@@ -2908,12 +2924,16 @@ export class AnthropicProvider extends BaseProvider {
           ...(payload.system ? { system: payload.system } : {}),
           // Same constraint on the streaming path: a temperature alongside
           // `thinking` is rejected outright.
-          ...toWireParams("anthropic", {
-            maxTokens,
-            temperature: thinkingOn
-              ? undefined
-              : streamSamplingParams.temperature,
-          }),
+          ...toWireParams(
+            "anthropic",
+            {
+              maxTokens,
+              temperature: streamSamplingParams.temperature,
+              topP: streamSamplingParams.topP,
+              stopSequences: options.stopSequences,
+            },
+            { thinkingOn },
+          ),
           ...(cachedTools && cachedTools.length > 0
             ? { tools: cachedTools }
             : {}),

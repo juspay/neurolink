@@ -2217,6 +2217,7 @@ console.log(result.content);
 - [ProviderRuleTemplateVars](type-aliases/ProviderRuleTemplateVars.md)
 - [ProviderRulesFile](type-aliases/ProviderRulesFile.md)
 - [ProviderRequestFields](type-aliases/ProviderRequestFields.md)
+- [ProviderRequestFieldRules](type-aliases/ProviderRequestFieldRules.md)
 - [ProviderWireParamValues](type-aliases/ProviderWireParamValues.md)
 - [ProviderToolResultRules](type-aliases/ProviderToolResultRules.md)
 - [ProviderContextTexts](type-aliases/ProviderContextTexts.md)
