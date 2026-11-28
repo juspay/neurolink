@@ -5,22 +5,11 @@ import type {
   EmbedInput,
   EnhancedGenerateResult,
   NeurolinkCredentials,
-  ProviderErrorRule,
   TextGenerationOptions,
-  UnknownRecord,
 } from "../../types/index.js";
-import {
-  AuthenticationError,
-  InvalidModelError,
-  ProviderError,
-  RateLimitError,
-} from "../../types/index.js";
+import { ProviderError } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 import { redactUrlCredentials } from "../../utils/logSanitize.js";
-import {
-  classifyProviderError,
-  DEFAULT_ERROR_RULES,
-} from "../../utils/errorClassifier.js";
 import {
   createOpenAIConfig,
   getProviderModel,
@@ -31,10 +20,10 @@ import { MAX_IMAGE_BYTES } from "../../utils/sizeGuard.js";
 import { createTimeoutController } from "../../utils/timeout.js";
 import { stripTrailingSlash } from "../openaiChatCompletionsClient.js";
 import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
-import {
-  isOpenAIQuotaExhaustedError,
-  readOpenAIBodyErrorType,
-} from "../../utils/providerRetry.js";
+import { classifyWithProviderRules } from "../rules/errorRules.js";
+import { getProviderErrorRules } from "../rules/registry.js";
+
+const OPENAI_ERROR_RULES = getProviderErrorRules("openai");
 
 const OPENAI_DEFAULT_BASE_URL = "https://api.openai.com/v1";
 
@@ -137,72 +126,12 @@ export class OpenAIProvider extends OpenAIChatCompletionsProvider {
   }
 
   public formatProviderError(error: unknown): Error {
-    // Chat errors retain the JSON in responseBody; embedding errors stamp
-    // type onto the raw error. Keep both paths available to the rule closures.
-    const errorObj = error as UnknownRecord;
-    const errorType =
-      errorObj?.type && typeof errorObj.type === "string"
-        ? errorObj.type
-        : readOpenAIBodyErrorType(errorObj?.responseBody);
-
-    const rules: ProviderErrorRule[] = [
-      // Curator P1-1 / Reviewer Finding #4: only the explicit auth markers
-      // map to AuthenticationError. Earlier we treated every
-      // `invalid_request_error` as an auth failure — that's OpenAI's
-      // catch-all for any bad request (unsupported parameter, malformed
-      // JSON, etc.) and mislabelled them as "invalid API key". Use
-      // credential-specific signals only.
-      {
-        match: (ctx) =>
-          ctx.statusCode === 401 ||
-          errorType === "invalid_api_key" ||
-          /API_KEY_INVALID|Invalid API key|Incorrect API key|invalid_api_key/i.test(
-            ctx.message,
-          ),
-        errorClass: AuthenticationError,
-        message: (ctx) =>
-          /Incorrect API key|Invalid API key/i.test(ctx.message)
-            ? ctx.message
-            : "Invalid OpenAI API key. Please check your OPENAI_API_KEY environment variable.",
-      },
-      // MUST precede the 429 rule below. OpenAI returns 429 for two
-      // unrelated conditions: transient throttling, and a permanently
-      // exhausted quota (out of credit, or a spend cap reached). Matching on
-      // the status code alone collapses them, and the resulting advice —
-      // "try again later" — is the one thing that can never resolve the
-      // second. The signal is the error TYPE, not the wording.
-      {
-        // One definition of "permanent billing state", in the helper. The
-        // earlier cut also tested `errorType === "insufficient_quota"` here,
-        // which is precisely the helper's own first branch — two places to
-        // keep in step for no benefit.
-        match: (ctx) => isOpenAIQuotaExhaustedError(ctx.error),
-        errorClass: ProviderError,
-        message:
-          "OpenAI quota exhausted — this will not resolve by retrying. " +
-          "Check your plan and billing details at " +
-          "https://platform.openai.com/account/billing",
-      },
-      {
-        match: (ctx) =>
-          ctx.statusCode === 429 ||
-          errorType === "rate_limit_error" ||
-          /rate limit/i.test(ctx.message),
-        errorClass: RateLimitError,
-        message: "OpenAI rate limit exceeded. Please try again later.",
-      },
-      {
-        match: (ctx) => /model_not_found/i.test(ctx.message),
-        errorClass: InvalidModelError,
-        message: (ctx) => `Model not found: ${ctx.modelName}`,
-      },
-      ...DEFAULT_ERROR_RULES,
-    ];
-    return classifyProviderError(
+    return classifyWithProviderRules(
       error,
-      rules,
+      OPENAI_ERROR_RULES,
       this.providerName,
       this.modelName,
+      { vars: () => ({ model: `${this.modelName}` }) },
     );
   }
 

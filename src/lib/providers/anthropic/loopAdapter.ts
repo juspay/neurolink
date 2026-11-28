@@ -45,23 +45,44 @@ import {
 } from "../../utils/timeout.js";
 import { sanitizeAnthropicMessagesForTrace } from "../../utils/anthropicTraceSanitizer.js";
 import { NeuroLinkError } from "../../utils/errorHandling.js";
+import {
+  getRequestFields,
+  getToolResultRules,
+} from "../rules/requestFields.js";
 import { ErrorCategory, ErrorSeverity } from "../../constants/enums.js";
+import {
+  getFinishReasonMap,
+  translateFinishReason,
+} from "../rules/finishReasons.js";
+
+// The Anthropic Messages wire rules, from anthropic.json (shared by direct
+// Anthropic and Claude on Vertex).
+const REQUEST_FIELDS = getRequestFields("anthropic");
+const TOOL_RESULTS = getToolResultRules("anthropic");
+
+/** A request parameter read back by its neutral name. */
+function readWireParam(
+  params: object,
+  key: "maxTokens" | "temperature" | "topP",
+): number | undefined {
+  const value = (params as Record<string, unknown>)[REQUEST_FIELDS[key]];
+  return typeof value === "number" ? value : undefined;
+}
+
+const ANTHROPIC_FINISH_REASONS = getFinishReasonMap("anthropic", "messages");
 
 /** Map Anthropic's stop_reason onto the unified finish reason. */
 function mapAnthropicFinishReason(
   rawStopReason: string | undefined,
   hadToolCallsAtCap: boolean,
 ): string {
-  switch (rawStopReason) {
-    case "max_tokens":
-      return "length";
-    case "tool_use":
-      return "tool-calls";
-    case "refusal":
-      return "content-filter";
-    default:
-      return hadToolCallsAtCap ? "tool-calls" : "stop";
-  }
+  return (
+    translateFinishReason(
+      ANTHROPIC_FINISH_REASONS,
+      rawStopReason,
+      hadToolCallsAtCap,
+    ) ?? "stop"
+  );
 }
 
 /**
@@ -496,9 +517,9 @@ export function createAnthropicLoopAdapter<
           provider: config.provider,
           model: params.model,
           modelParameters: {
-            temperature: params.temperature,
-            maxTokens: params.max_tokens,
-            topP: params.top_p,
+            temperature: readWireParam(params, "temperature"),
+            maxTokens: readWireParam(params, "maxTokens"),
+            topP: readWireParam(params, "topP"),
             thinkingBudget:
               params.thinking?.type === "enabled"
                 ? params.thinking.budget_tokens
@@ -640,15 +661,10 @@ export function createAnthropicLoopAdapter<
     ): TMessage[] {
       const assistantMessage: Anthropic.Messages.MessageParam = {
         role: "assistant",
-        // server_tool_use blocks are stripped before the turn is replayed:
-        // the API emits them on the way out but REJECTS them on the way back
-        // in, so echoing one fails the next request outright rather than
-        // degrading. Both Claude-on-Vertex loops filtered these by hand; doing
-        // it here means a caller cannot forget to. A provider that never emits
-        // them sees no change.
-        content: stepResult.raw.filter(
-          (block) => (block as { type?: string }).type !== "server_tool_use",
-        ),
+        // The turn is replayed as rebuilt from the stream: only thinking,
+        // redacted_thinking, text and tool_use blocks are collected, so a block
+        // the API emits but rejects on input (server_tool_use) never reaches here.
+        content: stepResult.raw,
       };
       const resultMessage: Anthropic.Messages.MessageParam = {
         role: "user",
@@ -656,9 +672,11 @@ export function createAnthropicLoopAdapter<
           type: "tool_result" as const,
           tool_use_id: result.id,
           content: result.error
-            ? `Error executing tool ${result.name}: ${result.error}`
+            ? TOOL_RESULTS.errorTemplate
+                .replaceAll("{name}", result.name)
+                .replaceAll("{error}", String(result.error))
             : stringifyAnthropicToolOutput(result.output),
-          ...(result.error ? { is_error: true } : {}),
+          ...(result.error ? { [TOOL_RESULTS.errorFlag]: true } : {}),
         })),
       };
       // The two messages are built in the SDK's own shape and handed back as

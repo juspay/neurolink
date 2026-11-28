@@ -1,0 +1,44 @@
+{
+  "$schema": "./provider-rules.schema.json",
+  "id": "proxy",
+  "finishReasons": {
+    "toOpenAI": {
+      "map": {
+        "stop": "stop",
+        "end_turn": "stop",
+        "length": "length",
+        "max_tokens": "length",
+        "tool-calls": "tool_calls",
+        "tool_use": "tool_calls",
+        "content_filter": "content_filter",
+        "safety": "content_filter",
+        "": null
+      },
+      "default": "stop",
+      "whenAbsent": null
+    },
+    "toClaude": {
+      "map": {
+        "stop": "end_turn",
+        "end_turn": "end_turn",
+        "length": "max_tokens",
+        "max_tokens": "max_tokens",
+        "tool-calls": "tool_use",
+        "tool_use": "tool_use",
+        "content_filter": "stop_sequence",
+        "safety": "stop_sequence"
+      },
+      "default": null,
+      "whenAbsent": "end_turn",
+      "passthroughUnknown": true
+    },
+    "toGemini": {
+      "map": {
+        "length": "MAX_TOKENS",
+        "max_tokens": "MAX_TOKENS",
+        "content_filter": "SAFETY"
+      },
+      "default": "STOP"
+    }
+  }
+}

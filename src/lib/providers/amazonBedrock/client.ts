@@ -55,15 +55,9 @@ import type {
   EnhancedGenerateResult,
   TextGenerationOptions,
   BedrockMessage,
-  ProviderErrorRule,
   StreamGenerationEndContext,
 } from "../../types/index.js";
-import {
-  AuthenticationError,
-  ProviderError,
-  RateLimitError,
-} from "../../types/index.js";
-import { classifyProviderError } from "../../utils/errorClassifier.js";
+import { ProviderError } from "../../types/index.js";
 import { isAbortError, withTimeout } from "../../utils/errorHandling.js";
 import { abortSignalOf, pauseDeadlineOf } from "../../utils/async/index.js";
 import { ImageProcessor } from "../../utils/imageProcessor.js";
@@ -76,6 +70,12 @@ import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
 
 import { bedrockTracer } from "./constants.js";
 import { loadBedrockControl } from "./utils.js";
+import { classifyWithProviderRules } from "../rules/errorRules.js";
+import { getProviderErrorRules } from "../rules/registry.js";
+import { getRequestDefault } from "../rules/requestDefaults.js";
+
+const BEDROCK_ERROR_RULES = getProviderErrorRules("bedrock");
+const DEFAULT_TEMPERATURE = getRequestDefault("bedrock", "temperature");
 
 /**
  * The only image formats Nova Multimodal Embeddings accepts.
@@ -529,7 +529,7 @@ export class AmazonBedrockProvider extends BaseProvider {
     const sampling = resolveSamplingParams(
       this.providerName,
       this.modelName || this.getDefaultModel(),
-      { temperature: options.temperature ?? 0.7 },
+      { temperature: options.temperature ?? DEFAULT_TEMPERATURE },
       "bedrock.converse",
     );
 
@@ -1685,7 +1685,7 @@ export class AmazonBedrockProvider extends BaseProvider {
     const sampling = resolveSamplingParams(
       this.providerName,
       this.modelName || this.getDefaultModel(),
-      { temperature: options.temperature ?? 0.7 },
+      { temperature: options.temperature ?? DEFAULT_TEMPERATURE },
       "bedrock.converseStream",
     );
 
@@ -2047,43 +2047,9 @@ export class AmazonBedrockProvider extends BaseProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    const rules: ProviderErrorRule[] = [
-      {
-        match: (ctx) => /AccessDeniedException/i.test(ctx.message),
-        errorClass: AuthenticationError,
-        message:
-          "AWS Bedrock access denied. Check your credentials and permissions.",
-      },
-      {
-        // Checked before the generic ValidationException fallback — a
-        // throttling error can be shaped like a validation error in some
-        // AWS SDK error message templates, but .name/.code are authoritative.
-        match: (ctx) =>
-          ctx.errorName === "ThrottlingException" ||
-          ctx.errorCode === "ThrottlingException",
-        errorClass: RateLimitError,
-        message: (ctx) => `Bedrock rate limit (throttled): ${ctx.message}`,
-      },
-      {
-        match: (ctx) => /ValidationException/i.test(ctx.message),
-        errorClass: ProviderError,
-        message: (ctx) => `Validation error: ${ctx.message}`,
-      },
-      {
-        match: () => true,
-        errorClass: ProviderError,
-        message: (ctx) => `AWS Bedrock error: ${ctx.message}`,
-      },
-    ];
-    // this.providerName resolves to the literal "bedrock" (getProviderName()
-    // returns it directly, and the constructor only overrides providerName
-    // when an explicit providerName is passed in) — verified matches the
-    // pre-migration hardcoded "bedrock" literal in the throttling branch, so
-    // a single classifyProviderError call using this.providerName for every
-    // rule (rather than a per-rule literal) is not a behavior change.
-    return classifyProviderError(
+    return classifyWithProviderRules(
       error,
-      rules,
+      BEDROCK_ERROR_RULES,
       this.providerName,
       this.modelName,
     );

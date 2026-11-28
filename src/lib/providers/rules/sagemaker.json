@@ -1,0 +1,88 @@
+{
+  "$schema": "./provider-rules.schema.json",
+  "id": "sagemaker",
+  "finishReasons": {
+    "endpoint": {
+      "map": {
+        "stop": "stop",
+        "end_turn": "stop",
+        "stop_sequence": "stop",
+        "length": "length",
+        "max_tokens": "length",
+        "max_length": "length",
+        "content_filter": "content-filter",
+        "content_filtered": "content-filter",
+        "tool_calls": "tool-calls",
+        "function_call": "tool-calls",
+        "error": "error"
+      },
+      "default": "unknown",
+      "lowercase": true
+    },
+    "huggingfaceStream": {
+      "map": {
+        "stop": "stop",
+        "length": "length",
+        "eos_token": "stop"
+      },
+      "default": "unknown"
+    },
+    "openaiStream": {
+      "map": {
+        "stop": "stop",
+        "length": "length",
+        "function_call": "tool-calls",
+        "content_filter": "content-filter",
+        "": null
+      },
+      "default": "unknown",
+      "whenAbsent": null
+    }
+  },
+  "usageDialects": {
+    "huggingface": {
+      "input": ["input"],
+      "output": ["generated"],
+      "total": ["total"],
+      "pick": "truthy"
+    },
+    "openai": {
+      "input": ["prompt_tokens"],
+      "output": ["completion_tokens"],
+      "total": ["total_tokens"],
+      "pick": "truthy"
+    },
+    "custom": {
+      "input": ["prompt_tokens", "input_tokens"],
+      "output": ["completion_tokens", "output_tokens"],
+      "total": ["total_tokens"],
+      "pick": "truthy"
+    },
+    "responseBody": {
+      "input": ["prompt_tokens", "input_tokens"],
+      "output": ["completion_tokens", "output_tokens"],
+      "total": ["total_tokens"],
+      "pick": "defined"
+    }
+  },
+  "toolChoices": {
+    "openai": {
+      "modes": {
+        "auto": "auto",
+        "none": "none",
+        "required": "required"
+      },
+      "acceptStrings": false,
+      "acceptModeObjects": true,
+      "tool": {
+        "type": "function",
+        "function": {
+          "name": "{toolName}"
+        }
+      },
+      "toolRequiresName": false,
+      "passthroughStrings": true,
+      "fallback": "auto"
+    }
+  }
+}

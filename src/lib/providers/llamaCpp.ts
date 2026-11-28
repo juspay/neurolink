@@ -1,17 +1,12 @@
 import type { AIProviderName } from "../constants/enums.js";
-import { ProviderError } from "../types/index.js";
-import type {
-  NeurolinkCredentials,
-  ProviderErrorRule,
-} from "../types/index.js";
-import {
-  classifyProviderError,
-  DEFAULT_ERROR_RULES,
-} from "../utils/errorClassifier.js";
+import type { NeurolinkCredentials } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
-import { buildLocalUnreachableErrorRule } from "./localRuntimeOpenAICompat.js";
+import { classifyWithProviderRules } from "./rules/errorRules.js";
+import { getProviderErrorRules } from "./rules/registry.js";
+
+const LLAMACPP_ERROR_RULES = getProviderErrorRules("llamacpp");
 
 const LLAMACPP_DEFAULT_BASE_URL = "http://localhost:8080/v1";
 const LLAMACPP_PLACEHOLDER_KEY = "llamacpp";
@@ -78,28 +73,12 @@ export class LlamaCppProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    const rules: ProviderErrorRule[] = [
-      buildLocalUnreachableErrorRule(
-        error,
-        () =>
-          `llama.cpp server not reachable at ${redactUrlCredentials(this.config.baseURL)}. ` +
-          "Start it with: ./llama-server -m model.gguf --port 8080",
-      ),
-      {
-        match: (ctx) =>
-          ctx.statusCode === 400 ||
-          (ctx.statusCode === undefined && /\b400\b/.test(ctx.message)),
-        errorClass: ProviderError,
-        message:
-          "llama.cpp rejected the request. Common cause: model doesn't support tools (start llama-server with --jinja for tool support).",
-      },
-      ...DEFAULT_ERROR_RULES,
-    ];
-    return classifyProviderError(
+    return classifyWithProviderRules(
       error,
-      rules,
+      LLAMACPP_ERROR_RULES,
       this.providerName,
       this.modelName,
+      { vars: () => ({ baseURL: redactUrlCredentials(this.config.baseURL) }) },
     );
   }
 }

@@ -135,9 +135,9 @@ const UPSTREAM_TIMEOUT_FRAMINGS: readonly RegExp[] = [
 // Transport framings the shared list does not carry. Each is wording a
 // provider or this package's own error mapping actually emits.
 const NEW_PROVIDER_TRANSPORT_FRAMINGS: readonly RegExp[] = [
-  // undici's message when the socket never connects. localRuntimeOpenAICompat
-  // maps it to the "server not reachable" line below, but the generic mapping
-  // keeps it: "Connection error: fetch failed".
+  // undici's message when the socket never connects. The local-runtime rules
+  // in src/lib/providers/rules/ map it to the "server not reachable" line
+  // below, but the generic mapping keeps it: "Connection error: fetch failed".
   /\bfetch\s+failed\b/i,
   // The shared entry only recognises loopback hosts; a LAN-hosted LM Studio or
   // llama-server reports the same line with its own address.

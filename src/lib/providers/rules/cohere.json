@@ -1,0 +1,32 @@
+{
+  "$schema": "./provider-rules.schema.json",
+  "id": "cohere",
+  "errors": {
+    "rules": [
+      {
+        "pattern": "invalid api token|Authentication|401|invalid_api_token",
+        "caseSensitive": true,
+        "class": "authentication",
+        "message": "Invalid Cohere API key. Check COHERE_API_KEY. Get one at https://dashboard.cohere.com/api-keys"
+      },
+      {
+        "pattern": "rate limit|429",
+        "caseSensitive": true,
+        "class": "rate-limit",
+        "message": "Cohere rate limit exceeded. Back off and retry."
+      },
+      {
+        "pattern": "model_not_found|404",
+        "caseSensitive": true,
+        "class": "invalid-model",
+        "message": "Cohere model '{model}' not found. Use command-r, command-r-plus, or command-r7b-12-2024."
+      },
+      {
+        "pattern": "trial limit|trial_limit",
+        "caseSensitive": true,
+        "class": "provider",
+        "message": "Cohere trial usage limit exceeded. Upgrade at https://dashboard.cohere.com/billing."
+      }
+    ]
+  }
+}

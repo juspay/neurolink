@@ -26,7 +26,6 @@ import {
 import type {
   AnalyticsData,
   EmbedInput,
-  UnknownRecord,
   ZodUnknownSchema,
   EnhancedGenerateResult,
   TextGenerationOptions,
@@ -42,13 +41,7 @@ import type {
   StreamResult,
 } from "../../types/index.js";
 
-import {
-  AuthenticationError,
-  InvalidModelError,
-  NetworkError,
-  ProviderError,
-  RateLimitError,
-} from "../../types/index.js";
+import { AuthenticationError, ProviderError } from "../../types/index.js";
 import { ERROR_CODES, NeuroLinkError } from "../../utils/errorHandling.js";
 import { logger } from "../../utils/logger.js";
 import { drainDetachedPump } from "../../utils/drainDetachedPump.js";
@@ -79,7 +72,6 @@ import {
 import {
   composeAbortSignals,
   createTimeoutController,
-  TimeoutError,
 } from "../../utils/timeout.js";
 import { withTimeout } from "../../utils/async/index.js";
 import { estimateTokens } from "../../utils/tokenEstimation.js";
@@ -115,6 +107,17 @@ import type {
   ModelMessage,
   Schema,
 } from "../../types/index.js";
+import { classifyWithProviderRules } from "../rules/errorRules.js";
+import { getProviderErrorRules } from "../rules/registry.js";
+import {
+  getWireUsage,
+  outputWithReasoning,
+  splitIncludedCount,
+} from "../rules/wireUsage.js";
+
+const GEMINI_USAGE = getWireUsage("gemini");
+
+const GOOGLE_AI_ERROR_RULES = getProviderErrorRules("google-ai");
 
 // ── Model middleware stream/generate bridges ──
 //
@@ -434,95 +437,13 @@ export class GoogleAIStudioProvider extends BaseProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    if (error instanceof TimeoutError) {
-      return new NetworkError(error.message, this.providerName);
-    }
-
-    const errorRecord = error as UnknownRecord;
-    const message =
-      typeof errorRecord?.message === "string"
-        ? errorRecord.message
-        : "Unknown error";
-    const statusCode =
-      typeof errorRecord?.status === "number"
-        ? errorRecord.status
-        : typeof errorRecord?.statusCode === "number"
-          ? errorRecord.statusCode
-          : undefined;
-
-    // Authentication errors
-    if (
-      message.includes("API_KEY_INVALID") ||
-      message.includes("Invalid API key") ||
-      statusCode === 401
-    ) {
-      return new AuthenticationError(
-        "Invalid Google AI API key. Please check your GOOGLE_AI_API_KEY environment variable.",
-        this.providerName,
-      );
-    }
-
-    // Rate limit errors
-    if (
-      message.includes("RATE_LIMIT_EXCEEDED") ||
-      message.includes("rate limit") ||
-      message.includes("429") ||
-      statusCode === 429
-    ) {
-      return new RateLimitError(
-        "Google AI rate limit exceeded. Please try again later.",
-        this.providerName,
-      );
-    }
-
-    // Model not found errors — gate on a 404 status when available; fall
-    // back to literal phrase matching only when we have no status code at
-    // all. Avoids misclassifying permission/validation errors that happen
-    // to mention model resource paths (e.g. "...models/foo permission...").
-    if (
-      statusCode === 404 ||
-      (statusCode === undefined &&
-        (message.includes("model not found") ||
-          message.includes("Model not found")))
-    ) {
-      return new InvalidModelError(
-        `Model '${this.modelName}' not found. Please check the model name and ensure it is available.`,
-        this.providerName,
-      );
-    }
-
-    // Network connectivity errors
-    if (
-      message.includes("ECONNRESET") ||
-      message.includes("ENOTFOUND") ||
-      message.includes("ETIMEDOUT") ||
-      message.includes("ECONNREFUSED") ||
-      message.includes("network") ||
-      message.includes("connection")
-    ) {
-      return new NetworkError(
-        `Connection error: ${message}`,
-        this.providerName,
-      );
-    }
-
-    // Server errors (5xx)
-    if (
-      message.includes("500") ||
-      message.includes("502") ||
-      message.includes("503") ||
-      message.includes("504") ||
-      message.includes("server error") ||
-      message.includes("Internal Server Error") ||
-      (statusCode && statusCode >= 500 && statusCode < 600)
-    ) {
-      return new ProviderError(
-        `Google AI server error: ${message}. Please try again later.`,
-        this.providerName,
-      );
-    }
-
-    return new ProviderError(`Google AI error: ${message}`, this.providerName);
+    return classifyWithProviderRules(
+      error,
+      GOOGLE_AI_ERROR_RULES,
+      this.providerName,
+      this.modelName,
+      { vars: () => ({ model: `${this.modelName}` }) },
+    );
   }
 
   /**
@@ -1644,10 +1565,10 @@ export class GoogleAIStudioProvider extends BaseProvider {
               // cachedContentTokenCount. Subtract once here so calculateCost
               // bills the cached portion at the cheaper cacheRead rate without
               // double-counting. Total billable tokens are conserved.
-              const adjustedInputTokens = Math.max(
-                0,
-                totalInputTokens - totalCacheReadTokens,
-              );
+              const adjustedInputTokens = splitIncludedCount(
+                totalInputTokens,
+                totalCacheReadTokens,
+              ).rest;
               analyticsResolve({
                 provider: this.providerName,
                 model: modelName,
@@ -1657,7 +1578,11 @@ export class GoogleAIStudioProvider extends BaseProvider {
                   // does NOT include them in candidatesTokenCount, so they
                   // are folded into `output` — what calculateCost bills at
                   // the output rate — with `reasoning` as the subset.
-                  output: totalOutputTokens + totalReasoningTokens,
+                  output: outputWithReasoning(
+                    GEMINI_USAGE,
+                    totalOutputTokens,
+                    totalReasoningTokens,
+                  ),
                   total:
                     adjustedInputTokens +
                     totalCacheReadTokens +
@@ -2427,10 +2352,10 @@ export class GoogleAIStudioProvider extends BaseProvider {
             // Gemini promptTokenCount is OVERLAPPING (already includes
             // cachedContentTokenCount). Subtract once so the cached portion is
             // billed at the cheaper cacheRead rate without double-counting.
-            const adjustedInputTokens = Math.max(
-              0,
-              totalInputTokens - totalCacheReadTokens,
-            );
+            const adjustedInputTokens = splitIncludedCount(
+              totalInputTokens,
+              totalCacheReadTokens,
+            ).rest;
             const baseResult: EnhancedGenerateResult = {
               content: finalText,
               provider: this.providerName,
@@ -2449,7 +2374,11 @@ export class GoogleAIStudioProvider extends BaseProvider {
                 // does NOT include them in candidatesTokenCount, so they are
                 // folded into `output` — what calculateCost bills at the
                 // output rate — with `reasoning` as the subset.
-                output: totalOutputTokens + totalReasoningTokens,
+                output: outputWithReasoning(
+                  GEMINI_USAGE,
+                  totalOutputTokens,
+                  totalReasoningTokens,
+                ),
                 total:
                   adjustedInputTokens +
                   totalCacheReadTokens +

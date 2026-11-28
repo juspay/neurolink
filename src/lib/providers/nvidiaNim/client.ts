@@ -4,19 +4,7 @@ import type {
   NvidiaNimExtraBody,
   OpenAICompatBuildBodyArgs,
   OpenAICompatChatRequest,
-  ProviderErrorRule,
 } from "../../types/index.js";
-import {
-  AuthenticationError,
-  InvalidModelError,
-  ProviderError,
-  RateLimitError,
-} from "../../types/index.js";
-import {
-  classifyProviderError,
-  DEFAULT_ERROR_RULES,
-  messageNamesStatus,
-} from "../../utils/errorClassifier.js";
 import { logger } from "../../utils/logger.js";
 import { redactUrlCredentials } from "../../utils/logSanitize.js";
 import {
@@ -26,6 +14,10 @@ import {
 } from "../../utils/providerConfig.js";
 import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
 import { PROVIDER_DESCRIPTORS_BY_NAME } from "../../factories/providerDescriptors.js";
+import { classifyWithProviderRules } from "../rules/errorRules.js";
+import { getProviderErrorRules } from "../rules/registry.js";
+
+const NVIDIA_NIM_ERROR_RULES = getProviderErrorRules("nvidia-nim");
 
 /**
  * Decide whether a NIM 400 response body is a rejection of the named
@@ -325,78 +317,12 @@ export class NvidiaNimProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    const rules: ProviderErrorRule[] = [
-      // NIM canonically returns HTTP 401/Unauthorized for invalid API keys,
-      // but its OpenAI-compatible gateway sometimes surfaces a bare 400 +
-      // "Bad Request" with no body details for both malformed-credentials
-      // and bad-parameter cases. Because the two are indistinguishable from
-      // the message alone, bare 400/"Bad Request" is deliberately NOT
-      // promoted to "invalid key" here — that would mis-classify legitimate
-      // parameter errors (e.g. unsupported `reasoning_budget`, unsupported
-      // `chat_template`) as auth failures. Tests that probe the auth path
-      // (K1) detect "bad request" / "400" themselves; tests that probe
-      // parameter retry (K5) need the original "Bad Request" message to
-      // surface.
-      {
-        match: (ctx) =>
-          /Invalid API key|Unauthorized/.test(ctx.message) ||
-          messageNamesStatus(ctx.message, 401),
-        errorClass: AuthenticationError,
-        message:
-          "Invalid NVIDIA NIM API key. Get one at https://build.nvidia.com/settings/api-keys",
-      },
-      {
-        match: (ctx) =>
-          /rate limit/.test(ctx.message) ||
-          messageNamesStatus(ctx.message, 429),
-        errorClass: RateLimitError,
-        message: "NVIDIA NIM rate limit exceeded",
-      },
-      {
-        // An invalid key now reaches the gateway as HTTP 403
-        // {"status":403,"title":"Forbidden","detail":"Authorization failed"},
-        // not a 401 (probed live: a well-formed bad key gets this body, a
-        // missing header or a malformed JWT still gets a 401). The same body is
-        // reported for a valid key whose organization lacks Public API
-        // Endpoints access. The text is what identifies it — the structured 403
-        // alone does not, and the quota rule below would take a relayed
-        // "403 Authorization failed" because that text names status 403. A
-        // message that also says "quota" is left for the quota rule.
-        match: (ctx) =>
-          /authori[sz]ation failed/i.test(ctx.message) &&
-          !/quota/i.test(ctx.message),
-        errorClass: AuthenticationError,
-        message:
-          "NVIDIA NIM rejected the credentials (HTTP 403 Authorization failed). Check the API key at https://build.nvidia.com/settings/api-keys; a valid key is also refused when its organization lacks Public API Endpoints access.",
-      },
-      {
-        // NIM answers most of its roster with a 404 whose text ("Function …
-        // not found for account …") names no model, so the status decides.
-        match: (ctx) =>
-          ctx.statusCode === 404 ||
-          /model_not_found/.test(ctx.message) ||
-          messageNamesStatus(ctx.message, 404),
-        errorClass: InvalidModelError,
-        message: () =>
-          `NVIDIA NIM model '${this.modelName}' not available. Browse the catalog at https://build.nvidia.com/models`,
-      },
-      {
-        // NVIDIA's throttle is a 429 {"status":429,"title":"Too Many Requests"}
-        // (46 of 70 concurrent probes, no Retry-After); no source seen sends a
-        // quota stop as a 403. This rule keeps the older text-keyed behaviour
-        // for a relay that names the quota or a 403 in its message.
-        match: (ctx) =>
-          /quota/.test(ctx.message) || messageNamesStatus(ctx.message, 403),
-        errorClass: ProviderError,
-        message: "NVIDIA NIM quota exceeded for your account",
-      },
-      ...DEFAULT_ERROR_RULES,
-    ];
-    return classifyProviderError(
+    return classifyWithProviderRules(
       error,
-      rules,
+      NVIDIA_NIM_ERROR_RULES,
       this.providerName,
       this.modelName,
+      { vars: () => ({ model: `${this.modelName}` }) },
     );
   }
 

@@ -2,179 +2,94 @@
  * Centralized token usage extraction utilities
  * Handles multiple provider formats and optional fields
  *
- * Consolidates token extraction logic from:
- * - analytics.ts
- * - streamAnalytics.ts
+ * Which field holds which count, in priority order, is data:
+ * `usageFields` and `usageRebase` in src/lib/providers/rules/usage.json.
  */
 
 import type {
   TokenUsage,
   RawUsageObject,
   TokenExtractionOptions,
+  ProviderUsageField,
 } from "../types/index.js";
+import { getProviderRules } from "../providers/rules/registry.js";
+import { valueAtPath } from "../providers/rules/wireUsage.js";
 
-/**
- * Extract input token count from various provider formats
- * Priority: input > inputTokens > promptTokens
- */
+function loadUsageRules() {
+  const { usageFields, usageRebase } = getProviderRules("usage");
+  if (!usageFields || !usageRebase) {
+    throw new Error('usage.json needs "usageFields" and "usageRebase"');
+  }
+  return { fields: usageFields, rebase: usageRebase };
+}
+const { fields: FIELDS, rebase: REBASE } = loadUsageRules();
+
+/** The first path in the field's list that holds a usable number. */
+function readUsageField(
+  usage: RawUsageObject,
+  field: ProviderUsageField,
+): number | undefined {
+  for (const path of field.paths) {
+    const value = valueAtPath(usage, path);
+    if (typeof value === "number" && (!field.positiveOnly || value > 0)) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+/** Input token count (usage.json `usageFields.input`), or 0. */
 export function extractInputTokens(usage: RawUsageObject): number {
-  if (typeof usage.input === "number") {
-    return usage.input;
-  }
-  if (typeof usage.inputTokens === "number") {
-    return usage.inputTokens;
-  }
-  if (typeof usage.promptTokens === "number") {
-    return usage.promptTokens;
-  }
-  return 0;
+  return readUsageField(usage, FIELDS.input) ?? 0;
 }
 
-/**
- * Extract output token count from various provider formats
- * Priority: output > outputTokens > completionTokens
- */
+/** Output token count (usage.json `usageFields.output`), or 0. */
 export function extractOutputTokens(usage: RawUsageObject): number {
-  if (typeof usage.output === "number") {
-    return usage.output;
-  }
-  if (typeof usage.outputTokens === "number") {
-    return usage.outputTokens;
-  }
-  if (typeof usage.completionTokens === "number") {
-    return usage.completionTokens;
-  }
-  return 0;
+  return readUsageField(usage, FIELDS.output) ?? 0;
 }
 
 /**
- * Extract total token count from various provider formats
- * Falls back to input + output if total is not provided
+ * Total token count. A literal 0 next to non-zero components means the
+ * provider omitted the figure, so only a positive total wins over the sum.
  */
 export function extractTotalTokens(
   usage: RawUsageObject,
   input: number,
   output: number,
 ): number {
-  // A literal 0 alongside non-zero components means the provider omitted the
-  // figure (several gateways/parsers emit total: 0) — fall through to the
-  // computed sum instead of letting the zero win.
-  if (typeof usage.total === "number" && usage.total > 0) {
-    return usage.total;
-  }
-  if (typeof usage.totalTokens === "number" && usage.totalTokens > 0) {
-    return usage.totalTokens;
-  }
-  return input + output;
+  return readUsageField(usage, FIELDS.total) ?? input + output;
 }
 
-/**
- * Extract reasoning/thinking token count from various provider formats
- * Supports: reasoningTokens, thinkingTokens, reasoning_tokens, reasoning
- */
+/** Reasoning/thinking token count, or undefined when absent or zero. */
 export function extractReasoningTokens(
   usage: RawUsageObject,
 ): number | undefined {
-  if (typeof usage.reasoningTokens === "number" && usage.reasoningTokens > 0) {
-    return usage.reasoningTokens;
-  }
-  if (typeof usage.thinkingTokens === "number" && usage.thinkingTokens > 0) {
-    return usage.thinkingTokens;
-  }
-  if (
-    typeof usage.reasoning_tokens === "number" &&
-    usage.reasoning_tokens > 0
-  ) {
-    return usage.reasoning_tokens;
-  }
-  if (typeof usage.reasoning === "number" && usage.reasoning > 0) {
-    return usage.reasoning;
-  }
-  return undefined;
+  return readUsageField(usage, FIELDS.reasoning);
 }
 
-/**
- * Extract cache creation token count from various provider formats
- * Supports: cacheCreationInputTokens, cacheCreationTokens, and the ai@6
- * normalized `inputTokenDetails.cacheWriteTokens` (the only shape the native
- * direct-Anthropic path reports through generateText).
- */
+/** Cache-write token count (non-overlapping convention), or undefined. */
 export function extractCacheCreationTokens(
   usage: RawUsageObject,
 ): number | undefined {
-  if (
-    typeof usage.cacheCreationInputTokens === "number" &&
-    usage.cacheCreationInputTokens > 0
-  ) {
-    return usage.cacheCreationInputTokens;
-  }
-  if (
-    typeof usage.cacheCreationTokens === "number" &&
-    usage.cacheCreationTokens > 0
-  ) {
-    return usage.cacheCreationTokens;
-  }
-  if (
-    typeof usage.inputTokenDetails?.cacheWriteTokens === "number" &&
-    usage.inputTokenDetails.cacheWriteTokens > 0
-  ) {
-    return usage.inputTokenDetails.cacheWriteTokens;
-  }
-  return undefined;
+  return readUsageField(usage, FIELDS.cacheCreation);
 }
 
-/**
- * Extract cache read token count from various provider formats
- * Supports: cacheReadInputTokens, cacheReadTokens, and the ai@6 normalized
- * shapes — flat `cachedInputTokens` and nested
- * `inputTokenDetails.cacheReadTokens` (the only shapes the native
- * direct-Anthropic path reports through generateText).
- */
+/** Cache-read token count (non-overlapping convention), or undefined. */
 export function extractCacheReadTokens(
   usage: RawUsageObject,
 ): number | undefined {
-  if (
-    typeof usage.cacheReadInputTokens === "number" &&
-    usage.cacheReadInputTokens > 0
-  ) {
-    return usage.cacheReadInputTokens;
-  }
-  if (typeof usage.cacheReadTokens === "number" && usage.cacheReadTokens > 0) {
-    return usage.cacheReadTokens;
-  }
-  if (
-    typeof usage.cachedInputTokens === "number" &&
-    usage.cachedInputTokens > 0
-  ) {
-    return usage.cachedInputTokens;
-  }
-  if (
-    typeof usage.inputTokenDetails?.cacheReadTokens === "number" &&
-    usage.inputTokenDetails.cacheReadTokens > 0
-  ) {
-    return usage.inputTokenDetails.cacheReadTokens;
-  }
-  return undefined;
+  return readUsageField(usage, FIELDS.cacheRead);
 }
 
 /**
- * Extract cache read token count from the OVERLAPPING-convention nested path
- * used by OpenAI / DeepSeek / NIM / OpenAI-compatible providers:
- * `usage.prompt_tokens_details.cached_tokens`.
- *
- * Unlike {@link extractCacheReadTokens} (non-overlapping Anthropic/Vertex
- * convention where cache tokens are reported SEPARATELY from input), the value
- * returned here is a SUBSET already included in `prompt_tokens`. Callers that
- * use this value MUST subtract it from `input` to avoid double-counting.
+ * Cache-read count in the OVERLAPPING convention (OpenAI / DeepSeek / NIM /
+ * OpenAI-compatible): a SUBSET already included in the prompt count, so a
+ * caller MUST subtract it from `input` to avoid double-counting.
  */
 export function extractCachedInputTokensOverlapping(
   usage: RawUsageObject,
 ): number | undefined {
-  const cached = usage.prompt_tokens_details?.cached_tokens;
-  if (typeof cached === "number" && cached > 0) {
-    return cached;
-  }
-  return undefined;
+  return readUsageField(usage, FIELDS.cacheReadIncludedInInput);
 }
 
 /**
@@ -277,24 +192,19 @@ export function extractTokenUsage(
   // above — neither must be rebased again.
   if (
     (cacheReadTokens !== undefined || cacheCreationTokens !== undefined) &&
-    usage.cacheReadInputTokens === undefined &&
-    usage.cacheReadTokens === undefined &&
-    usage.cacheCreationInputTokens === undefined &&
-    usage.cacheCreationTokens === undefined &&
-    usage.prompt_tokens_details?.cached_tokens === undefined &&
-    (usage.cachedInputTokens !== undefined ||
-      usage.inputTokenDetails !== undefined)
+    REBASE.unlessAnyPresent.every(
+      (path) => valueAtPath(usage, path) === undefined,
+    ) &&
+    REBASE.whenAnyPresent.some((path) => valueAtPath(usage, path) !== undefined)
   ) {
-    const noCacheTokens = usage.inputTokenDetails?.noCacheTokens;
+    const noCacheTokens = valueAtPath(usage, REBASE.uncachedInput);
     if (typeof noCacheTokens === "number") {
       input = noCacheTokens;
     } else {
-      input = Math.max(
-        0,
-        input -
-          (cacheReadTokens ?? 0) -
-          (usage.inputTokenDetails?.cacheWriteTokens ?? 0),
-      );
+      const cacheWrite = valueAtPath(usage, REBASE.cacheWrite) as
+        | number
+        | undefined;
+      input = Math.max(0, input - (cacheReadTokens ?? 0) - (cacheWrite ?? 0));
     }
   }
 

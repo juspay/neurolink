@@ -16,6 +16,8 @@
  * production config and forces fragile hand-parsed JSON.
  */
 
+import { matchesErrorSignal } from "../../providers/rules/errorSignals.js";
+
 /** True when the provider+model is a Gemini model (the only family with the tools↔schema conflict). */
 export function isGeminiProvider(
   providerName: string,
@@ -80,22 +82,7 @@ export function isToolsSchemaExclusionInForce(
  * and retried without structured output instead of failing the call.
  */
 export function isToolsSchemaConflictError(error: unknown): boolean {
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === "string"
-        ? error
-        : "";
-  return (
-    /cannot be combined with (a )?(tool|function)/i.test(message) ||
-    /json[\s_-]?(mode|schema|object|output)[^.]{0,60}(tool|function)/i.test(
-      message,
-    ) ||
-    /(tool|function)[\s-]?call[^.]{0,60}json[\s_-]?(mode|schema)/i.test(
-      message,
-    ) ||
-    /response_format[^.]{0,60}(tool|function)/i.test(message)
-  );
+  return matchesErrorSignal("toolsSchemaConflict", error);
 }
 
 /**
@@ -117,13 +104,7 @@ export function isToolsSchemaConflictError(error: unknown): boolean {
  * (same flow as isToolsSchemaConflictError).
  */
 export function isSchemaComplexityError(error: unknown): boolean {
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === "string"
-        ? error
-        : "";
-  return /too many states/i.test(message);
+  return matchesErrorSignal("schemaComplexity", error);
 }
 
 /**
@@ -153,53 +134,5 @@ export function isSchemaComplexityError(error: unknown): boolean {
  * degrade to best-effort JSON, not throw.
  */
 export function isResponseFormatUnsupportedError(error: unknown): boolean {
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === "string"
-        ? error
-        : "";
-  return (
-    /does not support[^.]{0,80}response[\s_-]?format/i.test(message) ||
-    /response[\s_-]?format[^.]{0,60}(?:is )?not support/i.test(message) ||
-    /unsupported response[\s_-]?format/i.test(message)
-  );
-}
-
-/**
- * True when a provider error indicates the request was rejected because the
- * `temperature` parameter is deprecated / unsupported for the model. The newest
- * Anthropic models (e.g. claude-opus-4-8, with tools + advanced beta features)
- * reject `temperature` — "`temperature` is deprecated for this model." — in
- * favour of reasoning-effort controls. Detect this so the call can be retried
- * once without `temperature` instead of failing the turn.
- */
-export function isTemperatureDeprecatedError(error: unknown): boolean {
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === "string"
-        ? error
-        : "";
-  return /\btemperature\b[^.]{0,40}\b(deprecated|unsupported|not[\s_-]?(supported|allowed))\b/i.test(
-    message,
-  );
-}
-
-/**
- * True when the model is known to reject the `temperature` parameter (the
- * reasoning-effort Anthropic models — claude-opus-4-8 and newer — deprecate it
- * in favour of effort controls). Used to omit `temperature` proactively so the
- * request does not fail-then-retry on every turn: the reactive
- * isTemperatureDeprecatedError() retry remains the safety net for any model not
- * matched here, but a guaranteed-to-fail first request is pure wasted latency.
- *
- * Matches opus 4.8+ (4-8, 4-9, 4-10, …) while leaving 4.1/4.5/4.6 and Sonnet/
- * Haiku — which still accept `temperature` — untouched.
- */
-export function modelDeprecatesTemperature(
-  modelName: string | undefined,
-): boolean {
-  const m = (modelName ?? "").toLowerCase();
-  return /opus[-_.]?4[-_.]?(?:[89]|\d{2,})\b/.test(m);
+  return matchesErrorSignal("responseFormatUnsupported", error);
 }

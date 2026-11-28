@@ -1,0 +1,109 @@
+{
+  "$schema": "./provider-rules.schema.json",
+  "id": "model-families",
+  "modelFamilies": {
+    "samplingParamsRejected": [
+      "sonnet[-_.]?5(?![0-9])",
+      "opus[-_.]?4[-_.]?(?:[7-9]|\\d{2,})(?![0-9])",
+      "opus[-_.]?5(?![0-9])",
+      "fable",
+      "mythos"
+    ],
+    "forcedToolChoiceRejected": [
+      "sonnet[-_.]?5[-_.]5(?![0-9])",
+      "opus[-_.]?5[-_.]5(?![0-9])",
+      "(?:fable|mythos)[-_.]?5[-_.]1(?![0-9])"
+    ],
+    "betweenToolsThinking": ["sonnet[-_.]?5[-_.]5(?![0-9])"],
+    "claudeModernVision": [
+      "claude-(?:opus|sonnet|haiku)-(?:[4-9]|\\d{2,})",
+      "claude-(?:fable|mythos)-\\d"
+    ],
+    "gemini3": ["^gemini-3(\\.\\d+)?(-.*)?$"],
+    "gemini25": ["^gemini-2\\.5(-.*)?$"],
+    "thinkingConfig": ["^gemini-3", "^gemini-2\\.5-pro", "^gemini-2\\.5-flash"],
+    "promptCaching": ["^gemini-3", "^gemini-2\\.5", "^gpt-4", "^claude-3"],
+    "restrictedOutput": ["^gemini-3"],
+    "maxCompletionTokens": ["^(o\\d|gpt-5)"]
+  },
+  "modelFamilyNotes": {
+    "samplingParamsRejected": "Reject temperature/topP in favour of reasoning-effort controls: Claude Sonnet 5, Opus 4.7+ (including Opus 5) and the Fable/Mythos 5 tier, notably as served through Vertex. Patterns, because gateway ids carry arbitrary prefixes and suffixes (vertex_ai/claude-sonnet-5@20260203).",
+    "forcedToolChoiceRejected": "Answer a forced tool_choice (any or tool) with a 400: \"tool_choice: type \\\"tool\\\" and \\\"any\\\" are not supported for this model.\" Sonnet 5.5 and Opus 5.5 were probed live on Vertex; the Fable 5.1 docs state the same, and Mythos 5.1 shares Fable 5.1's capabilities. The same families also refuse thinking: {type: \"disabled\"}.",
+    "betweenToolsThinking": "Of forcedToolChoiceRejected, the ones that accept thinking: {type: \"between_tools\"} as their lowest setting. The rest think adaptively, always on, and take no thinking field in its place.",
+    "claudeModernVision": "Name-first Claude ids with major version 4 or later (claude-sonnet-5, claude-opus-4-7, claude-haiku-4-5) plus Fable/Mythos. Legacy number-first 3.x ids (claude-3-5-haiku) deliberately do not match: claude-3-5-haiku, the last non-vision Claude, must stay rejected.",
+    "gemini3": "Gemini 3 and 3.x: thinking takes thinkingLevel.",
+    "gemini25": "Gemini 2.5: rejects thinkingLevel with 400 \"thinking_level not supported\"; takes thinkingBudget.",
+    "maxCompletionTokens": "Reasoning-class OpenAI models (o-series, gpt-5+) reject max_tokens and take max_completion_tokens. Matched against the id after its last '/'.",
+    "restrictedOutput": "Output capped at gemini.json reasoning.restrictedOutputTokenLimit, as are the imageGeneration models (matched as prefixes)."
+  },
+  "modelFamilyLabels": {
+    "rules": [
+      {
+        "match": "^gemini-3",
+        "label": "gemini-3"
+      },
+      {
+        "match": "^gemini-2\\.5",
+        "label": "gemini-2.5"
+      },
+      {
+        "match": "^gemini-2",
+        "label": "gemini-2"
+      },
+      {
+        "match": "^gpt-4",
+        "label": "gpt-4"
+      },
+      {
+        "match": "^claude-3",
+        "label": "claude-3"
+      }
+    ],
+    "default": "unknown"
+  },
+  "modelLists": {
+    "imageGeneration": [
+      "gemini-3-pro-image-preview",
+      "gemini-2.5-flash-image",
+      "gemini-3.1-flash-image-preview",
+      "stable-image-ultra",
+      "stable-image-core",
+      "sd3.5-large",
+      "sd3.5-large-turbo",
+      "sd3.5-medium",
+      "V_1",
+      "V_1_TURBO",
+      "V_2",
+      "V_2_TURBO",
+      "V_2A",
+      "V_2A_TURBO",
+      "V_3",
+      "recraftv3",
+      "recraftv2",
+      "gpt-image-1",
+      "dall-e-3",
+      "dall-e-2",
+      "black-forest-labs/flux",
+      "stability-ai/sdxl",
+      "stability-ai/stable-diffusion"
+    ],
+    "pdfImageGeneration": [
+      "gemini-3-pro-image-preview",
+      "gemini-3.1-flash-image-preview"
+    ],
+    "vertexGlobalLocationText": [
+      "gemini-3.1-pro-preview",
+      "gemini-3.1-flash-lite-preview",
+      "gemini-3.1-pro-preview-customtools",
+      "gemini-3-pro-preview",
+      "gemini-3-pro-preview-11-2025",
+      "gemini-3-pro-latest",
+      "gemini-3-flash-preview"
+    ]
+  },
+  "modelListNotes": {
+    "imageGeneration": "Image-generation models, not text. isImageGenerationModel matches an entry exactly or bounded by - _ : . / @ or the ends, so short ids such as V_1 (Ideogram) don't match unrelated names. Groups: Gemini image (Vertex, AI Studio); Stability; Ideogram model versions; Recraft; OpenAI DALL-E and GPT-Image; Replicate slugs (matched as a slug prefix).",
+    "pdfImageGeneration": "Models that can generate images from PDFs.",
+    "vertexGlobalLocationText": "Gemini 3.x text models that Vertex serves only on the global endpoint (aiplatform.googleapis.com). GLOBAL_LOCATION_MODELS is imageGeneration followed by this list, so a new image model is routed to global too."
+  }
+}

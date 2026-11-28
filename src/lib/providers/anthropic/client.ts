@@ -60,19 +60,9 @@ import type {
   ExecutionControlDecision,
   ExecutionControlStepContext,
   OAuthToken,
-  ProviderErrorRule,
   ZodUnknownSchema,
 } from "../../types/index.js";
-import {
-  AuthenticationError,
-  NetworkError,
-  ProviderError,
-  RateLimitError,
-} from "../../types/index.js";
-import {
-  classifyProviderError,
-  messageNamesStatus,
-} from "../../utils/errorClassifier.js";
+import { AuthenticationError } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 import { drainDetachedPump } from "../../utils/drainDetachedPump.js";
 import {
@@ -98,6 +88,7 @@ import type {
 } from "../../types/index.js";
 import { stringifyAnthropicToolOutput } from "./toolOutput.js";
 import { createAnthropicLoopAdapter } from "./loopAdapter.js";
+import { getToolChoiceMap, translateToolChoice } from "../rules/toolRules.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import {
   AnthropicThreadStore,
@@ -175,8 +166,21 @@ import {
   appendFinalResultInstruction,
   appendFinalResultTool,
   appendToolAnswerInstruction,
-  FINAL_RESULT_TOOL_NAME,
 } from "./structuredOutput.js";
+import { FINAL_RESULT_TOOL_NAME } from "../rules/finalResultTool.js";
+import { classifyWithProviderRules } from "../rules/errorRules.js";
+import { getProviderErrorRules } from "../rules/registry.js";
+import { getRequestDefault } from "../rules/requestDefaults.js";
+import { toWireParams } from "../rules/requestFields.js";
+import { getThinkingLimits } from "../rules/thinkingLimits.js";
+import {
+  getFinishReasonMap,
+  translateFinishReason,
+} from "../rules/finishReasons.js";
+
+const ANTHROPIC_FINISH_REASONS = getFinishReasonMap("anthropic", "messages");
+
+const ANTHROPIC_ERROR_RULES = getProviderErrorRules("anthropic");
 
 // AnthropicProviderConfig is imported from types/providers.ts
 // Re-export for backward compatibility
@@ -644,27 +648,15 @@ const messagesToAnthropic = (
   };
 };
 
-/** Map a NeuroLink tool choice onto Anthropic's tool_choice shape. */
+const ANTHROPIC_TOOL_CHOICE = getToolChoiceMap("anthropic", "messages");
+
+/** Map a NeuroLink tool choice onto Anthropic's tool_choice shape (anthropic.json). */
 const toolChoiceToAnthropic = (
   choice: unknown,
-): Anthropic.Messages.MessageCreateParams["tool_choice"] => {
-  if (!choice || choice === "auto") {
-    return undefined; // Anthropic defaults to auto when tools are present
-  }
-  if (choice === "none") {
-    return { type: "none" };
-  }
-  if (choice === "required") {
-    return { type: "any" };
-  }
-  if (typeof choice === "object") {
-    const c = choice as { type?: string; toolName?: string };
-    if (c.type === "tool" && c.toolName) {
-      return { type: "tool", name: c.toolName };
-    }
-  }
-  return undefined;
-};
+): Anthropic.Messages.MessageCreateParams["tool_choice"] =>
+  translateToolChoice(ANTHROPIC_TOOL_CHOICE, choice) as
+    | Anthropic.Messages.MessageCreateParams["tool_choice"]
+    | undefined;
 
 /**
  * Claude 5.5 / 5.1 models answer a forced choice with a 400, so for them it
@@ -732,9 +724,10 @@ const continuesToolTurnWithoutThinking = (
  *   tool_choice forces tool use." with a 400. The forced choice wins and
  *   thinking is omitted, as on the Vertex schema path and in oauthFetch.ts.
  *   `none` and `auto` do not force tool use and leave thinking alone.
- * - `budget_tokens` must be at least 1024 and below `max_tokens`. As on the
- *   Vertex path, it is clamped to leave 1024 tokens for the answer, and
- *   thinking is omitted when no budget of at least 1024 fits.
+ * - `budget_tokens` must be at least `minBudgetTokens` and below
+ *   `max_tokens` (anthropic.json `thinkingLimits`). As on the Vertex path, it
+ *   is clamped to leave `answerReserveTokens` for the answer, and thinking is
+ *   omitted when no budget of at least the minimum fits.
  *
  * - Thinking cannot be switched on partway through a tool-use turn: when the
  *   final assistant message calls a tool and does not start with a thinking
@@ -747,6 +740,16 @@ const continuesToolTurnWithoutThinking = (
  * `{ type: "disabled" }` and an absent block pass through unchanged. Every
  * omission is logged, since the caller asked for thinking.
  */
+const THINKING_LIMITS = getThinkingLimits("anthropic");
+const LARGE_OUTPUT_THRESHOLD_TOKENS = getRequestDefault(
+  "anthropic",
+  "largeOutputThresholdTokens",
+);
+const LARGE_OUTPUT_TIMEOUT_FLOOR_MS = getRequestDefault(
+  "anthropic",
+  "largeOutputTimeoutFloorMs",
+);
+
 const fitThinkingToRequest = (
   thinking: AnthropicThinkingParam | undefined,
   toolChoice: Anthropic.Messages.MessageCreateParams["tool_choice"],
@@ -781,10 +784,15 @@ const fitThinkingToRequest = (
     );
     return undefined;
   }
-  const budget = Math.floor(Math.min(thinking.budget_tokens, maxTokens - 1024));
-  if (budget < 1024) {
+  const budget = Math.floor(
+    Math.min(
+      thinking.budget_tokens,
+      maxTokens - THINKING_LIMITS.answerReserveTokens,
+    ),
+  );
+  if (budget < THINKING_LIMITS.minBudgetTokens) {
     logger.warn(
-      `[anthropic] Omitting extended thinking: max_tokens ${maxTokens} leaves no room for a thinking budget of at least 1024 tokens plus an answer`,
+      `[anthropic] Omitting extended thinking: max_tokens ${maxTokens} leaves no room for a thinking budget of at least ${THINKING_LIMITS.minBudgetTokens} tokens plus an answer`,
     );
     return undefined;
   }
@@ -798,20 +806,12 @@ const fitThinkingToRequest = (
 };
 
 /** Map Anthropic stop_reason onto the V3 unified finish reason. */
-const mapAnthropicStopReason = (
-  raw: string | null | undefined,
-): "stop" | "length" | "tool-calls" | "content-filter" => {
-  switch (raw) {
-    case "max_tokens":
-      return "length";
-    case "tool_use":
-      return "tool-calls";
-    case "refusal":
-      return "content-filter";
-    default:
-      return "stop";
-  }
-};
+const mapAnthropicStopReason = (raw: string | null | undefined) =>
+  translateFinishReason(ANTHROPIC_FINISH_REASONS, raw) as
+    | "stop"
+    | "length"
+    | "tool-calls"
+    | "content-filter";
 
 // Anthropic's Messages API requires max_tokens on every request. When the
 // caller omits it, default to the model's real output ceiling via
@@ -825,7 +825,10 @@ const mapAnthropicStopReason = (
 // for the non-throwing path — suppresses that pre-flight throw so large
 // max_tokens (our model-ceiling default) works. Per-request duration is still
 // bounded by the abort signal NeuroLink composes for each call.
-const ANTHROPIC_CLIENT_TIMEOUT_MS = 600_000;
+const ANTHROPIC_CLIENT_TIMEOUT_MS = getRequestDefault(
+  "anthropic",
+  "clientTimeoutMs",
+);
 
 /**
  * Send one non-streaming step of a thread. The SDK's request type does not know
@@ -1869,10 +1872,9 @@ export class AnthropicProvider extends BaseProvider {
             "[anthropic] extended thinking is enabled, so temperature/top_p are omitted — Anthropic rejects any temperature but 1 while thinking is set",
           );
         }
-        const params: Anthropic.Messages.MessageCreateParamsNonStreaming = {
+        const params = {
           model: modelId,
           messages: cachedMessages,
-          max_tokens: maxTokens,
           ...(system ? { system } : {}),
           // Extended thinking fixes sampling: Anthropic rejects any
           // temperature but 1 while `thinking` is set, and does not honour
@@ -1880,19 +1882,16 @@ export class AnthropicProvider extends BaseProvider {
           // forwarding it alongside thinking turns a call that used to work
           // into a 400. Drop the sampling knobs for exactly those turns and
           // let Anthropic's thinking defaults stand.
-          ...(!thinkingOn && samplingParams.temperature !== undefined
-            ? { temperature: samplingParams.temperature }
-            : {}),
-          ...(!thinkingOn && samplingParams.topP !== undefined
-            ? { top_p: samplingParams.topP }
-            : {}),
-          ...(options.stopSequences && options.stopSequences.length > 0
-            ? { stop_sequences: options.stopSequences }
-            : {}),
+          ...toWireParams("anthropic", {
+            maxTokens,
+            temperature: thinkingOn ? undefined : samplingParams.temperature,
+            topP: thinkingOn ? undefined : samplingParams.topP,
+            stopSequences: options.stopSequences,
+          }),
           ...(tools ? { tools } : {}),
           ...(toolChoice ? { tool_choice: toolChoice } : {}),
           ...(thinking ? { thinking } : {}),
-        };
+        } as Anthropic.Messages.MessageCreateParamsNonStreaming;
 
         // The caller's resolved `timeout` reaches this layer only through
         // providerOptions.neurolink.timeoutMs (AI-SDK call options carry no
@@ -1912,8 +1911,11 @@ export class AnthropicProvider extends BaseProvider {
         const generateTimeoutMs =
           forwardedTimeoutMs !== undefined
             ? forwardedTimeoutMs
-            : params.max_tokens > 8192
-              ? Math.max(getTimeoutForOptions(options), 300_000)
+            : maxTokens > LARGE_OUTPUT_THRESHOLD_TOKENS
+              ? Math.max(
+                  getTimeoutForOptions(options),
+                  LARGE_OUTPUT_TIMEOUT_FLOOR_MS,
+                )
               : getTimeoutForOptions(options);
         const timeoutController = createTimeoutController(
           generateTimeoutMs,
@@ -2139,57 +2141,9 @@ export class AnthropicProvider extends BaseProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    const rules: ProviderErrorRule[] = [
-      {
-        // Plan 02's mocked-contract work documented a pre-existing gap: the
-        // Anthropic SDK formats auth failures as a bare "401 <msg>" string,
-        // which the message-text regex alone does not catch — mirrors
-        // Vertex's statusCode === 401 fallback in this same task.
-        match: (ctx) =>
-          ctx.statusCode === 401 ||
-          /API_KEY_INVALID|Invalid API key/i.test(ctx.message),
-        errorClass: AuthenticationError,
-        message:
-          "Invalid Anthropic API key. Please check your ANTHROPIC_API_KEY environment variable.",
-      },
-      {
-        match: (ctx) =>
-          ctx.statusCode === 429 ||
-          /rate limit|too_many_requests/i.test(ctx.message) ||
-          messageNamesStatus(ctx.message, 429),
-        errorClass: RateLimitError,
-        message: "Anthropic rate limit exceeded. Please try again later.",
-      },
-      {
-        match: (ctx) =>
-          /ECONNRESET|ENOTFOUND|ECONNREFUSED|network|connection/i.test(
-            ctx.message,
-          ),
-        errorClass: NetworkError,
-        message: (ctx) => `Connection error: ${ctx.message}`,
-      },
-      {
-        // Match the shared 5xx predicate: HTTP status or a bounded phrase,
-        // rather than digits embedded in an unrelated value.
-        match: (ctx) =>
-          (ctx.statusCode !== undefined &&
-            ctx.statusCode >= 500 &&
-            ctx.statusCode <= 599) ||
-          /server error|bad gateway|service unavailable|gateway timeout|\berror\b\D{0,12}\b5\d\d\b|\b5\d\d\b\D{0,12}\berror\b|\bstatus(?:\s*code)?\b\D{0,12}\b5\d\d\b/i.test(
-            ctx.message,
-          ),
-        errorClass: ProviderError,
-        message: (ctx) => `Server error: ${ctx.message}`,
-      },
-      {
-        match: () => true,
-        errorClass: ProviderError,
-        message: (ctx) => `Anthropic error: ${ctx.message}`,
-      },
-    ];
-    return classifyProviderError(
+    return classifyWithProviderRules(
       error,
-      rules,
+      ANTHROPIC_ERROR_RULES,
       this.providerName,
       this.modelName,
     );
@@ -2947,7 +2901,6 @@ export class AnthropicProvider extends BaseProvider {
         return {
           model: modelId,
           messages: cachedConversation,
-          max_tokens: maxTokens,
           // No `stream: true` here: executeStep sets it when it calls
           // messages.create, so declaring it made the caller assert a literal
           // the adapter immediately overwrites — and forced this whole params
@@ -2955,15 +2908,18 @@ export class AnthropicProvider extends BaseProvider {
           ...(payload.system ? { system: payload.system } : {}),
           // Same constraint on the streaming path: a temperature alongside
           // `thinking` is rejected outright.
-          ...(!thinkingOn && streamSamplingParams.temperature !== undefined
-            ? { temperature: streamSamplingParams.temperature }
-            : {}),
+          ...toWireParams("anthropic", {
+            maxTokens,
+            temperature: thinkingOn
+              ? undefined
+              : streamSamplingParams.temperature,
+          }),
           ...(cachedTools && cachedTools.length > 0
             ? { tools: cachedTools }
             : {}),
           ...(anthropicToolChoice ? { tool_choice: anthropicToolChoice } : {}),
           ...(thinking ? { thinking } : {}),
-        };
+        } as Anthropic.Messages.MessageCreateParamsNonStreaming;
       };
 
       const threadState = this.createMessageThreadSession(options);

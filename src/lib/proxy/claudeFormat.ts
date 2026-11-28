@@ -17,6 +17,12 @@ import type {
 } from "../types/index.js";
 import { normalizeJsonSchemaObject } from "../utils/schemaConversion.js";
 import { jsonSchema, tool } from "../utils/tool.js";
+import {
+  getFinishReasonMap,
+  translateFinishReason,
+} from "../providers/rules/finishReasons.js";
+
+const TO_CLAUDE_FINISH = getFinishReasonMap("proxy", "toClaude");
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -268,22 +274,7 @@ export function parseClaudeRequest(body: ClaudeRequest): ParsedClaudeRequest {
  * Map NeuroLink finish-reason strings to Claude stop_reason values.
  */
 function mapStopReason(finishReason: string | undefined): string | null {
-  switch (finishReason) {
-    case "stop":
-    case "end_turn":
-      return "end_turn";
-    case "length":
-    case "max_tokens":
-      return "max_tokens";
-    case "tool-calls":
-    case "tool_use":
-      return "tool_use";
-    case "content_filter":
-    case "safety":
-      return "stop_sequence"; // closest match
-    default:
-      return finishReason ?? "end_turn";
-  }
+  return translateFinishReason(TO_CLAUDE_FINISH, finishReason);
 }
 
 /**

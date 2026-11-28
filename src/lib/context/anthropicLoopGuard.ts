@@ -33,14 +33,14 @@ import {
 } from "./toolOutputLimits.js";
 import { planLoopGuardReclaim } from "./loopGuardCore.js";
 import { logger } from "../utils/logger.js";
+import { getContextTexts } from "../providers/rules/requestFields.js";
 
 /** Preview budget for an old tool output. Matches the other loop guards. */
 const OLD_TOOL_OUTPUT_PREVIEW_BYTES = 2_048;
 const OLD_TOOL_OUTPUT_PREVIEW_LINES = 60;
 
 /** Marker left where dropped history used to be. */
-export const ANTHROPIC_ELISION_NOTE =
-  "[Earlier tool exchanges were removed to fit the context window.]";
+export const ANTHROPIC_ELISION_NOTE = getContextTexts("anthropic").elisionNote;
 
 /** Serialize any value to text for estimation. Never throws. */
 function toText(value: unknown): string {

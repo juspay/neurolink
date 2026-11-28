@@ -1,0 +1,66 @@
+{
+  "$schema": "./provider-rules.schema.json",
+  "id": "openai-chat",
+  "finishReasons": {
+    "chatCompletions": {
+      "map": {
+        "length": "length",
+        "tool_calls": "tool-calls",
+        "function_call": "tool-calls",
+        "tool-calls": "tool-calls",
+        "content_filter": "content-filter",
+        "content-filter": "content-filter"
+      },
+      "default": "stop"
+    }
+  },
+  "usage": {
+    "input": "prompt_tokens",
+    "output": "completion_tokens",
+    "total": "total_tokens",
+    "cacheRead": "prompt_tokens_details.cached_tokens",
+    "reasoning": "completion_tokens_details.reasoning_tokens",
+    "reasoningInOutput": true
+  },
+  "toolChoices": {
+    "neurolink": {
+      "modes": {
+        "auto": "auto",
+        "none": "none",
+        "required": "required"
+      },
+      "acceptStrings": true,
+      "acceptModeObjects": false,
+      "tool": {
+        "type": "function",
+        "function": {
+          "name": "{toolName}"
+        }
+      },
+      "toolRequiresName": true,
+      "fallback": null
+    },
+    "v3": {
+      "modes": {
+        "auto": "auto",
+        "none": "none",
+        "required": "required"
+      },
+      "acceptStrings": false,
+      "acceptModeObjects": true,
+      "tool": {
+        "type": "function",
+        "function": {
+          "name": "{toolName}"
+        }
+      },
+      "toolRequiresName": false,
+      "fallback": null
+    }
+  },
+  "toolNames": {
+    "firstChars": "a-zA-Z_",
+    "allowedChars": "a-zA-Z0-9_-",
+    "maxLength": 64
+  }
+}

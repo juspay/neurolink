@@ -36,7 +36,12 @@ import type {
 } from "../types/index.js";
 import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
 import { NeuroLinkError } from "../utils/errorHandling.js";
-import { sanitizeToolName } from "../mcp/toolConverter.js";
+import {
+  compileToolNameRules,
+  getToolChoiceMap,
+  getToolNameRules,
+  translateToolChoice,
+} from "./rules/toolRules.js";
 import { resolveSamplingParams } from "../models/modelRegistry.js";
 import {
   convertZodToJsonSchema,
@@ -47,17 +52,17 @@ import {
   IMAGE_TOKEN_ESTIMATE,
   TOKENS_PER_MESSAGE,
 } from "../utils/tokenEstimation.js";
+import { inModelFamily } from "./rules/modelFamilies.js";
 
 export const stripTrailingSlash = (s: string): string => s.replace(/\/+$/, "");
 
-// OpenAI-compatible wire tool names: first char letter/underscore (some
-// chat templates treat a leading digit or hyphen as invalid identifiers),
-// then letters/digits/underscore/hyphen, 64 chars total — exactly the
-// pattern below, which mirrors sanitizeToolName's output alphabet. MCP
-// servers can register names outside it (dots, colons, spaces); sent
-// verbatim they make backends reject the tools block or emit tool_calls
+// OpenAI-compatible wire tool names (openai-chat.json `toolNames`). MCP
+// servers can register names outside that alphabet (dots, colons, spaces);
+// sent verbatim they make backends reject the tools block or emit tool_calls
 // that no longer match the registry.
-const WIRE_TOOL_NAME_RE = /^[a-zA-Z_][a-zA-Z0-9_-]{0,63}$/;
+const WIRE_TOOL_NAMES = compileToolNameRules(getToolNameRules("openai-chat"));
+const CHAT_TOOL_CHOICE = getToolChoiceMap("openai-chat", "neurolink");
+const V3_TOOL_CHOICE = getToolChoiceMap("openai-chat", "v3");
 
 /**
  * Build a bijective original ↔ wire tool-name map. Returns undefined when
@@ -80,7 +85,7 @@ export const buildWireToolNameMaps = (
   | undefined => {
   if (
     names.every(
-      (name) => WIRE_TOOL_NAME_RE.test(name) && !reservedWireNames?.has(name),
+      (name) => WIRE_TOOL_NAMES.isValid(name) && !reservedWireNames?.has(name),
     )
   ) {
     return undefined;
@@ -88,17 +93,11 @@ export const buildWireToolNameMaps = (
   const toWire = new Map<string, string>();
   const fromWire = new Map<string, string>();
   for (const name of names) {
-    let wire = WIRE_TOOL_NAME_RE.test(name) ? name : sanitizeToolName(name);
-    if (fromWire.has(wire) || reservedWireNames?.has(wire)) {
-      let suffix = 2;
-      let candidate: string;
-      do {
-        const tail = `_${suffix}`;
-        candidate = `${wire.slice(0, 64 - tail.length)}${tail}`;
-        suffix++;
-      } while (fromWire.has(candidate) || reservedWireNames?.has(candidate));
-      wire = candidate;
-    }
+    const wire = WIRE_TOOL_NAMES.unique(
+      WIRE_TOOL_NAMES.sanitize(name),
+      (candidate) =>
+        fromWire.has(candidate) || !!reservedWireNames?.has(candidate),
+    );
     toWire.set(name, wire);
     fromWire.set(wire, name);
   }
@@ -495,21 +494,12 @@ export const v3ToolsToOpenAI = (
 export const v3ToolChoiceToOpenAI = (
   choice: OpenAICompatV3CallToolChoice,
   toolNameToWire?: Map<string, string>,
-): OpenAICompatToolChoiceWire | undefined => {
-  switch (choice.type) {
-    case "auto":
-    case "none":
-    case "required":
-      return choice.type;
-    case "tool":
-      return {
-        type: "function",
-        function: {
-          name: toolNameToWire?.get(choice.toolName) ?? choice.toolName,
-        },
-      };
-  }
-};
+): OpenAICompatToolChoiceWire | undefined =>
+  translateToolChoice(
+    V3_TOOL_CHOICE,
+    choice,
+    (name) => toolNameToWire?.get(name) ?? name,
+  ) as OpenAICompatToolChoiceWire | undefined;
 
 /**
  * OpenAI's strict structured-output mode rejects a schema unless every object
@@ -716,24 +706,12 @@ export const v3ResponseFormatToOpenAI = (rf: {
 export const mapNeuroLinkToolChoice = (
   choice: unknown,
   toolNameToWire?: Map<string, string>,
-): OpenAICompatToolChoiceWire | undefined => {
-  if (!choice) {
-    return undefined;
-  }
-  if (choice === "auto" || choice === "none" || choice === "required") {
-    return choice;
-  }
-  if (typeof choice === "object" && choice !== null) {
-    const c = choice as { type?: string; toolName?: string };
-    if (c.type === "tool" && c.toolName) {
-      return {
-        type: "function",
-        function: { name: toolNameToWire?.get(c.toolName) ?? c.toolName },
-      };
-    }
-  }
-  return undefined;
-};
+): OpenAICompatToolChoiceWire | undefined =>
+  translateToolChoice(
+    CHAT_TOOL_CHOICE,
+    choice,
+    (name) => toolNameToWire?.get(name) ?? name,
+  ) as OpenAICompatToolChoiceWire | undefined;
 
 // OpenAI-compatible endpoints (OpenAI, DeepSeek, …) reject
 // `response_format: { type: "json_object" }` unless the literal word "json"
@@ -782,11 +760,12 @@ export const ensureJsonWordInBody = (
     : body;
 
 // Reasoning-class OpenAI models (o-series, gpt-5+) reject `max_tokens` and
-// require `max_completion_tokens`. The OpenAI + Azure providers use this to
-// rename the field on the wire body; third-party OpenAI-compatible endpoints
-// keep `max_tokens`, so it is opt-in per provider, never applied by default.
+// require `max_completion_tokens` (model-families.json maxCompletionTokens).
+// Only the Azure provider uses this to rename the field on the wire body;
+// third-party OpenAI-compatible endpoints keep `max_tokens`, so it is opt-in
+// per provider, never applied by default.
 export const requiresMaxCompletionTokens = (modelId: string): boolean =>
-  /^(o\d|gpt-5)/i.test(modelId.replace(/^.*\//, ""));
+  inModelFamily("maxCompletionTokens", modelId.replace(/^.*\//, ""));
 
 export const buildBody = (
   args: OpenAICompatBuildBodyArgs,

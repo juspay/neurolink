@@ -1,0 +1,21 @@
+{
+  "$schema": "./provider-rules.schema.json",
+  "id": "lm-studio",
+  "errors": {
+    "rules": [
+      {
+        "errorCode": "ECONNREFUSED",
+        "pattern": "ECONNREFUSED|Failed to fetch|fetch failed",
+        "caseSensitive": true,
+        "class": "network",
+        "message": "LM Studio server not reachable at {baseURL}. Open the LM Studio app, load a model, and click \"Start Server\"."
+      },
+      {
+        "pattern": "model_not_found|404",
+        "caseSensitive": true,
+        "class": "invalid-model",
+        "message": "LM Studio model '{model}' is not loaded. Load it in the LM Studio app first."
+      }
+    ]
+  }
+}

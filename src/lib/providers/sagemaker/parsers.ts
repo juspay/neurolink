@@ -23,6 +23,23 @@ import { SageMakerError } from "./errors.js";
 import { logger } from "../../utils/logger.js";
 import { randomUUID } from "crypto";
 import { estimateTokens } from "../../utils/tokenEstimation.js";
+import {
+  getFinishReasonMap,
+  translateFinishReason,
+} from "../rules/finishReasons.js";
+import { getUsageDialect, readUsageCounts } from "../rules/wireUsage.js";
+
+const HF_USAGE = getUsageDialect("sagemaker", "huggingface");
+const OPENAI_USAGE = getUsageDialect("sagemaker", "openai");
+const CUSTOM_USAGE = getUsageDialect("sagemaker", "custom");
+const SAGEMAKER_HF_STREAM_FINISH = getFinishReasonMap(
+  "sagemaker",
+  "huggingfaceStream",
+);
+const SAGEMAKER_OPENAI_STREAM_FINISH = getFinishReasonMap(
+  "sagemaker",
+  "openaiStream",
+);
 /**
  * Constants for JSON parsing and validation
  */
@@ -354,30 +371,16 @@ export class HuggingFaceStreamParser extends BaseStreamingParser {
       return undefined;
     }
 
-    const tokens = details.tokens as Record<string, unknown>;
-    const promptTokens = Number(tokens.input) || 0;
-    const completionTokens = Number(tokens.generated) || 0;
-    return {
-      promptTokens,
-      completionTokens,
-      // Endpoints that omit the total must not report 0 next to real counts.
-      total: Number(tokens.total) || promptTokens + completionTokens,
-    };
+    return readUsageCounts(HF_USAGE, details.tokens);
   }
 
   private mapFinishReason(
     reason: string | undefined,
   ): SageMakerStreamChunk["finishReason"] {
-    switch (reason) {
-      case "stop":
-        return "stop";
-      case "length":
-        return "length";
-      case "eos_token":
-        return "stop";
-      default:
-        return "unknown";
-    }
+    return translateFinishReason(
+      SAGEMAKER_HF_STREAM_FINISH,
+      reason,
+    ) as SageMakerStreamChunk["finishReason"];
   }
 }
 
@@ -564,31 +567,14 @@ export class LlamaStreamParser extends BaseStreamingParser {
   }
 
   private parseLlamaUsage(usage: Record<string, unknown>): SageMakerUsage {
-    const promptTokens = Number(usage.prompt_tokens) || 0;
-    const completionTokens = Number(usage.completion_tokens) || 0;
-    return {
-      promptTokens,
-      completionTokens,
-      // Endpoints that omit total_tokens must not report 0 next to real counts.
-      total: Number(usage.total_tokens) || promptTokens + completionTokens,
-    };
+    return readUsageCounts(OPENAI_USAGE, usage);
   }
 
   private mapFinishReason(
     reason: string | null,
   ): SageMakerStreamChunk["finishReason"] {
-    switch (reason) {
-      case "stop":
-        return "stop";
-      case "length":
-        return "length";
-      case "function_call":
-        return "tool-calls";
-      case "content_filter":
-        return "content-filter";
-      default:
-        return reason ? "unknown" : undefined;
-    }
+    return (translateFinishReason(SAGEMAKER_OPENAI_STREAM_FINISH, reason) ??
+      undefined) as SageMakerStreamChunk["finishReason"];
   }
 }
 
@@ -718,17 +704,7 @@ export class CustomStreamParser extends BaseStreamingParser {
   private parseCustomUsage(
     data: Record<string, unknown>,
   ): SageMakerUsage | undefined {
-    const usage = (data.usage || data.tokens || {}) as Record<string, unknown>;
-
-    const promptTokens = Number(usage.prompt_tokens || usage.input_tokens) || 0;
-    const completionTokens =
-      Number(usage.completion_tokens || usage.output_tokens) || 0;
-    return {
-      promptTokens,
-      completionTokens,
-      // Endpoints that omit total_tokens must not report 0 next to real counts.
-      total: Number(usage.total_tokens) || promptTokens + completionTokens,
-    };
+    return readUsageCounts(CUSTOM_USAGE, data.usage || data.tokens || {});
   }
 }
 

@@ -18,6 +18,10 @@ import { logger } from "../../utils/logger.js";
 import { estimateTokens } from "../../utils/tokenEstimation.js";
 import { createSageMakerDetector } from "./detection.js";
 import { StreamingParserFactory } from "./parsers.js";
+import { getUsageDialect, readUsageCounts } from "../rules/wireUsage.js";
+
+const BODY_USAGE = getUsageDialect("sagemaker", "responseBody");
+const HF_BODY_USAGE = getUsageDialect("sagemaker", "huggingface");
 
 /**
  * Synthetic streaming delay in milliseconds for simulating real-time response
@@ -466,30 +470,17 @@ export function parseUsageFromResponseBody(
     | Record<string, unknown>
     | undefined;
   if (usageRecord && typeof usageRecord === "object") {
-    const promptTokens =
-      Number(usageRecord.prompt_tokens ?? usageRecord.input_tokens) || 0;
-    const completionTokens =
-      Number(usageRecord.completion_tokens ?? usageRecord.output_tokens) || 0;
-    if (promptTokens > 0 || completionTokens > 0) {
-      return {
-        promptTokens,
-        completionTokens,
-        total:
-          Number(usageRecord.total_tokens) || promptTokens + completionTokens,
-      };
+    const counts = readUsageCounts(BODY_USAGE, usageRecord);
+    if (counts.promptTokens > 0 || counts.completionTokens > 0) {
+      return counts;
     }
   }
   const details = responseBody.details as Record<string, unknown> | undefined;
   const tokens = details?.tokens as Record<string, unknown> | undefined;
   if (tokens && typeof tokens === "object") {
-    const promptTokens = Number(tokens.input) || 0;
-    const completionTokens = Number(tokens.generated) || 0;
-    if (promptTokens > 0 || completionTokens > 0) {
-      return {
-        promptTokens,
-        completionTokens,
-        total: Number(tokens.total) || promptTokens + completionTokens,
-      };
+    const counts = readUsageCounts(HF_BODY_USAGE, tokens);
+    if (counts.promptTokens > 0 || counts.completionTokens > 0) {
+      return counts;
     }
   }
   return undefined;

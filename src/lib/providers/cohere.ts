@@ -1,20 +1,7 @@
 import type { AIProviderName } from "../constants/enums.js";
 import { CohereModels } from "../constants/enums.js";
-import {
-  AuthenticationError,
-  InvalidModelError,
-  ProviderError,
-  RateLimitError,
-} from "../types/index.js";
-import type {
-  EmbedInput,
-  NeurolinkCredentials,
-  ProviderErrorRule,
-} from "../types/index.js";
-import {
-  classifyProviderError,
-  DEFAULT_ERROR_RULES,
-} from "../utils/errorClassifier.js";
+import { ProviderError } from "../types/index.js";
+import type { EmbedInput, NeurolinkCredentials } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
@@ -27,6 +14,10 @@ import { createTimeoutController } from "../utils/timeout.js";
 import { stripTrailingSlash } from "./openaiChatCompletionsClient.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 import { isFiniteEmbeddingVector } from "./embeddingResponseParsing.js";
+import { classifyWithProviderRules } from "./rules/errorRules.js";
+import { getProviderErrorRules } from "./rules/registry.js";
+
+const COHERE_ERROR_RULES = getProviderErrorRules("cohere");
 
 const COHERE_DEFAULT_BASE_URL = "https://api.cohere.com/compatibility/v1";
 
@@ -98,44 +89,12 @@ export class CohereProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    const rules: ProviderErrorRule[] = [
-      // "invalid api token" is checked lowercase (case-sensitive substring, as
-      // in the original) — deliberately NOT normalized to match the family's
-      // more common "Invalid API key" capitalization, since Cohere's actual
-      // wire message differs.
-      {
-        match: (ctx) =>
-          /invalid api token|Authentication|401|invalid_api_token/.test(
-            ctx.message,
-          ),
-        errorClass: AuthenticationError,
-        message:
-          "Invalid Cohere API key. Check COHERE_API_KEY. Get one at https://dashboard.cohere.com/api-keys",
-      },
-      {
-        match: (ctx) => /rate limit|429/.test(ctx.message),
-        errorClass: RateLimitError,
-        message: "Cohere rate limit exceeded. Back off and retry.",
-      },
-      {
-        match: (ctx) => /model_not_found|404/.test(ctx.message),
-        errorClass: InvalidModelError,
-        message: () =>
-          `Cohere model '${this.modelName}' not found. Use command-r, command-r-plus, or command-r7b-12-2024.`,
-      },
-      {
-        match: (ctx) => /trial limit|trial_limit/.test(ctx.message),
-        errorClass: ProviderError,
-        message:
-          "Cohere trial usage limit exceeded. Upgrade at https://dashboard.cohere.com/billing.",
-      },
-      ...DEFAULT_ERROR_RULES,
-    ];
-    return classifyProviderError(
+    return classifyWithProviderRules(
       error,
-      rules,
+      COHERE_ERROR_RULES,
       this.providerName,
       this.modelName,
+      { vars: () => ({ model: `${this.modelName}` }) },
     );
   }
 

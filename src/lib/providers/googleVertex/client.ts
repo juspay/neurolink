@@ -47,7 +47,6 @@ import type {
   TextGenerationOptions,
   GenAIClient,
   GoogleGenAIClass,
-  AnthropicSamplingParams,
   AnthropicVertexSettings,
   StreamOptions,
   StreamResult,
@@ -65,7 +64,6 @@ import type {
   MinimalChatMessage,
   MultimodalAudioEntry,
   MultimodalVideoEntry,
-  ProviderErrorRule,
   LanguageModelV3,
   LanguageModelV3CallOptions,
   LanguageModelV3StreamPart,
@@ -73,17 +71,7 @@ import type {
   TokenUsage,
   MiddlewareFactoryOptions,
 } from "../../types/index.js";
-import {
-  AuthenticationError,
-  InvalidModelError,
-  NetworkError,
-  ProviderError,
-  RateLimitError,
-} from "../../types/index.js";
-import {
-  classifyProviderError,
-  messageNamesStatus,
-} from "../../utils/errorClassifier.js";
+import { AuthenticationError, ProviderError } from "../../types/index.js";
 import { ERROR_CODES, NeuroLinkError } from "../../utils/errorHandling.js";
 import { applyVertexAnthropicCacheBreakpoints } from "../../utils/anthropicCacheBreakpoints.js";
 import { FileDetector } from "../../utils/fileDetector.js";
@@ -201,6 +189,41 @@ import type {
   SpanModelRequest,
   VertexUsageCounter,
 } from "../../types/index.js";
+import { classifyWithProviderRules } from "../rules/errorRules.js";
+import { getProviderErrorRules } from "../rules/registry.js";
+import { getThinkingLimits } from "../rules/thinkingLimits.js";
+import { getRequestDefault } from "../rules/requestDefaults.js";
+import { toWireParams } from "../rules/requestFields.js";
+import {
+  getFinishReasonMap,
+  translateFinishReason,
+} from "../rules/finishReasons.js";
+import {
+  FINAL_RESULT_TOOL_DESCRIPTION,
+  FINAL_RESULT_TOOL_NAME,
+  finalResultToolInstruction,
+} from "../rules/finalResultTool.js";
+import {
+  getWireUsage,
+  outputWithReasoning,
+  splitIncludedCount,
+} from "../rules/wireUsage.js";
+
+const ANTHROPIC_MESSAGES_FINISH = getFinishReasonMap("anthropic", "messages");
+
+// Sizing of the forced finalization call after a Claude-on-Vertex loop stops.
+const FINALIZATION_MIN_TOKENS = getRequestDefault(
+  "vertex",
+  "finalizationMinTokens",
+);
+const FINALIZATION_HEADROOM_TOKENS = getRequestDefault(
+  "vertex",
+  "finalizationHeadroomTokens",
+);
+
+const GEMINI_USAGE = getWireUsage("gemini");
+
+const VERTEX_ERROR_RULES = getProviderErrorRules("vertex");
 
 // Import proper types for multimodal message handling
 
@@ -1747,9 +1770,8 @@ export class GoogleVertexProvider extends BaseProvider {
     }
     const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
     return {
-      name: "final_result",
-      description:
-        "Return the final structured result. You MUST call this tool when you have gathered all information and are ready to provide the final answer. The arguments should contain the structured data matching the expected schema.",
+      name: FINAL_RESULT_TOOL_NAME,
+      description: FINAL_RESULT_TOOL_DESCRIPTION,
       input_schema: {
         type: "object",
         properties:
@@ -2018,9 +2040,8 @@ export class GoogleVertexProvider extends BaseProvider {
       // Add final_result tool to the existing function declarations
       const existingDeclarations = tools[0]?.functionDeclarations || [];
       existingDeclarations.push({
-        name: "final_result",
-        description:
-          "Return the final structured result. You MUST call this tool when you have gathered all information and are ready to provide the final answer. The arguments should contain the structured data matching the expected schema.",
+        name: FINAL_RESULT_TOOL_NAME,
+        description: FINAL_RESULT_TOOL_DESCRIPTION,
         parametersJsonSchema: typedSchema,
       });
       tools = [{ functionDeclarations: existingDeclarations }];
@@ -2089,7 +2110,7 @@ export class GoogleVertexProvider extends BaseProvider {
     let effectiveSystemPrompt = options.systemPrompt || "";
     if (useFinalResultTool) {
       const finalResultInstruction =
-        "\n\nIMPORTANT: When you have gathered all necessary information and are ready to provide your final answer, you MUST call the 'final_result' tool with the structured data. Do not return the final answer as plain text - always use the final_result tool.";
+        finalResultToolInstruction("callWhenReady");
       effectiveSystemPrompt = effectiveSystemPrompt + finalResultInstruction;
     }
 
@@ -2300,7 +2321,7 @@ export class GoogleVertexProvider extends BaseProvider {
         ...(declarations ? { declarations } : {}),
         ...(useFinalResultTool
           ? {
-              finalResultToolName: "final_result",
+              finalResultToolName: FINAL_RESULT_TOOL_NAME,
               onTerminalResult: (text) => {
                 try {
                   finalResultStructuredOutput = JSON.parse(text) as Record<
@@ -2601,7 +2622,7 @@ export class GoogleVertexProvider extends BaseProvider {
       ) {
         hitStepLimit = stepsTaken >= maxSteps && !wasAborted;
         const toolCallCount = allToolCalls.filter(
-          (tc) => tc.toolName !== "final_result",
+          (tc) => tc.toolName !== FINAL_RESULT_TOOL_NAME,
         ).length;
         // The consumer receives text via `incrementalTextChunks`; any text the
         // model emitted across steps is already preserved there. Only produce a
@@ -2703,7 +2724,7 @@ export class GoogleVertexProvider extends BaseProvider {
         step: stepsTaken,
         maxSteps,
         toolCallCount: allToolCalls.filter(
-          (tc) => tc.toolName !== "final_result",
+          (tc) => tc.toolName !== FINAL_RESULT_TOOL_NAME,
         ).length,
         elapsedMs: turnClock.elapsedMs(),
       });
@@ -2733,19 +2754,19 @@ export class GoogleVertexProvider extends BaseProvider {
 
     // Filter out final_result from tool calls as it's an internal pattern
     const externalToolCalls = allToolCalls.filter(
-      (tc) => tc.toolName !== "final_result",
+      (tc) => tc.toolName !== FINAL_RESULT_TOOL_NAME,
     );
     const externalToolExecutions = toolExecutions.filter(
-      (te) => te.name !== "final_result",
+      (te) => te.name !== FINAL_RESULT_TOOL_NAME,
     );
 
     // Gemini promptTokenCount is OVERLAPPING (already includes
     // cachedContentTokenCount). Subtract once so the cached portion is billed at
     // the cheaper cacheRead rate without double-counting; total is conserved.
-    const adjustedInputTokens = Math.max(
-      0,
-      totalInputTokens - totalCacheReadTokens,
-    );
+    const adjustedInputTokens = splitIncludedCount(
+      totalInputTokens,
+      totalCacheReadTokens,
+    ).rest;
     const result: StreamResult = {
       stream: createTextStream(),
       provider: this.providerName,
@@ -2760,7 +2781,11 @@ export class GoogleVertexProvider extends BaseProvider {
         // candidates + thoughts), so they are folded into `output` — that is
         // what calculateCost bills at the output rate — with `reasoning`
         // reporting the thinking subset.
-        output: totalOutputTokens + totalReasoningTokens,
+        output: outputWithReasoning(
+          GEMINI_USAGE,
+          totalOutputTokens,
+          totalReasoningTokens,
+        ),
         total:
           adjustedInputTokens +
           totalCacheReadTokens +
@@ -3115,9 +3140,8 @@ export class GoogleVertexProvider extends BaseProvider {
       // Add final_result tool to the existing function declarations
       const existingDeclarations = tools[0]?.functionDeclarations || [];
       existingDeclarations.push({
-        name: "final_result",
-        description:
-          "Return the final structured result. You MUST call this tool when you have gathered all information and are ready to provide the final answer. The arguments should contain the structured data matching the expected schema.",
+        name: FINAL_RESULT_TOOL_NAME,
+        description: FINAL_RESULT_TOOL_DESCRIPTION,
         parametersJsonSchema: typedSchema,
       });
       tools = [{ functionDeclarations: existingDeclarations }];
@@ -3186,7 +3210,7 @@ export class GoogleVertexProvider extends BaseProvider {
     let effectiveSystemPrompt = options.systemPrompt || "";
     if (useFinalResultTool) {
       const finalResultInstruction =
-        "\n\nIMPORTANT: When you have gathered all necessary information and are ready to provide your final answer, you MUST call the 'final_result' tool with the structured data. Do not return the final answer as plain text - always use the final_result tool.";
+        finalResultToolInstruction("callWhenReady");
       effectiveSystemPrompt = effectiveSystemPrompt + finalResultInstruction;
     }
 
@@ -3386,7 +3410,7 @@ export class GoogleVertexProvider extends BaseProvider {
         ...(declarations ? { declarations } : {}),
         ...(useFinalResultTool
           ? {
-              finalResultToolName: "final_result",
+              finalResultToolName: FINAL_RESULT_TOOL_NAME,
               onTerminalResult: (text) => {
                 try {
                   finalResultStructuredOutput = JSON.parse(text) as Record<
@@ -3637,7 +3661,13 @@ export class GoogleVertexProvider extends BaseProvider {
           throw this.handleProviderError(error);
         }
       }
-      await pump;
+      // On the abort path the catch above already drained the pump. Awaiting
+      // it again would rethrow the AbortError that branch chose to absorb, so
+      // a turn-time-limit exit reached the caller as a bare "This operation
+      // was aborted" instead of the turn's terminal result.
+      if (!wasAborted) {
+        await pump;
+      }
 
       if (engineResult) {
         finalText = engineResult.text;
@@ -3680,7 +3710,7 @@ export class GoogleVertexProvider extends BaseProvider {
       ) {
         hitStepLimit = stepsTaken >= maxSteps && !wasAborted;
         const toolCallCount = allToolCalls.filter(
-          (tc) => tc.toolName !== "final_result",
+          (tc) => tc.toolName !== FINAL_RESULT_TOOL_NAME,
         ).length;
         if (accumulatedText) {
           // Prefer the prose the model already produced across steps.
@@ -3779,7 +3809,7 @@ export class GoogleVertexProvider extends BaseProvider {
         step: stepsTaken,
         maxSteps,
         toolCallCount: allToolCalls.filter(
-          (tc) => tc.toolName !== "final_result",
+          (tc) => tc.toolName !== FINAL_RESULT_TOOL_NAME,
         ).length,
         elapsedMs: turnClock.elapsedMs(),
       });
@@ -3789,20 +3819,20 @@ export class GoogleVertexProvider extends BaseProvider {
 
     // Filter out final_result from tool calls and executions as it's an internal pattern
     const externalToolCalls = allToolCalls.filter(
-      (tc) => tc.toolName !== "final_result",
+      (tc) => tc.toolName !== FINAL_RESULT_TOOL_NAME,
     );
     const externalToolExecutions = toolExecutions.filter(
-      (te) => te.name !== "final_result",
+      (te) => te.name !== FINAL_RESULT_TOOL_NAME,
     );
 
     // Build EnhancedGenerateResult
     // Gemini promptTokenCount is OVERLAPPING (already includes
     // cachedContentTokenCount). Subtract once so the cached portion is billed at
     // the cheaper cacheRead rate without double-counting; total is conserved.
-    const adjustedInputTokens = Math.max(
-      0,
-      totalInputTokens - totalCacheReadTokens,
-    );
+    const adjustedInputTokens = splitIncludedCount(
+      totalInputTokens,
+      totalCacheReadTokens,
+    ).rest;
     const result: EnhancedGenerateResult = {
       content: finalText,
       provider: this.providerName,
@@ -3818,7 +3848,11 @@ export class GoogleVertexProvider extends BaseProvider {
         // candidates + thoughts), so they are folded into `output` — that is
         // what calculateCost bills at the output rate — with `reasoning`
         // reporting the thinking subset.
-        output: totalOutputTokens + totalReasoningTokens,
+        output: outputWithReasoning(
+          GEMINI_USAGE,
+          totalOutputTokens,
+          totalReasoningTokens,
+        ),
         total:
           adjustedInputTokens +
           totalCacheReadTokens +
@@ -3922,9 +3956,7 @@ export class GoogleVertexProvider extends BaseProvider {
             : "";
         synthConfig.systemInstruction =
           baseSystemInstruction +
-          "\n\nThe final_result tool is no longer available. Provide your " +
-          "final answer directly as plain text now, using the information " +
-          "gathered so far.";
+          finalResultToolInstruction("noLongerAvailable");
       }
 
       // Bound the whole connect + drain with a timeout. The surrounding
@@ -4157,18 +4189,20 @@ export class GoogleVertexProvider extends BaseProvider {
     if (!options.thinkingConfig?.enabled || !budget) {
       return undefined;
     }
-    // Two independent floors, checked explicitly rather than folded into one
-    // Math.max/min expression: Anthropic's own 1024 minimum on budget_tokens,
-    // and this function's 1024-token reservation for the answer that follows
-    // thinking. When maxTokens leaves no room for both — 1025..2047 is the
-    // narrow band where that happens — there is no valid budget, so thinking
-    // is omitted rather than silently coerced to exactly 1024 regardless of
+    // Two independent floors (anthropic.json `thinkingLimits`), checked
+    // explicitly rather than folded into one Math.max/min expression:
+    // Anthropic's own minimum on budget_tokens, and the reservation for the
+    // answer that follows thinking. When maxTokens leaves no room for both
+    // (1025..2047 with today's values) there is no valid budget, so thinking
+    // is omitted rather than silently coerced to the minimum regardless of
     // what the caller asked for.
-    if (maxTokens <= 1024) {
+    const { minBudgetTokens, answerReserveTokens } =
+      getThinkingLimits("anthropic");
+    if (maxTokens <= answerReserveTokens) {
       return undefined;
     }
-    const clamped = Math.min(budget, maxTokens - 1024);
-    if (clamped < 1024) {
+    const clamped = Math.min(budget, maxTokens - answerReserveTokens);
+    if (clamped < minBudgetTokens) {
       return undefined;
     }
     return { type: "enabled" as const, budget_tokens: clamped };
@@ -4431,8 +4465,7 @@ export class GoogleVertexProvider extends BaseProvider {
       tools.push(finalResultTool);
 
       // Add instruction to system prompt
-      schemaSystemPromptSuffix =
-        "\n\nIMPORTANT: You MUST call the 'final_result' tool to return your response in the required structured format. Do not respond with plain text - always use the final_result tool.";
+      schemaSystemPromptSuffix = finalResultToolInstruction("mustCall");
 
       logger.debug(
         "[GoogleVertex] Added final_result tool for Anthropic structured output (stream)",
@@ -4482,14 +4515,8 @@ export class GoogleVertexProvider extends BaseProvider {
       forceFinalResult,
     );
 
-    const requestParams: Parameters<typeof client.messages.stream>[0] &
-      AnthropicSamplingParams = {
+    const requestParams = {
       model: modelName,
-      // Default to the model's real output ceiling (e.g. 64K for Sonnet 4.x)
-      // instead of the legacy 4096, which silently truncated large structured
-      // responses mid-JSON. resolveClaudeMaxTokens also clamps over-large
-      // caller values so the native Vertex path never 400s.
-      max_tokens: streamMaxTokens,
       ...(streamThinking && { thinking: streamThinking }),
       messages: messages as Parameters<
         typeof client.messages.stream
@@ -4497,17 +4524,17 @@ export class GoogleVertexProvider extends BaseProvider {
       ...(tools && tools.length > 0 && { tools }),
       ...(forceFinalResult && { tool_choice: { type: "any" as const } }),
       ...(systemPromptWithSchema && { system: systemPromptWithSchema }),
-      ...(streamSampling.temperature !== undefined && {
+      // max_tokens defaults to the model's real output ceiling (e.g. 64K for
+      // Sonnet 4.x) instead of the legacy 4096, which silently truncated large
+      // structured responses mid-JSON. resolveClaudeMaxTokens also clamps
+      // over-large caller values so the native Vertex path never 400s.
+      ...toWireParams("anthropic", {
+        maxTokens: streamMaxTokens,
         temperature: streamSampling.temperature,
+        topP: streamSampling.topP,
+        stopSequences: options.stopSequences,
       }),
-      ...(streamSampling.topP !== undefined && {
-        top_p: streamSampling.topP,
-      }),
-      ...(options.stopSequences &&
-        options.stopSequences.length > 0 && {
-          stop_sequences: options.stopSequences,
-        }),
-    };
+    } as Parameters<typeof client.messages.stream>[0];
 
     // ── Real-time streaming via stream.on('text', ...) ────────────────────
     //
@@ -4829,7 +4856,7 @@ export class GoogleVertexProvider extends BaseProvider {
           },
           ...(useFinalResultTool
             ? {
-                finalResultToolName: "final_result",
+                finalResultToolName: FINAL_RESULT_TOOL_NAME,
                 onTerminalResult: (text: string) => {
                   // The engine ends the turn on a terminal call and hands back
                   // the payload as text; this loop also streams it, so the push
@@ -5080,7 +5107,7 @@ export class GoogleVertexProvider extends BaseProvider {
             wasAborted = true;
           }
           const externalToolCallCount = allToolCalls.filter(
-            (tc) => tc.toolName !== "final_result",
+            (tc) => tc.toolName !== FINAL_RESULT_TOOL_NAME,
           ).length;
           // Clamp the terminal calls' max_tokens so prompt + output stays
           // inside the model window: pre-4.5 Claude models 400 on
@@ -5089,12 +5116,12 @@ export class GoogleVertexProvider extends BaseProvider {
           // bites when the prompt is near the window (min() is a no-op on
           // ordinary step-cap turns).
           const terminalMaxTokens = Math.max(
-            1024,
+            FINALIZATION_MIN_TOKENS,
             Math.min(
-              requestParams.max_tokens,
+              streamMaxTokens,
               getContextWindowSize("vertex", modelName) -
                 contextGuard.projectedNextPromptTokens -
-                4_000,
+                FINALIZATION_HEADROOM_TOKENS,
             ),
           );
           if (wasAborted) {
@@ -5148,15 +5175,17 @@ export class GoogleVertexProvider extends BaseProvider {
                   stepNumber: maxSteps + 1,
                   model: requestParams.model,
                   maxTokens: terminalMaxTokens,
-                  temperature: requestParams.temperature,
-                  topP: requestParams.top_p,
+                  temperature: streamSampling.temperature,
+                  topP: streamSampling.topP,
                   system: cachedFinal.system,
                   messages: cachedFinal.messages,
                 },
                 async () => {
                   const finalizationStream = await client.messages.stream({
                     ...requestParams,
-                    max_tokens: terminalMaxTokens,
+                    ...toWireParams("anthropic", {
+                      maxTokens: terminalMaxTokens,
+                    }),
                     // Resized, not inherited: terminalMaxTokens can sit below the
                     // budget requestParams' thinking was sized for.
                     thinking: this.buildClaudeThinkingParam(
@@ -5167,7 +5196,7 @@ export class GoogleVertexProvider extends BaseProvider {
                     ...(forceFinalResult && {
                       tool_choice: {
                         type: "tool" as const,
-                        name: "final_result",
+                        name: FINAL_RESULT_TOOL_NAME,
                       },
                     }),
                     ...(cachedFinal.system !== undefined && {
@@ -5222,7 +5251,9 @@ export class GoogleVertexProvider extends BaseProvider {
                   id: string;
                   name: string;
                   input: Record<string, unknown>;
-                } => block.type === "tool_use" && block.name === "final_result",
+                } =>
+                  block.type === "tool_use" &&
+                  block.name === FINAL_RESULT_TOOL_NAME,
               );
               if (forcedFinalResult) {
                 structuredOutputRef.value = forcedFinalResult.input;
@@ -5329,15 +5360,17 @@ export class GoogleVertexProvider extends BaseProvider {
                     stepNumber: maxSteps + 1,
                     model: requestParams.model,
                     maxTokens: terminalMaxTokens,
-                    temperature: requestParams.temperature,
-                    topP: requestParams.top_p,
+                    temperature: streamSampling.temperature,
+                    topP: streamSampling.topP,
                     system: cachedBackstop.system,
                     messages: cachedBackstop.messages,
                   },
                   async () => {
                     const backstopStream = await client.messages.stream({
                       ...requestParams,
-                      max_tokens: terminalMaxTokens,
+                      ...toWireParams("anthropic", {
+                        maxTokens: terminalMaxTokens,
+                      }),
                       // Assigned outright, never a conditional spread: spreading
                       // requestParams above may already carry a `thinking` sized
                       // for the original max_tokens, and only adding a key when
@@ -5477,7 +5510,7 @@ export class GoogleVertexProvider extends BaseProvider {
           liveTextPushedLength === 0 &&
           !structuredOutputRef.value;
         const externalToolCallTotal = allToolCalls.filter(
-          (tc) => tc.toolName !== "final_result",
+          (tc) => tc.toolName !== FINAL_RESULT_TOOL_NAME,
         ).length;
         if (deliveredNothing && externalToolCallTotal > 0) {
           const exitMessage =
@@ -5500,7 +5533,8 @@ export class GoogleVertexProvider extends BaseProvider {
         // (a mutable reference) because wrapper spreads snapshot the
         // top-level getter before this line runs.
         finishReasonRef.value =
-          lastStopReason === "max_tokens"
+          translateFinishReason(ANTHROPIC_MESSAGES_FINISH, lastStopReason) ===
+          "length"
             ? "length"
             : hitStepLimit && !synthesizedFinalAnswer
               ? "tool-calls"
@@ -5509,7 +5543,7 @@ export class GoogleVertexProvider extends BaseProvider {
 
         metadata.responseTime = Date.now() - startTime;
         metadata.totalToolExecutions = allToolCalls.filter(
-          (tc) => tc.toolName !== "final_result",
+          (tc) => tc.toolName !== FINAL_RESULT_TOOL_NAME,
         ).length;
 
         // Turn-exit discriminator + raw provider stop reason + step count —
@@ -5566,7 +5600,9 @@ export class GoogleVertexProvider extends BaseProvider {
             maxSteps,
             steps: step,
             toolCallCount: metadata.totalToolExecutions,
-            toolsCalled: toolsUsedRef.filter((name) => name !== "final_result"),
+            toolsCalled: toolsUsedRef.filter(
+              (name) => name !== FINAL_RESULT_TOOL_NAME,
+            ),
             structuredOutput: useFinalResultTool,
             ...(stopReasonRef.value ? { stopReason: stopReasonRef.value } : {}),
             usage: {
@@ -5639,19 +5675,20 @@ export class GoogleVertexProvider extends BaseProvider {
     Object.defineProperty(result, "toolCalls", {
       enumerable: true,
       configurable: true,
-      get: () => allToolCalls.filter((tc) => tc.toolName !== "final_result"),
+      get: () =>
+        allToolCalls.filter((tc) => tc.toolName !== FINAL_RESULT_TOOL_NAME),
     });
     Object.defineProperty(result, "toolsUsed", {
       enumerable: true,
       configurable: true,
-      get: () => toolsUsedRef.filter((name) => name !== "final_result"),
+      get: () => toolsUsedRef.filter((name) => name !== FINAL_RESULT_TOOL_NAME),
     });
     Object.defineProperty(result, "toolExecutions", {
       enumerable: true,
       configurable: true,
       get: () =>
         transformToolExecutions(
-          toolExecutions.filter((te) => te.name !== "final_result"),
+          toolExecutions.filter((te) => te.name !== FINAL_RESULT_TOOL_NAME),
         ),
     });
 
@@ -5956,8 +5993,7 @@ export class GoogleVertexProvider extends BaseProvider {
       tools.push(finalResultTool);
 
       // Add instruction to system prompt
-      schemaSystemPromptSuffix =
-        "\n\nIMPORTANT: You MUST call the 'final_result' tool to return your response in the required structured format. Do not respond with plain text - always use the final_result tool.";
+      schemaSystemPromptSuffix = finalResultToolInstruction("mustCall");
 
       logger.debug(
         "[GoogleVertex] Added final_result tool for Anthropic structured output (generate)",
@@ -6009,24 +6045,20 @@ export class GoogleVertexProvider extends BaseProvider {
 
     const requestParams = {
       model: modelName,
-      // Default to the model's real output ceiling (see stream path note).
-      max_tokens: generateMaxTokens,
       ...(generateThinking && { thinking: generateThinking }),
       messages,
       ...(tools && tools.length > 0 && { tools }),
       ...(forceFinalResult && { tool_choice: { type: "any" as const } }),
       ...(systemPromptWithSchema && { system: systemPromptWithSchema }),
-      ...(generateSampling.temperature !== undefined && {
+      // max_tokens defaults to the model's real output ceiling (see the
+      // stream path note).
+      ...toWireParams("anthropic", {
+        maxTokens: generateMaxTokens,
         temperature: generateSampling.temperature,
+        topP: generateSampling.topP,
+        stopSequences: options.stopSequences,
       }),
-      ...(generateSampling.topP !== undefined && {
-        top_p: generateSampling.topP,
-      }),
-      ...(options.stopSequences &&
-        options.stopSequences.length > 0 && {
-          stop_sequences: options.stopSequences,
-        }),
-    };
+    } as Parameters<typeof client.messages.create>[0] & { stream?: false };
 
     // Handle tool calling loop with max steps
     const maxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
@@ -6229,7 +6261,7 @@ export class GoogleVertexProvider extends BaseProvider {
       },
       ...(useFinalResultTool
         ? {
-            finalResultToolName: "final_result",
+            finalResultToolName: FINAL_RESULT_TOOL_NAME,
             onTerminalResult: (text: string) => {
               try {
                 structuredOutput = JSON.parse(text) as Record<string, unknown>;
@@ -6452,7 +6484,7 @@ export class GoogleVertexProvider extends BaseProvider {
         wasAborted = true;
       }
       const externalToolCallCount = allToolCalls.filter(
-        (tc) => tc.toolName !== "final_result",
+        (tc) => tc.toolName !== FINAL_RESULT_TOOL_NAME,
       ).length;
       // Clamp the terminal calls' max_tokens so prompt + output stays inside
       // the model window: pre-4.5 Claude models 400 on input + max_tokens >
@@ -6460,12 +6492,12 @@ export class GoogleVertexProvider extends BaseProvider {
       // on context-capped turns. Only bites when the prompt is near the
       // window (min() is a no-op on ordinary step-cap turns).
       const terminalMaxTokens = Math.max(
-        1024,
+        FINALIZATION_MIN_TOKENS,
         Math.min(
-          requestParams.max_tokens,
+          generateMaxTokens,
           getContextWindowSize("vertex", modelName) -
             contextGuard.projectedNextPromptTokens -
-            4_000,
+            FINALIZATION_HEADROOM_TOKENS,
         ),
       );
       if (wasAborted) {
@@ -6514,8 +6546,8 @@ export class GoogleVertexProvider extends BaseProvider {
               stepNumber: maxSteps + 1,
               model: requestParams.model,
               maxTokens: terminalMaxTokens,
-              temperature: requestParams.temperature,
-              topP: requestParams.top_p,
+              temperature: generateSampling.temperature,
+              topP: generateSampling.topP,
               system: cachedFinal.system,
               messages: cachedFinal.messages,
             },
@@ -6524,7 +6556,9 @@ export class GoogleVertexProvider extends BaseProvider {
                 client.messages.create(
                   {
                     ...requestParams,
-                    max_tokens: terminalMaxTokens,
+                    ...toWireParams("anthropic", {
+                      maxTokens: terminalMaxTokens,
+                    }),
                     // Resized, not inherited: terminalMaxTokens can sit below the
                     // budget requestParams' thinking was sized for.
                     thinking: this.buildClaudeThinkingParam(
@@ -6535,7 +6569,7 @@ export class GoogleVertexProvider extends BaseProvider {
                     ...(forceFinalResult && {
                       tool_choice: {
                         type: "tool" as const,
-                        name: "final_result",
+                        name: FINAL_RESULT_TOOL_NAME,
                       },
                     }),
                     ...(cachedFinal.system !== undefined && {
@@ -6575,7 +6609,9 @@ export class GoogleVertexProvider extends BaseProvider {
               id: string;
               name: string;
               input: Record<string, unknown>;
-            } => block.type === "tool_use" && block.name === "final_result",
+            } =>
+              block.type === "tool_use" &&
+              block.name === FINAL_RESULT_TOOL_NAME,
           );
           if (forcedFinalResult) {
             structuredOutput = forcedFinalResult.input;
@@ -6678,8 +6714,8 @@ export class GoogleVertexProvider extends BaseProvider {
                 stepNumber: maxSteps + 1,
                 model: requestParams.model,
                 maxTokens: terminalMaxTokens,
-                temperature: requestParams.temperature,
-                topP: requestParams.top_p,
+                temperature: generateSampling.temperature,
+                topP: generateSampling.topP,
                 system: cachedBackstop.system,
                 messages: cachedBackstop.messages,
               },
@@ -6688,7 +6724,9 @@ export class GoogleVertexProvider extends BaseProvider {
                   client.messages.create(
                     {
                       ...requestParams,
-                      max_tokens: terminalMaxTokens,
+                      ...toWireParams("anthropic", {
+                        maxTokens: terminalMaxTokens,
+                      }),
                       // Assigned outright, never a conditional spread: spreading
                       // requestParams above may already carry a `thinking` sized
                       // for the original max_tokens, and only adding a key when
@@ -6814,10 +6852,10 @@ export class GoogleVertexProvider extends BaseProvider {
         }))
       : allToolCalls;
     const externalToolCalls = engineToolCalls.filter(
-      (tc) => tc.toolName !== "final_result",
+      (tc) => tc.toolName !== FINAL_RESULT_TOOL_NAME,
     );
     const externalToolExecutions = toolExecutions.filter(
-      (te) => te.name !== "final_result",
+      (te) => te.name !== FINAL_RESULT_TOOL_NAME,
     );
 
     // Absolute backstop — no code path may surface empty content on a turn
@@ -6843,7 +6881,8 @@ export class GoogleVertexProvider extends BaseProvider {
     // capped turns uniformly); everything else — including a successful
     // forced finalization or backstop synthesis — is a normal "stop".
     const resolvedFinishReason =
-      lastStopReason === "max_tokens"
+      translateFinishReason(ANTHROPIC_MESSAGES_FINISH, lastStopReason) ===
+      "length"
         ? "length"
         : hitStepLimit && !synthesizedFinalAnswer
           ? "tool-calls"
@@ -8337,152 +8376,54 @@ export class GoogleVertexProvider extends BaseProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    const errorRecord = error as UnknownRecord;
-    const statusCode =
-      typeof errorRecord?.status === "number"
-        ? errorRecord.status
-        : typeof errorRecord?.statusCode === "number"
-          ? errorRecord.statusCode
-          : undefined;
-
-    const rules: ProviderErrorRule[] = [
-      {
-        // Duck-typed on .name rather than `instanceof TimeoutError` —
-        // Vertex's own `withTimeout` (../../utils/async/index.js) throws a
-        // TimeoutError class distinct from the one classifyProviderError's
-        // built-in fast path checks (../../utils/timeout.js), so that fast
-        // path never fires for a real Vertex timeout. This rule preserves
-        // the pre-migration duck-typed match (both classes set
-        // `.name = "TimeoutError"`) and the original Vertex-specific
-        // message — see task-4-report.md for the full writeup.
-        match: (ctx) => ctx.errorName === "TimeoutError",
-        errorClass: NetworkError,
-        message:
-          "Google Vertex AI request timed out. Consider increasing timeout or using a lighter model.",
-      },
-      {
-        match: (ctx) =>
-          /PERMISSION_DENIED|UNAUTHENTICATED|Invalid API key/i.test(
-            ctx.message,
-          ) ||
-          statusCode === 401 ||
-          statusCode === 403,
-        errorClass: AuthenticationError,
-        message: () =>
-          `Google Vertex AI Permission Denied. Your Google Cloud credentials don't have permission to access Vertex AI. ` +
-          `Required Steps: 1. Ensure your service account has Vertex AI User role ` +
-          `2. Check if Vertex AI API is enabled in your project ` +
-          `3. Verify your project ID is correct ` +
-          `4. Confirm your location/region has Vertex AI available`,
-      },
-      {
-        match: (ctx) =>
-          /NOT_FOUND|model not found|Model not found/i.test(ctx.message) ||
-          statusCode === 404,
-        errorClass: InvalidModelError,
-        message: () => {
-          const modelSuggestions = this.getModelSuggestions(this.modelName);
-          return (
-            `Model '${this.modelName}' is not available in region ${this.location}. ` +
-            `Suggested alternatives: ${modelSuggestions}. ` +
-            `Troubleshooting: 1. Check model name spelling and format ` +
-            `2. Verify model is available in your region ` +
-            `3. Ensure your project has access to the model ` +
-            `4. For Claude models, enable Anthropic integration in Google Cloud Console`
-          );
-        },
-      },
-      {
-        // Rate limit / quota / capacity errors. Anthropic-on-Vertex capacity
-        // exhaustion surfaces as overloaded_error (HTTP 529) — same
-        // operational meaning as a 429, so classify it here instead of the
-        // generic 5xx branch below.
-        match: (ctx) =>
-          /QUOTA_EXCEEDED|RATE_LIMIT_EXCEEDED|rate limit/i.test(ctx.message) ||
-          messageNamesStatus(ctx.message, 429) ||
-          statusCode === 429 ||
-          statusCode === 529 ||
-          /overloaded/i.test(ctx.message),
-        errorClass: RateLimitError,
-        message: (ctx) => {
-          // Surface retry guidance when the SDK error carries it.
-          // @google/genai ApiError nests RetryInfo inside the JSON error
-          // body's details array, so fall back to scraping retryDelay out
-          // of the raw message.
-          const retryDelay =
-            typeof errorRecord?.retryDelay === "string"
-              ? errorRecord.retryDelay
-              : (/["']?retryDelay["']?\s*[:=]\s*["']?(\d+(?:\.\d+)?s)/.exec(
-                  ctx.message,
-                )?.[1] ?? undefined);
-          // Prefer the per-request context the native catches attach to the
-          // error (this.modelName can be stale when options.model overrides
-          // the instance default). Gemini models are force-routed to the
-          // "global" endpoint regardless of configured location — report
-          // the region the request actually hit.
-          const requestModel =
-            typeof errorRecord?.requestModel === "string"
-              ? errorRecord.requestModel
-              : this.modelName;
-          const effectiveRegion =
-            typeof errorRecord?.requestRegion === "string"
-              ? errorRecord.requestRegion
-              : resolveVertexRegionForModel(requestModel, this.location);
-          return (
-            `Google Vertex AI rate limit / shared-capacity exhausted (429 RESOURCE_EXHAUSTED / overloaded) ` +
-            `for model '${requestModel}' in region '${effectiveRegion}'.` +
-            (retryDelay
-              ? ` Upstream suggests retrying after ${retryDelay}.`
-              : "") +
-            ` Solutions: 1. Retry with backoff ` +
-            `2. Check your Vertex AI quotas in Google Cloud Console (shared-capacity 429s can occur below quota) ` +
-            `3. Try a different region or model ` +
-            `4. Request provisioned throughput for sustained load`
-          );
-        },
-      },
-      {
-        match: (ctx) =>
-          /ECONNRESET|ENOTFOUND|ETIMEDOUT|ECONNREFUSED|network|connection/i.test(
-            ctx.message,
-          ),
-        errorClass: NetworkError,
-        message: (ctx) => `Connection error: ${ctx.message}`,
-      },
-      {
-        match: (ctx) =>
-          /server error|Internal Server Error|INTERNAL|UNAVAILABLE/i.test(
-            ctx.message,
-          ) ||
-          [500, 502, 503, 504].some((code) =>
-            messageNamesStatus(ctx.message, code),
-          ) ||
-          (statusCode !== undefined && statusCode >= 500 && statusCode < 600),
-        errorClass: ProviderError,
-        message: (ctx) =>
-          `Google Vertex AI server error: ${ctx.message}. Please try again later.`,
-      },
-      {
-        match: (ctx) => /INVALID_ARGUMENT/i.test(ctx.message),
-        errorClass: ProviderError,
-        message: (ctx) =>
-          `Google Vertex AI Invalid Request: ${ctx.message}. ` +
-          `Check: 1. Request parameters are within model limits ` +
-          `2. Input text is properly formatted ` +
-          `3. Temperature and other settings are valid ` +
-          `4. Model supports your request type`,
-      },
-      {
-        match: () => true,
-        errorClass: ProviderError,
-        message: (ctx) => `Google Vertex AI error: ${ctx.message}`,
-      },
-    ];
-    return classifyProviderError(
+    return classifyWithProviderRules(
       error,
-      rules,
+      VERTEX_ERROR_RULES,
       this.providerName,
       this.modelName,
+      {
+        hooks: {
+          "vertex.modelUnavailable": () => {
+            const modelSuggestions = this.getModelSuggestions(this.modelName);
+            return (
+              `Model '${this.modelName}' is not available in region ${this.location}. ` +
+              `Suggested alternatives: ${modelSuggestions}. ` +
+              `Troubleshooting: 1. Check model name spelling and format ` +
+              `2. Verify model is available in your region ` +
+              `3. Ensure your project has access to the model ` +
+              `4. For Claude models, enable Anthropic integration in Google Cloud Console`
+            );
+          },
+          "vertex.rateLimit": (ctx) => {
+            const errorRecord = ctx.error as UnknownRecord;
+            const retryDelay =
+              typeof errorRecord?.retryDelay === "string"
+                ? errorRecord.retryDelay
+                : (/["']?retryDelay["']?\s*[:=]\s*["']?(\d+(?:\.\d+)?s)/.exec(
+                    ctx.message,
+                  )?.[1] ?? undefined);
+            const requestModel =
+              typeof errorRecord?.requestModel === "string"
+                ? errorRecord.requestModel
+                : this.modelName;
+            const effectiveRegion =
+              typeof errorRecord?.requestRegion === "string"
+                ? errorRecord.requestRegion
+                : resolveVertexRegionForModel(requestModel, this.location);
+            return (
+              `Google Vertex AI rate limit / shared-capacity exhausted (429 RESOURCE_EXHAUSTED / overloaded) ` +
+              `for model '${requestModel}' in region '${effectiveRegion}'.` +
+              (retryDelay
+                ? ` Upstream suggests retrying after ${retryDelay}.`
+                : "") +
+              ` Solutions: 1. Retry with backoff ` +
+              `2. Check your Vertex AI quotas in Google Cloud Console (shared-capacity 429s can occur below quota) ` +
+              `3. Try a different region or model ` +
+              `4. Request provisioned throughput for sustained load`
+            );
+          },
+        },
+      },
     );
   }
 

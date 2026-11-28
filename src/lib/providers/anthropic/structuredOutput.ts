@@ -1,6 +1,11 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { logger } from "../../utils/logger.js";
 import { inlineJsonSchema } from "../../utils/schemaConversion.js";
+import {
+  FINAL_RESULT_TOOL_DESCRIPTION,
+  FINAL_RESULT_TOOL_NAME,
+  finalResultToolInstruction,
+} from "../rules/finalResultTool.js";
 
 /**
  * Additive structured output for the native Anthropic Messages API.
@@ -19,15 +24,9 @@ import { inlineJsonSchema } from "../../utils/schemaConversion.js";
  * tool name, description, and instruction wording since it shipped.
  */
 
-/** Internal tool name — filtered out of every returned tool call / execution. */
-export const FINAL_RESULT_TOOL_NAME = "final_result";
-
-const FINAL_RESULT_TOOL_DESCRIPTION =
-  "Return the final structured result. You MUST call this tool when you have gathered all information and are ready to provide the final answer. The arguments should contain the structured data matching the expected schema.";
-
 /** The system-prompt instruction to answer through the named tool. */
 export function toolAnswerInstruction(toolName: string): string {
-  return `\n\nIMPORTANT: You MUST call the '${toolName}' tool to return your response in the required structured format. Do not respond with plain text - always use the ${toolName} tool.`;
+  return finalResultToolInstruction("mustCall", toolName);
 }
 
 /** Appended to the system prompt whenever the final_result tool is in play. */
@@ -80,7 +79,7 @@ export function appendFinalResultTool(
   }
   if (tools.some((tool) => tool.name === FINAL_RESULT_TOOL_NAME)) {
     logger.warn(
-      "[Anthropic] A caller tool is already named 'final_result'; skipping the additive structured-output tool",
+      `[Anthropic] A caller tool is already named '${FINAL_RESULT_TOOL_NAME}'; skipping the additive structured-output tool`,
     );
     return { tools, applied: false };
   }

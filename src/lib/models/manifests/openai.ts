@@ -2,7 +2,7 @@ import type { ProviderModelManifest } from "../../types/index.js";
 
 /**
  * OpenAI model manifest. contextWindow values come from
- * MODEL_CONTEXT_WINDOWS.openai (src/lib/constants/contextWindows.ts), which
+ * MODEL_CONTEXT_WINDOWS.openai (src/lib/providers/rules/limits.json), which
  * disagrees with MODEL_REGISTRY.limits.maxContextTokens for several ids
  * (e.g. gpt-5: 400_000 here vs 256_000 there) — MODEL_CONTEXT_WINDOWS wins
  * as the more actively-maintained store. maxOutputTokens/aliases/capability

@@ -1,17 +1,12 @@
 import type { AIProviderName } from "../constants/enums.js";
-import type {
-  NeurolinkCredentials,
-  ProviderErrorRule,
-} from "../types/index.js";
-import { InvalidModelError } from "../types/index.js";
-import {
-  classifyProviderError,
-  DEFAULT_ERROR_RULES,
-} from "../utils/errorClassifier.js";
+import type { NeurolinkCredentials } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
-import { buildLocalUnreachableErrorRule } from "./localRuntimeOpenAICompat.js";
+import { classifyWithProviderRules } from "./rules/errorRules.js";
+import { getProviderErrorRules } from "./rules/registry.js";
+
+const LM_STUDIO_ERROR_RULES = getProviderErrorRules("lm-studio");
 
 const LM_STUDIO_DEFAULT_BASE_URL = "http://localhost:1234/v1";
 const LM_STUDIO_PLACEHOLDER_KEY = "lm-studio";
@@ -71,26 +66,17 @@ export class LMStudioProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    const rules: ProviderErrorRule[] = [
-      buildLocalUnreachableErrorRule(
-        error,
-        () =>
-          `LM Studio server not reachable at ${redactUrlCredentials(this.config.baseURL)}. ` +
-          `Open the LM Studio app, load a model, and click "Start Server".`,
-      ),
-      {
-        match: (ctx) => /model_not_found|404/.test(ctx.message),
-        errorClass: InvalidModelError,
-        message: () =>
-          `LM Studio model '${this.modelName}' is not loaded. Load it in the LM Studio app first.`,
-      },
-      ...DEFAULT_ERROR_RULES,
-    ];
-    return classifyProviderError(
+    return classifyWithProviderRules(
       error,
-      rules,
+      LM_STUDIO_ERROR_RULES,
       this.providerName,
       this.modelName,
+      {
+        vars: () => ({
+          model: `${this.modelName}`,
+          baseURL: redactUrlCredentials(this.config.baseURL),
+        }),
+      },
     );
   }
 

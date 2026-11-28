@@ -23,6 +23,7 @@ import {
   getCatalogJsonEntries,
   buildCatalogConfigOptions,
 } from "../providers/catalog/loader.js";
+import { getProviderRules } from "../providers/rules/registry.js";
 // Re-export subscription types for convenience
 
 /**
@@ -39,45 +40,55 @@ function catalogConfigOptions(id: string): ProviderConfigOptions {
   return buildCatalogConfigOptions(entry);
 }
 
+const CREDENTIAL_RULES = getProviderRules("credentials");
+
+function compileFormats(
+  sources: Record<string, string> | undefined,
+): Record<string, RegExp> {
+  return Object.fromEntries(
+    Object.entries(sources ?? {}).map(([key, source]) => [
+      key,
+      new RegExp(source),
+    ]),
+  );
+}
+
 /**
- * API key format validation patterns (extracted from advanced validation system)
+ * API key format validation patterns (credentials.json) (extracted from advanced validation system)
  * Exported for use across the codebase to replace scattered regex patterns
  */
-export const API_KEY_FORMATS: Record<string, RegExp> = {
-  openai: /^sk-[A-Za-z0-9]{48,}$/,
-  anthropic: /^sk-ant-[A-Za-z0-9\-_]{95,}$/,
-  "google-ai": /^AIza[A-Za-z0-9\-_]{35}$/,
-  huggingface: /^hf_[A-Za-z0-9]{37}$/,
-  mistral: /^[A-Za-z0-9]{32}$/,
-  azure: /^[A-Za-z0-9]{32}$/,
-  aws: /^[A-Z0-9]{20}$/, // Access Key ID format
-  bedrock: /^[A-Z0-9]{20}$/, // AWS access key ID: 20 uppercase alphanumerics
-};
+export const API_KEY_FORMATS: Record<string, RegExp> = compileFormats(
+  CREDENTIAL_RULES.apiKeyFormats,
+);
 
 /**
  * OAuth token format validation patterns
  * These patterns are more flexible as OAuth tokens can vary by provider
  */
-export const OAUTH_TOKEN_FORMATS: Record<string, RegExp> = {
-  // OAuth access tokens are typically JWT or opaque tokens
-  // Claude OAuth access tokens: Bearer tokens with typical JWT structure or opaque format
-  "anthropic-access":
-    /^[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+$|^[A-Za-z0-9\-_]{32,}$/,
-  // Refresh tokens are typically longer opaque strings
-  "anthropic-refresh": /^[A-Za-z0-9\-_]{32,}$/,
+export const OAUTH_TOKEN_FORMATS: Record<string, RegExp> = compileFormats(
+  CREDENTIAL_RULES.oauthTokenFormats,
+);
+
+const keyLength = (name: string): number => {
+  const length = CREDENTIAL_RULES.apiKeyLengths?.[name];
+  if (length === undefined) {
+    throw new Error(`credentials.json has no apiKeyLengths.${name}`);
+  }
+  return length;
 };
 
 /**
- * API key length constants to replace scattered magic numbers
+ * API key lengths quoted in configuration hints (credentials.json
+ * `apiKeyLengths`).
  */
 export const API_KEY_LENGTHS = {
-  OPENAI_MIN: 48, // OpenAI API keys minimum length
-  ANTHROPIC_MIN: 95, // Anthropic API keys minimum length
-  HUGGINGFACE_EXACT: 37, // HuggingFace tokens exact length
-  AZURE_MIN: 32, // Azure OpenAI API keys minimum length
-  MISTRAL_EXACT: 32, // Mistral API keys exact length
-  AWS_ACCESS_KEY: 20, // AWS access key ID exact length
-  GOOGLE_AI_EXACT: 39, // Google AI Studio keys exact length (with AIza prefix)
+  OPENAI_MIN: keyLength("OPENAI_MIN"),
+  ANTHROPIC_MIN: keyLength("ANTHROPIC_MIN"),
+  HUGGINGFACE_EXACT: keyLength("HUGGINGFACE_EXACT"),
+  AZURE_MIN: keyLength("AZURE_MIN"),
+  MISTRAL_EXACT: keyLength("MISTRAL_EXACT"),
+  AWS_ACCESS_KEY: keyLength("AWS_ACCESS_KEY"),
+  GOOGLE_AI_EXACT: keyLength("GOOGLE_AI_EXACT"),
 } as const;
 
 /**

@@ -1,0 +1,36 @@
+{
+  "$schema": "./provider-rules.schema.json",
+  "id": "structured-output",
+  "errorSignals": {
+    "toolsSchemaConflict": [
+      "cannot be combined with (a )?(tool|function)",
+      "json[\\s_-]?(mode|schema|object|output)[^.]{0,60}(tool|function)",
+      "(tool|function)[\\s-]?call[^.]{0,60}json[\\s_-]?(mode|schema)",
+      "response_format[^.]{0,60}(tool|function)"
+    ],
+    "schemaComplexity": ["too many states"],
+    "responseFormatUnsupported": [
+      "does not support[^.]{0,80}response[\\s_-]?format",
+      "response[\\s_-]?format[^.]{0,60}(?:is )?not support",
+      "unsupported response[\\s_-]?format"
+    ]
+  },
+  "errorSignalNotes": {
+    "toolsSchemaConflict": "The provider cannot combine JSON output with tool calling (Groq: \"json mode cannot be combined with tool/function calling\"); the call is retried without structured output.",
+    "schemaComplexity": "Vertex Gemini rejects a response schema whose constrained decoding \"has too many states for serving\"; native schema enforcement is dropped and the text is coerced instead.",
+    "responseFormatUnsupported": "The model (not the provider) rejects response_format (Novita meta-llama/llama-3.3-70b-instruct rejects both json_schema and json_object); the schema is spelled into the prompt instead."
+  },
+  "finalResultTool": {
+    "name": "final_result",
+    "description": "Return the final structured result. You MUST call this tool when you have gathered all information and are ready to provide the final answer. The arguments should contain the structured data matching the expected schema.",
+    "instructions": {
+      "mustCall": "\n\nIMPORTANT: You MUST call the '{tool}' tool to return your response in the required structured format. Do not respond with plain text - always use the {tool} tool.",
+      "callWhenReady": "\n\nIMPORTANT: When you have gathered all necessary information and are ready to provide your final answer, you MUST call the '{tool}' tool with the structured data. Do not return the final answer as plain text - always use the {tool} tool.",
+      "noLongerAvailable": "\n\nThe {tool} tool is no longer available. Provide your final answer directly as plain text now, using the information gathered so far."
+    }
+  },
+  "finalResultToolNotes": {
+    "name": "The internal tool a model calls to return schema-shaped output while it can still call real tools. It is filtered out of every returned tool call and execution.",
+    "instructions": "Appended to the system prompt; {tool} is replaced with the tool name. mustCall: structured output with no other tools in play (Anthropic, Vertex Claude). callWhenReady: Vertex Gemini, with tools. noLongerAvailable: the tools-disabled synthesis call after the step cap."
+  }
+}
