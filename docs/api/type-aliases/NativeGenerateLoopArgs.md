@@ -193,6 +193,18 @@ Provider name recorded on each step's generation and used to price it.
 
 ---
 
+### topP?
+
+> `optional` **topP?**: `number`
+
+---
+
+### stopSequences?
+
+> `optional` **stopSequences?**: `string`[]
+
+---
+
 ### abortSignal?
 
 > `optional` **abortSignal?**: `AbortSignal`

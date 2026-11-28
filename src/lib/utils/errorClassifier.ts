@@ -138,11 +138,13 @@ export function classifyProviderError(
   rules: ProviderErrorRule[],
   provider: string,
   modelName?: string,
+  adjustContext?: (ctx: ProviderErrorContext) => ProviderErrorContext,
 ): Error {
   if (error instanceof TimeoutError) {
     return new NetworkError(`Request timed out: ${error.message}`, provider);
   }
-  const ctx = buildErrorContext(error, provider, modelName);
+  const built = buildErrorContext(error, provider, modelName);
+  const ctx = adjustContext ? adjustContext(built) : built;
   const rule = rules.find((r) => r.match(ctx));
   if (!rule) {
     return new ProviderError(`${provider} error: ${ctx.message}`, provider);

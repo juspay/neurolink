@@ -1,0 +1,13 @@
+{
+  "$schema": "./provider-rules.schema.json",
+  "id": "azure",
+  "errors": {
+    "rules": [
+      {
+        "messageStatus": 401,
+        "class": "authentication",
+        "message": "Invalid Azure OpenAI API key or endpoint."
+      }
+    ]
+  }
+}

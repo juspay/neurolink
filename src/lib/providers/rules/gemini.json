@@ -1,0 +1,92 @@
+{
+  "$schema": "./provider-rules.schema.json",
+  "id": "gemini",
+  "finishReasons": {
+    "generateContent": {
+      "map": {
+        "MAX_TOKENS": "length",
+        "CONTINUATION": "length",
+        "TOO_MANY_TOOL_CALLS": "tool-calls",
+        "MALFORMED_FUNCTION_CALL": "error",
+        "UNEXPECTED_TOOL_CALL": "error",
+        "SAFETY": "content-filter",
+        "RECITATION": "content-filter",
+        "BLOCKLIST": "content-filter",
+        "PROHIBITED_CONTENT": "content-filter",
+        "SPII": "content-filter",
+        "LANGUAGE": "content-filter",
+        "IMAGE_SAFETY": "content-filter",
+        "IMAGE_PROHIBITED_CONTENT": "content-filter",
+        "IMAGE_RECITATION": "content-filter"
+      },
+      "default": "stop"
+    }
+  },
+  "usage": {
+    "input": "promptTokenCount",
+    "output": "candidatesTokenCount",
+    "cacheRead": "cachedContentTokenCount",
+    "reasoning": "thoughtsTokenCount",
+    "reasoningInOutput": false
+  },
+  "toolNames": {
+    "firstChars": "A-Za-z_",
+    "allowedChars": "A-Za-z0-9_.:-",
+    "maxLength": 128
+  },
+  "reasoning": {
+    "defaultLevel": "high",
+    "defaultBudgetTokens": 10000,
+    "levelFractions": {
+      "minimal": 0,
+      "low": 0.25,
+      "medium": 0.55,
+      "high": 1
+    },
+    "maxBudgetTokens": {
+      "rules": [
+        {
+          "match": "^gemini-3(\\.\\d+)?-pro",
+          "value": 100000
+        },
+        {
+          "match": "^gemini-3(\\.\\d+)?-flash",
+          "value": 50000
+        },
+        {
+          "match": "^gemini-2\\.5",
+          "value": 32000
+        }
+      ],
+      "default": 10000
+    },
+    "budgetRanges": {
+      "rules": [
+        {
+          "match": "^gemini-2\\.5-flash-lite",
+          "min": 512,
+          "max": 24576
+        },
+        {
+          "match": "^gemini-2\\.5-flash",
+          "min": 128,
+          "max": 24576
+        },
+        {
+          "match": "^gemini-2\\.5-pro",
+          "min": 128,
+          "max": 32768
+        }
+      ],
+      "fallback": {
+        "min": 512,
+        "max": 24576
+      }
+    },
+    "restrictedOutputTokenLimit": 32768
+  },
+  "reasoningNotes": {
+    "levelFractions": "A thinking level maps to min + fraction * (max - min) of the model's budget range, rounded.",
+    "budgetRanges": "Gemini 2.5 thinkingBudget bounds confirmed against live Vertex responses; Vertex rejects others with INVALID_ARGUMENT \"thinking_budget is out of range\". Flash's real floor is 1, but budget 1 measured 0 thoughtsTokenCount, so the floor is 128 (Pro's) so \"minimal\" still thinks. flash-lite must come before flash. The fallback is the intersection of the three verified ranges."
+  }
+}

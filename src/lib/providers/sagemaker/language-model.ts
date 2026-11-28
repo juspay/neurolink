@@ -27,6 +27,14 @@ import type {
 import { createAdaptiveSemaphore } from "./adaptive-semaphore.js";
 import { logger } from "../../utils/logger.js";
 import { isAbortError } from "../../utils/errorHandling.js";
+import {
+  getFinishReasonMap,
+  translateFinishReason,
+} from "../rules/finishReasons.js";
+import { getToolChoiceMap, translateToolChoice } from "../rules/toolRules.js";
+
+const SAGEMAKER_ENDPOINT_FINISH = getFinishReasonMap("sagemaker", "endpoint");
+const SAGEMAKER_TOOL_CHOICE = getToolChoiceMap("sagemaker", "openai");
 
 /**
  * Base synthetic streaming delay in milliseconds for simulating real-time response
@@ -688,20 +696,9 @@ export class SageMakerLanguageModel implements SageMakerAsLanguageModel {
   private convertToolChoiceToSageMakerFormat(
     toolChoice: OpenAICompatV3CallToolChoice,
   ): UnknownRecord | string {
-    if (typeof toolChoice === "string") {
-      return toolChoice; // Defensive: tolerate a raw string if ever passed.
-    }
-
-    switch (toolChoice.type) {
-      case "auto":
-      case "none":
-      case "required":
-        return toolChoice.type;
-      case "tool":
-        return { type: "function", function: { name: toolChoice.toolName } };
-      default:
-        return "auto";
-    }
+    return translateToolChoice(SAGEMAKER_TOOL_CHOICE, toolChoice) as
+      | UnknownRecord
+      | string;
   }
 
   /**
@@ -874,26 +871,13 @@ export class SageMakerLanguageModel implements SageMakerAsLanguageModel {
   private mapSageMakerFinishReason(
     sagemakerReason: string,
   ): "stop" | "length" | "content-filter" | "tool-calls" | "error" | "unknown" {
-    switch (sagemakerReason?.toLowerCase()) {
-      case "stop":
-      case "end_turn":
-      case "stop_sequence":
-        return "stop";
-      case "length":
-      case "max_tokens":
-      case "max_length":
-        return "length";
-      case "content_filter":
-      case "content_filtered":
-        return "content-filter";
-      case "tool_calls":
-      case "function_call":
-        return "tool-calls";
-      case "error":
-        return "error";
-      default:
-        return "unknown";
-    }
+    return translateFinishReason(SAGEMAKER_ENDPOINT_FINISH, sagemakerReason) as
+      | "stop"
+      | "length"
+      | "content-filter"
+      | "tool-calls"
+      | "error"
+      | "unknown";
   }
 
   /**

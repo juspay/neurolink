@@ -1,0 +1,36 @@
+{
+  "$schema": "./provider-rules.schema.json",
+  "id": "litellm",
+  "errors": {
+    "rules": [
+      {
+        "errorName": "TimeoutError",
+        "pattern": "timeout",
+        "class": "network",
+        "message": "Request timed out: {message}"
+      },
+      {
+        "pattern": "ECONNREFUSED|Failed to fetch",
+        "caseSensitive": true,
+        "class": "network",
+        "message": "LiteLLM proxy server not available. Please start the LiteLLM proxy server at {baseURL}"
+      },
+      {
+        "pattern": "API_KEY_INVALID|Invalid API key",
+        "caseSensitive": true,
+        "class": "authentication",
+        "message": "Invalid LiteLLM configuration. Please check your LITELLM_API_KEY environment variable."
+      },
+      {
+        "pattern": "rate limit",
+        "class": "rate-limit",
+        "message": "LiteLLM rate limit exceeded. Please try again later."
+      },
+      {
+        "allPatterns": ["model", "not found"],
+        "class": "invalid-model",
+        "message": "Model '{model}' not available in LiteLLM proxy. Please check your LiteLLM configuration and ensure the model is configured."
+      }
+    ]
+  }
+}

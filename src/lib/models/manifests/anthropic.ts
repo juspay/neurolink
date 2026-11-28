@@ -3,7 +3,7 @@ import type { ProviderModelManifest } from "../../types/index.js";
 /**
  * Anthropic model manifest. Canonical ids match AnthropicModels
  * (src/lib/constants/enums.ts:524+) and MODEL_CONTEXT_WINDOWS.anthropic
- * (src/lib/constants/contextWindows.ts:160-182). maxOutputTokens values
+ * (src/lib/providers/rules/limits.json). maxOutputTokens values
  * come from getClaudeMaxOutputTokens (src/lib/utils/tokenLimits.ts) — the
  * regex ladder already authoritative for native Claude request paths.
  */

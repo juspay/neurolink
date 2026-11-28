@@ -13,56 +13,16 @@ import { azureManifest } from "../models/manifests/azure.js";
 import { mistralManifest } from "../models/manifests/mistral.js";
 import { ollamaManifest } from "../models/manifests/ollama.js";
 import { litellmManifest } from "../models/manifests/litellm.js";
+import { getModelList } from "../providers/rules/modelFamilies.js";
 
-// Image Generation Model Identifiers
-// Used to detect if a model is an image generation model (not text generation).
+// Image-generation model ids (model-families.json `modelLists`). See
+// `modelListNotes` there for why each group is listed.
 // `isImageGenerationModel(name)` (below) does boundary-aware matching:
 // the modelName must equal an entry OR contain an entry followed by a
 // non-alphanumeric character (`-`, `_`, `:`, `/`, `.`, end-of-string).
 // This prevents short identifiers like `"V_1"` or `"gpt-image-1"` from
 // accidentally matching unrelated model names that happen to embed them.
-export const IMAGE_GENERATION_MODELS = [
-  // Gemini image models (Vertex AI, Google AI Studio)
-  "gemini-3-pro-image-preview",
-  "gemini-2.5-flash-image",
-  "gemini-3.1-flash-image-preview",
-
-  // Stability AI (direct provider — image-only)
-  "stable-image-ultra",
-  "stable-image-core",
-  "sd3.5-large",
-  "sd3.5-large-turbo",
-  "sd3.5-medium",
-
-  // Ideogram (direct provider — image-only). API uses model-version
-  // identifiers like "V_1", "V_1_TURBO", "V_2", "V_2_TURBO", "V_2A",
-  // "V_2A_TURBO", "V_3". Keep prefixes that won't collide with generic
-  // text-model names.
-  "V_1",
-  "V_1_TURBO",
-  "V_2",
-  "V_2_TURBO",
-  "V_2A",
-  "V_2A_TURBO",
-  "V_3",
-
-  // Recraft (direct provider — image-only)
-  "recraftv3",
-  "recraftv2",
-
-  // OpenAI image models (DALL-E + GPT-Image). Substring match keeps
-  // version variants like "dall-e-3" / "dall-e-2" routed correctly.
-  "gpt-image-1",
-  "dall-e-3",
-  "dall-e-2",
-
-  // Replicate-hosted image models (matched on model slug prefix).
-  // Replicate model slugs are passed through as-is via the LLM
-  // provider; image-gen models trigger the image-gen path.
-  "black-forest-labs/flux",
-  "stability-ai/sdxl",
-  "stability-ai/stable-diffusion",
-];
+export const IMAGE_GENERATION_MODELS = getModelList("imageGeneration");
 
 /**
  * Boundary-aware test for whether `modelName` represents an image-generation
@@ -99,10 +59,7 @@ export function isImageGenerationModel(modelName: string | undefined): boolean {
 
 // PDF Image Generation Models
 // Models that support generating images from PDFs
-export const PDF_IMAGE_GENERATION_MODELS = [
-  "gemini-3-pro-image-preview",
-  "gemini-3.1-flash-image-preview",
-];
+export const PDF_IMAGE_GENERATION_MODELS = getModelList("pdfImageGeneration");
 
 // Global Location Models
 // Models that require global location configuration (uses aiplatform.googleapis.com instead of region-specific endpoints)
@@ -110,17 +67,8 @@ export const PDF_IMAGE_GENERATION_MODELS = [
 // IMAGE_GENERATION_MODELS is spread in to keep the two lists from drifting:
 // any new image-gen model added there is automatically routed to global here.
 export const GLOBAL_LOCATION_MODELS = [
-  // Image generation (sourced from IMAGE_GENERATION_MODELS)
   ...IMAGE_GENERATION_MODELS,
-  // Gemini 3.1 text models (global-only)
-  "gemini-3.1-pro-preview",
-  "gemini-3.1-flash-lite-preview",
-  "gemini-3.1-pro-preview-customtools",
-  // Gemini 3 text models (global-only)
-  "gemini-3-pro-preview",
-  "gemini-3-pro-preview-11-2025",
-  "gemini-3-pro-latest",
-  "gemini-3-flash-preview",
+  ...getModelList("vertexGlobalLocationText"),
 ];
 
 // Core AI Generation Defaults

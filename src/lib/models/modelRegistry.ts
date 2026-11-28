@@ -28,6 +28,7 @@ import {
   getAllManifestProviders,
   getManifestForProvider,
 } from "./manifestRegistry.js";
+import { getModelFamilyPatterns } from "../providers/rules/modelFamilies.js";
 
 /**
  * Comprehensive model registry — hand-authored base. Every id defined here
@@ -2299,8 +2300,8 @@ const LEGACY_MODEL_REGISTRY: Record<string, ModelInfo> = {
       accuracy: "high",
     },
     limits: {
-      maxContextTokens: 300000,
-      maxOutputTokens: 64000,
+      maxContextTokens: 400000,
+      maxOutputTokens: 128000,
       maxRequestsPerMinute: 100,
     },
     useCases: {
@@ -2344,8 +2345,8 @@ const LEGACY_MODEL_REGISTRY: Record<string, ModelInfo> = {
       accuracy: "high",
     },
     limits: {
-      maxContextTokens: 300000,
-      maxOutputTokens: 32000,
+      maxContextTokens: 128000,
+      maxOutputTokens: 16384,
       maxRequestsPerMinute: 150,
     },
     useCases: {
@@ -2390,8 +2391,8 @@ const LEGACY_MODEL_REGISTRY: Record<string, ModelInfo> = {
       accuracy: "high",
     },
     limits: {
-      maxContextTokens: 300000,
-      maxOutputTokens: 64000,
+      maxContextTokens: 400000,
+      maxOutputTokens: 128000,
       maxRequestsPerMinute: 100,
     },
     useCases: {
@@ -2436,8 +2437,8 @@ const LEGACY_MODEL_REGISTRY: Record<string, ModelInfo> = {
       accuracy: "high",
     },
     limits: {
-      maxContextTokens: 200000,
-      maxOutputTokens: 32000,
+      maxContextTokens: 400000,
+      maxOutputTokens: 128000,
       maxRequestsPerMinute: 300,
     },
     useCases: {
@@ -2482,7 +2483,7 @@ const LEGACY_MODEL_REGISTRY: Record<string, ModelInfo> = {
       accuracy: "high",
     },
     limits: {
-      maxContextTokens: 500000,
+      maxContextTokens: 400000,
       maxOutputTokens: 128000,
       maxRequestsPerMinute: 50,
     },
@@ -2923,20 +2924,14 @@ export function modelSupports(
 }
 
 /**
- * Model families known to reject classic sampling parameters
- * (`temperature` / `topP`) in favour of reasoning-effort controls:
- * Claude Sonnet 5, Opus 4.7+ (including Opus 5), and the Fable/Mythos 5
- * tier — notably as served through Vertex. Kept as patterns because gateway
- * model ids carry arbitrary prefixes/suffixes
- * (`vertex_ai/claude-sonnet-5@20260203`) that exact registry ids can't cover.
+ * Model families that reject classic sampling parameters (`temperature` /
+ * `topP`) in favour of reasoning-effort controls (model-families.json).
  */
-const SAMPLING_PARAM_REJECTING_FAMILIES: RegExp[] = [
-  /sonnet[-_.]?5(?![0-9])/i,
-  /opus[-_.]?4[-_.]?(?:[7-9]|\d{2,})(?![0-9])/i,
-  /opus[-_.]?5(?![0-9])/i,
-  /fable/i,
-  /mythos/i,
-];
+const SAMPLING_EXCLUSIVE_FAMILIES = getModelFamilyPatterns("samplingExclusive");
+
+const SAMPLING_PARAM_REJECTING_FAMILIES = getModelFamilyPatterns(
+  "samplingParamsRejected",
+);
 
 /**
  * Whether a model accepts classic sampling parameters
@@ -2982,6 +2977,18 @@ export function resolveSamplingParams(
   site: string,
 ): { temperature?: number; topP?: number } {
   if (modelSupportsSamplingParams(provider, model)) {
+    const normalizedModel = (model ?? "").toLowerCase();
+    if (
+      params.temperature !== undefined &&
+      params.topP !== undefined &&
+      SAMPLING_EXCLUSIVE_FAMILIES.some((family) => family.test(normalizedModel))
+    ) {
+      logger.debug(
+        `[ModelRegistry] Dropping topP for ${provider}/${model} at ${site} — the model rejects temperature and top_p together; temperature is kept`,
+        { provider, model, site },
+      );
+      return { temperature: params.temperature };
+    }
     return params;
   }
   if (params.temperature !== undefined || params.topP !== undefined) {
@@ -2999,27 +3006,15 @@ export function resolveSamplingParams(
   return {};
 }
 
-/**
- * Claude models that answer a forced `tool_choice` (`any` or `tool`) with a
- * 400: "tool_choice: type "tool" and "any" are not supported for this model."
- * Sonnet 5.5 and Opus 5.5 were probed live on Vertex; the Fable 5.1 docs state
- * the same, and Mythos 5.1 shares Fable 5.1's capabilities. The same families
- * also refuse `thinking: {type: "disabled"}`.
- */
-const FORCED_TOOL_CHOICE_REJECTING_FAMILIES: RegExp[] = [
-  /sonnet[-_.]?5[-_.]5(?![0-9])/i,
-  /opus[-_.]?5[-_.]5(?![0-9])/i,
-  /(?:fable|mythos)[-_.]?5[-_.]1(?![0-9])/i,
-];
+/** Claude models that answer a forced `tool_choice` with a 400 (model-families.json). */
+const FORCED_TOOL_CHOICE_REJECTING_FAMILIES = getModelFamilyPatterns(
+  "forcedToolChoiceRejected",
+);
 
-/**
- * Of those, the ones that accept `thinking: {type: "between_tools"}` as their
- * lowest setting. The rest think adaptively, always on, and take no
- * `thinking` field in its place.
- */
-const BETWEEN_TOOLS_THINKING_FAMILIES: RegExp[] = [
-  /sonnet[-_.]?5[-_.]5(?![0-9])/i,
-];
+/** Of those, the ones whose lowest thinking setting is `between_tools`. */
+const BETWEEN_TOOLS_THINKING_FAMILIES = getModelFamilyPatterns(
+  "betweenToolsThinking",
+);
 
 function matchesClaudeFamily(
   families: RegExp[],

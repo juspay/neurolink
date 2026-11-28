@@ -1,0 +1,57 @@
+{
+  "$schema": "./provider-rules.schema.json",
+  "id": "openrouter",
+  "errors": {
+    "rules": [
+      {
+        "errorName": "TimeoutError",
+        "pattern": "Timeout",
+        "caseSensitive": true,
+        "class": "network",
+        "message": "Request timed out: {message}"
+      },
+      {
+        "pattern": "ECONNREFUSED|Failed to fetch",
+        "caseSensitive": true,
+        "class": "network",
+        "message": "OpenRouter API not available. Please check your network connection and try again."
+      },
+      {
+        "pattern": "API_KEY_INVALID|Invalid API key|invalid_api_key|Unauthorized",
+        "caseSensitive": true,
+        "class": "authentication",
+        "message": "Invalid OpenRouter API key. Please check your OPENROUTER_API_KEY environment variable. Get your key at https://openrouter.ai/keys"
+      },
+      {
+        "pattern": "rate limit",
+        "caseSensitive": true,
+        "class": "rate-limit",
+        "message": "OpenRouter rate limit exceeded. Please try again later or upgrade your account at https://openrouter.ai/credits"
+      },
+      {
+        "allPatterns": ["model", "not found"],
+        "caseSensitive": true,
+        "class": "invalid-model",
+        "message": "Model '{model}' not available on OpenRouter. Browse available models at https://openrouter.ai/models"
+      },
+      {
+        "pattern": "insufficient_credits",
+        "caseSensitive": true,
+        "class": "provider",
+        "message": "Insufficient OpenRouter credits. Add credits at https://openrouter.ai/credits"
+      },
+      {
+        "pattern": "No endpoints found",
+        "caseSensitive": true,
+        "class": "invalid-model",
+        "message": "No endpoints found for model '{model}' on OpenRouter. The model may be temporarily unavailable or does not support the requested parameters. Try a different model or check availability at https://openrouter.ai/models"
+      },
+      {
+        "pattern": "tool use|tool_use|function_call|tools are not supported",
+        "caseSensitive": true,
+        "class": "provider",
+        "message": "Model '{model}' does not support tool calling. Use a tool-capable model like:\n  • google/gemini-2.0-flash-exp:free (free)\n  • meta-llama/llama-3.3-70b-instruct:free (free)\n  • anthropic/claude-3.7-sonnet (paid)\n  • openai/gpt-4o (paid)\nOr use --disableTools flag. See all tool-capable models at https://openrouter.ai/models?supported_parameters=tools"
+      }
+    ]
+  }
+}

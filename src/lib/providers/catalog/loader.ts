@@ -9,13 +9,8 @@ import {
   DECIDE_CATALOG_JSON_ENTRIES,
 } from "./index.generated.js";
 import { DEFAULT_ERROR_RULES } from "../../utils/errorClassifier.js";
-import {
-  AuthenticationError,
-  RateLimitError,
-  InvalidModelError,
-  NetworkError,
-  ProviderError,
-} from "../../types/index.js";
+import { ProviderError } from "../../types/index.js";
+import { compileErrorRules } from "../rules/errorRules.js";
 import type {
   CatalogEnvSource,
   CatalogKeySource,
@@ -25,20 +20,8 @@ import type {
   ProviderCatalogJson,
   ProviderErrorRule,
   ProviderConfigOptions,
-  CatalogErrorRuleClass,
 } from "../../types/index.js";
 import type { AIProviderName } from "../../constants/enums.js";
-
-const ERROR_CLASS_MAP: Record<
-  CatalogErrorRuleClass,
-  new (message: string, provider?: string) => Error
-> = {
-  authentication: AuthenticationError,
-  "rate-limit": RateLimitError,
-  "invalid-model": InvalidModelError,
-  network: NetworkError,
-  provider: ProviderError,
-};
 
 // Duplicated from tools/codegen-catalog.ts intentionally: src/ must not
 // import from tools/ (build-time tooling depends on runtime source, not the
@@ -104,25 +87,16 @@ export function buildCatalogConfigOptions(
 }
 
 function buildErrorRules(entry: ProviderCatalogJson): ProviderErrorRule[] {
-  const bespoke: ProviderErrorRule[] = entry.errorRules.map((rule) => {
-    const regex = rule.pattern ? new RegExp(rule.pattern, "i") : undefined;
-    const needsContext =
-      rule.message.includes("{model}") || rule.message.includes("{message}");
-    return {
-      match: (ctx) =>
-        (rule.status !== undefined && ctx.statusCode === rule.status) ||
-        (regex !== undefined &&
-          (rule.patternStatuses === undefined ||
-            (ctx.statusCode !== undefined &&
-              rule.patternStatuses.includes(ctx.statusCode))) &&
-          regex.test(ctx.message)),
-      errorClass: ERROR_CLASS_MAP[rule.class],
-      message: needsContext
-        ? (ctx) => interpolate(rule.message, entry, ctx.modelName, ctx.message)
-        : interpolate(rule.message, entry),
-    };
-  });
-  return [...bespoke, ...DEFAULT_ERROR_RULES];
+  // Catalog rules are a subset of the provider-rules format, so they compile
+  // through the same engine as every provider's rules file.
+  const vars = {
+    apiKeyEnvVar: catalogEnvVar(entry, "apiKey"),
+    setupUrl: entry.setup.url,
+  };
+  return [
+    ...compileErrorRules(entry.errorRules, { vars: () => vars }),
+    ...DEFAULT_ERROR_RULES,
+  ];
 }
 
 // Recursively freezes a value in place and returns it. Used only on a

@@ -1,0 +1,23 @@
+{
+  "$schema": "./provider-rules.schema.json",
+  "id": "llamacpp",
+  "errors": {
+    "rules": [
+      {
+        "errorCode": "ECONNREFUSED",
+        "pattern": "ECONNREFUSED|Failed to fetch|fetch failed",
+        "caseSensitive": true,
+        "class": "network",
+        "message": "llama.cpp server not reachable at {baseURL}. Start it with: ./llama-server -m model.gguf --port 8080"
+      },
+      {
+        "status": 400,
+        "pattern": "\\b400\\b",
+        "caseSensitive": true,
+        "patternWhenNoStatus": true,
+        "class": "provider",
+        "message": "llama.cpp rejected the request. Common cause: model doesn't support tools (start llama-server with --jinja for tool support)."
+      }
+    ]
+  }
+}

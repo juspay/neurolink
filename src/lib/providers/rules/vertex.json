@@ -1,0 +1,65 @@
+{
+  "$schema": "./provider-rules.schema.json",
+  "id": "vertex",
+  "errors": {
+    "statusFrom": "top-level",
+    "useDefaults": false,
+    "rules": [
+      {
+        "errorName": "TimeoutError",
+        "pattern": "^Request timed out\\.?$",
+        "class": "network",
+        "message": "Google Vertex AI request timed out. Consider increasing timeout or using a lighter model."
+      },
+      {
+        "status": [401, 403],
+        "pattern": "PERMISSION_DENIED|UNAUTHENTICATED|Invalid API key",
+        "class": "authentication",
+        "message": "Google Vertex AI Permission Denied. Your Google Cloud credentials don't have permission to access Vertex AI. Required Steps: 1. Ensure your service account has Vertex AI User role 2. Check if Vertex AI API is enabled in your project 3. Verify your project ID is correct 4. Confirm your location/region has Vertex AI available"
+      },
+      {
+        "status": 404,
+        "pattern": "NOT_FOUND|model not found|Model not found",
+        "class": "invalid-model",
+        "messageHook": "vertex.modelUnavailable"
+      },
+      {
+        "status": [429, 529],
+        "messageStatus": 429,
+        "pattern": "QUOTA_EXCEEDED|RATE_LIMIT_EXCEEDED|rate limit|overloaded",
+        "class": "rate-limit",
+        "messageHook": "vertex.rateLimit"
+      },
+      {
+        "pattern": "ECONNRESET|ENOTFOUND|ETIMEDOUT|ECONNREFUSED|network|connection",
+        "class": "network",
+        "message": "Connection error: {message}"
+      },
+      {
+        "statusRange": [500, 599],
+        "messageStatus": [500, 502, 503, 504],
+        "pattern": "server error|Internal Server Error|INTERNAL|UNAVAILABLE",
+        "class": "provider",
+        "message": "Google Vertex AI server error: {message}. Please try again later."
+      },
+      {
+        "pattern": "INVALID_ARGUMENT",
+        "class": "provider",
+        "message": "Google Vertex AI Invalid Request: {message}. Check: 1. Request parameters are within model limits 2. Input text is properly formatted 3. Temperature and other settings are valid 4. Model supports your request type"
+      },
+      {
+        "always": true,
+        "class": "provider",
+        "message": "Google Vertex AI error: {message}"
+      }
+    ]
+  },
+  "requestDefaults": {
+    "finalizationMinTokens": 1024,
+    "finalizationHeadroomTokens": 4000
+  },
+  "requestDefaultNotes": {
+    "finalizationMinTokens": "The forced finalization call after a Claude-on-Vertex loop stops always gets at least this many output tokens.",
+    "finalizationHeadroomTokens": "Room kept free of the context window when sizing that call, beyond the projected prompt."
+  }
+}

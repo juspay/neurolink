@@ -6676,6 +6676,7 @@ Current user's request: ${currentInput}`;
       // dropped on every generate() call regardless of provider, while
       // stream() (which spreads its options) already forwarded it.
       topP: options.topP,
+      stopSequences: options.stopSequences,
       maxTokens: options.maxTokens,
       systemPrompt: options.systemPrompt,
       schema: options.schema,

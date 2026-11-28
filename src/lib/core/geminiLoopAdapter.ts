@@ -40,6 +40,13 @@ import {
   pushModelResponseToHistory,
   refreshNativeToolDeclarations,
 } from "../providers/googleNativeGemini3/utils.js";
+import {
+  getWireUsage,
+  outputWithReasoning,
+  splitIncludedCount,
+} from "../providers/rules/wireUsage.js";
+
+const GEMINI_USAGE = getWireUsage("gemini");
 
 /**
  * @description Describes one Gemini request as the request half of a Langfuse generation.
@@ -322,15 +329,21 @@ export function createGeminiLoopAdapter(
     // the prompt is not billed as extra tokens, and a thinking token is billed
     // at the output rate.
     observedUsage(usage: AgenticLoopUsage): AgenticLoopUsage {
-      const cached =
-        usage.cacheReadTokens === undefined
-          ? undefined
-          : Math.min(usage.cacheReadTokens, usage.inputTokens);
+      const split = splitIncludedCount(
+        usage.inputTokens,
+        usage.cacheReadTokens ?? 0,
+      );
       return {
         ...usage,
-        inputTokens: Math.max(0, usage.inputTokens - (cached ?? 0)),
-        outputTokens: usage.outputTokens + (usage.reasoningTokens ?? 0),
-        ...(cached !== undefined && { cacheReadTokens: cached }),
+        inputTokens: split.rest,
+        outputTokens: outputWithReasoning(
+          GEMINI_USAGE,
+          usage.outputTokens,
+          usage.reasoningTokens,
+        ),
+        ...(usage.cacheReadTokens !== undefined && {
+          cacheReadTokens: split.part,
+        }),
       };
     },
 

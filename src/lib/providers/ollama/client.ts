@@ -4,31 +4,21 @@ import { createProxyFetch } from "../../proxy/proxyFetch.js";
 import type {
   EmbedInput,
   NeurolinkCredentials,
-  ProviderErrorRule,
   StreamOptions,
   TextGenerationOptions,
-  UnknownRecord,
 } from "../../types/index.js";
-import {
-  InvalidModelError,
-  NetworkError,
-  ProviderError,
-} from "../../types/index.js";
-import {
-  classifyProviderError,
-  DEFAULT_ERROR_RULES,
-} from "../../utils/errorClassifier.js";
+import { ProviderError } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 import { redactUrlCredentials } from "../../utils/logSanitize.js";
-import {
-  createTimeoutController,
-  parseTimeout,
-  TimeoutError,
-} from "../../utils/timeout.js";
+import { createTimeoutController, parseTimeout } from "../../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
-import { buildLocalUnreachableErrorRule } from "../localRuntimeOpenAICompat.js";
 import { stripTrailingSlash } from "../openaiChatCompletionsClient.js";
 import { DEFAULT_OLLAMA_MODEL } from "./constants.js";
+import { classifyWithProviderRules } from "../rules/errorRules.js";
+import { getFallbackModel } from "../rules/fallbackModel.js";
+import { getProviderErrorRules } from "../rules/registry.js";
+
+const OLLAMA_ERROR_RULES = getProviderErrorRules("ollama");
 
 // Ollama serves its OpenAI-compatible surface under `/v1` (/v1/chat/completions,
 // /v1/models, /v1/embeddings). The base client appends `/chat/completions` to
@@ -38,7 +28,7 @@ const OLLAMA_DEFAULT_BASE_URL = "http://localhost:11434/v1";
 // requires a non-empty apiKey. A real key (OLLAMA_API_KEY) is only needed for
 // Ollama Cloud / an auth-proxying reverse proxy.
 const OLLAMA_PLACEHOLDER_KEY = "ollama";
-const FALLBACK_OLLAMA_MODEL = "llama3.1:8b";
+const FALLBACK_OLLAMA_MODEL = getFallbackModel("ollama");
 const DEFAULT_EMBEDDING_MODEL = "nomic-embed-text";
 const EMBEDDINGS_TIMEOUT_MS = 30_000;
 
@@ -121,72 +111,18 @@ export class OllamaProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    if (error instanceof TimeoutError) {
-      // Custom message (not classifyProviderError's built-in "Request timed
-      // out: ..." default). TimeoutError is handled unconditionally inside
-      // classifyProviderError ahead of any rule table, so this quirk can only
-      // be preserved via a pre-delegate intercept (same pattern used for
-      // groq's TimeoutError override).
-      return new NetworkError(
-        `Ollama request timed out. The model may be loading or the request is too large.`,
-        "ollama",
-      );
-    }
-    // `responseBody` isn't part of ProviderErrorContext, so it's read off the
-    // raw error here (mirrors openAI's `errorType` extraction) for the
-    // missing-model / 404 rules below, which match against message+body
-    // combined exactly as the pre-migration code did.
-    const errorRecord = error as UnknownRecord;
-    const responseBody =
-      typeof errorRecord?.responseBody === "string"
-        ? errorRecord.responseBody
-        : "";
-
-    const rules: ProviderErrorRule[] = [
-      buildLocalUnreachableErrorRule(
-        error,
-        () =>
-          `Cannot connect to Ollama at ${redactUrlCredentials(this.config.baseURL)}. ` +
-          `Install Ollama (https://ollama.com), start it with 'ollama serve', then try again.`,
-      ),
-      // The base client (buildAPIError) attaches statusCode + responseBody to
-      // HTTP failures. Distinguish a genuine missing-model error (give 'ollama
-      // pull' guidance) from a bare endpoint-mismatch 404 (wrong base URL / not
-      // the OpenAI-compatible /v1 surface) so the advice is actionable. Match
-      // on wording, not a bare "404" substring, to avoid misclassifying
-      // unrelated messages that merely contain those digits.
-      {
-        match: (ctx) => {
-          const haystack = `${ctx.message} ${responseBody}`.toLowerCase();
-          return (
-            haystack.includes("model_not_found") ||
-            (haystack.includes("model") && haystack.includes("not found"))
-          );
-        },
-        errorClass: InvalidModelError,
-        message: () =>
-          `Ollama model '${this.modelName}' is not available locally. ` +
-          `Pull it first with 'ollama pull ${this.modelName}' (or try '${FALLBACK_OLLAMA_MODEL}'); ` +
-          `list installed models with 'ollama list'.`,
-      },
-      {
-        match: (ctx) => {
-          const haystack = `${ctx.message} ${responseBody}`.toLowerCase();
-          return ctx.statusCode === 404 || haystack.includes("status 404");
-        },
-        errorClass: ProviderError,
-        message: () =>
-          `Ollama returned HTTP 404 from ${redactUrlCredentials(this.config.baseURL)}. ` +
-          `Verify the base URL serves the OpenAI-compatible /v1 API and that the ` +
-          `model is installed ('ollama list').`,
-      },
-      ...DEFAULT_ERROR_RULES,
-    ];
-    return classifyProviderError(
+    return classifyWithProviderRules(
       error,
-      rules,
+      OLLAMA_ERROR_RULES,
       this.providerName,
       this.modelName,
+      {
+        vars: () => ({
+          model: `${this.modelName}`,
+          baseURL: redactUrlCredentials(this.config.baseURL),
+          fallbackModel: FALLBACK_OLLAMA_MODEL,
+        }),
+      },
     );
   }
 

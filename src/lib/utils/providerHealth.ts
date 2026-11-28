@@ -1555,6 +1555,7 @@ export class ProviderHealthChecker {
       case AIProviderName.OLLAMA: {
         const envModel = process.env.OLLAMA_MODEL;
         const defaults = [
+          "gemma4:e2b",
           "llama3.2:latest",
           "llama3.1:latest",
           "mistral:latest",

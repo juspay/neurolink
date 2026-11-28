@@ -1,0 +1,55 @@
+{
+  "$schema": "./provider-rules.schema.json",
+  "id": "google-ai",
+  "errors": {
+    "statusFrom": "top-level",
+    "messageFrom": "top-level",
+    "useDefaults": false,
+    "timeout": {
+      "class": "network",
+      "message": "{message}"
+    },
+    "rules": [
+      {
+        "status": 401,
+        "pattern": "API_KEY_INVALID|Invalid API key",
+        "caseSensitive": true,
+        "class": "authentication",
+        "message": "Invalid Google AI API key. Please check your GOOGLE_AI_API_KEY environment variable."
+      },
+      {
+        "status": 429,
+        "pattern": "RATE_LIMIT_EXCEEDED|rate limit|429",
+        "caseSensitive": true,
+        "class": "rate-limit",
+        "message": "Google AI rate limit exceeded. Please try again later."
+      },
+      {
+        "status": 404,
+        "pattern": "model not found|Model not found",
+        "caseSensitive": true,
+        "patternWhenNoStatus": true,
+        "class": "invalid-model",
+        "message": "Model '{model}' not found. Please check the model name and ensure it is available."
+      },
+      {
+        "pattern": "ECONNRESET|ENOTFOUND|ETIMEDOUT|ECONNREFUSED|network|connection",
+        "caseSensitive": true,
+        "class": "network",
+        "message": "Connection error: {message}"
+      },
+      {
+        "statusRange": [500, 599],
+        "pattern": "500|502|503|504|server error|Internal Server Error",
+        "caseSensitive": true,
+        "class": "provider",
+        "message": "Google AI server error: {message}. Please try again later."
+      },
+      {
+        "always": true,
+        "class": "provider",
+        "message": "Google AI error: {message}"
+      }
+    ]
+  }
+}

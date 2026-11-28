@@ -38,6 +38,12 @@ import type {
 } from "../../types/index.js";
 import { withTimeout } from "../../utils/errorHandling.js";
 import { withInferenceProfileFallback } from "./inferenceProfile.js";
+import {
+  getFinishReasonMap,
+  translateFinishReason,
+} from "../rules/finishReasons.js";
+
+const BEDROCK_FINISH_REASONS = getFinishReasonMap("bedrock", "converse");
 
 const STEP_TIMEOUT_MS = 120_000;
 
@@ -434,17 +440,13 @@ export function createBedrockLoopAdapter(config: {
       rawStopReason: string | undefined,
       hadToolCallsAtCap: boolean,
     ): string {
-      switch (rawStopReason) {
-        case "end_turn":
-        case "stop_sequence":
-          return "stop";
-        case "max_tokens":
-          return "length";
-        case "tool_use":
-          return "tool-calls";
-        default:
-          return hadToolCallsAtCap ? "tool-calls" : "stop";
-      }
+      return (
+        translateFinishReason(
+          BEDROCK_FINISH_REASONS,
+          rawStopReason,
+          hadToolCallsAtCap,
+        ) ?? "stop"
+      );
     },
   };
 }

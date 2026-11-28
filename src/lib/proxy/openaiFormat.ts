@@ -29,6 +29,12 @@ import type {
 } from "../types/index.js";
 import { normalizeJsonSchemaObject } from "../utils/schemaConversion.js";
 import { applyClaudeRequestCacheBreakpoints } from "../utils/anthropicCacheBreakpoints.js";
+import {
+  getFinishReasonMap,
+  translateFinishReason,
+} from "../providers/rules/finishReasons.js";
+
+const TO_OPENAI_FINISH = getFinishReasonMap("proxy", "toOpenAI");
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -229,22 +235,12 @@ export function parseOpenAIRequest(
 function mapFinishReason(
   finishReason: string | undefined,
 ): "stop" | "tool_calls" | "length" | "content_filter" | null {
-  switch (finishReason) {
-    case "stop":
-    case "end_turn":
-      return "stop";
-    case "length":
-    case "max_tokens":
-      return "length";
-    case "tool-calls":
-    case "tool_use":
-      return "tool_calls";
-    case "content_filter":
-    case "safety":
-      return "content_filter";
-    default:
-      return finishReason ? "stop" : null;
-  }
+  return translateFinishReason(TO_OPENAI_FINISH, finishReason) as
+    | "stop"
+    | "tool_calls"
+    | "length"
+    | "content_filter"
+    | null;
 }
 
 /** Add cache to the prompt total; reasoning is already part of completion. */

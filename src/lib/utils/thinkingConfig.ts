@@ -16,16 +16,24 @@ import {
   isGemini3Model,
 } from "./modelDetection.js";
 import { logger } from "./logger.js";
+import { getProviderRules } from "../providers/rules/registry.js";
+
+const GEMINI_REASONING = getProviderRules("gemini").reasoning;
+if (!GEMINI_REASONING) {
+  throw new Error("gemini.json has no reasoning block");
+}
 
 /**
  * Default token budget for thinking operations
  */
-export const DEFAULT_THINKING_BUDGET_TOKENS = 10000;
+export const DEFAULT_THINKING_BUDGET_TOKENS =
+  GEMINI_REASONING.defaultBudgetTokens;
 
 /**
  * Default thinking level for Gemini 3 models
  */
-export const DEFAULT_THINKING_LEVEL: ThinkingLevel = "high";
+export const DEFAULT_THINKING_LEVEL =
+  GEMINI_REASONING.defaultLevel as ThinkingLevel;
 
 /**
  * Creates a thinkingConfig object from CLI-style options.
@@ -95,12 +103,10 @@ export function createThinkingConfigFromRecord(
 // Gemini 2.5 — only a numeric budget), not a vendor-specified mapping:
 // "minimal"/"high" pin the floor/ceiling of the model's own verified range,
 // "low"/"medium" split the middle so all four levels stay distinguishable.
-const THINKING_LEVEL_FRACTIONS: Record<ThinkingLevel, number> = {
-  minimal: 0,
-  low: 0.25,
-  medium: 0.55,
-  high: 1,
-};
+const THINKING_LEVEL_FRACTIONS = GEMINI_REASONING.levelFractions as Record<
+  ThinkingLevel,
+  number
+>;
 
 /**
  * Maps a qualitative ThinkingLevel onto a numeric thinkingBudget within a
