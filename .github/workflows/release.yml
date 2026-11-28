@@ -5,12 +5,10 @@ on:
     branches:
       - release
 
+# Read-only by default. Only the release job below writes, and it declares
+# exactly what it needs.
 permissions:
-  contents: write
-  packages: write
-  issues: write
-  pull-requests: write
-  id-token: write # Required for npm provenance
+  contents: read
 
 jobs:
   test:
@@ -18,6 +16,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup PNPM
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -25,8 +25,10 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22.23.4"
-          cache: "pnpm"
           registry-url: https://registry.npmjs.org/
+          # No dependency cache in the workflow that publishes to npm: a cache
+          # written by another run on this branch would flow into the package.
+          package-manager-cache: false
 
       # ffmpeg is deliberately NOT installed in this workflow. Nothing these
       # jobs run needs it: no package script invokes it, and src/ shells out to
@@ -67,7 +69,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # semantic-release pushes the release tag with the GITHUB_TOKEN it is
+          # given in its own env below, so nothing needs the token in .git/config.
+          persist-credentials: false
 
       - name: Setup PNPM
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -76,7 +80,9 @@ jobs:
         with:
           node-version: "22.23.4"
           registry-url: "https://registry.npmjs.org"
-          cache: "pnpm"
+          # No dependency cache in the workflow that publishes to npm: a cache
+          # written by another run on this branch would flow into the package.
+          package-manager-cache: false
 
       # Exact version, not `npm@11`: this is the client that performs the OIDC
       # publish, and `npx -y npm@11` fetched whatever 11.x was newest at that
@@ -85,7 +91,8 @@ jobs:
       - name: Install the npm client that performs the OIDC publish (exact version)
         env:
           NPM_CLI_VERSION: "11.21.1"
-        run: |
+        # The install is pinned to an exact version and checked right after it.
+        run: | # zizmor: ignore[adhoc-packages]
           set -euo pipefail
           npm install -g "npm@${NPM_CLI_VERSION}"
           installed="$(npm --version)"
@@ -118,6 +125,9 @@ jobs:
           node-version: "22.23.4"
           registry-url: "https://npm.pkg.github.com"
           scope: "@juspay"
+          # No dependency cache in the workflow that publishes to npm: a cache
+          # written by another run on this branch would flow into the package.
+          package-manager-cache: false
 
       - name: Publish to GitHub Packages
         run: |

@@ -26,9 +26,12 @@ name: Yama learn
 on:
   # Chained AFTER the release workflow on the default branch: the release run
   # has finished before learn is even queued.
-  workflow_run:
+  # Safe: "Release and Publish" runs only on pushes to release, never on pull
+  # request code, so this event cannot carry an untrusted run.
+  workflow_run: # zizmor: ignore[dangerous-triggers]
     workflows: ["Release and Publish"]
     types: [completed]
+    branches: [release]
 
   # Recovery lever: a learn that failed for an environmental reason can be
   # re-run for the same pull request. The merged-and-human guard is re-checked

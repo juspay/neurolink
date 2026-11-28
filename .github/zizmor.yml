@@ -1,0 +1,11 @@
+# zizmor configuration. The organisation's required zizmor workflow scans this
+# repository's workflows and reads this file.
+rules:
+  cache-poisoning:
+    ignore:
+      # ci.yml runs on pushes to release, which zizmor reads as "may publish".
+      # No job in it publishes, tags, deploys or uploads a release artifact
+      # (see its header), so its caches cannot reach a published output. The
+      # workflows that do publish (release.yml, docs-deploy.yml,
+      # docs-version.yml, landing-deploy.yml) restore no cache.
+      - ci.yml

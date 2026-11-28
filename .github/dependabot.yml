@@ -22,6 +22,8 @@ updates:
           - "patch"
     # Ignore patterns for known false positives or handled elsewhere
     ignore: []
+    cooldown:
+      default-days: 7
 
   # landing/ maintains its own independent pnpm-lock.yaml and was getting
   # zero automated update coverage from the root-only entry above — exactly
@@ -48,6 +50,8 @@ updates:
           - "minor"
           - "patch"
     ignore: []
+    cooldown:
+      default-days: 7
 
   # docs-site/ has the same gap as landing/ above, for the same reason.
   - package-ecosystem: "npm"
@@ -70,6 +74,8 @@ updates:
           - "minor"
           - "patch"
     ignore: []
+    cooldown:
+      default-days: 7
 
   # The Dockerfile pins its base image by digest (node:<exact>-bookworm-slim@sha256:…),
   # so nothing moves it on its own; this is what proposes the bump when a new
@@ -87,6 +93,8 @@ updates:
     commit-message:
       prefix: "build(docker)"
     ignore: []
+    cooldown:
+      default-days: 7
 
   # Keep GitHub Actions updated. Every `uses:` is a full commit SHA with a
   # `# vX.Y.Z` comment; Dependabot moves the SHA and rewrites the comment.
@@ -110,3 +118,5 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    cooldown:
+      default-days: 7
