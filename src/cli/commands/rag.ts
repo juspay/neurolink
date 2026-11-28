@@ -18,10 +18,8 @@ import { ProviderRegistry } from "../../lib/factories/providerRegistry.js";
 import { ChunkerRegistry } from "../../lib/rag/chunking/chunkerRegistry.js";
 import { GraphRAG } from "../../lib/rag/graphRag/graphRAG.js";
 import { LLMMetadataExtractor } from "../../lib/rag/metadata/metadataExtractor.js";
-import {
-  createHybridSearch,
-  InMemoryBM25Index,
-} from "../../lib/rag/retrieval/hybridSearch.js";
+import { InMemoryBM25Index } from "../../lib/rag/retrieval/bm25Index.js";
+import { createHybridSearch } from "../../lib/rag/retrieval/hybridSearch.js";
 import { InMemoryVectorStore } from "../../lib/rag/retrieval/vectorQueryTool.js";
 import type {
   Chunk,

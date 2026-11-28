@@ -11,6 +11,10 @@ build/
 .wrangler/
 package/
 
+# Rust crates: Cargo's build output and rust-anything's working files
+rust/*/target/
+rust/*/.rust-anything/
+
 # Git directories (including renamed ones)
 .git/
 .git_disabled/

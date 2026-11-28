@@ -51,10 +51,8 @@ import type {
 import { MDocument } from "../document/MDocument.js";
 import { loadDocument } from "../document/loaders.js";
 import { InMemoryVectorStore } from "../retrieval/vectorQueryTool.js";
-import {
-  InMemoryBM25Index,
-  createHybridSearch,
-} from "../retrieval/hybridSearch.js";
+import { InMemoryBM25Index } from "../retrieval/bm25Index.js";
+import { createHybridSearch } from "../retrieval/hybridSearch.js";
 
 import { GraphRAG } from "../graphRag/graphRAG.js";
 import { rerank } from "../reranker/reranker.js";

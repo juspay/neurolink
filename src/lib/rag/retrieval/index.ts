@@ -7,9 +7,10 @@ export {
   InMemoryVectorStore,
 } from "./vectorQueryTool.js";
 
+export { InMemoryBM25Index } from "./bm25Index.js";
+
 export {
   createHybridSearch,
-  InMemoryBM25Index,
   reciprocalRankFusion,
   linearCombination,
 } from "./hybridSearch.js";
